@@ -22,6 +22,9 @@
   .fams{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:8px}
   .fam{flex:1;min-width:220px}
   .fam-l{font-size:11px;color:var(--faint);letter-spacing:.16em;margin-bottom:7px}
+  .fam.live .fam-l{color:var(--calm)}
+  .fam.cold{opacity:.5}
+  .fam.cold:hover{opacity:1}
   .tabs{display:flex;gap:7px;flex-wrap:wrap}
   .tab{background:var(--card);border:1px solid var(--line);color:var(--dim);
        padding:8px 13px;border-radius:7px;cursor:pointer;font:inherit;font-size:13.5px;
@@ -76,7 +79,8 @@
 <div class="wrap">
   <h1>家裡的六條線</h1>
   <div class="lede">
-    開局選的父母個性 ＝ 你這輩子要對付的是哪一種漏水。一輪只會遇到一組（爸 ＋ 媽）。
+    開局選的父母個性 ＝ 你這輩子要對付的是哪一種漏水。一輪只會遇到一組（爸 ＋ 媽）。<br>
+    <b style="color:#8d949e">現在只做「爸：喝 ＋ 母：賭」這一組</b>，其餘四條寫好了先冰著。
   </div>
 
   <div class="fams" id="fams"></div>
@@ -113,10 +117,11 @@ const LINES = {
     warn:'⚠ 不要把他寫成壞人。他不打你、不偷錢、還給你錢。痛的是位置：毛巾被移到最下面那一格、吵架時你才是打擾的人、你媽問你意見但她已經決定了。' }
 };
 
+/* 2026-08-04 kc：「先做父親酗酒母親賭博的故事線就好，不然太累。」
+   → 只有第一組是現行。其他四條寫好了先冰著，不刪，要用的時候直接接。 */
 const FAMILIES = [
-  { label:'家庭 1　爸：喝　母：兩份工', keys:['drink','work'] },
-  { label:'家庭 2　爸：脾氣　母：賭',   keys:['hit','bet'] },
-  { label:'家庭 3　爸：走了　母：男朋友', keys:['gone','bf'] }
+  { label:'現行　爸：喝　母：賭', keys:['drink','bet'], live:true },
+  { label:'暫緩　（寫好了，先不接進遊戲）', keys:['work','hit','gone','bf'] }
 ];
 
 const NAME = { mom:'母親', dad:'父親', bf:'他', pc:'' };
@@ -141,7 +146,7 @@ const beatsHTML = bs => bs.map(b => b.toast
 
 function renderTabs(){
   $('fams').innerHTML = FAMILIES.map(f => `
-    <div class="fam">
+    <div class="fam ${f.live ? 'live' : 'cold'}">
       <div class="fam-l">${f.label}</div>
       <div class="tabs">
         ${f.keys.map(k => `<button class="tab ${k===cur?'on':''}" data-k="${k}">${LINES[k].label}</button>`).join('')}
