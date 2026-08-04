@@ -147,17 +147,19 @@ export function buildCity(THREE, scene){
   };
 
   const loader = new THREE.ImageLoader();
+  /* tint 只在真的載到圖的時候才套:AI 給的是白天平光的照片,直接丟進夜景會太亮
+     (柏油會變水泥路)。程序生成的那張本來就調過了,不能再乘一次。 */
   [ { mats:[M.wall, M.wallB, M.wallC, M.wallD], file:'wall.png', rep:[1,1], lift:.16 },
-    { mats:[M.shutter],                file:'shutter.png', rep:[1,1] },
-    { mats:[M.road],  file:'road.png',  rep:[4,4], mirror:true, lift:.06 },
-    { mats:[M.walk],  file:'walk.png',  rep:[3,3], mirror:true, lift:.08 },
-    { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, lift:.08 }
+    { mats:[M.shutter], file:'shutter.png', rep:[1,1], tint:0xa8b0ac },
+    { mats:[M.road],  file:'road.png',  rep:[5,5], mirror:true, tint:0x6a7178 },
+    { mats:[M.walk],  file:'walk.png',  rep:[3,3], mirror:true, tint:0xc2beb4 },
+    { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, tint:0xcfcabc }
   ].forEach(o => {
     loader.load(TEX_DIR + o.file, img => {
       const t = new THREE.CanvasTexture(prep(img, o));
       t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(o.rep[0], o.rep[1]);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-      o.mats.forEach(m => { m.map = t; m.needsUpdate = true; });
+      o.mats.forEach(m => { m.map = t; if(o.tint) m.color.setHex(o.tint); m.needsUpdate = true; });
     }, undefined, () => {});                 // 沒這張圖就算了,不要吵
   });
 
@@ -236,6 +238,19 @@ export function buildCity(THREE, scene){
       solid(pX, pZ, .42, .42);
       add(box(axis==='x'?alongW:3.6, .4, axis==='x'?3.6:alongW, M.wallB),
           fX + (axis==='z'?face*1.9:0), 5.35, fZ + (axis==='x'?face*1.9:0));
+
+      /* 騎樓頂下面那支日光燈。沒有它騎樓底下全黑,鐵捲門跟店門都看不見。
+         全部一樣亮會像機場走廊——每七間壞一支,冷白暖白混著,才像有人在管跟沒人在管
+         的店混在同一條街上。強度小、範圍小,不會搶掉招牌。 */
+      const tX = fX + (axis==='z'?face*1.9:0), tZ = fZ + (axis==='x'?face*1.9:0);
+      const tubeW = axis==='x' ? alongW-3.4 : .16, tubeD = axis==='x' ? .16 : alongW-3.4;
+      const dead = (i*5)%7 === 3;
+      const warm = (i*3)%5 < 2;
+      const cLamp = warm ? 0xf2e3c0 : 0xdfe8f0;
+      add(box(tubeW, .12, tubeD,
+              dead ? std({color:0x555b60,roughness:.7}) : glow(cLamp, 1.05)),
+          tX, 5.06, tZ, false, false);
+      if(!dead) lampSpots.push({ x:tX, y:4.9, z:tZ, c:cLamp, i:warm?11:10, r:13 });
     });
   }
 
