@@ -240,12 +240,15 @@ export function buildCity(THREE, scene){
       /* 門面。有 assets/tex/shop-<kind>.png 就整面貼上去,那張圖裡本來就有門、
          櫥窗、堆的東西跟透出來的光——玩家走過去真正在看的是這個,不是牆。
          沒有圖就回到原本的鐵捲門／玻璃。 */
+      /* offset 要往街道那邊推(fZ+offZ),不是往回推。原本寫成 fZ-offZ,
+         門面整塊 0.3 厚的板子沉進 0.2 深的牆體裡,從街上根本看不到——
+         鐵捲門那張貼圖貼上去之後一直沒出現就是這個原因。 */
       if(s.kind === 'shutter'){
-        add(box(faceW,4.4,faceD, M.shutter), fX-offX, 2.3, fZ-offZ, false, true);
+        add(box(faceW,4.4,faceD, M.shutter), fX+offX, 2.3, fZ+offZ, false, true);
       } else {
         const lit = s.kind === 'store';
         add(box(faceW,4.6,faceD, shopFront(s.kind) || (lit?M.glassLit:M.glassOff)),
-            fX-offX, 2.5, fZ-offZ, false, true);
+            fX+offX, 2.5, fZ+offZ, false, true);
         if(lit || s.kind==='tattoo' || s.kind==='arcade')
           lampSpots.push({ x:fX + (axis==='z'?face*2.6:0), y:3.2, z:fZ + (axis==='x'?face*2.6:0),
                            c: lit?0xf6f7ec:(s.sign||0x88aacc), i: lit?30:18, r: lit?28:20 });
