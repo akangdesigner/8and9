@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 對話框樣式比較</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 50px;
+    background: #0d0f14; color: #b9bfc9;
+    font-family: "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { font-size: 13px; font-weight: 600; letter-spacing: .13em; color: #6a727f; margin: 0 0 4px; }
+  h2 { font-size: 19px; font-weight: 600; color: #e2e6ec; margin: 0 0 6px; letter-spacing: .03em; }
+  .sub { font-size: 13.5px; color: #767e8b; margin: 0 0 18px; }
+
+  .stage {
+    position: relative; width: 100%; max-width: 1280px; aspect-ratio: 16/9;
+    background: #11141a center/cover no-repeat;
+    border: 1px solid #262b34; box-shadow: 0 22px 55px rgba(0,0,0,.75); overflow: hidden;
+  }
+  .stage::after {           /* 讓對話框讀得清楚一點 */
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 45%, rgba(6,9,14,.45) 100%);
+    pointer-events: none;
+  }
+
+  .box { position: absolute; display: none; z-index: 2; }
+  .box.on { display: block; }
+
+  /* 共用零件 */
+  .frame {
+    background: linear-gradient(180deg, rgba(14,18,26,.95), rgba(9,12,18,.97));
+    border: 2px solid #55617a; border-radius: 5px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .name {
+    font-size: 15px; letter-spacing: .12em; color: #d8b24a;
+  }
+  .body {
+    font-size: 19px; line-height: 1.85; color: #eef1f5; letter-spacing: .05em; white-space: pre-line;
+  }
+  .caret { color: #d8b24a; animation: bob 1s infinite; display: inline-block; margin-left: 8px; }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
+  canvas.port { image-rendering: pixelated; background: #1b202b; display: block; }
+
+  /* ---- A：頭像在框內左側（RPG Maker 標準） ---- */
+  #boxA { left: 3%; right: 3%; bottom: 5%; }
+  #boxA .frame { display: flex; gap: 16px; padding: 15px 18px; }
+  #boxA canvas.port { width: 100px; height: 100px; border: 2px solid #55617a; border-radius: 3px; flex: 0 0 auto; }
+  #boxA .col { flex: 1 1 auto; min-width: 0; }
+  #boxA .name { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #2f3848; }
+
+  /* ---- B：頭像凸出在框的左上角 ---- */
+  #boxB { left: 3%; right: 3%; bottom: 5%; padding-top: 46px; }
+  #boxB canvas.port {
+    position: absolute; left: 22px; top: 0; width: 104px; height: 104px;
+    border: 2px solid #55617a; border-radius: 4px; z-index: 3;
+    box-shadow: 0 6px 18px rgba(0,0,0,.55);
+  }
+  #boxB .frame { padding: 16px 20px 18px 150px; min-height: 118px; }
+  #boxB .name { margin-bottom: 9px; }
+
+  /* ---- C：名字牌在框上方，頭像在框內 ---- */
+  #boxC { left: 3%; right: 3%; bottom: 5%; padding-top: 34px; }
+  #boxC .tab {
+    position: absolute; left: 0; top: 0; z-index: 3;
+    background: linear-gradient(180deg, #2b3448, #1a2130);
+    border: 2px solid #55617a; border-bottom: none;
+    border-radius: 5px 5px 0 0; padding: 6px 22px;
+  }
+  #boxC .frame { display: flex; gap: 16px; padding: 15px 18px; border-top-left-radius: 0; }
+  #boxC canvas.port { width: 92px; height: 92px; border: 2px solid #55617a; border-radius: 3px; flex: 0 0 auto; }
+
+  /* ---- D：半身像站在框外，對話框在右下 ---- */
+  #boxD { left: 3%; right: 3%; bottom: 5%; }
+  #boxD canvas.port {
+    position: absolute; left: 10px; bottom: 0; width: 190px; height: 240px;
+    background: none; z-index: 3;
+  }
+  #boxD .frame { margin-left: 176px; padding: 16px 20px 18px 34px; min-height: 128px; }
+  #boxD .name { margin-bottom: 9px; }
+
+  .bar { display: flex; gap: 9px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  button {
+    background: #1a1e26; color: #c8cfda; border: 1px solid #313846;
+    padding: 9px 18px; font-size: 13.5px; font-family: inherit; letter-spacing: .06em;
+    cursor: pointer; border-radius: 3px;
+  }
+  button:hover { background: #242b36; color: #fff; }
+  button.on { background: #2d3646; border-color: #d8b24a; color: #fff; }
+  .desc {
+    max-width: 700px; margin-top: 20px; font-size: 13.5px; line-height: 1.95;
+    color: #767e8b; text-align: center; min-height: 60px;
+  }
+  .desc b { color: #dfe4ea; }
+</style>
+</head>
+<body>
+
+<h1>NO-WAY-UP ／ 對話框樣式</h1>
+<h2>四種，你挑一個</h2>
+<p class="sub">同一句話、同一個頭像，只有框的排法不一樣。按下面的按鈕切換。</p>
+
+<div class="stage" id="stage">
+
+  <!-- A -->
+  <div class="box" id="boxA">
+    <div class="frame">
+      <canvas class="port" width="100" height="100"></canvas>
+      <div class="col">
+        <div class="name">你</div>
+        <div class="body">他什麼都沒說。<span class="caret">▼</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="box" id="boxB">
+    <canvas class="port" width="104" height="104"></canvas>
+    <div class="frame">
+      <div class="name">你</div>
+      <div class="body">他什麼都沒說。<span class="caret">▼</span></div>
+    </div>
+  </div>
+
+  <!-- C -->
+  <div class="box" id="boxC">
+    <div class="tab"><span class="name">你</span></div>
+    <div class="frame">
+      <canvas class="port" width="92" height="92"></canvas>
+      <div class="body">他什麼都沒說。<span class="caret">▼</span></div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div class="box" id="boxD">
+    <canvas class="port" width="190" height="240"></canvas>
+    <div class="frame">
+      <div class="name">你</div>
+      <div class="body">他什麼都沒說。<span class="caret">▼</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bar">
+  <button data-k="A">A ／ 頭像在框內</button>
+  <button data-k="B" class="on">B ／ 頭像凸在左上</button>
+  <button data-k="C">C ／ 名字牌在框上</button>
+  <button data-k="D">D ／ 半身像站框外</button>
+</div>
+
+<div class="desc" id="desc"></div>
+
+<script src="lib/scene-store-front.js"></script>
+<script>
+const S0 = SceneStoreFront, P = S0.P;
+document.getElementById('stage').style.backgroundImage = "url('../assets/bg/store-front.png')";
+
+const PC = { face:'F', skin:P.pcSkin, hair:P.pcHair, top:P.pcHood,
+             topD:P.pcHoodD, pants:P.pcPants, hood:true };
+
+/* 頭像：把場景的人物畫法放大。crop='head' 只露頭肩，'half' 是半身 */
+function paint(cv, crop){
+  const g = cv.getContext('2d');
+  g.clearRect(0,0,cv.width,cv.height);
+  if(crop === 'head'){ g.fillStyle = '#1b202b'; g.fillRect(0,0,cv.width,cv.height); }
+  g.save();
+  g.imageSmoothingEnabled = false;
+  if(crop === 'head'){
+    const k = cv.width / 33;                    // 讓 24px 寬的頭填滿框
+    g.scale(k, k);
+    S0.person(g, (cv.width/k)/2, 108, Object.assign({ k:1 }, PC));
+  } else {
+    const k = cv.height / 118;                  // 半身：頭到腰
+    g.scale(k, k);
+    S0.person(g, (cv.width/k)/2, 116, Object.assign({ k:1 }, PC));
+  }
+  g.restore();
+}
+document.querySelectorAll('#boxA .port, #boxB .port, #boxC .port').forEach(c => paint(c, 'head'));
+paint(document.querySelector('#boxD .port'), 'half');
+
+const DESC = {
+  A: '<b>A ／ 頭像在框內左側。</b>最省空間，RPG Maker 的預設長相。畫面被遮得最少，但頭像最小、存在感最低。',
+  B: '<b>B ／ 頭像凸出在框的左上角。</b>頭像跳出框外，比較有「這句話是誰講的」的重量。你說的「對話框上面有個人頭」我猜是這個。',
+  C: '<b>C ／ 名字牌在框的上方。</b>名字獨立成一個小標籤掛在框上緣，頭像仍在框內。中文 RPG 常見，適合角色多、需要一直標示誰在講話的時候。',
+  D: '<b>D ／ 半身像站在框外。</b>視覺最強、情緒最重，但遮掉的畫面最多，而且每個角色都要畫半身立繪，製作量最大。'
+};
+
+function show(k){
+  ['A','B','C','D'].forEach(x => document.getElementById('box'+x).classList.toggle('on', x === k));
+  document.querySelectorAll('.bar button').forEach(b => b.classList.toggle('on', b.dataset.k === k));
+  document.getElementById('desc').innerHTML = DESC[k];
+}
+document.querySelectorAll('.bar button').forEach(b => b.onclick = () => show(b.dataset.k));
+show('B');
+</script>
+</body>
+</html>

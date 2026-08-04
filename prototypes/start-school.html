@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 開局：落點</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --serif: "Noto Serif TC","Source Han Serif TC","PMingLiU","MingLiU",serif;
+    --kai:   "DFKai-SB","BiauKai","標楷體",var(--serif);
+    --red:   #a8281f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden; background: #14161b;
+    font-family: var(--serif); color: #cfd4dc;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  #room {
+    position: relative; width: 100vw; height: 100vh;
+    background:
+      radial-gradient(ellipse 70% 60% at 46% 38%, #3a3630 0%, #2a2a30 40%, transparent 70%),
+      radial-gradient(ellipse 90% 80% at 48% 45%, #34302a 0%, #22232a 45%, #14161b 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #room::after {
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:3;
+    background: radial-gradient(ellipse 60% 64% at 50% 46%, transparent 38%, rgba(6,7,10,.74) 100%);
+  }
+  #noise { position:absolute; inset:0; pointer-events:none; opacity:.5; mix-blend-mode:overlay; z-index:4; }
+
+  .wrap {
+    position: relative; z-index: 2; display: flex; align-items: center; gap: 54px;
+  }
+
+  /* ---------- 左：標題 ---------- */
+  #side { width: 300px; text-align: right; transition: opacity .6s; }
+  .step { font-size: 12px; letter-spacing: .45em; color: #7d838f; margin-bottom: 10px; }
+  .ask  { font-size: 40px; font-weight: 500; letter-spacing: .28em; color: #f0ece4;
+          margin: 0 0 14px; text-shadow: 0 2px 20px rgba(0,0,0,.6); }
+  .askSub { font-size: 14px; line-height: 2.1; letter-spacing: .1em; color: #838a97; }
+
+  /* ---------- 右：紙 ---------- */
+  #paper {
+    position: relative; width: 580px; height: min(700px, 88vh);
+    color: #2b2620; transform: rotate(-.4deg);
+    box-shadow: 0 2px 4px rgba(0,0,0,.35), 0 18px 40px rgba(0,0,0,.55), 0 44px 90px rgba(0,0,0,.4);
+    animation: land .8s cubic-bezier(.2,.9,.3,1) both;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  @keyframes land { from { opacity:0; transform: rotate(-2.2deg) translateY(-24px) scale(1.03); } }
+  #paper.out { animation: fly .7s cubic-bezier(.5,0,.8,.2) both; }
+  @keyframes fly { to { opacity:0; transform: rotate(1.6deg) translateY(40px) scale(.97); } }
+
+  /* 成績單：釘在上面，你往下捲的時候它一直看著你 */
+  .head { flex: 0 0 auto; padding: 26px 34px 14px; position: relative; }
+  .head::after {
+    content:''; position:absolute; left:0; right:0; bottom:-14px; height:14px;
+    background: linear-gradient(rgba(60,50,35,.16), transparent); pointer-events:none;
+  }
+  .ptitle { text-align:center; font-size: 19px; letter-spacing: .42em; text-indent:.42em;
+            font-weight: 500; color:#241f19; }
+  .psub   { text-align:center; font-size: 10.5px; letter-spacing: .35em; text-indent:.35em;
+            color:#8b8172; margin-top: 5px; }
+  .r1 { height:2px; background:#5f5748; margin:14px 0 2px; }
+  .r2 { height:1px; background:#5f5748; margin:0 0 14px; }
+
+  .nameRow { display:flex; font-size:13.5px; margin-bottom: 12px; color:#4e4738; }
+  .nameRow .k { letter-spacing:.4em; }
+  .nameRow .u { flex:1; border-bottom:1px solid #7a7160; margin: 0 18px 0 8px; }
+  .nameRow .n { letter-spacing:.1em; }
+
+  .grades { display:flex; justify-content:space-between; text-align:center; }
+  .g { flex:1; }
+  .g .s { font-size:12px; letter-spacing:.2em; color:#5c5445; }
+  .g .v { font-size:27px; font-family:var(--kai); color:#1e1a15; margin-top:2px; letter-spacing:.06em; }
+  .g.hi .v { color:#1e1a15; }
+  .total {
+    margin-top: 12px; text-align:right; font-size:13.5px; color:#4e4738; letter-spacing:.1em;
+  }
+  .total b { font-family:var(--kai); font-size:22px; color:#1e1a15; font-weight:400; margin-left:6px; }
+
+  /* 落點表：捲動區 */
+  .listWrap { flex:1; overflow-y: auto; padding: 6px 34px 34px; position: relative; }
+  .listWrap::-webkit-scrollbar { width: 7px; }
+  .listWrap::-webkit-scrollbar-track { background: rgba(120,105,80,.10); }
+  .listWrap::-webkit-scrollbar-thumb { background: rgba(90,78,55,.45); border-radius: 4px; }
+
+  .listCap { font-size: 11px; letter-spacing:.3em; color:#8b8172; margin: 6px 0 4px; }
+  .listNote { font-size: 10.5px; letter-spacing:.06em; color:#9b917f; margin-bottom: 14px; }
+
+  .sch {
+    display:flex; align-items:baseline; padding: 8px 4px 8px 14px;
+    border-bottom: 1px dotted #b3a794; position: relative;
+  }
+  .sch .n { flex:1; font-size:16px; letter-spacing:.1em; color:#241f19; }
+  .sch .d { font-size:12px; letter-spacing:.08em; color:#6d6455; margin-right:14px; }
+  .sch .p { font-size:13px; font-family:var(--kai); color:#463f33; width: 34px; text-align:right; }
+
+  .sch.no { opacity:.30; cursor: default; }
+  .sch.ok { cursor: pointer; transition: transform .2s cubic-bezier(.2,.8,.3,1); }
+  .sch.ok::before {
+    content:''; position:absolute; left:0; top:50%; width:3px; height:0; background:var(--red);
+    transform: translateY(-50%); transition: height .22s cubic-bezier(.2,.8,.3,1);
+    box-shadow: 0 0 10px rgba(168,40,31,.75);
+  }
+  .sch.ok:hover { transform: translateX(7px); }
+  .sch.ok:hover::before { height: 74%; }
+  .sch.ok:hover .n { color:#000; }
+
+  /* 那條線：線以上你都不用看了 */
+  .cut { position: relative; margin: 18px 0 16px; }
+  .cut hr { border:0; border-top: 2px dashed var(--red); opacity:.85; margin:0; }
+  .cut .lab {
+    position:absolute; right:0; top:-17px; font-size:11px; letter-spacing:.14em;
+    color: var(--red); background: transparent; padding-left: 8px;
+  }
+  .cut .lab2 {
+    position:absolute; left:0; top:6px; font-size:11px; letter-spacing:.14em; color: var(--red); opacity:.85;
+  }
+
+  .sect { font-size:11.5px; letter-spacing:.3em; color:#8b8172; margin: 26px 0 8px; }
+  .last {
+    margin-top: 26px; padding: 12px 4px 12px 14px; border-top: 1px solid #9a9080;
+    font-size: 15px; letter-spacing:.16em; color:#3b342a; cursor:pointer; position:relative;
+    transition: transform .2s cubic-bezier(.2,.8,.3,1);
+  }
+  .last::before {
+    content:''; position:absolute; left:0; top:52%; width:3px; height:0; background:var(--red);
+    transform:translateY(-50%); transition:height .22s; box-shadow:0 0 10px rgba(168,40,31,.75);
+  }
+  .last:hover { transform: translateX(7px); }
+  .last:hover::before { height: 62%; }
+  .last small { display:block; font-size:11px; letter-spacing:.08em; color:#7d7365; margin-top:4px; }
+
+  /* 蓋章 */
+  #stampLayer { position:absolute; inset:0; pointer-events:none; z-index:5; }
+  #stampLayer img {
+    position:absolute; mix-blend-mode: multiply;
+    animation: slap .42s cubic-bezier(.15,1.6,.4,1) both;
+  }
+  @keyframes slap {
+    from { transform: translate(-50%,-50%) scale(2.1) rotate(var(--r)); opacity:0; filter: blur(4px); }
+    60%  { filter: blur(0); }
+    to   { transform: translate(-50%,-50%) scale(1) rotate(var(--r)); opacity:1; }
+  }
+  #paper.shake { animation: sh .22s; }
+  @keyframes sh {
+    0%,100% { transform: rotate(-.4deg); }
+    30% { transform: rotate(-.4deg) translate(1.5px,2.5px); }
+    65% { transform: rotate(-.4deg) translate(-1px,-1px); }
+  }
+
+  /* 結果 */
+  #after {
+    position:absolute; left:0; right:0; bottom:8%; text-align:center; z-index:6;
+    opacity:0; transition:opacity .9s; pointer-events:none;
+  }
+  #after.in { opacity:1; pointer-events:auto; }
+  #after .line { font-size:16px; line-height:2.2; letter-spacing:.12em; color:#cfc6b4;
+                 margin-bottom:22px; white-space:pre-line; text-shadow:0 2px 14px rgba(0,0,0,.9); }
+  #go {
+    background:none; border:1px solid #6f6a5e; color:#e8e2d5; font-family:var(--serif);
+    font-size:15px; letter-spacing:.5em; text-indent:.5em; padding:11px 40px; cursor:pointer;
+    transition: all .25s;
+  }
+  #go:hover { background:rgba(232,226,213,.1); border-color:#cdc4b2; color:#fff; }
+
+  #again {
+    position:absolute; right:18px; bottom:14px; z-index:7; background:none; border:0;
+    color:#4d535d; font-family:var(--serif); font-size:12px; letter-spacing:.2em; cursor:pointer;
+  }
+  #again:hover { color:#99a0ac; }
+
+  #tip {
+    position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:6;
+    font-size:12px; letter-spacing:.22em; color:#5c6470; animation: blip 2s infinite;
+  }
+  @keyframes blip { 50% { opacity:.25; } }
+  #tip.gone { display:none; }
+</style>
+</head>
+<body>
+
+<div id="room">
+  <canvas id="noise"></canvas>
+
+  <div class="wrap">
+    <div id="side">
+      <div class="step">其之二　／　三</div>
+      <h1 class="ask">升學</h1>
+      <div class="askSub">
+        分發結果已經出來了。<br>
+        表上有的都可以填。
+      </div>
+    </div>
+
+    <div id="paper">
+      <div class="head">
+        <div class="ptitle">國民中學教育會考</div>
+        <div class="psub">成績通知單　／　落點參考</div>
+        <div class="r1"></div><div class="r2"></div>
+
+        <div class="nameRow">
+          <span class="k">姓名</span><span class="u"></span>
+          <span class="n">應屆　十五歲</span>
+        </div>
+
+        <div class="grades" id="grades"></div>
+        <div class="total">會考總積分<b>12</b><span style="font-size:12px;color:#8b8172">　／　36</span></div>
+      </div>
+
+      <div class="listWrap" id="listWrap">
+        <div class="listCap">落　點　參　考</div>
+        <div class="listNote">※ 本表由補習班提供，非官方分發資料，僅供參考。</div>
+        <div id="list"></div>
+      </div>
+
+      <div id="stampLayer"></div>
+    </div>
+  </div>
+
+  <div id="tip">往下捲</div>
+
+  <div id="after">
+    <div class="line" id="afterTx"></div>
+    <button id="go">開　始</button>
+  </div>
+
+  <button id="again" onclick="location.reload()">重來</button>
+</div>
+
+<script>
+/* ================= 紙紋 / 噪點：程序生成，零外部資源 ================= */
+let seed = 20260804;
+const rnd = () => (seed = (seed*1664525 + 1013904223) >>> 0) / 4294967296;
+
+function paperTexture(w, h){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,'#f4eee0'); g.addColorStop(.45,'#efe7d6'); g.addColorStop(1,'#e7dcc7');
+  x.fillStyle = g; x.fillRect(0,0,w,h);
+  for(let i=0;i<16;i++){
+    const cx=rnd()*w, cy=rnd()*h, r=60+rnd()*180;
+    const rg = x.createRadialGradient(cx,cy,0,cx,cy,r);
+    rg.addColorStop(0,'rgba(190,170,130,'+(.03+rnd()*.045).toFixed(3)+')');
+    rg.addColorStop(1,'rgba(190,170,130,0)');
+    x.fillStyle = rg; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
+  }
+  x.lineWidth = 1;
+  for(let i=0;i<w*h/90;i++){
+    const px=rnd()*w, py=rnd()*h, a=rnd()*Math.PI, len=2+rnd()*7;
+    x.strokeStyle = rnd()<.5
+      ? 'rgba(255,253,246,'+(.14+rnd()*.26).toFixed(2)+')'
+      : 'rgba(150,134,104,'+(.05+rnd()*.10).toFixed(2)+')';
+    x.beginPath(); x.moveTo(px,py); x.lineTo(px+Math.cos(a)*len, py+Math.sin(a)*len); x.stroke();
+  }
+  return c.toDataURL('image/png');
+}
+
+(function(){
+  const cv = document.getElementById('noise');
+  const w = cv.width = 480, h = cv.height = 270;
+  const x = cv.getContext('2d'), img = x.createImageData(w,h);
+  for(let i=0;i<img.data.length;i+=4){
+    const v = 90 + rnd()*76;
+    img.data[i]=img.data[i+1]=img.data[i+2]=v; img.data[i+3]=30;
+  }
+  x.putImageData(img,0,0);
+  cv.style.width='100%'; cv.style.height='100%'; cv.style.imageRendering='pixelated';
+})();
+
+document.getElementById('paper').style.background = 'url(' + paperTexture(600, 900) + ')';
+
+/* ================= 印章 ================= */
+function stampImage(text, size){
+  const fs = size || 25, pad = 9, n = text.length;
+  const w = n*fs + pad*2 + 8, h = fs + pad*2 + 8;
+  const c = document.createElement('canvas'); const S = 2;
+  c.width = w*S; c.height = h*S;
+  const x = c.getContext('2d'); x.scale(S,S);
+  x.strokeStyle = '#a8281f'; x.lineWidth = 2.6; x.strokeRect(3,3,w-6,h-6);
+  x.fillStyle = '#a8281f';
+  x.font = '700 ' + fs + 'px "Noto Serif TC","PMingLiU",serif';
+  x.textAlign='center'; x.textBaseline='middle';
+  text.split('').forEach((ch,i) => x.fillText(ch, pad+4+fs*(i+.5), h/2+1));
+  const img = x.getImageData(0,0,c.width,c.height), d = img.data;
+  for(let p=0;p<d.length;p+=4){
+    if(d[p+3]===0) continue;
+    const px=(p/4)%c.width, py=(p/4/c.width)|0;
+    const grain = Math.sin(px*.55)*Math.cos(py*.42) + Math.sin((px+py)*.21);
+    if(rnd()<.17 || grain>1.15) d[p+3] *= rnd()*.35;
+    else d[p+3] *= .78 + rnd()*.22;
+  }
+  x.putImageData(img,0,0);
+  const el = new Image(); el.src = c.toDataURL('image/png');
+  el.style.width = w+'px'; el.style.height = h+'px';
+  return el;
+}
+
+/* ================= 成績 ================= */
+const GRADES = [
+  ['國文','C'], ['英語','C'], ['數學','C'], ['社會','B'], ['自然','C'], ['寫作','二']
+];
+document.getElementById('grades').innerHTML = GRADES.map(g =>
+  '<div class="g"><div class="s">'+g[0]+'</div><div class="v">'+g[1]+'</div></div>').join('');
+
+/* ================= 落點表 =================
+   紅線以上是真實的明星高中（提到它們沒有貶義，就是頂標）。
+   紅線以下、玩家真的選得到的那幾間，一律用虛構校名——
+   把真實學校列在「你只剩這個」的位置，對那些學校不公平。 */
+const ABOVE = [
+  ['建國中學','普通科',36], ['北一女中','普通科',36], ['師大附中','普通科',35],
+  ['成功高中','普通科',34], ['中山女中','普通科',34], ['松山高中','普通科',33],
+  ['大同高中','普通科',31], ['中崙高中','普通科',30],
+  ['明倫高中','普通科',29], ['南港高中','普通科',28], ['育成高中','普通科',27],
+  ['和平高中','普通科',26], ['內湖高工','機械科',25], ['木柵高工','電機科',24],
+  ['大安高工','資訊科',24], ['士林高商','會計事務科',23], ['松山工農','農場經營科',22],
+  ['南港高工','電子科',21], ['泰山高中','普通科',20], ['三重高中','普通科',19],
+  ['林口高中','普通科',18], ['新莊高中','普通科',17], ['海山高中','普通科',16],
+  ['清水高中','普通科',15], ['金陵女中','普通科',14]
+];
+/* 虛構校名 */
+const BELOW = [
+  ['育昌高級商工','商業經營科',12],
+  ['明勤高級工商','汽車科',11],
+  ['光正高級中學','餐飲管理科',10],
+  ['永新高級家商','美容科',9],
+  ['聯達高級工商','建築科',8]
+];
+const NIGHT = [
+  ['市立永新高中　進修部','商業經營科',7],
+  ['聯達高級工商　進修部','汽車科',6]
+];
+
+const listEl = document.getElementById('list');
+let html = '';
+ABOVE.forEach(s => {
+  html += '<div class="sch no"><div class="n">'+s[0]+'</div>'
+        + '<div class="d">'+s[1]+'</div><div class="p">'+s[2]+'</div></div>';
+});
+html += '<div class="cut"><div class="lab">↑ 錄取機率低於 5%</div><hr>'
+      + '<div class="lab2">你的積分　12</div></div>';
+BELOW.forEach((s,i) => {
+  html += '<div class="sch ok" data-k="day" data-i="'+i+'"><div class="n">'+s[0]+'</div>'
+        + '<div class="d">'+s[1]+'</div><div class="p">'+s[2]+'</div></div>';
+});
+html += '<div class="sect">進　修　部　（　夜　間　）</div>';
+NIGHT.forEach((s,i) => {
+  html += '<div class="sch ok" data-k="night" data-i="'+i+'"><div class="n">'+s[0]+'</div>'
+        + '<div class="d">'+s[1]+'</div><div class="p">'+s[2]+'</div></div>';
+});
+/* 官方分類的用詞。放在整張表的最後面——你要把表捲完才看得到它。 */
+html += '<div class="last" data-k="none">未升學未就業'
+      + '<small>本項無需填表。</small></div>';
+listEl.innerHTML = html;
+
+/* 捲到底就把提示收掉 */
+const lw = document.getElementById('listWrap');
+lw.addEventListener('scroll', () => {
+  if(lw.scrollTop > 60) document.getElementById('tip').classList.add('gone');
+}, { passive:true });
+
+/* ================= 選定 ================= */
+const AFTER = {
+  day:   '學費一學期三萬六。\n你媽說她再標一個會。',
+  night: '晚上六點半上課，十點下課。\n白天空著——空著的意思是可以去上班。',
+  none:  '你沒有填表。\n八月一號，同學都在拍制服照。'
+};
+
+let picked = false;
+listEl.addEventListener('click', e => {
+  const row = e.target.closest('.sch.ok, .last');
+  if(!row || picked) return;
+  picked = true;
+
+  const kind = row.dataset.k;
+  const paper = document.getElementById('paper');
+  const layer = document.getElementById('stampLayer');
+
+  // 印章蓋在你選的那一行上
+  const r = row.getBoundingClientRect(), pr = paper.getBoundingClientRect();
+  const im = stampImage(kind === 'none' ? '未升學' : '錄取', 22);
+  im.style.left = (r.right - pr.left - 62) + 'px';
+  im.style.top  = (r.top  - pr.top + r.height/2) + 'px';
+  im.style.setProperty('--r', '-6deg');
+  layer.appendChild(im);
+  paper.classList.remove('shake'); void paper.offsetWidth; paper.classList.add('shake');
+
+  document.getElementById('tip').classList.add('gone');
+
+  setTimeout(() => {
+    document.getElementById('side').style.opacity = '0';
+    paper.classList.add('out');
+    document.getElementById('afterTx').textContent = AFTER[kind];
+    document.getElementById('after').classList.add('in');
+  }, 1500);
+});
+
+document.getElementById('go').onclick = () => location.href = 'store-walk.html';
+</script>
+</body>
+</html>

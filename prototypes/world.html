@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 兩個場景</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 20px 44px;
+    background: #0d0f14; color: #b9bfc9;
+    font-family: "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { font-size: 12px; font-weight: 600; letter-spacing: .18em; color: #6a727f; margin: 0 0 4px; }
+  h2 { font-size: 18px; font-weight: 600; color: #e2e6ec; margin: 0 0 13px; letter-spacing: .04em; }
+  .stage { position: relative; width: 100%; max-width: 1280px; }
+  canvas#c {
+    display: block; width: 100%; height: auto; background: #11141a;
+    border: 1px solid #262b34; box-shadow: 0 22px 55px rgba(0,0,0,.75);
+  }
+
+  /* -------- HUD -------- */
+  #hud { position: absolute; left: 2%; top: 3%; z-index: 4; display: flex; gap: 8px; }
+  .pod {
+    background: rgba(9,12,17,.78); border: 1px solid rgba(120,134,158,.28);
+    border-radius: 4px; padding: 5px 10px 6px; min-width: 80px; backdrop-filter: blur(3px);
+  }
+  .pod .lb { color: #7c8593; font-size: 10px; letter-spacing: .14em; }
+  .pod .nm { color: #eef1f5; font-size: 15px; line-height: 1.2; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .pod .track { height: 4px; margin-top: 4px; background: rgba(255,255,255,.10); border-radius: 2px; overflow: hidden; }
+  .pod .track i { display: block; height: 100%; width: 0; transition: width .45s cubic-bezier(.3,.9,.3,1); }
+  .pod.money .nm { color: #f2d888; }
+  .pod.full i { background: linear-gradient(90deg,#8a9a4a,#c9bb44); }
+  .pod.full.low { border-color: rgba(224,72,58,.8); animation: lowpulse 1.15s infinite; }
+  .pod.full.low i { background: linear-gradient(90deg,#e0552f,#e0483a); }
+  @keyframes lowpulse { 50% { border-color: rgba(224,72,58,.2); } }
+  .pod.calm i { background: linear-gradient(90deg,#3f8f86,#6fc3b4); }
+  .pod.cool i { background: linear-gradient(90deg,#8a4fa8,#d05fa0); }
+  .pod .stars { margin-top: 3px; font-size: 14px; letter-spacing: .12em; color: #333a45; line-height: 1; }
+  .pod .stars b { color: #e0483a; font-weight: 400; text-shadow: 0 0 9px rgba(224,72,58,.65); }
+  .pod.bump { animation: bump .5s; }
+  @keyframes bump { 30% { border-color: rgba(216,178,74,.8); transform: translateY(-3px); } }
+
+  #clock {
+    position: absolute; right: 2%; top: 3%; z-index: 4; text-align: right;
+    background: rgba(9,12,17,.78); border: 1px solid rgba(120,134,158,.28);
+    border-radius: 4px; padding: 6px 13px;
+  }
+  #clock .d { font-size: 10px; letter-spacing: .16em; color: #7c8593; }
+  #clock .t { font-size: 17px; color: #e6eaf0; letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+
+  #hint {
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: 26%;
+    background: rgba(8,10,14,.88); border: 1px solid #3b4452; padding: 6px 15px;
+    font-size: 14px; color: #e8ecf1; border-radius: 3px; letter-spacing: .05em;
+    opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; z-index: 4;
+  }
+  #hint.on { opacity: 1; }
+  #hint b { color: #f2d888; }
+
+  /* -------- 對話框 -------- */
+  #dialog { position: absolute; left: 3%; right: 3%; bottom: 4%; display: none; padding-top: 44px; z-index: 5; }
+  #dialog.on { display: block; }
+  #portrait {
+    position: absolute; left: 20px; top: 0; width: 100px; height: 100px; z-index: 3;
+    background: #1b202b; border: 2px solid #55617a; border-radius: 4px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.55); image-rendering: pixelated;
+  }
+  #dialog .frame {
+    padding: 15px 22px 17px 144px; min-height: 108px;
+    background: linear-gradient(180deg, rgba(14,18,26,.95), rgba(9,12,18,.97));
+    border: 2px solid #55617a; border-radius: 5px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .dname { font-size: 14px; letter-spacing: .12em; color: #d8b24a; margin-bottom: 7px; }
+  .dbody { font-size: 18px; line-height: 1.8; color: #eef1f5; letter-spacing: .05em; white-space: pre-line; }
+  .caret { display: inline-block; margin-left: 6px; color: #d8b24a; opacity: 0; animation: bob 1s infinite; }
+  .caret.on { opacity: 1; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+
+  /* -------- 選單 -------- */
+  #menu {
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: 5%;
+    display: none; flex-direction: column; gap: 5px; width: min(560px, 82%); z-index: 5;
+  }
+  #menu.on { display: flex; }
+  #menu .cap { font-size: 11.5px; letter-spacing: .28em; color: #8b94a3; padding-left: 4px; margin-bottom: 3px; }
+  #menu button {
+    text-align: left; background: rgba(12,16,23,.94); color: #dfe4ea;
+    border: 1px solid #3d4757; border-left: 3px solid #55617a;
+    padding: 9px 15px; font-size: 15.5px; font-family: inherit; letter-spacing: .04em;
+    cursor: pointer; border-radius: 3px; transition: all .13s;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  }
+  #menu button:hover { background: rgba(32,40,53,.97); border-left-color: #d8b24a; color: #fff; transform: translateX(3px); }
+  #menu button .cost { font-size: 12.5px; color: #8d96a4; white-space: nowrap; }
+  #menu button.bad { color: #8c7a72; }
+  #menu button.bad .cost { color: #a2564c; }
+  #menu button.risk { border-left-color: #a2564c; }
+  #menu button.risk:hover { border-left-color: #e0483a; }
+  #menu button.back { border-left-color: #39424f; color: #97a0ad; font-size: 14px; }
+
+  #float { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+  .fl { position: absolute; font-size: 16px; letter-spacing: .06em; font-weight: 600;
+        text-shadow: 0 2px 10px rgba(0,0,0,.9); animation: rise 1.5s ease-out both; }
+  @keyframes rise { 0% { opacity:0; transform: translateY(6px); } 18% { opacity:1; } 100% { opacity:0; transform: translateY(-34px); } }
+
+  #toast {
+    position: absolute; left: 50%; top: 13%; transform: translateX(-50%);
+    background: rgba(8,10,14,.9); border-left: 3px solid #d8b24a; padding: 9px 18px;
+    font-size: 15px; color: #e8ecf1; border-radius: 2px; letter-spacing: .05em;
+    opacity: 0; transition: opacity .4s; pointer-events: none; z-index: 5; max-width: 62%;
+  }
+  #toast.on { opacity: 1; }
+
+  /* -------- 場景轉場 -------- */
+  #fade {
+    position: absolute; inset: 0; background: #05060a; z-index: 8;
+    opacity: 0; pointer-events: none; transition: opacity .42s;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+  }
+  #fade.on { opacity: 1; pointer-events: auto; }
+  #fade .place { font-size: 30px; letter-spacing: .5em; text-indent: .5em; color: #e8e2d5;
+                 opacity: 0; transition: opacity .5s .12s; }
+  #fade .when  { font-size: 14px; letter-spacing: .3em; color: #7d8794; margin-top: 12px;
+                 opacity: 0; transition: opacity .5s .25s; }
+  #fade.on .place, #fade.on .when { opacity: 1; }
+
+  #warn {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(10,12,17,.92); text-align: center; padding: 30px; z-index: 9;
+  }
+  #warn.on { display: flex; }
+  #warn div { max-width: 520px; font-size: 14px; line-height: 2; color: #d8b24a; }
+  #warn code { background: #1a1e26; padding: 2px 7px; border-radius: 3px; color: #cfe0f0; }
+
+  .bar { display: flex; gap: 9px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+  button.tool {
+    background: #1a1e26; color: #c8cfda; border: 1px solid #313846;
+    padding: 8px 15px; font-size: 13px; font-family: inherit; letter-spacing: .06em;
+    cursor: pointer; border-radius: 3px;
+  }
+  button.tool:hover { background: #242b36; color: #fff; }
+  .note { max-width: 780px; margin-top: 18px; font-size: 13.5px; line-height: 2; color: #767e8b; }
+  .note b { color: #b6bdc8; font-weight: 600; }
+  .note kbd { background: #1c212a; border: 1px solid #363d4a; border-bottom-width: 2px;
+              padding: 1px 7px; border-radius: 3px; font-size: 12px; color: #cdd5e0; }
+  .note hr { border: 0; border-top: 1px solid #212630; margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<h1>NO-WAY-UP ／ 一條可以走的街 ＋ 進得去的店</h1>
+<h2 id="place">家</h2>
+
+<div class="stage">
+  <canvas id="c" width="1280" height="720"></canvas>
+
+  <div id="hud">
+    <div class="pod money" id="pMoney"><div class="lb">金錢</div><div class="nm">$63</div></div>
+    <div class="pod full"  id="pFull"><div class="lb">飽足</div><div class="nm">42</div><div class="track"><i></i></div></div>
+    <div class="pod calm"  id="pCalm"><div class="lb">安全感</div><div class="nm">55</div><div class="track"><i></i></div></div>
+    <div class="pod cool"  id="pCool"><div class="lb">帥潮</div><div class="nm">8</div><div class="track"><i></i></div></div>
+    <div class="pod star"  id="pStar"><div class="lb">通緝</div><div class="stars"></div></div>
+  </div>
+  <div id="clock"><div class="d">週三</div><div class="t">23:10</div></div>
+
+  <div id="hint"></div>
+  <div id="toast"></div>
+
+  <div id="dialog">
+    <canvas id="portrait" width="100" height="100"></canvas>
+    <div class="frame">
+      <div class="dname" id="dName">你</div>
+      <div class="dbody"><span id="dTx"></span><span class="caret" id="dCaret">▼</span></div>
+    </div>
+  </div>
+
+  <div id="menu"></div>
+  <div id="float"></div>
+
+  <div id="fade"><div class="place" id="fPlace"></div><div class="when" id="fWhen"></div></div>
+
+  <div id="warn"><div>
+    超商的背景圖被瀏覽器擋住了（<code>file://</code> 的限制）。<br>
+    在專案根目錄跑 <code>python -m http.server 8080</code>，<br>
+    然後開 <code>http://localhost:8080/prototypes/world.html</code>。<br>
+    （家是程式畫的灰模，不受影響。）
+  </div></div>
+</div>
+
+<div class="bar">
+  <button class="tool" id="reset">重來</button>
+  <button class="tool" id="swapFam">換一組爸媽</button>
+  <button class="tool" id="dbg">顯示互動範圍</button>
+</div>
+
+<div class="note">
+  <kbd>← ↑ → ↓</kbd>／<kbd>WASD</kbd> 走動，走到互動點前面按 <kbd>空白</kbd>。
+  從<b>家的大門</b>出去就到<b>街上</b>——那條街有 <b>1600 寬，畫面只看得到 640</b>，
+  相機會跟著你走，走到頭才停。街上可以進<b>你家、超商、刺青店</b>三個門。
+  <hr>
+  <b>街上是用走的，距離自己換成時間</b>（走一段路，時鐘就跳一分鐘）。不是選單傳送。
+  <hr>
+  <b>「換一組爸媽」那顆</b>是重點：客廳的事件表就是開局選的那兩格。
+  同一張沙發，換一組爸媽，你走過去看到的東西完全不一樣。
+  <hr>
+  <b>刺青店的場景還沒畫</b>，但機制先能玩——刺下去<b>帥潮 +、錢 −、通緝 +</b>，
+  三條同時動，而且有一條永遠不回來。
+  <hr>
+  家跟街都是<b>程式畫的灰模</b>（構圖鎖死用的），質感走既有管線補。超商已經有真圖，
+  三個放在一起就看得出補上去差多少。
+</div>
+
+<script src="lib/scene-store-front.js"></script>
+<script src="lib/scene-home.js"></script>
+<script src="lib/scene-street.js"></script>
+<script>
+const SF = SceneStoreFront, HM = SceneHome, SR = SceneStreet;
+const LW = 640, LH = 360, P = SF.P, SC = 2;
+
+const view = document.getElementById('c'), vg = view.getContext('2d');
+const hintEl = document.getElementById('hint'), menuEl = document.getElementById('menu');
+const toastEl = document.getElementById('toast'), floatEl = document.getElementById('float');
+const dlgEl = document.getElementById('dialog'), dTx = document.getElementById('dTx');
+const dName = document.getElementById('dName'), dCaret = document.getElementById('dCaret');
+const portC = document.getElementById('portrait').getContext('2d');
+const fadeEl = document.getElementById('fade'), warnEl = document.getElementById('warn');
+
+/* ================= 共用:顆粒 ================= */
+let seed = 20260804;
+const rnd = () => (seed = (seed*1664525 + 1013904223) >>> 0) / 4294967296;
+const grain = (() => {
+  const c = document.createElement('canvas'); c.width = LW; c.height = LH;
+  const x = c.getContext('2d'), img = x.createImageData(LW, LH);
+  for(let i=0;i<img.data.length;i+=4){
+    const v = rnd() < .5 ? 0 : 255;
+    img.data[i]=img.data[i+1]=img.data[i+2]=v;
+    img.data[i+3] = rnd() < .05 ? 10 : 0;
+  }
+  x.putImageData(img,0,0);
+  return c;
+})();
+
+/* ================= 五條指標 ================= */
+const ST = { money:63, full:42, calm:55, cool:8, star:0 };
+let minute = 23*60 + 10, day = 3;
+const DAYS = ['日','一','二','三','四','五','六'];
+
+const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+function syncHUD(){
+  set('pMoney', '$' + ST.money, null);
+  set('pFull', ST.full, ST.full);
+  set('pCalm', ST.calm, ST.calm);
+  set('pCool', ST.cool, ST.cool);
+  document.getElementById('pFull').classList.toggle('low', ST.full <= 25);
+  document.querySelector('#pStar .stars').innerHTML =
+    '<b>' + '★'.repeat(ST.star) + '</b>' + '★'.repeat(5 - ST.star);
+  document.querySelector('#clock .t').textContent = fmtTime(minute);
+  document.querySelector('#clock .d').textContent = '週' + DAYS[day % 7];
+  function set(id, txt, pct){
+    const pod = document.getElementById(id);
+    pod.querySelector('.nm').textContent = txt;
+    if(pct != null) pod.querySelector('.track i').style.width = Math.max(0, Math.min(100, pct)) + '%';
+  }
+}
+const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', star:'#e0483a' };
+const NAMES = { money:'', full:'飽足', calm:'安全感', cool:'帥潮', star:'通緝' };
+
+function chg(key, delta){
+  if(!delta) return;
+  ST[key] += delta;
+  if(key !== 'money') ST[key] = Math.max(0, Math.min(key === 'star' ? 5 : 100, ST[key]));
+  syncHUD();
+  const podId = { money:'pMoney', full:'pFull', calm:'pCalm', cool:'pCool', star:'pStar' }[key];
+  const el = document.getElementById(podId);
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  const f = document.createElement('div');
+  f.className = 'fl'; f.style.color = COLOR[key];
+  f.style.left = (el.offsetLeft + 8) + 'px';
+  f.style.top = (el.offsetTop + el.offsetHeight + 4) + 'px';
+  f.textContent = (NAMES[key] + ' ' + (delta > 0 ? '+' : '') +
+                  (key === 'money' ? '$' + delta : delta)).trim();
+  floatEl.appendChild(f);
+  setTimeout(() => f.remove(), 1500);
+  if(key === 'full' && ST.full <= 0) setTimeout(lose, 700);
+}
+function lose(){
+  S.busy = true; menuEl.classList.remove('on');
+  say('pc', '你在騎樓下面停下來，眼前有點花。\n\n你想不起來上一次吃飽是什麼時候了。');
+}
+function toast(txt, ms){
+  toastEl.textContent = txt; toastEl.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toastEl.classList.remove('on'), ms || 2800);
+}
+
+/* ================= 對話框 ================= */
+const WHO = {
+  pc:    { name:'你',   opt:{ face:'F', skin:P.pcSkin, hair:P.pcHair, top:P.pcHood, topD:P.pcHoodD, pants:P.pcPants, hood:true } },
+  clerk: { name:'店員', opt:{ face:'F', skin:P.clSkin, hair:P.clHair, top:P.clVest, topD:P.clShirt, pants:'#2c3340' } },
+  mom:   { name:'媽',   opt:{ face:'F', skin:HM.P.momSkin, hair:HM.P.momHair, top:HM.P.momTop, topD:HM.P.momTopD, pants:HM.P.momPants } },
+  dad:   { name:'爸',   opt:{ face:'F', skin:HM.P.dadSkin, hair:HM.P.dadHair, top:HM.P.dadTop, topD:HM.P.dadTopD, pants:HM.P.dadPants } }
+};
+function drawPortrait(who){
+  const w = WHO[who] || WHO.pc, Sz = portC.canvas.width;
+  portC.clearRect(0,0,Sz,Sz);
+  portC.fillStyle = '#1b202b'; portC.fillRect(0,0,Sz,Sz);
+  portC.save(); portC.imageSmoothingEnabled = false;
+  const k = Sz / 33; portC.scale(k, k);
+  SF.person(portC, (Sz/k)/2, 108, Object.assign({ k:1 }, w.opt));
+  portC.restore();
+  dName.textContent = w.name;
+}
+let dlg = { on:false, full:'', shown:0, timer:0, done:false, after:null };
+function say(who, text, after){
+  drawPortrait(who);
+  dlg = { on:true, full:text, shown:0, timer:0, done:false, after:after||null };
+  dTx.textContent = ''; dCaret.classList.remove('on'); dlgEl.classList.add('on');
+}
+function tickDialog(dt){
+  if(!dlg.on || dlg.done) return;
+  dlg.timer += dt;
+  while(dlg.timer > 36 && dlg.shown < dlg.full.length){
+    dlg.timer -= 36; dlg.shown++;
+    dTx.textContent = dlg.full.slice(0, dlg.shown);
+  }
+  if(dlg.shown >= dlg.full.length){ dlg.done = true; dCaret.classList.add('on'); }
+}
+function advanceDialog(){
+  if(!dlg.on) return false;
+  if(!dlg.done){ dlg.shown = dlg.full.length; dlg.done = true;
+                 dTx.textContent = dlg.full; dCaret.classList.add('on'); return true; }
+  dlgEl.classList.remove('on'); dlg.on = false;
+  const fn = dlg.after; dlg.after = null;
+  if(fn) fn();
+  return true;
+}
+
+/* ================= 選單 ================= */
+function closeMenu(){ menuEl.classList.remove('on'); menuEl.innerHTML = ''; S.busy = false; }
+function openMenu(cap, items){
+  S.busy = true;
+  menuEl.innerHTML = '<div class="cap">' + cap + '</div>';
+  items.forEach(it => {
+    const b = document.createElement('button');
+    if(it.cls) b.className = it.cls;
+    b.innerHTML = '<span>' + it.label + '</span><span class="cost">' + (it.cost || '') + '</span>';
+    b.onclick = () => { closeMenu(); it.run(); };
+    menuEl.appendChild(b);
+  });
+  menuEl.classList.add('on');
+}
+function buy(price, feed, line){
+  if(ST.money < price){ say('pc', price + ' 塊。\n你身上有 ' + ST.money + '。'); return; }
+  chg('money', -price);
+  if(feed) chg('full', feed);
+  minute += 3; syncHUD();
+  if(line) toast(line);
+}
+function steal(feed){
+  if(S.clerkFace !== 'B'){
+    chg('star', 1); chg('calm', -16);
+    say('clerk', '「同學。」\n\n他沒有把話講完。\n他只是看著你，等你自己把東西放回去。',
+        () => toast('這家店的人以後看到你會多看一眼。'));
+  } else {
+    chg('full', feed); chg('calm', -9);
+    toast('東西在你外套裡。你走出去之前，那段路特別長。', 3200);
+  }
+  minute += 2; syncHUD();
+}
+
+/* ================= 開局選的爸媽 = 家裡的事件表 ================= */
+const FAMILIES = [
+  { dad:'drink', mom:'work',  label:'爸：喝　母：兩份工' },
+  { dad:'hit',   mom:'bet',   label:'爸：脾氣　母：賭' },
+  { dad:'gone',  mom:'bf',    label:'爸：走了　母：男朋友' }
+];
+let famIdx = 0;
+const fam = () => FAMILIES[famIdx];
+
+/* 誰在沙發上。爸走了 → 換媽在。媽也不在 → 沒有人。 */
+function whoOnSofa(){
+  const f = fam();
+  if(f.dad === 'drink' || f.dad === 'hit') return 'dad';
+  if(f.mom === 'work' || f.mom === 'bet') return 'mom';
+  return null;
+}
+
+const SOFA_EVENT = {
+  drink: () => {
+    say('pc', '電視開很大聲。\n他睡在沙發上，遙控器掉在地上。', () =>
+    openMenu('沙發', [
+      { label:'把音量轉小', cost:'',
+        run:() => say('dad', '「⋯⋯」\n\n他翻了個身，沒有醒。', () => { chg('calm', 4); toast('今天算好的。'); }) },
+      { label:'直接走過去', cost:'', run:() => toast('你踮著腳從他前面走過去。', 2400) }
+    ]));
+  },
+  hit: () => {
+    say('dad', '「你去哪裡。」', () =>
+    say('pc', '「打工。」', () =>
+    say('dad', '「打什麼工。」\n\n那不是問句。', () => { chg('calm', -12); toast('你回房間的路只有六步，你走得很慢。', 3200); })));
+  },
+  work: () => {
+    say('pc', '她在沙發上睡著了。電視還開著。', () =>
+    openMenu('沙發', [
+      { label:'幫她關電視', cost:'',
+        run:() => say('mom', '「⋯⋯你回來啦。」\n\n她眼睛沒張開。三秒之後又睡著了。',
+                      () => { chg('calm', 3); toast('你有話想講，但她明天六點要起床。', 3400); }) },
+      { label:'不要吵她', cost:'', run:() => { chg('calm', -3); toast('客廳只有電視的聲音。'); } }
+    ]));
+  },
+  bet: () => {
+    say('mom', '「欸，阿姨那邊我先拿了兩千，\n　月底就還你。」', () =>
+    openMenu('沙發', [
+      { label:'「喔。」', cost:'安全感 −8', run:() => { chg('calm', -8); toast('你知道月底不會有月底。'); } },
+      { label:'「那是我要註冊的。」', cost:'安全感 −14',
+        run:() => say('mom', '「我知道啊。」\n\n她沒有抬頭。\n「我又不是不還你。」',
+                      () => chg('calm', -14)) }
+    ]));
+  }
+};
+
+/* ================= 場景 ================= */
+let bgStore = new Image(), bgStoreOK = false;
+bgStore.onload = () => bgStoreOK = true;
+bgStore.onerror = () => warnEl.classList.add('on');
+bgStore.src = '../assets/bg/store-front.png';
+
+const mockStore = document.createElement('canvas'); mockStore.width = LW; mockStore.height = LH;
+SF.renderBackground(mockStore.getContext('2d'), { doorOpen:0, taken:false });
+
+/* 家的背景畫一次(沙發/餐桌要參與深度排序，所以背景不畫它們) */
+const mockHome = document.createElement('canvas'); mockHome.width = LW; mockHome.height = LH;
+HM.renderBackground(mockHome.getContext('2d'), { sofaFront:false, vignette:true });
+
+/* 街:1600 寬,一次只看得到 640,相機跟著角色走 */
+const mockStreet = document.createElement('canvas');
+mockStreet.width = SR.W; mockStreet.height = SR.H;
+SR.renderBackground(mockStreet.getContext('2d'));
+let camX = 0;
+
+const STORE_HOT = { x:230, y:290, w:208, h:100, cut:{ sx:600, sy:495, sw:545, sh:260 } };
+
+const SCENES = {
+  street: {
+    name:'街上', walkN:SR.WALK_N, walkS:SR.WALK_S, wide:SR.W, camera:true,
+    spots: [
+      { id:'dHome',   name:'你家',   x:212, w:58, y0:SR.WALK_N, y1:SR.WALK_S },
+      { id:'dStore',  name:'超商',   x:852, w:58, y0:SR.WALK_N, y1:SR.WALK_S },
+      { id:'dTattoo', name:'刺青店', x:1492, w:58, y0:SR.WALK_N, y1:SR.WALK_S }
+    ],
+    draw(){
+      vg.imageSmoothingEnabled = false;
+      vg.drawImage(mockStreet, 0,0,SR.W,SR.H, 0,0,SR.W*SC,SR.H*SC);
+    },
+    items(){
+      /* 騎樓柱子永遠在最前面,角色從柱子後面走過去 */
+      return [{ y: 9999, draw(){ vg.save(); vg.imageSmoothingEnabled = false; vg.scale(SC,SC);
+          SR.pillars(vg); vg.restore(); } }];
+    }
+  },
+
+  home: {
+    name:'家', walkN:HM.WALK_N, walkS:HM.WALK_S,
+    spots: [
+      { id:'door',   name:'大門',   x:6,   w:84, y0:210, y1:338 },
+      { id:'god',    name:'神明桌', x:168, w:84, y0:208, y1:252 },
+      { id:'sofa',   name:'沙發',   x:250, w:174, y0:302, y1:338 },
+      { id:'dining', name:'餐桌',   x:432, w:92, y0:270, y1:302 },
+      { id:'fridge', name:'冰箱',   x:562, w:50, y0:208, y1:258 },
+      { id:'room',   name:'房間',   x:614, w:24, y0:208, y1:262 }
+    ],
+    draw(){
+      vg.imageSmoothingEnabled = false;
+      vg.drawImage(mockHome, 0,0,LW,LH, 0,0,view.width,view.height);
+      vg.save(); vg.scale(SC, SC); HM.tvGlow(vg, S.t); vg.restore();
+    },
+    items(){
+      const list = [
+        { y: HM.DINING.y, draw(){ vg.save(); vg.imageSmoothingEnabled = false; vg.scale(SC,SC);
+            HM.dining(vg, !S.letterRead); vg.restore(); } },
+        { y: HM.SOFA.y,   draw(){ vg.save(); vg.imageSmoothingEnabled = false; vg.scale(SC,SC);
+            HM.sofa(vg); vg.restore(); } },
+        /* 曬衣架在最前面,玩家從它後面走過 —— 前景遮擋是空間深度最便宜的來源 */
+        { y: HM.RACK.y,   draw(){ vg.save(); vg.imageSmoothingEnabled = false; vg.scale(SC,SC);
+            HM.rack(vg); vg.restore(); } }
+      ];
+      const who = whoOnSofa();
+      if(who){
+        const o = who === 'dad'
+          ? { skin:HM.P.dadSkin, hair:HM.P.dadHair, top:HM.P.dadTop, topD:HM.P.dadTopD, pants:HM.P.dadPants }
+          : { skin:HM.P.momSkin, hair:HM.P.momHair, top:HM.P.momTop, topD:HM.P.momTopD, pants:HM.P.momPants };
+        /* 坐在沙發上：腳的 y 抬高，看起來就是坐著 */
+        list.push({ y: HM.SOFA.y - 1, draw(){ drawPerson(HM.SOFA.x + 46, HM.SOFA.y - 22,
+            Object.assign({ face:'F', k:.80 }, o)); } });
+      }
+      return list;
+    }
+  },
+
+  store: {
+    name:'超商', walkN:190, walkS:345,
+    spots: [
+      { id:'door',    name:'門口',   x:6,   w:120, y0:190, y1:345 },
+      { id:'fridge',  name:'飲料櫃', x:140, w:158, y0:190, y1:238 },
+      { id:'hot',     name:'鮮食櫃', x:230, w:208, y0:288, y1:340 },
+      { id:'shelf',   name:'貨架',   x:316, w:126, y0:190, y1:238 },
+      { id:'counter', name:'櫃台',   x:462, w:170, y0:190, y1:250 }
+    ],
+    draw(){
+      vg.imageSmoothingEnabled = true;
+      if(bgStoreOK) vg.drawImage(bgStore, 0, 0, view.width, view.height);
+      else { vg.imageSmoothingEnabled = false; vg.drawImage(mockStore, 0,0,LW,LH, 0,0,view.width,view.height); }
+    },
+    items(){
+      return [
+        { y:184, draw(){ drawPerson(548, 184, { face:S.clerkFace, skin:P.clSkin, hair:P.clHair,
+            top:P.clVest, topD:P.clShirt, pants:'#2c3340', k:.70 }); } },
+        { y:STORE_HOT.y, draw(){
+            if(!bgStoreOK){ vg.save(); vg.imageSmoothingEnabled=false; vg.scale(SC,SC);
+              SF.hotFood(vg, false); vg.restore(); return; }
+            const c = STORE_HOT.cut;
+            vg.imageSmoothingEnabled = true;
+            vg.drawImage(bgStore, c.sx,c.sy,c.sw,c.sh,
+                         STORE_HOT.x*SC, (STORE_HOT.y-STORE_HOT.h)*SC, STORE_HOT.w*SC, STORE_HOT.h*SC);
+          } }
+      ];
+    }
+  }
+};
+
+/* ================= 互動 ================= */
+function openSpot(id){
+  if(S.busy || dlg.on) return;
+  const sc = S.scene;
+
+  if(sc === 'home'){
+    if(id === 'door') openMenu('大門', [
+      { label:'出門', cost:'', run:() => go('street', {x:246,y:308}, 1) },
+      { label:'算了', cls:'back', run(){} }
+    ]);
+    else if(id === 'god') openMenu('神明桌', [
+      { label:'上一炷香', cost:'安全感 +5',
+        run:() => { chg('calm', 5); minute += 2; syncHUD();
+                    toast('紅燈泡整夜都亮著。你不知道有沒有用，但你還是拜了。', 3400); } },
+      { label:'看一下', cls:'back', run:() => toast('香爐裡的灰是滿的。有人每天都在拜。', 2800) }
+    ]);
+    else if(id === 'sofa'){
+      const who = whoOnSofa();
+      if(!who){ toast('沙發是空的。電視自己開著。', 2600); return; }
+      const key = who === 'dad' ? fam().dad : fam().mom;
+      S.busy = true;
+      (SOFA_EVENT[key] || (() => { S.busy = false; toast('（這一組還沒寫事件）'); }))();
+    }
+    else if(id === 'dining'){
+      if(S.letterRead){ toast('桌上剩一個碗。', 2200); return; }
+      S.letterRead = true;
+      say('pc', '桌上有一封信。\n\n信封是開的。', () =>
+      say('pc', '　　育昌高級商工　新生報到通知\n　　註冊費　三萬六千八百元\n　　繳費期限　八月十五日', () =>
+      say('pc', '封口被撕開了。\n上面有原子筆寫的數字——\n\n她已經算過了。', () => { chg('calm', -10); })));
+    }
+    else if(id === 'fridge') openMenu('冰箱', [
+      { label:'找點東西吃', cost:'飽足 +12',
+        run:() => { chg('full', 12); minute += 6; syncHUD();
+                    toast('半罐豆腐乳、三顆蛋、一瓶醬油。你吃了兩顆蛋。', 3400); } },
+      { label:'關起來', cls:'back', run(){} }
+    ]);
+    else if(id === 'room') openMenu('房間', [
+      { label:'睡覺', cost:'到明天早上',
+        run:() => {
+          go('home', {x:616,y:252}, 0, () => {
+            day++; minute = 6*60 + 40;
+            chg('calm', Math.max(0, Math.min(46, 100 - ST.calm)));
+            chg('full', -18);
+            syncHUD();
+            toast('鬧鐘響的時候你覺得你根本沒有睡。', 3200);
+          }, '隔天早上');
+        } },
+      { label:'還不想睡', cls:'back', run(){} }
+    ]);
+  }
+
+  else if(sc === 'street'){
+    if(id === 'dHome')  go('home',  {x:120,y:322}, 1);
+    else if(id === 'dStore') go('store', {x:150,y:320}, 1);
+    else if(id === 'dTattoo'){
+      if(S.inked){ toast('師傅在忙。而且你手上那隻還在脫皮。', 3000); return; }
+      openMenu('刺青店　（場景還沒畫，機制先能玩）', [
+        { label:'小的，手腕內側', cost:'$1500　帥潮 +8　通緝 +1', cls:'risk',
+          run:() => ink(1500, 8) },
+        { label:'半甲', cost:'$8000　帥潮 +22　通緝 +1',
+          cls: ST.money < 8000 ? 'bad' : 'risk', run:() => ink(8000, 22) },
+        { label:'只是看看', cls:'back',
+          run:() => toast('牆上貼滿了圖。師傅沒有抬頭。', 2800) }
+      ]);
+    }
+  }
+
+  else if(sc === 'store'){
+    if(id === 'door') openMenu('門口', [
+      { label:'走出去', cost:'', run:() => go('street', {x:886,y:308}, 1) },
+      { label:'再待一下', cls:'back', run(){} }
+    ]);
+    else if(id === 'hot') openMenu('鮮食櫃', [
+      { label:'拿黃標便當', cost:'$58　飽足 +45', run:() => buy(58, 45, '貼黃標的那格空了一個。') },
+      { label:'拿正價便當', cost:'$89　飽足 +48', cls: ST.money < 89 ? 'bad' : '', run:() => buy(89, 48, '') },
+      { label:'塞進外套', cost:'看店員', cls:'risk', run:() => steal(45) },
+      { label:'不拿了', cls:'back', run(){} }
+    ]);
+    else if(id === 'shelf') openMenu('貨架', [
+      { label:'買泡麵', cost:'$25　飽足 +20', run:() => buy(25, 20, '') },
+      { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(20) },
+      { label:'離開', cls:'back', run(){} }
+    ]);
+    else if(id === 'fridge') openMenu('飲料櫃', [
+      { label:'買飲料', cost:'$25　飽足 +8', run:() => buy(25, 8, '') },
+      { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(8) },
+      { label:'離開', cls:'back', run(){} }
+    ]);
+    else if(id === 'counter'){
+      const items = [];
+      if(!S.askedJob) items.push({ label:'問有沒有缺人', cost:'打工', run:() => {
+        S.askedJob = true;
+        say('clerk', '「你幾歲？」', () =>
+        say('pc', '「十六。」', () =>
+        say('clerk', '「大夜要滿十八。」\n\n他頓了一下。\n\n「白天早班可以，一小時一百八十三。\n　你要留個電話嗎？」',
+            () => { chg('calm', -4); toast('早班的時間，是你上課的時間。', 3400); })));
+      } });
+      items.push({ label:'看店員在幹嘛', cost:'', run:() =>
+        toast(S.clerkFace === 'B' ? '他背對著你在補菸。' : '他站在收銀機前面，眼睛掃過店裡。', 2400) });
+      items.push({ label:'離開', cls:'back', run(){} });
+      openMenu('櫃台', items);
+    }
+  }
+}
+
+/* 刺青:一個動作同時動三條,而且有一條永遠不回來 */
+function ink(price, cool){
+  if(ST.money < price){ say('pc', price + ' 塊。\n你身上有 ' + ST.money + '。'); return; }
+  chg('money', -price); chg('cool', cool); chg('star', 1);
+  S.inked = true;
+  minute += 90;
+  if(minute >= 24*60){ minute -= 24*60; day++; }
+  syncHUD();
+  say('pc', '刺完了。\n\n包著保鮮膜。回家的路上有點痛。', () =>
+    toast('這一格加到角色卡上了。跟「父」「母」在同一張紙上——一樣不能改。', 4600));
+}
+
+/* ================= 場景切換 ================= */
+function go(to, spawn, mins, extra, whenLabel){
+  S.busy = true;
+  document.getElementById('fPlace').textContent = SCENES[to].name;
+  minute += mins || 0;
+  if(minute >= 24*60){ minute -= 24*60; day++; }
+  document.getElementById('fWhen').textContent = whenLabel || ('週' + DAYS[day%7] + '　' + fmtTime(minute));
+  fadeEl.classList.add('on');
+  setTimeout(() => {
+    if(extra) extra();
+    document.getElementById('fWhen').textContent = whenLabel || ('週' + DAYS[day%7] + '　' + fmtTime(minute));
+    S.scene = to; S.px = spawn.x; S.py = spawn.y; S.face = 'F'; S.walkDist = 0;
+    const w = SCENES[to].wide || LW;
+    camX = SCENES[to].camera ? Math.max(0, Math.min(w - LW, spawn.x - LW/2)) : 0;
+    document.getElementById('place').textContent = SCENES[to].name;
+    syncHUD();
+  }, 620);
+  setTimeout(() => { fadeEl.classList.remove('on'); S.busy = false; }, 1500);
+}
+
+/* ================= 狀態 ================= */
+const keys = {};
+let showBox = false, S;
+
+function reset(){
+  S = {
+    scene:'home', px:120, py:322, face:'F', walkT:0, moving:false, walkDist:0,
+    near:null, busy:false, t:0,
+    clerkFace:'F', clerkT:0,
+    letterRead:false, askedJob:false, slept:false, inked:false
+  };
+  camX = 0;
+  Object.assign(ST, { money:63, full:42, calm:55, cool:8, star:0 });
+  minute = 23*60 + 10; day = 3;
+  dlg.on = false; dlgEl.classList.remove('on');
+  menuEl.classList.remove('on'); menuEl.innerHTML = '';
+  toastEl.classList.remove('on');
+  document.getElementById('place').textContent = '家';
+  syncHUD();
+}
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if(k === ' ' || k === 'enter'){
+    e.preventDefault();
+    if(advanceDialog()) return;
+    if(menuEl.classList.contains('on')) return;
+    if(S.near) openSpot(S.near);
+  }
+  if(k === 'escape' && menuEl.classList.contains('on')) closeMenu();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+/* 走不進去的地方 */
+function blocked(x, y){
+  if(S.scene === 'street') return false;
+  if(S.scene === 'store'){
+    const h = STORE_HOT;
+    return x > h.x-6 && x < h.x+h.w+6 && y > h.y-42 && y < h.y+4;
+  }
+  const s = HM.SOFA, d = HM.DINING;
+  if(x > s.x-14 && x < s.x+s.w+14 && y > s.y-40 && y < s.y+4) return true;
+  if(x > d.x-6  && x < d.x+d.w+6  && y > d.y-30 && y < d.y+4) return true;
+  return false;
+}
+
+/* ================= update ================= */
+function update(dt){
+  S.t += dt;
+  S.clerkT += dt;
+  S.clerkFace = (S.clerkT % 6600) < 2400 ? 'B' : 'F';
+  tickDialog(dt);
+
+  const sc = SCENES[S.scene];
+  const wide = sc.wide || LW;
+  let dx=0, dy=0;
+  if(keys['arrowleft']||keys['a'])  dx -= 1;
+  if(keys['arrowright']||keys['d']) dx += 1;
+  if(keys['arrowup']||keys['w'])    dy -= 1;
+  if(keys['arrowdown']||keys['s'])  dy += 1;
+
+  if(!S.busy && !dlg.on && (dx||dy)){
+    const sp = 1.35 * (dx&&dy ? .71 : 1);
+    const nx = Math.max(20, Math.min(wide-20, S.px + dx*sp));
+    const ny = Math.max(sc.walkN, Math.min(sc.walkS, S.py + dy*sp*.62));
+    if(!blocked(nx, S.py)) S.px = nx;
+    if(!blocked(S.px, ny)) S.py = ny;
+    S.moving = true; S.walkT += dt;
+    if(dx<0) S.face='L'; else if(dx>0) S.face='R';
+    else if(dy<0) S.face='B'; else if(dy>0) S.face='F';
+    /* 街上是用走的,距離自己換成時間 */
+    if(sc.camera){
+      S.walkDist += Math.abs(dx*sp);
+      if(S.walkDist > 260){
+        S.walkDist -= 260; minute += 1;
+        if(minute >= 24*60){ minute -= 24*60; day++; }
+        syncHUD();
+      }
+    }
+  } else S.moving = false;
+
+  /* 相機:跟著角色,到頭就停 */
+  if(sc.camera){
+    const target = Math.max(0, Math.min(wide - LW, S.px - LW/2));
+    camX += (target - camX) * Math.min(1, dt/130);
+  } else camX = 0;
+
+  S.near = null;
+  for(const sp of sc.spots){
+    if(S.px > sp.x-12 && S.px < sp.x+sp.w+12 && S.py >= sp.y0 && S.py <= sp.y1){ S.near = sp.id; break; }
+  }
+  const show = S.near && !S.busy && !dlg.on;
+  hintEl.classList.toggle('on', !!show);
+  if(show){
+    const sp = sc.spots.find(s => s.id === S.near);
+    hintEl.innerHTML = sp.name + '　按 <b>空白鍵</b>';
+  }
+}
+
+/* ================= render ================= */
+function drawPerson(cx, cy, o){
+  const sc = SCENES[S.scene];
+  const k = o.k != null ? o.k : (0.76 + 0.24 * ((cy - sc.walkN) / (sc.walkS - sc.walkN)));
+  vg.save(); vg.imageSmoothingEnabled = false; vg.scale(SC, SC);
+  SF.person(vg, cx, cy, Object.assign({}, o, { k }));
+  vg.restore();
+}
+
+function render(){
+  const sc = SCENES[S.scene];
+  vg.clearRect(0,0,view.width,view.height);
+
+  vg.save();
+  if(sc.camera) vg.translate(-Math.round(camX) * SC, 0);
+  sc.draw();
+
+  const items = sc.items();
+  items.push({ y: S.py, draw(){ drawPerson(S.px, S.py, {
+      face:S.face, skin:P.pcSkin, hair:P.pcHair, top:P.pcHood, topD:P.pcHoodD,
+      pants:P.pcPants, hood:true,
+      walk: S.moving ? (Math.floor(S.walkT/150)%2 ? 1 : -1) : 0 }); } });
+  items.sort((a,b) => a.y - b.y).forEach(i => i.draw());
+
+  if(showBox){
+    vg.save(); vg.lineWidth = 2;
+    sc.spots.forEach(sp => {
+      vg.strokeStyle = sp.id === S.near ? '#e0c060' : 'rgba(224,96,96,.5)';
+      vg.strokeRect(sp.x*SC, sp.y0*SC, sp.w*SC, (sp.y1-sp.y0)*SC);
+    });
+    vg.restore();
+  }
+
+  vg.restore();
+
+  vg.imageSmoothingEnabled = false;
+  vg.globalAlpha = .5;
+  vg.drawImage(grain, 0,0,LW,LH, 0,0,view.width,view.height);
+  vg.globalAlpha = 1;
+}
+
+reset();
+let last = performance.now();
+(function loop(now){
+  const dt = Math.min(50, now - last); last = now;
+  update(dt); render();
+  requestAnimationFrame(loop);
+})(last);
+
+document.getElementById('reset').onclick = () => { reset(); view.focus(); };
+document.getElementById('dbg').onclick = e => {
+  showBox = !showBox;
+  e.target.textContent = showBox ? '隱藏互動範圍' : '顯示互動範圍';
+};
+document.getElementById('swapFam').onclick = e => {
+  famIdx = (famIdx + 1) % FAMILIES.length;
+  e.target.textContent = FAMILIES[famIdx].label;
+  toast('客廳換了一組人。走過去看看。', 2600);
+};
+document.getElementById('swapFam').textContent = FAMILIES[0].label;
+</script>
+</body>
+</html>

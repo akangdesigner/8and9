@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 開局：戶籍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --serif: "Noto Serif TC","Source Han Serif TC","PMingLiU","MingLiU",serif;
+    --kai:   "DFKai-SB","BiauKai","標楷體",var(--serif);
+    --ink:   #2b2620;
+    --ink2:  #6d6455;
+    --red:   #a8281f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden;
+    background: #14161b;
+    font-family: var(--serif);
+    color: #cfd4dc;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ---------- 桌面 ---------- */
+  #room {
+    position: relative; width: 100vw; height: 100vh;
+    background:
+      radial-gradient(ellipse 70% 60% at 42% 38%, #3a3630 0%, #2a2a30 40%, transparent 70%),
+      radial-gradient(ellipse 90% 80% at 45% 45%, #34302a 0%, #22232a 45%, #14161b 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #room::after {          /* 暗角 */
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(ellipse 62% 62% at 48% 46%, transparent 40%, rgba(6,7,10,.72) 100%);
+  }
+  #noise {
+    position: absolute; inset: 0; pointer-events: none; opacity: .5;
+    mix-blend-mode: overlay;
+  }
+
+  .wrap {
+    position: relative; z-index: 2;
+    width: min(1240px, 94vw); height: min(720px, 92vh);
+    display: grid; grid-template-columns: 1fr 1.02fr; align-items: center; gap: 40px;
+  }
+
+  /* ---------- 左：選單 ---------- */
+  #menu { padding-left: 12px; transition: opacity .5s; }
+  #menu.hide { opacity: 0; pointer-events: none; }
+  .step {
+    font-size: 12px; letter-spacing: .45em; color: #7d838f;
+    font-family: var(--serif); margin-bottom: 10px;
+  }
+  .ask {
+    font-size: 44px; font-weight: 500; letter-spacing: .3em;
+    color: #f0ece4; margin: 0 0 6px; line-height: 1.1;
+    text-shadow: 0 2px 20px rgba(0,0,0,.6);
+  }
+  .askSub { font-size: 14px; letter-spacing: .12em; color: #838a97; margin-bottom: 34px; }
+
+  .opt {
+    position: relative; padding: 13px 8px 15px 26px; cursor: pointer;
+    transition: transform .22s cubic-bezier(.2,.8,.3,1);
+  }
+  .opt::before {              /* hover 時左側浮現的紅線 */
+    content:''; position: absolute; left: 0; top: 50%; width: 3px; height: 0;
+    background: var(--red); transform: translateY(-50%);
+    transition: height .25s cubic-bezier(.2,.8,.3,1);
+    box-shadow: 0 0 12px rgba(168,40,31,.8);
+  }
+  .opt:hover { transform: translateX(9px); }
+  .opt:hover::before { height: 76%; }
+  .opt .t {
+    font-size: 27px; letter-spacing: .2em; color: #d9d3c8; line-height: 1.25;
+    transition: color .22s;
+  }
+  .opt:hover .t { color: #fff; }
+  .opt .d {
+    font-size: 14.5px; line-height: 1.85; letter-spacing: .06em;
+    color: #7b8290; margin-top: 5px; max-width: 25em; transition: color .22s;
+  }
+  .opt:hover .d { color: #a4abb8; }
+  .opt .s {
+    margin-top: 8px; font-size: 11.5px; letter-spacing: .18em; color: #5d646f;
+    display: flex; gap: 20px;
+  }
+  .opt .s b { color: #93a383; font-weight: 400; letter-spacing: .1em; }
+  .opt .s i { font-style: normal; color: #454b55; }
+
+  /* ---------- 右：紙 ---------- */
+  #paperWrap {
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .9s cubic-bezier(.3,.9,.3,1);
+  }
+  #paperWrap.center { transform: translateX(-52%) scale(1.06); }
+
+  #paper {
+    position: relative; width: 520px; padding: 40px 46px 34px;
+    color: var(--ink);
+    transform: rotate(-.55deg);
+    box-shadow:
+      0 2px 4px rgba(0,0,0,.35),
+      0 18px 40px rgba(0,0,0,.55),
+      0 44px 90px rgba(0,0,0,.4);
+    animation: land .8s cubic-bezier(.2,.9,.3,1) both;
+  }
+  @keyframes land { from { opacity:0; transform: rotate(-2.4deg) translateY(-26px) scale(1.03); } }
+  #paper::after {           /* 摺痕 */
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background: linear-gradient(90deg, transparent 49.4%, rgba(120,105,80,.20) 49.8%,
+                rgba(255,252,244,.5) 50.2%, transparent 50.7%);
+  }
+  .stamp-hole {             /* 釘書針孔 */
+    position:absolute; left:26px; width:4px; height:11px; border-radius:2px;
+    background: rgba(70,60,45,.35); box-shadow: inset 0 0 2px rgba(0,0,0,.5);
+  }
+
+  .pno { position:absolute; right: 20px; top: 14px; font-size: 10.5px; letter-spacing: .1em; color: #9b917f; }
+  .ptitle {
+    text-align: center; font-size: 25px; letter-spacing: 1.1em;
+    text-indent: 1.1em; font-weight: 500; color: #241f19; margin-bottom: 4px;
+  }
+  .psub { text-align: center; font-size: 11px; letter-spacing: .5em; text-indent: .5em; color: #8b8172; }
+  .rule1 { height: 2px; background: #5f5748; margin: 16px 0 2px; }
+  .rule2 { height: 1px; background: #5f5748; margin: 0 0 20px; }
+
+  .fields { font-size: 16px; }
+  .f { display: flex; align-items: baseline; padding: 9px 2px; border-bottom: 1px dotted #a99f8c; }
+  .f > .k {
+    width: 84px; flex: 0 0 auto; letter-spacing: .55em; text-indent: .55em;
+    color: #4e4738; font-size: 14.5px;
+  }
+  .f > .v { flex: 1; font-size: 17px; color: #1e1a15; letter-spacing: .08em; min-height: 1.5em; }
+  .v .empty { display:inline-block; width: 84px; border-bottom: 1px solid #7a7160; height: 1.1em; }
+  .v .wait  { color: var(--red); font-size: 13px; letter-spacing: .2em; opacity: .85; animation: blip 1.15s infinite; }
+  @keyframes blip { 50% { opacity: .18; } }
+  .v .filled {
+    font-family: var(--kai); font-size: 22px; color: #171d33; letter-spacing: .12em;
+    display: inline-block; animation: ink .55s ease-out both;
+  }
+  @keyframes ink { from { opacity: 0; filter: blur(3px); transform: translateY(-2px) scale(1.04); } }
+
+  .memo { margin-top: 14px; }
+  .memo .k { font-size: 13.5px; letter-spacing: .5em; text-indent: .5em; color: #4e4738; margin-bottom: 8px; }
+  #memoBox {
+    position: relative; min-height: 116px; border: 1px solid transparent; padding: 12px;
+    display: flex; flex-wrap: wrap; gap: 12px; align-content: flex-start;
+  }
+  #memoBox.box { border: 1px solid #9a9080; }
+  #memoBox img {
+    animation: slap .42s cubic-bezier(.15,1.6,.4,1) both;
+    mix-blend-mode: multiply;
+  }
+  @keyframes slap {
+    from { transform: scale(2.1) rotate(var(--r)); opacity: 0; filter: blur(4px); }
+    60%  { filter: blur(0); }
+    to   { transform: scale(1) rotate(var(--r)); opacity: 1; }
+  }
+  #paper.shake { animation: sh .22s; }
+  @keyframes sh {
+    0%,100% { transform: rotate(-.55deg); }
+    30% { transform: rotate(-.55deg) translate(1.5px, 2.5px); }
+    65% { transform: rotate(-.55deg) translate(-1px, -1px); }
+  }
+
+  /* ---------- 結尾 ---------- */
+  #end {
+    position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%);
+    text-align: center; opacity: 0; transition: opacity .9s; pointer-events: none; z-index: 4;
+  }
+  #end.in { opacity: 1; pointer-events: auto; }
+  #end .lockline {
+    font-size: 14px; letter-spacing: .28em; color: #9a8f7a; margin-bottom: 20px;
+  }
+  #start {
+    background: none; border: 1px solid #6f6a5e; color: #e8e2d5;
+    font-family: var(--serif); font-size: 16px; letter-spacing: .5em; text-indent: .5em;
+    padding: 12px 42px; cursor: pointer; transition: all .25s;
+  }
+  #start:hover { background: rgba(232,226,213,.1); border-color: #cdc4b2; color: #fff; }
+
+  #again {
+    position: absolute; right: 18px; bottom: 14px; z-index: 5;
+    background: none; border: 0; color: #4d535d; font-family: var(--serif);
+    font-size: 12px; letter-spacing: .2em; cursor: pointer;
+  }
+  #again:hover { color: #99a0ac; }
+</style>
+</head>
+<body>
+
+<div id="room">
+  <canvas id="noise"></canvas>
+
+  <div class="wrap">
+    <div id="menu">
+      <div class="step" id="stepTx">其之一　／　三</div>
+      <h1 class="ask" id="askTx">父</h1>
+      <div class="askSub" id="askSub">選好之後不會再問你。</div>
+      <div id="opts"></div>
+    </div>
+
+    <div id="paperWrap">
+      <div id="paper">
+        <div class="stamp-hole" style="top:64px"></div>
+        <div class="stamp-hole" style="top:96px"></div>
+        <div class="pno">戶政字第 <span id="pno">—</span> 號</div>
+        <div class="ptitle">戶籍謄本</div>
+        <div class="psub">本謄本記載事項與戶籍資料相符</div>
+        <div class="rule1"></div>
+        <div class="rule2"></div>
+
+        <div class="fields">
+          <div class="f"><div class="k">姓名</div><div class="v"><span class="empty"></span></div></div>
+          <div class="f"><div class="k">出生</div><div class="v">民國 一〇〇 年　（十五歲）</div></div>
+          <div class="f"><div class="k">住址</div><div class="v" style="font-size:15px;color:#575043">（同戶長）</div></div>
+          <div class="f"><div class="k">父</div><div class="v" id="vF"><span class="wait">待　登　記</span></div></div>
+          <div class="f"><div class="k">母</div><div class="v" id="vM"><span class="wait">待　登　記</span></div></div>
+        </div>
+
+        <div class="memo">
+          <div class="k">記事</div>
+          <div id="memoBox"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="end">
+    <div class="lockline">記事欄不得塗改。</div>
+    <button id="start">開　始</button>
+  </div>
+
+  <button id="again" onclick="location.reload()">重來</button>
+</div>
+
+<script>
+/* ================= 紙紋 / 噪點：程序生成，零外部資源 ================= */
+let seed = 20260804;
+const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+
+function paperTexture(w, h){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+
+  // 底色：乾淨的米白，不要做成恐怖遊戲道具
+  const g = x.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0,   '#f4eee0');
+  g.addColorStop(.45, '#efe7d6');
+  g.addColorStop(1,   '#e7dcc7');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+
+  // 大範圍極淡的暈（放久了的紙）
+  for(let i = 0; i < 14; i++){
+    const cx = rnd()*w, cy = rnd()*h, r = 60 + rnd()*180;
+    const rg = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    rg.addColorStop(0, 'rgba(190,170,130,' + (.03 + rnd()*.045).toFixed(3) + ')');
+    rg.addColorStop(1, 'rgba(190,170,130,0)');
+    x.fillStyle = rg; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+  }
+
+  // 紙纖維
+  x.lineWidth = 1;
+  for(let i = 0; i < w*h/90; i++){
+    const px = rnd()*w, py = rnd()*h, a = rnd()*Math.PI, len = 2 + rnd()*7;
+    x.strokeStyle = rnd() < .5
+      ? 'rgba(255,253,246,' + (.14 + rnd()*.26).toFixed(2) + ')'
+      : 'rgba(150,134,104,' + (.05 + rnd()*.10).toFixed(2) + ')';
+    x.beginPath(); x.moveTo(px, py);
+    x.lineTo(px + Math.cos(a)*len, py + Math.sin(a)*len); x.stroke();
+  }
+
+  // 邊緣壓深一點點，讓紙有厚度
+  const eg = x.createLinearGradient(0, 0, 0, h);
+  eg.addColorStop(0, 'rgba(120,102,72,.10)');
+  eg.addColorStop(.14, 'rgba(120,102,72,0)');
+  eg.addColorStop(.9, 'rgba(120,102,72,0)');
+  eg.addColorStop(1, 'rgba(120,102,72,.12)');
+  x.fillStyle = eg; x.fillRect(0, 0, w, h);
+  return c.toDataURL('image/png');
+}
+
+/* 全畫面顆粒 */
+(function(){
+  const cv = document.getElementById('noise');
+  const w = cv.width = 480, h = cv.height = 270;
+  const x = cv.getContext('2d'), img = x.createImageData(w, h);
+  for(let i = 0; i < img.data.length; i += 4){
+    const v = 90 + rnd()*76;
+    img.data[i] = img.data[i+1] = img.data[i+2] = v;
+    img.data[i+3] = 30;
+  }
+  x.putImageData(img, 0, 0);
+  cv.style.width = '100%'; cv.style.height = '100%';
+  cv.style.imageRendering = 'pixelated';
+})();
+
+document.getElementById('paper').style.background =
+  'url(' + paperTexture(560, 640) + ')';
+document.getElementById('pno').textContent =
+  String(1200 + Math.floor(rnd()*8000));
+
+/* ================= 印章：紅色、缺墨、方框 ================= */
+function stampImage(text){
+  const pad = 9, fs = 25, n = text.length;
+  const w = n*fs + pad*2 + 8, h = fs + pad*2 + 8;
+  const c = document.createElement('canvas');
+  const S = 2; c.width = w*S; c.height = h*S;
+  const x = c.getContext('2d'); x.scale(S, S);
+
+  x.strokeStyle = '#a8281f'; x.lineWidth = 2.6;
+  x.strokeRect(3, 3, w-6, h-6);
+  x.fillStyle = '#a8281f';
+  x.font = '700 ' + fs + 'px "Noto Serif TC","PMingLiU",serif';
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  text.split('').forEach((ch, i) => {
+    x.fillText(ch, pad + 4 + fs*(i + .5), h/2 + 1);
+  });
+
+  // 缺墨：隨機挖掉一些點，讓它像真的蓋上去的
+  const img = x.getImageData(0, 0, c.width, c.height), d = img.data;
+  for(let p = 0; p < d.length; p += 4){
+    if(d[p+3] === 0) continue;
+    const px = (p/4) % c.width, py = (p/4 / c.width) | 0;
+    const grain = Math.sin(px*.55)*Math.cos(py*.42) + Math.sin((px+py)*.21);
+    if(rnd() < .17 || grain > 1.15) d[p+3] *= rnd()*.35;
+    else d[p+3] *= .78 + rnd()*.22;
+  }
+  x.putImageData(img, 0, 0);
+
+  const el = new Image();
+  el.src = c.toDataURL('image/png');
+  el.style.width = w + 'px'; el.style.height = h + 'px';
+  return el;
+}
+
+/* ================= 資料 =================
+   三欄數值是誘餌:玩家會拿來比較,但它們一個都不會進到紙上。
+   進到紙上的是 tag——而 tag 在選的時候看不到。 */
+const DADS = [
+  { id:'drink', t:'喝',   d:'他喝完就睡了。家裡很安靜。',
+    s:[1,3,1], tag:'酗酒之子' },
+  { id:'hit',   t:'脾氣', d:'不是每天都這樣。你學會聽他停車的聲音。',
+    s:[2,1,0], tag:'受暴家庭' },
+  { id:'gone',  t:'走了', d:'你六歲以後沒再見過他。戶口名簿上還有他。',
+    s:[0,3,2], tag:'單親' },
+  { id:'debt',  t:'欠錢', d:'他很少在家。來按門鈴的人比較常來。',
+    s:[1,2,1], tag:'債務戶' }
+];
+const MOMS = [
+  { id:'bet',  t:'賭',     d:'她贏的時候會給你一千。',
+    s:[1,2,1], tag:'不良習性' },
+  { id:'bf',   t:'男朋友', d:'這個對你比較好。上一個不是。',
+    s:[2,1,1], tag:'同居關係' },
+  { id:'work', t:'兩份工', d:'她很累。你不會拿事情去煩她。',
+    s:[3,3,2], tag:'疏於照顧' },
+  { id:'left', t:'走了',   d:'她有寄過一次紅包。地址是別的縣市。',
+    s:[0,3,2], tag:'單親' }
+];
+const LABELS = ['家用','自由','安全'];
+
+/* 兩邊都走了 → 不是兩個單親，是一個更重的 */
+function tagsFor(f, m){
+  if(f.id === 'gone' && m.id === 'left') return ['隔代教養'];
+  const out = [];
+  [f.tag, m.tag].forEach(t => { if(!out.includes(t)) out.push(t); });
+  return out;
+}
+
+/* ================= 流程 ================= */
+const optsEl = document.getElementById('opts');
+const menuEl = document.getElementById('menu');
+let selF = null, selM = null;
+
+const dots = n => '<b>' + '●'.repeat(n) + '</b><i>' + '○'.repeat(3-n) + '</i>';
+
+function render(list, onPick){
+  optsEl.innerHTML = '';
+  list.forEach((o, i) => {
+    const el = document.createElement('div');
+    el.className = 'opt';
+    el.style.animation = 'ink .5s ' + (i*.07) + 's both';
+    el.innerHTML =
+      '<div class="t">' + o.t + '</div>' +
+      '<div class="d">' + o.d + '</div>' +
+      '<div class="s">' + o.s.map((v, k) =>
+        '<span>' + LABELS[k] + '　' + dots(v) + '</span>').join('') + '</div>';
+    el.onclick = () => onPick(o);
+    optsEl.appendChild(el);
+  });
+}
+
+function fill(id, txt){
+  const v = document.getElementById(id);
+  v.innerHTML = '<span class="filled">' + txt + '</span>';
+}
+
+function askMother(){
+  document.getElementById('stepTx').textContent = '其之二　／　三';
+  document.getElementById('askTx').textContent = '母';
+  render(MOMS, o => { selM = o; fill('vM', o.t); settle(); });
+}
+
+function settle(){
+  menuEl.classList.add('hide');
+  document.getElementById('paperWrap').classList.add('center');
+
+  const list = tagsFor(selF, selM);
+  const box  = document.getElementById('memoBox');
+  const paper = document.getElementById('paper');
+  box.classList.add('box');
+
+  // 一枚一枚蓋。節奏要慢，每一枚都要被看見。
+  list.forEach((txt, i) => {
+    setTimeout(() => {
+      const im = stampImage(txt);
+      im.style.setProperty('--r', ((i % 2 ? 1 : -1) * (1.6 + i*1.4)).toFixed(1) + 'deg');
+      box.appendChild(im);
+      paper.classList.remove('shake'); void paper.offsetWidth; paper.classList.add('shake');
+    }, 1150 + i*880);
+  });
+
+  setTimeout(() => document.getElementById('end').classList.add('in'),
+             1150 + list.length*880 + 900);
+}
+
+render(DADS, o => { selF = o; fill('vF', o.t); askMother(); });
+
+document.getElementById('start').onclick = () => location.href = 'store-walk.html';
+</script>
+</body>
+</html>
