@@ -194,7 +194,9 @@ export function buildCity(THREE, scene){
    * 加蓋的鐵皮。這是台灣街景資訊量最大的一塊,現在整片是空白磁磚。
    * 只貼朝街那一面,而且是獨立一塊薄板貼在建築正面外側,不動建築本體。
    * 一樓不畫在這張裡:騎樓頂會把它整個擋掉。 */
-  const FACADES = ['facade-1.png','facade-2.png','facade-3.png','facade-4.png'];
+  /* 只列已經有的檔案。列了還沒生的那幾張的話,四分之三的樓會是空白磁磚,
+     跟有貼圖的那幾棟擺在一起太突兀——寧可先全部同一張。 */
+  const FACADES = ['facade-1.png'];
   const facadeCache = {};
   function facadeMat(file, aspect, base){
     const key = `${file}|${aspect.toFixed(2)}|${base.color.getHex()}`;
