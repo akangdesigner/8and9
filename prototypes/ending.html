@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 結局：畢業那天</title>
+<style>
+  :root{
+    --bg:#0b0d10; --card:#161920; --line:#232730; --edge:#31363f;
+    --ink:#e6e8ec; --dim:#8d949e; --faint:#575e68;
+    --mom:#e0c98a; --pc:#aeb6c0; --gold:#d8b24a; --calm:#6fc3b4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/2 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+       min-height:100vh;padding:24px 16px 70px}
+  .wrap{max-width:600px;margin:0 auto}
+  h1{font-size:16px;margin:0 0 3px}
+  .lede{color:var(--faint);font-size:12.5px;margin-bottom:18px}
+
+  /* 三年怎麼過的 —— 決定分岔 */
+  .sim{background:var(--card);border:1px solid var(--line);border-radius:9px;
+       padding:15px 18px;margin-bottom:16px}
+  .sim h2{font-size:11px;letter-spacing:.2em;color:var(--faint);margin:0 0 11px;font-weight:600}
+  .rows{display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;align-items:center;gap:11px;font-size:13px}
+  .row .l{color:var(--dim);width:74px;flex-shrink:0}
+  .row input{flex:1;accent-color:var(--calm)}
+  .row .v{width:52px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-size:12.5px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);cursor:pointer}
+  .chk input{accent-color:var(--calm)}
+  .which{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);
+         font-size:12.5px;color:var(--faint)}
+  .which b{color:var(--gold)}
+
+  .stage{background:var(--card);border:1px solid var(--line);border-radius:11px;
+         padding:24px 26px;min-height:300px}
+  .title{font-size:20px;margin:0 0 16px;letter-spacing:.02em}
+  .beat{margin-bottom:12px}
+  .who{font-size:10.5px;letter-spacing:.16em;color:var(--faint);margin-bottom:1px}
+  .mom .txt{color:var(--mom)} .pc .txt{color:var(--pc)}
+  .txt{white-space:pre-line;font-size:15.5px;line-height:1.95}
+  .quiet{color:var(--faint);font-size:13.5px;border-left:2px solid var(--edge);
+         padding-left:12px;margin-top:16px;line-height:1.9}
+
+  .cap{font-size:11px;letter-spacing:.24em;color:var(--faint);margin:24px 0 9px}
+  .acts{display:flex;flex-direction:column;gap:7px}
+  button.act{text-align:left;background:rgba(11,14,20,.9);color:#dfe4ea;
+    border:1px solid #333c48;border-left:3px solid #4a5563;padding:12px 16px;
+    font:inherit;font-size:15px;cursor:pointer;border-radius:4px;transition:.13s}
+  button.act:hover{background:rgba(32,40,52,.98);border-left-color:var(--gold);transform:translateX(3px)}
+
+  .coda{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
+  .coda .txt{color:#c8ced6}
+  .fin{margin-top:26px;text-align:center;font-size:12px;color:var(--faint);letter-spacing:.3em}
+
+  .foot{margin-top:20px;background:#13161c;border:1px solid var(--line);
+        border-radius:9px;padding:15px 18px;font-size:12.5px;color:var(--dim);line-height:1.9}
+  .foot b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>結局：畢業那天</h1>
+  <div class="lede">三年怎麼過的，決定你在哪一條。但最後一幕三條都一樣。</div>
+
+  <div class="sim">
+    <h2>假設三年下來</h2>
+    <div class="rows">
+      <div class="row"><span class="l">風評</span>
+        <input type="range" id="rep" min="-60" max="60" value="10"><span class="v" id="repV"></span></div>
+      <div class="row"><span class="l">歸屬感</span>
+        <input type="range" id="calm" min="0" max="100" value="40"><span class="v" id="calmV"></span></div>
+      <label class="chk"><input type="checkbox" id="cert" checked> 拿得到畢業證書（出席／成績夠）</label>
+    </div>
+    <div class="which" id="which"></div>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="foot">
+    <b>這不是成功／失敗的結算。</b>三條路的共同點是：債都還在，而且比三年前大。
+    沒有任何一條可以變成「你成功了」——那會把整個作品變成勵志故事，
+    正好違反基準線。<br><br>
+    <b>最後一幕三條共用</b>，因為它才是這個遊戲真正要問的：
+    DESIGN_NOTES「翻身拿什麼衡量」寫著——結算的不是你賺多少，
+    而是<b>你有沒有能力替還在下面的人擋一下</b>。<br><br>
+    第一年你在鮮食櫃前面被人那樣看過。<b>現在換你站在櫃台後面，
+    而走進來的是別人。</b>遊戲不給提示，只把選項擺出來。
+  </div>
+</div>
+
+<script src="lib/story-ending.js"></script>
+<script>
+const E = StoryEnding, $ = id => document.getElementById(id);
+const NAME = { mom:'母親', dad:'父親', pc:'' };
+
+const beats = bs => bs.filter(b => !b.toast).map(b =>
+  `<div class="beat ${b.who}">${NAME[b.who] ? `<div class="who">${NAME[b.who]}</div>`:''}
+   <div class="txt">${b.text}</div></div>`).join('');
+const toasts = bs => bs.filter(b => b.toast).map(b =>
+  `<div class="quiet">${b.text || b.toast}</div>`).join('');
+
+function state(){
+  return { rep:+$('rep').value, calm:+$('calm').value, cert:$('cert').checked };
+}
+function branchId(){
+  const s = state();
+  return E.BRANCH.find(b => b.test(s)).id;
+}
+
+const LABEL = { study:'讀出來了', street:'混出來了', none:'什麼都沒有' };
+
+function head(){
+  const s = state();
+  $('repV').textContent = (s.rep>0?'+':'') + s.rep;
+  $('calmV').textContent = s.calm;
+  $('which').innerHTML = `會走到：<b>${LABEL[branchId()]}</b>`;
+}
+
+function day(){
+  head();
+  const d = E.DAY[branchId()];
+  $('stage').innerHTML = `
+    <div class="title">${d.title}</div>
+    ${beats(d.beats)}
+    <div class="cap">你說</div>
+    <div class="acts">${d.menu.map((m,i) =>
+      `<button class="act" data-i="${i}">${m.label}</button>`).join('')}</div>`;
+  $('stage').querySelectorAll('button').forEach(b =>
+    b.onclick = () => afterDay(d.menu[+b.dataset.i]));
+}
+
+function afterDay(m){
+  $('stage').innerHTML = `
+    <div class="title">${m.label}</div>
+    ${beats(m.beats)}${toasts(m.beats)}
+    <div class="cap">幾個月後</div>
+    <div class="acts"><button class="act" id="go">那天晚上你在上班</button></div>`;
+  $('go').onclick = last;
+}
+
+function last(){
+  const L = E.LAST;
+  $('stage').innerHTML = `
+    <div class="title">${L.title}</div>
+    ${beats(L.beats)}
+    <div class="cap">你</div>
+    <div class="acts">${L.menu.map((m,i) =>
+      `<button class="act" data-i="${i}">${m.label}</button>`).join('')}</div>`;
+  $('stage').querySelectorAll('button').forEach(b =>
+    b.onclick = () => coda(L.menu[+b.dataset.i]));
+}
+
+function coda(m){
+  $('stage').innerHTML = `
+    ${beats(m.beats)}${toasts(m.beats)}
+    <div class="coda">${beats(E.CODA)}</div>
+    <div class="fin">— 完 —</div>
+    <div class="cap">　</div>
+    <div class="acts"><button class="act" id="again">換一種三年再看一次</button></div>`;
+  $('again').onclick = day;
+}
+
+['rep','calm','cert'].forEach(id => $(id).oninput = () => { head(); day(); });
+day();
+</script>
+</body>
+</html>
