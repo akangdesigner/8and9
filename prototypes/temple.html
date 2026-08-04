@@ -48,7 +48,16 @@
   button.p .r{float:right;font-size:11px;color:var(--calm);letter-spacing:.05em}
   button.p.ev{border-left-color:var(--gold)}
   button.p.ev .r{color:var(--gold)}
+  button.p.no{opacity:.5;border-left-color:#5c4a4a}
+  button.p.no .r{color:var(--red)}
   button.leave{border-left-color:#5a6b8a;color:#9aa3ae}
+  .pod.cool .nm{color:#d05fa0}
+  .tuner{margin-top:16px;padding-top:13px;border-top:1px solid var(--line);
+         font-size:11.5px;color:var(--faint);letter-spacing:.08em}
+  .tuner button{background:#1c212a;border:1px solid var(--edge);color:var(--dim);
+                font:inherit;font-size:11px;padding:2px 8px;border-radius:3px;
+                cursor:pointer;margin:0 2px}
+  .tuner button:hover{color:var(--ink);border-color:#4a5260}
 
   .title{font-size:18px;margin:2px 0 13px}
   .beat{margin-bottom:11px;white-space:pre-line;font-size:15px;color:#c9cfd8}
@@ -80,8 +89,14 @@
   <button class="reset" id="reset">重來</button>
 
   <div class="foot">
-    <b>這是歸屬感唯一穩定的來源。</b>學校是學店、家裡在漏水，只有這裡有人把你當自己人。
-    所以「不要一直來廟口」這句話，遊戲裡沒有人有資格講。<br><br>
+    <b>歸屬感不是靠講話換的，是靠一起跳陣頭。</b>跟他們聊天只會變熟，不會變成自己人。<br><br>
+    <b>而且兩邊都卡你。</b>帥潮不夠 → 你不像自己人，阿源不會叫你過去；
+    風評太差 → <b>廟方不要你</b>，而且開口的是阿伯，那個最溫和的人：
+    「你先處理你自己的事。」「這個不是誰都可以站的。」<br><br>
+    八家將是真的宗教儀式，廟方比誰都在意名聲，他們要面對整條街。
+    <b>你以為這裡什麼都收，其實這裡的規矩比學校還多</b>——
+    開臉之後不能講話、不能吃東西、不能從神轎底下過、家裡有事的不能出。<br><br>
+    （下面的測試按鈕可以直接拉帥潮跟風評，看門檻怎麼卡人。）<br><br>
     <b>他們不可憐。</b>他們就是這樣過。每個人的處境要你自己拼出來——
     阿源國中畢業那年他爸走了、阿姨的兒子在裡面、阿伯的兒子過年才回來——
     這些都不是他們自己講的。<br><br>
@@ -93,26 +108,34 @@
 <script src="lib/npc-temple.js"></script>
 <script>
 const T = NpcTemple, $ = id => document.getElementById(id);
-let ST, day, rel, seen, goneShown;
+let ST, day, rel, seen, goneShown, prac, debuted;
 
 function reset(){
-  ST = { money:420, full:55, calm:48 };
-  day = 12; rel = {}; seen = {}; goneShown = {};
+  ST = { money:420, full:55, calm:48, cool:30, rep:-8 };
+  day = 12; rel = {}; seen = {}; goneShown = {}; prac = 0; debuted = false;
   T.NPCS.forEach(n => { rel[n.id] = 0; seen[n.id] = 0; });
   render();
 }
 
 function hud(hit){
+  const rp = ST.rep;
   $('hud').innerHTML = `
     <div class="pod money ${hit&&hit.money?'hit':''}"><div class="lb">金錢</div>
       <div class="nm">$${ST.money}</div></div>
     <div class="pod full ${hit&&hit.full?'hit':''}"><div class="lb">飽足</div>
       <div class="nm">${ST.full}</div></div>
     <div class="pod calm ${hit&&hit.calm?'hit':''}"><div class="lb">歸屬感</div>
-      <div class="nm">${ST.calm}</div></div>`;
+      <div class="nm">${ST.calm}</div></div>
+    <div class="pod cool ${hit&&hit.cool?'hit':''}"><div class="lb">帥潮</div>
+      <div class="nm">${ST.cool}</div></div>
+    <div class="pod rep ${hit&&hit.rep?'hit':''}"><div class="lb">風評</div>
+      <div class="nm" style="color:${rp>0?'#5fb87a':rp<0?'#e0483a':'#e6e8ec'}">${rp>0?'+':''}${rp}</div></div>`;
   $('dTitle').textContent = `第 ${day} 天　晚上`;
   $('dSub').textContent = '這一格用在這裡了';
 }
+
+/* 測試用:直接拉數值看門檻怎麼卡人 */
+function tune(k, d){ ST[k] = ST[k] + d; hud({[k]:1}); render(); }
 
 /* 誰不在了 */
 function isGone(id){ return T.GONE.some(g => g.id === id && day >= g.after); }
@@ -137,8 +160,29 @@ function render(){
     wireLeave(); return;
   }
 
+  const N = T.TROUPE.need;
+  const okCool = ST.cool >= N.cool, okRep = ST.rep >= N.repMin;
+  const troupeLabel = debuted ? '跟他們練' : prac >= T.TROUPE.practice.length ? '這禮拜六出陣' : '跟他們練';
+  const troupeNote = !okCool ? `帥潮 ${ST.cool}／需要 ${N.cool}`
+                   : !okRep  ? `風評 ${ST.rep}／不能低於 ${N.repMin}`
+                   : prac >= T.TROUPE.practice.length && !debuted ? '你可以站了'
+                   : `歸屬感 ＋　（練了 ${prac} 次）`;
+
   $('place').innerHTML = goneHTML + `
-    <div class="amb">香的味道。廟裡的音樂放很小聲。\n金爐旁邊有人在講話。</div>
+    <div class="amb">香的味道。廟裡的音樂放很小聲。\n後面有人在練步，腳踩地板的聲音很整齊。</div>
+
+    <div class="who">陣頭</div>
+    <div class="people" style="margin-bottom:16px">
+      <button class="p ${okCool&&okRep?'ev':'no'}" id="troupe">
+        <span class="r">${troupeNote}</span>
+        <span class="n">${troupeLabel}</span>
+        <span class="t">${okCool&&okRep ? '歸屬感從這裡來' : '你還不能站'}</span>
+        <div class="d">${okCool&&okRep
+          ? '八個人排兩列。阿源在最前面。'
+          : !okCool ? '他們在後面練。沒有人叫你過去。'
+                    : '阿伯看到你，把掃把放下來了。'}</div></button>
+    </div>
+
     <div class="who">誰在這裡</div>
     <div class="people">
       ${here.map(n => {
@@ -149,9 +193,20 @@ function render(){
           <div class="d">${n.desc}</div></button>`;
       }).join('')}
       ${leaveBtn()}
+    </div>
+
+    <div class="tuner">
+      測試用：帥潮
+      <button data-t="cool" data-d="-5">−5</button><button data-t="cool" data-d="5">+5</button>
+      　風評
+      <button data-t="rep" data-d="-10">−10</button><button data-t="rep" data-d="10">+10</button>
     </div>`;
+
   $('place').querySelectorAll('button[data-id]').forEach(b =>
     b.onclick = () => meet(T.NPCS.find(n => n.id === b.dataset.id)));
+  $('place').querySelectorAll('button[data-t]').forEach(b =>
+    b.onclick = () => tune(b.dataset.t, +b.dataset.d));
+  $('troupe').onclick = troupe;
   wireLeave();
 }
 
@@ -164,20 +219,64 @@ function wireLeave(){
   b.onclick = () => { day += [2,3,5,4,7][day % 5]; render(); };
 }
 
+/* ── 陣頭:歸屬感真正的來源 ── */
+function troupe(){
+  const N = T.TROUPE.need;
+  if(ST.cool < N.cool)  return reject(T.TROUPE.rejectCool);
+  if(ST.rep  < N.repMin) return reject(T.TROUPE.rejectRep);
+
+  let ev;
+  if(prac < T.TROUPE.practice.length){ ev = T.TROUPE.practice[prac]; prac++; }
+  else if(!debuted){ ev = T.TROUPE.debut; debuted = true; }
+  else ev = T.TROUPE.routine[(prac++) % T.TROUPE.routine.length];
+
+  const hit = {};
+  ['calm','cool'].forEach(k => {
+    if(ev[k]){ ST[k] = Math.min(100, ST[k] + ev[k]); hit[k] = 1; }
+  });
+  hud(hit);
+
+  const g = [];
+  if(ev.calm) g.push(`歸屬感 +${ev.calm}`);
+  if(ev.cool) g.push(`<span style="color:#d05fa0">帥潮 +${ev.cool}</span>`);
+
+  $('place').innerHTML = `
+    <div class="who">陣頭</div>
+    <div class="title">${ev.title}</div>
+    ${ev.beats.map(b => b.text ? `<div class="beat">${b.text}</div>` : '<div style="height:10px"></div>').join('')}
+    <div class="quiet">${ev.quiet}</div>
+    <div class="gain">${g.join('　・　')}</div>
+    <div class="acts">
+      <button class="p" id="back"><span class="n">回廟埕</span></button>
+      ${leaveBtn()}</div>`;
+  $('back').onclick = render; wireLeave();
+}
+
+function reject(r){
+  $('place').innerHTML = `
+    <div class="who">陣頭　・　${r.by}</div>
+    ${r.beats.map(b => `<div class="beat">${b.text}</div>`).join('')}
+    <div class="quiet">${r.quiet}</div>
+    <div class="acts">
+      <button class="p" id="back"><span class="n">回廟埕</span></button>
+      ${leaveBtn()}</div>`;
+  $('back').onclick = render; wireLeave();
+}
+
 function meet(n){
   const ev = nextEvent(n);
   if(ev) return doEvent(n, ev);
 
-  /* 日常:輪替台詞,熟悉度 +1,歸屬感小幅 */
+  /* 日常:輪替台詞。⚠ 講話不給歸屬感,只是認識他們 ——
+     歸屬感要靠一起跳陣頭換(2026-08-04 kc)。 */
   const line = n.talk[seen[n.id] % n.talk.length];
   seen[n.id]++; rel[n.id]++;
-  ST.calm = Math.min(100, ST.calm + 2);
-  hud({calm:1});
 
   $('place').innerHTML = `
     <div class="who">${n.name}　${n.tag}</div>
     <div class="beat">${line}</div>
-    <div class="gain">歸屬感 +2　・　跟 ${n.name} 更熟了（${rel[n.id]}）</div>
+    <div class="gain" style="color:#5a616b">跟 ${n.name} 更熟了（${rel[n.id]}）　・
+      講話不會讓你變成自己人</div>
     <div class="acts">
       <button class="p" id="back"><span class="n">還有誰在</span></button>
       ${leaveBtn()}</div>`;
