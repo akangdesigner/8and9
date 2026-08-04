@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 刺青店</title>
+<style>
+  body{margin:0;background:#101216;color:#c9ccd2;
+       font:14px/1.7 "Noto Sans TC","Microsoft JhengHei",sans-serif;
+       display:flex;flex-direction:column;align-items:center;padding:22px 12px 40px}
+  h1{font-size:16px;margin:0 0 4px;color:#e6e8ec;letter-spacing:.03em}
+  .note{color:#6b727c;font-size:12.5px;margin-bottom:16px;text-align:center;max-width:640px}
+  .stage{position:relative;line-height:0}
+  canvas{border:1px solid #2a2e35;border-radius:4px;display:block;image-rendering:pixelated}
+  #hint{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;
+        background:rgba(14,16,20,.82);border:1px solid rgba(255,255,255,.14);
+        color:#eef0f3;font-size:15px;padding:7px 16px;border-radius:6px;
+        opacity:0;transition:opacity .18s;pointer-events:none;line-height:1.5}
+  #hint.on{opacity:1}
+  .bar{display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap;justify-content:center}
+  button{background:#1e2128;border:1px solid #2c3038;color:#9aa1ab;font:inherit;font-size:13px;
+         padding:7px 13px;border-radius:6px;cursor:pointer}
+  button:hover{border-color:#454c58;color:#e6e8ec}
+  button.on{background:#2a2f38;border-color:#4a5260;color:#e6e8ec}
+  kbd{background:#22262d;border:1px solid #333842;border-bottom-width:2px;border-radius:4px;
+      padding:1px 6px;font-size:12px;color:#c9ccd2}
+</style>
+</head>
+<body>
+  <h1>刺青店 ／ 場景預覽</h1>
+  <div class="note">
+    <kbd>←</kbd><kbd>→</kbd> 左右走，<kbd>↑</kbd><kbd>↓</kbd> 往店的深處走。
+    走到椅子後面會被擋住。這頁只看場景，不接遊戲邏輯。
+  </div>
+
+  <div class="stage">
+    <canvas id="c" width="1280" height="720"></canvas>
+    <div id="hint"></div>
+  </div>
+
+  <div class="bar">
+    <button id="bLamp" class="on">工作燈</button>
+    <button id="bNeon" class="on">門口招牌</button>
+    <button id="bMaster" class="on">師傅在</button>
+    <button id="bGrain" class="on">顆粒</button>
+  </div>
+
+<script src="lib/scene-store-front.js"></script>
+<script src="lib/scene-tattoo.js"></script>
+<script>
+const T = SceneTattoo, SF = SceneStoreFront;
+const LW = T.W, LH = T.H, SC = 2;
+const c = document.getElementById('c'), g = c.getContext('2d');
+const hintEl = document.getElementById('hint');
+
+const opt = { lamp:true, neon:true, master:true, grain:true };
+
+/* 背景畫一次存起來,每幀只 blit */
+let bg = document.createElement('canvas');
+function bake(){
+  bg.width = LW; bg.height = LH;
+  const bx = bg.getContext('2d');
+  T.renderBackground(bx, { neon:opt.neon, chairFront:false });   // 椅子留給深度排序
+}
+bake();
+
+/* 顆粒 —— 跟 world.html 同一套做法,壓得幾乎看不見 */
+let seed = 20260804;
+const rnd = () => (seed = (seed*1664525 + 1013904223) >>> 0) / 4294967296;
+const grain = (() => {
+  const gc = document.createElement('canvas'); gc.width = LW; gc.height = LH;
+  const x = gc.getContext('2d'), img = x.createImageData(LW, LH);
+  for(let i=0;i<img.data.length;i+=4){
+    const v = rnd() < .5 ? 0 : 255;
+    img.data[i]=img.data[i+1]=img.data[i+2]=v; img.data[i+3]=10;
+  }
+  x.putImageData(img,0,0); return gc;
+})();
+
+const P = SF.P;
+const me = { x: 150, y: 330, face:'F', walk:0, step:0 };
+const keys = {};
+addEventListener('keydown', e => {
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){ keys[e.key]=1; e.preventDefault(); }
+});
+addEventListener('keyup', e => keys[e.key]=0);
+
+function spotAt(x, y){
+  for(const s of T.SPOTS)
+    if(x >= s.x && x <= s.x + s.w && y >= s.y0 && y <= s.y1) return s;
+  return null;
+}
+
+function drawPerson(cx, footY, o){
+  g.save(); g.imageSmoothingEnabled = false; g.scale(SC, SC);
+  SF.person(g, cx, footY, o);
+  g.restore();
+}
+
+let last = 0;
+function frame(t){
+  const dt = Math.min(50, t - last); last = t;
+
+  /* 移動 */
+  const sp = dt * 0.075;
+  let mv = 0;
+  if(keys.ArrowLeft){  me.x -= sp; me.face='L'; mv=1; }
+  if(keys.ArrowRight){ me.x += sp; me.face='R'; mv=1; }
+  if(keys.ArrowUp){    me.y -= sp*0.62; mv=1; }
+  if(keys.ArrowDown){  me.y += sp*0.62; mv=1; }
+  me.x = Math.max(24, Math.min(LW-24, me.x));
+  me.y = Math.max(T.WALK_N, Math.min(T.WALK_S, me.y));
+  me.step = mv ? me.step + dt*0.012 : 0;
+  me.walk = mv ? (Math.sin(me.step) > 0 ? 1 : -1) : 0;
+
+  /* 背景 */
+  g.imageSmoothingEnabled = false;
+  g.drawImage(bg, 0,0,LW,LH, 0,0,c.width,c.height);
+
+  /* 深度排序:椅子、滾輪椅、師傅、玩家 */
+  const items = [
+    { y: T.CHAIR.y, draw(){ g.save(); g.imageSmoothingEnabled=false; g.scale(SC,SC);
+        T.chair(g); g.restore(); } },
+    { y: T.STOOL.y, draw(){ g.save(); g.imageSmoothingEnabled=false; g.scale(SC,SC);
+        T.stool(g); g.restore(); } },
+    { y: me.y, draw(){ drawPerson(me.x, me.y, { face:me.face, walk:me.walk,
+        skin:'#c99a72', hair:'#241f1c', top:'#7b8794', topD:'#66707c', pants:'#39404b' }); } }
+  ];
+  if(opt.master){
+    /* 師傅坐在滾輪椅上,面向刺青椅 */
+    items.push({ y: T.STOOL.y - 1, draw(){ drawPerson(T.STOOL.x + 2, T.STOOL.y - 15,
+        { face:'R', k:.84, skin:T.P.mSkin, hair:T.P.mHair,
+          top:T.P.mTop, topD:T.P.mTopD, pants:T.P.mPants }); } });
+  }
+  items.sort((a,b) => a.y - b.y).forEach(i => i.draw());
+
+  /* 工作燈疊在最上面 */
+  if(opt.lamp){ g.save(); g.imageSmoothingEnabled=false; g.scale(SC,SC); T.lampGlow(g, t); g.restore(); }
+
+  if(opt.grain){
+    g.globalAlpha = .5;
+    g.drawImage(grain, 0,0,LW,LH, 0,0,c.width,c.height);
+    g.globalAlpha = 1;
+  }
+
+  /* 站在哪 */
+  const s = spotAt(me.x, me.y);
+  if(s){ hintEl.textContent = s.name; hintEl.classList.add('on'); }
+  else hintEl.classList.remove('on');
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* 開關 */
+const wire = (id, key, rebake) => {
+  const b = document.getElementById(id);
+  b.onclick = () => { opt[key] = !opt[key]; b.classList.toggle('on', opt[key]); if(rebake) bake(); };
+};
+wire('bLamp','lamp'); wire('bNeon','neon', true);
+wire('bMaster','master'); wire('bGrain','grain');
+</script>
+</body>
+</html>
