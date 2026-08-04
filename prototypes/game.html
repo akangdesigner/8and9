@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 街上 ⇄ 室內</title>
+<style>
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#0a0c10; }
+  body { font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; }
+
+  #city, #indoor { position:fixed; inset:0; }
+  #city canvas { display:block; }
+  #indoor { display:none; align-items:center; justify-content:center; background:#0a0c10; }
+  #indoor.on { display:flex; }
+  #indoor canvas { width:100%; max-width:1280px; height:auto; display:block; }
+
+  /* ---- HUD(兩層共用) ---- */
+  .hud { position:fixed; left:16px; top:14px; z-index:6; display:flex; gap:7px; font-size:12px; }
+  .pod { background:rgba(9,12,17,.72); border:1px solid rgba(120,134,158,.28);
+         border-radius:4px; padding:5px 10px 6px; min-width:74px; backdrop-filter:blur(4px); }
+  .pod .lb { color:#7c8593; font-size:10px; letter-spacing:.14em; }
+  .pod .nm { color:#eef1f5; font-size:15px; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .pod.money .nm { color:#f2d888; }
+  .pod .track { height:4px; margin-top:4px; background:rgba(255,255,255,.1); border-radius:2px; overflow:hidden; }
+  .pod .track i { display:block; height:100%; width:0; transition:width .45s cubic-bezier(.3,.9,.3,1); }
+  .pod.full i { background:linear-gradient(90deg,#8a9a4a,#c9bb44); }
+  .pod.full.low { border-color:rgba(224,72,58,.8); animation:lowpulse 1.15s infinite; }
+  .pod.full.low i { background:linear-gradient(90deg,#e0552f,#e0483a); }
+  @keyframes lowpulse { 50% { border-color:rgba(224,72,58,.2); } }
+  .pod.calm i { background:linear-gradient(90deg,#3f8f86,#6fc3b4); }
+  .pod.cool i { background:linear-gradient(90deg,#8a4fa8,#d05fa0); }
+  .pod .stars { margin-top:3px; font-size:14px; letter-spacing:.12em; color:#333a45; line-height:1; }
+  .pod .stars b { color:#e0483a; font-weight:400; text-shadow:0 0 9px rgba(224,72,58,.65); }
+  .pod.bump { animation:bump .5s; }
+  @keyframes bump { 30% { border-color:rgba(216,178,74,.8); transform:translateY(-3px); } }
+
+  /* ---- 標籤列:src/tags.js 的資料,身上帶著的東西 ---- */
+  #tags { position:fixed; left:16px; top:74px; z-index:6; display:flex; gap:6px; flex-wrap:wrap; max-width:44vw; }
+  .tag { background:#e8e3d6; color:#23262c; font-size:12px; letter-spacing:.04em;
+         padding:3px 9px 4px; border-radius:2px; box-shadow:1px 2px 0 rgba(0,0,0,.45);
+         animation:slap .35s cubic-bezier(.2,1.5,.5,1) both; }
+  @keyframes slap { from { transform:scale(1.5); opacity:0; } to { transform:scale(1); opacity:1; } }
+
+  #where { position:fixed; left:50%; top:14px; transform:translateX(-50%); z-index:6;
+           background:rgba(9,12,17,.72); border:1px solid rgba(120,134,158,.28); border-radius:4px;
+           padding:6px 18px; font-size:14px; color:#e6eaf0; letter-spacing:.18em; backdrop-filter:blur(4px); }
+  #clock { position:fixed; right:14px; top:14px; z-index:6; text-align:right;
+           background:rgba(9,12,17,.72); border:1px solid rgba(120,134,158,.28);
+           border-radius:4px; padding:6px 13px; backdrop-filter:blur(4px); }
+  #clock .d { font-size:10px; letter-spacing:.16em; color:#7c8593; }
+  #clock .t { font-size:17px; color:#e6eaf0; letter-spacing:.1em; font-variant-numeric:tabular-nums; }
+
+  #hint { position:fixed; left:50%; bottom:16%; transform:translateX(-50%); z-index:6;
+          background:rgba(8,10,14,.88); border:1px solid #3b4452; padding:7px 17px;
+          font-size:15px; color:#e8ecf1; border-radius:3px; letter-spacing:.05em;
+          opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap; }
+  #hint.on { opacity:1; }
+  #hint b { color:#f2d888; }
+
+  #dialog { position:fixed; left:5%; right:5%; bottom:5%; display:none; padding-top:44px; z-index:8; }
+  #dialog.on { display:block; }
+  #portrait { position:absolute; left:20px; top:0; width:100px; height:100px; z-index:3;
+              background:#1b202b; border:2px solid #55617a; border-radius:4px;
+              box-shadow:0 6px 18px rgba(0,0,0,.55); image-rendering:pixelated; }
+  #dialog .frame { padding:15px 22px 17px 144px; min-height:108px; max-width:1180px; margin:0 auto;
+    background:linear-gradient(180deg,rgba(14,18,26,.96),rgba(9,12,18,.98));
+    border:2px solid #55617a; border-radius:5px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.6),0 10px 30px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.07); }
+  .dname { font-size:14px; letter-spacing:.12em; color:#d8b24a; margin-bottom:7px; }
+  .dbody { font-size:18px; line-height:1.8; color:#eef1f5; letter-spacing:.05em; white-space:pre-line; }
+  .caret { display:inline-block; margin-left:6px; color:#d8b24a; opacity:0; animation:bob 1s infinite; }
+  .caret.on { opacity:1; }
+  @keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(3px);} }
+
+  #menu { position:fixed; left:50%; transform:translateX(-50%); bottom:6%;
+          display:none; flex-direction:column; gap:5px; width:min(560px,82%); z-index:8; }
+  #menu.on { display:flex; }
+  #menu .cap { font-size:11.5px; letter-spacing:.28em; color:#8b94a3; padding-left:4px; margin-bottom:3px; }
+  #menu button { text-align:left; background:rgba(12,16,23,.95); color:#dfe4ea;
+    border:1px solid #3d4757; border-left:3px solid #55617a; padding:9px 15px;
+    font-size:15.5px; font-family:inherit; letter-spacing:.04em; cursor:pointer; border-radius:3px;
+    transition:all .13s; display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  #menu button:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; transform:translateX(3px); }
+  #menu button .cost { font-size:12.5px; color:#8d96a4; white-space:nowrap; }
+  #menu button.bad { color:#8c7a72; } #menu button.bad .cost { color:#a2564c; }
+  #menu button.risk { border-left-color:#a2564c; }
+  #menu button.back { border-left-color:#39424f; color:#97a0ad; font-size:14px; }
+
+  #float { position:fixed; inset:0; pointer-events:none; z-index:7; }
+  .fl { position:absolute; font-size:16px; letter-spacing:.06em; font-weight:600;
+        text-shadow:0 2px 10px rgba(0,0,0,.9); animation:rise 1.5s ease-out both; }
+  @keyframes rise { 0%{opacity:0;transform:translateY(6px);} 18%{opacity:1;}
+                    100%{opacity:0;transform:translateY(-34px);} }
+
+  #toast { position:fixed; left:50%; top:16%; transform:translateX(-50%);
+           background:rgba(8,10,14,.9); border-left:3px solid #d8b24a; padding:9px 18px;
+           font-size:15px; color:#e8ecf1; border-radius:2px; letter-spacing:.05em;
+           opacity:0; transition:opacity .4s; pointer-events:none; z-index:7; max-width:62%; }
+  #toast.on { opacity:1; }
+
+  #fade { position:fixed; inset:0; background:#05060a; z-index:9; opacity:0;
+          pointer-events:none; transition:opacity .4s;
+          display:flex; align-items:center; justify-content:center; flex-direction:column; }
+  #fade.on { opacity:1; pointer-events:auto; }
+  #fade .place { font-size:28px; letter-spacing:.5em; text-indent:.5em; color:#e8e2d5;
+                 opacity:0; transition:opacity .5s .1s; }
+  #fade.on .place { opacity:1; }
+
+  #bar { position:fixed; left:50%; bottom:12px; transform:translateX(-50%); z-index:6;
+         display:flex; gap:7px; }
+  button.tool { background:rgba(20,24,32,.9); color:#c8cfda; border:1px solid #313846;
+                padding:6px 13px; font-size:12px; font-family:inherit; letter-spacing:.06em;
+                cursor:pointer; border-radius:3px; }
+  button.tool:hover { background:#242b36; color:#fff; }
+  #keys { position:fixed; left:16px; bottom:12px; z-index:6; font-size:11.5px; color:#6a727f; letter-spacing:.08em; }
+  #keys b { color:#9aa3b0; }
+  #fps { position:fixed; right:14px; bottom:12px; z-index:6; font-size:11px; color:#5c6470; }
+</style>
+</head>
+<body>
+
+<div id="city"></div>
+<div id="indoor"><canvas id="c2d" width="1280" height="720"></canvas></div>
+
+<div class="hud">
+  <div class="pod money" id="pMoney"><div class="lb">金錢</div><div class="nm">$63</div></div>
+  <div class="pod full"  id="pFull"><div class="lb">飽足</div><div class="nm">42</div><div class="track"><i></i></div></div>
+  <div class="pod calm"  id="pCalm"><div class="lb">安全感</div><div class="nm">55</div><div class="track"><i></i></div></div>
+  <div class="pod cool"  id="pCool"><div class="lb">帥潮</div><div class="nm">8</div><div class="track"><i></i></div></div>
+  <div class="pod star"  id="pStar"><div class="lb">通緝</div><div class="stars"></div></div>
+</div>
+<div id="tags"></div>
+<div id="where">中華路</div>
+<div id="clock"><div class="d">週三</div><div class="t">20:14</div></div>
+
+<div id="hint"></div>
+<div id="toast"></div>
+<div id="float"></div>
+
+<div id="dialog">
+  <canvas id="portrait" width="100" height="100"></canvas>
+  <div class="frame">
+    <div class="dname" id="dName">你</div>
+    <div class="dbody"><span id="dTx"></span><span class="caret" id="dCaret">▼</span></div>
+  </div>
+</div>
+<div id="menu"></div>
+<div id="fade"><div class="place" id="fPlace"></div></div>
+
+<div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button></div>
+<div id="fps">—</div>
+
+<script src="lib/scene-store-front.js"></script>
+<script src="../src/tags.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+import { CITY, buildCity, buildPlayer } from './lib/scene-city3d.js';
+
+/* ===================================================================
+   共用狀態 —— 兩層都吃同一份。走進超商買東西，出來街上錢就少了。
+   =================================================================== */
+const ST = { money:63, full:42, calm:55, cool:8, star:0 };
+let minute = 20*60 + 14, day = 3;
+const DAYS = ['日','一','二','三','四','五','六'];
+
+/* 標籤:直接用 src/tags.js 的核心，不自己發明一套 */
+const CH = createCharacter(['single'], 10);      // 開局:單親。其餘在遊戲裡長出來
+function addTag(id){
+  if(CH.tags.includes(id)) return;
+  CH.tags.push(id);
+  drawTags();
+  const t = getTag(id);
+  toast('你身上多了一格：' + (t ? t.name : id) + '。拿不掉。', 4200);
+}
+function drawTags(){
+  const host = document.getElementById('tags');
+  host.innerHTML = '';
+  CH.tags.forEach(id => {
+    const t = getTag(id); if(!t) return;
+    const el = document.createElement('div');
+    el.className = 'tag'; el.textContent = t.name;
+    el.title = t.detail + (t.cover ? `（可以${t.cover.cover?.label || t.cover.label}）` : '（遮不了）');
+    host.appendChild(el);
+  });
+}
+
+const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+function syncHUD(){
+  set('pMoney', '$' + ST.money, null);
+  set('pFull', ST.full, ST.full);
+  set('pCalm', ST.calm, ST.calm);
+  set('pCool', ST.cool, ST.cool);
+  document.getElementById('pFull').classList.toggle('low', ST.full <= 25);
+  document.querySelector('#pStar .stars').innerHTML =
+    '<b>' + '★'.repeat(ST.star) + '</b>' + '★'.repeat(5-ST.star);
+  document.querySelector('#clock .t').textContent = fmtTime(minute);
+  document.querySelector('#clock .d').textContent = '週' + DAYS[day%7];
+  function set(id, txt, pct){
+    const pod = document.getElementById(id);
+    pod.querySelector('.nm').textContent = txt;
+    if(pct != null) pod.querySelector('.track i').style.width = Math.max(0,Math.min(100,pct)) + '%';
+  }
+}
+const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', star:'#e0483a' };
+const NAMES = { money:'', full:'飽足', calm:'安全感', cool:'帥潮', star:'通緝' };
+function chg(k, d){
+  if(!d) return;
+  ST[k] += d;
+  if(k !== 'money') ST[k] = Math.max(0, Math.min(k==='star'?5:100, ST[k]));
+  syncHUD();
+  const el = document.getElementById({money:'pMoney',full:'pFull',calm:'pCalm',cool:'pCool',star:'pStar'}[k]);
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  const f = document.createElement('div');
+  f.className = 'fl'; f.style.color = COLOR[k];
+  f.style.left = (el.offsetLeft+8)+'px'; f.style.top = (el.offsetTop+el.offsetHeight+4)+'px';
+  f.textContent = (NAMES[k] + ' ' + (d>0?'+':'') + (k==='money'?'$'+d:d)).trim();
+  document.getElementById('float').appendChild(f);
+  setTimeout(() => f.remove(), 1500);
+}
+const toastEl = document.getElementById('toast');
+function toast(txt, ms){
+  toastEl.textContent = txt; toastEl.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toastEl.classList.remove('on'), ms || 2800);
+}
+function advanceTime(min){
+  minute += min;
+  while(minute >= 24*60){ minute -= 24*60; day++; }
+  syncHUD();
+}
+
+/* ===================================================================
+   對話框 / 選單(兩層共用)
+   =================================================================== */
+const SF = SceneStoreFront, P2 = SF.P;
+const dlgEl = document.getElementById('dialog'), dTx = document.getElementById('dTx');
+const dName = document.getElementById('dName'), dCaret = document.getElementById('dCaret');
+const portC = document.getElementById('portrait').getContext('2d');
+const menuEl = document.getElementById('menu'), hintEl = document.getElementById('hint');
+
+const WHO = {
+  pc:    { name:'你',   opt:{ face:'F', skin:P2.pcSkin, hair:P2.pcHair, top:P2.pcHood, topD:P2.pcHoodD, pants:P2.pcPants, hood:true } },
+  clerk: { name:'店員', opt:{ face:'F', skin:P2.clSkin, hair:P2.clHair, top:P2.clVest, topD:P2.clShirt, pants:'#2c3340' } }
+};
+function drawPortrait(who){
+  const w = WHO[who] || WHO.pc, S = portC.canvas.width;
+  portC.clearRect(0,0,S,S); portC.fillStyle = '#1b202b'; portC.fillRect(0,0,S,S);
+  portC.save(); portC.imageSmoothingEnabled = false;
+  const k = S/33; portC.scale(k,k);
+  SF.person(portC, (S/k)/2, 108, Object.assign({k:1}, w.opt));
+  portC.restore(); dName.textContent = w.name;
+}
+let dlg = { on:false, full:'', shown:0, timer:0, done:false, after:null };
+function say(who, text, after){
+  drawPortrait(who);
+  dlg = { on:true, full:text, shown:0, timer:0, done:false, after:after||null };
+  dTx.textContent = ''; dCaret.classList.remove('on'); dlgEl.classList.add('on');
+}
+function tickDialog(dt){
+  if(!dlg.on || dlg.done) return;
+  dlg.timer += dt;
+  while(dlg.timer > 36 && dlg.shown < dlg.full.length){
+    dlg.timer -= 36; dlg.shown++;
+    dTx.textContent = dlg.full.slice(0, dlg.shown);
+  }
+  if(dlg.shown >= dlg.full.length){ dlg.done = true; dCaret.classList.add('on'); }
+}
+function advanceDialog(){
+  if(!dlg.on) return false;
+  if(!dlg.done){ dlg.shown = dlg.full.length; dlg.done = true;
+                 dTx.textContent = dlg.full; dCaret.classList.add('on'); return true; }
+  dlgEl.classList.remove('on'); dlg.on = false;
+  const fn = dlg.after; dlg.after = null; if(fn) fn();
+  return true;
+}
+let busy = false;
+function closeMenu(){ menuEl.classList.remove('on'); menuEl.innerHTML = ''; busy = false; }
+function openMenu(cap, items){
+  busy = true;
+  menuEl.innerHTML = '<div class="cap">'+cap+'</div>';
+  items.forEach(it => {
+    const b = document.createElement('button');
+    if(it.cls) b.className = it.cls;
+    b.innerHTML = '<span>'+it.label+'</span><span class="cost">'+(it.cost||'')+'</span>';
+    b.onclick = () => { closeMenu(); it.run(); };
+    menuEl.appendChild(b);
+  });
+  menuEl.classList.add('on');
+}
+
+/* ===================================================================
+   3D 街區
+   =================================================================== */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d141e);
+scene.fog = new THREE.FogExp2(0x0d141e, 0.0058);
+
+const camera = new THREE.PerspectiveCamera(56, innerWidth/innerHeight, 0.1, 400);
+camera.position.set(0, 29, 23);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.32;
+document.getElementById('city').appendChild(renderer.domElement);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.48, 0.55, 0.82));
+composer.addPass(new OutputPass());
+
+scene.add(new THREE.HemisphereLight(0x6b7fa4, 0x3a3f4a, 1.85));
+const keyLight = new THREE.DirectionalLight(0xd2dfff, 1.0);
+keyLight.position.set(-24, 34, 20); keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.near = 1; keyLight.shadow.camera.far = 130;
+keyLight.shadow.camera.left = -44; keyLight.shadow.camera.right = 44;
+keyLight.shadow.camera.top = 40;   keyLight.shadow.camera.bottom = -40;
+keyLight.shadow.bias = -0.0013;
+scene.add(keyLight, keyLight.target);
+
+const city = buildCity(THREE, scene);
+const hero = buildPlayer(THREE, scene);
+hero.group.position.set(CITY.spawn.x, .3, CITY.spawn.z);
+
+/* ===================================================================
+   2D 室內:超商(維持平視,因為這裡的內容是臉)
+   =================================================================== */
+const c2d = document.getElementById('c2d'), g2 = c2d.getContext('2d');
+const LW = 640, LH = 360, SC = 2;
+const STORE = {
+  bgSrc:'../assets/bg/store-front.png', walkN:190, walkS:345,
+  hot:{ x:230, y:290, w:208, h:100, cut:{ sx:600, sy:495, sw:545, sh:260 } },
+  spots:[
+    { id:'door',    name:'門口',   x:6,   w:120, y0:190, y1:345 },
+    { id:'fridge',  name:'飲料櫃', x:140, w:158, y0:190, y1:238 },
+    { id:'hot',     name:'鮮食櫃', x:230, w:208, y0:288, y1:340 },
+    { id:'shelf',   name:'貨架',   x:316, w:126, y0:190, y1:238 },
+    { id:'counter', name:'櫃台',   x:462, w:170, y0:190, y1:250 }
+  ]
+};
+let bgStore = new Image(), bgOK = false;
+bgStore.onload = () => bgOK = true;
+bgStore.src = STORE.bgSrc;
+const mockStore = document.createElement('canvas');
+mockStore.width = LW; mockStore.height = LH;
+SF.renderBackground(mockStore.getContext('2d'), { doorOpen:0, taken:false });
+
+const grain = (() => {
+  const c = document.createElement('canvas'); c.width = LW; c.height = LH;
+  const x = c.getContext('2d'), img = x.createImageData(LW, LH);
+  let s = 20260804;
+  const rnd = () => (s = (s*1664525 + 1013904223) >>> 0) / 4294967296;
+  for(let i=0;i<img.data.length;i+=4){
+    const v = rnd() < .5 ? 0 : 255;
+    img.data[i]=img.data[i+1]=img.data[i+2]=v;
+    img.data[i+3] = rnd() < .05 ? 10 : 0;
+  }
+  x.putImageData(img,0,0); return c;
+})();
+
+const IN = { px:150, py:320, face:'F', walkT:0, moving:false, near:null,
+             clerkT:0, clerkFace:'F', askedJob:false, holding:false };
+
+function inBlocked(x,y){
+  const h = STORE.hot;
+  return x > h.x-6 && x < h.x+h.w+6 && y > h.y-42 && y < h.y+4;
+}
+function buy(price, feed, line){
+  if(ST.money < price){ say('pc', price + ' 塊。\n你身上有 ' + ST.money + '。'); return false; }
+  chg('money', -price); if(feed) chg('full', feed);
+  advanceTime(3); if(line) toast(line);
+  return true;
+}
+/* 偷:判定的是「按下去那一刻店員朝哪邊」,不是骰子 */
+function steal(feed){
+  if(IN.clerkFace !== 'B'){
+    chg('star',1); chg('calm',-16);
+    say('clerk', '「同學。」\n\n他沒有把話講完。\n他只是看著你，等你自己把東西放回去。',
+        () => toast('這家店的人以後看到你會多看一眼。'));
+  } else {
+    chg('full', feed); chg('calm', -9);
+    toast('東西在你外套裡。你走出去之前，那段路特別長。', 3200);
+  }
+  advanceTime(2);
+}
+function openIndoorSpot(id){
+  if(busy || dlg.on) return;
+  if(id === 'door') openMenu('門口', [
+    { label:'走出去', cost:'回到街上', run:() => leaveIndoor() },
+    { label:'再待一下', cls:'back', run(){} }
+  ]);
+  else if(id === 'hot') openMenu('鮮食櫃', [
+    { label:'拿黃標便當', cost:'$58　飽足 +45',
+      run:() => { if(buy(58,45,'貼黃標的那格空了一個。')){ IN.holding = true; addTag('cheapmeal'); } } },
+    { label:'拿正價便當', cost:'$89　飽足 +48', cls: ST.money<89?'bad':'',
+      run:() => { if(buy(89,48,'')) IN.holding = true; } },
+    { label:'塞進外套', cost:'看店員', cls:'risk', run:() => steal(45) },
+    { label:'不拿了', cls:'back', run(){} }
+  ]);
+  else if(id === 'shelf') openMenu('貨架', [
+    { label:'買泡麵', cost:'$25　飽足 +20', run:() => buy(25,20,'') },
+    { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(20) },
+    { label:'離開', cls:'back', run(){} }
+  ]);
+  else if(id === 'fridge') openMenu('飲料櫃', [
+    { label:'買飲料', cost:'$25　飽足 +8', run:() => buy(25,8,'') },
+    { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(8) },
+    { label:'離開', cls:'back', run(){} }
+  ]);
+  else if(id === 'counter'){
+    const items = [];
+    if(!IN.askedJob) items.push({ label:'問有沒有缺人', cost:'打工', run:() => {
+      IN.askedJob = true;
+      say('clerk','「你幾歲？」', () =>
+      say('pc','「十六。」', () =>
+      say('clerk','「大夜要滿十八。」\n\n他頓了一下。\n\n「白天早班可以，一小時一百八十三。\n　你要留個電話嗎？」',
+          () => { chg('calm',-4); toast('早班的時間，是你上課的時間。', 3400); })));
+    }});
+    items.push({ label:'看店員在幹嘛', cost:'', run:() =>
+      toast(IN.clerkFace === 'B' ? '他背對著你在補菸。' : '他站在收銀機前面，眼睛掃過店裡。', 2400) });
+    items.push({ label:'離開', cls:'back', run(){} });
+    openMenu('櫃台', items);
+  }
+}
+
+function updateIndoor(dt){
+  IN.clerkT += dt;
+  IN.clerkFace = (IN.clerkT % 6600) < 2400 ? 'B' : 'F';
+
+  let dx=0, dy=0;
+  if(keys['a']||keys['arrowleft'])  dx -= 1;
+  if(keys['d']||keys['arrowright']) dx += 1;
+  if(keys['w']||keys['arrowup'])    dy -= 1;
+  if(keys['s']||keys['arrowdown'])  dy += 1;
+
+  if(!busy && !dlg.on && (dx||dy)){
+    const sp = 1.35 * (dx&&dy ? .71 : 1);
+    const nx = Math.max(20, Math.min(LW-20, IN.px + dx*sp));
+    const ny = Math.max(STORE.walkN, Math.min(STORE.walkS, IN.py + dy*sp*.62));
+    if(!inBlocked(nx, IN.py)) IN.px = nx;
+    if(!inBlocked(IN.px, ny)) IN.py = ny;
+    IN.moving = true; IN.walkT += dt;
+    if(dx<0) IN.face='L'; else if(dx>0) IN.face='R';
+    else if(dy<0) IN.face='B'; else if(dy>0) IN.face='F';
+  } else IN.moving = false;
+
+  IN.near = null;
+  for(const sp of STORE.spots)
+    if(IN.px > sp.x-12 && IN.px < sp.x+sp.w+12 && IN.py >= sp.y0 && IN.py <= sp.y1){ IN.near = sp.id; break; }
+  const show = IN.near && !busy && !dlg.on;
+  if(show){
+    hintEl.innerHTML = STORE.spots.find(s=>s.id===IN.near).name + '　按 <b>空白鍵</b>';
+    hintEl.classList.add('on');
+  } else hintEl.classList.remove('on');
+}
+
+function drawPerson2D(cx, cy, o){
+  g2.save(); g2.imageSmoothingEnabled = false; g2.scale(SC, SC);
+  const k = o.k != null ? o.k : (0.76 + 0.24*((cy-STORE.walkN)/(STORE.walkS-STORE.walkN)));
+  SF.person(g2, cx, cy, Object.assign({}, o, { k }));
+  g2.restore();
+}
+function renderIndoor(){
+  g2.clearRect(0,0,c2d.width,c2d.height);
+  g2.imageSmoothingEnabled = true;
+  if(bgOK) g2.drawImage(bgStore, 0,0,c2d.width,c2d.height);
+  else { g2.imageSmoothingEnabled = false; g2.drawImage(mockStore, 0,0,LW,LH, 0,0,c2d.width,c2d.height); }
+
+  const items = [
+    { y:184, draw(){ drawPerson2D(548,184,{ face:IN.clerkFace, skin:P2.clSkin, hair:P2.clHair,
+        top:P2.clVest, topD:P2.clShirt, pants:'#2c3340', k:.70 }); } },
+    { y:STORE.hot.y, draw(){
+        if(!bgOK){ g2.save(); g2.imageSmoothingEnabled=false; g2.scale(SC,SC);
+                   SF.hotFood(g2,false); g2.restore(); return; }
+        const c = STORE.hot.cut;
+        g2.imageSmoothingEnabled = true;
+        g2.drawImage(bgStore, c.sx,c.sy,c.sw,c.sh,
+                     STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC); } },
+    { y:IN.py, draw(){ drawPerson2D(IN.px, IN.py, { face:IN.face, skin:P2.pcSkin, hair:P2.pcHair,
+        top:P2.pcHood, topD:P2.pcHoodD, pants:P2.pcPants, hood:true, hold:IN.holding,
+        walk: IN.moving ? (Math.floor(IN.walkT/150)%2 ? 1 : -1) : 0 }); } }
+  ];
+  items.sort((a,b) => a.y-b.y).forEach(i => i.draw());
+
+  g2.imageSmoothingEnabled = false;
+  g2.globalAlpha = .5;
+  g2.drawImage(grain, 0,0,LW,LH, 0,0,c2d.width,c2d.height);
+  g2.globalAlpha = 1;
+}
+
+/* ===================================================================
+   兩層之間的門
+   =================================================================== */
+let MODE = 'city';
+const returnTo = { x:0, z:0 };
+const fadeEl = document.getElementById('fade'), fPlace = document.getElementById('fPlace');
+
+function fade(label, mid){
+  busy = true;
+  fPlace.textContent = label;
+  fadeEl.classList.add('on');
+  setTimeout(() => { mid(); }, 480);
+  setTimeout(() => { fadeEl.classList.remove('on'); busy = false; }, 1150);
+}
+function enterIndoor(door){
+  if(door.id !== 'store'){
+    toast(door.name + ' 的室內場景還沒做。（刺青店在 tattoo-room.html,還沒接進來）', 3600);
+    return;
+  }
+  returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
+  fade('超商', () => {
+    MODE = 'indoor';
+    document.getElementById('city').style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    IN.px = 150; IN.py = 320; IN.face = 'F';
+    document.getElementById('where').textContent = '超商';
+    advanceTime(1);
+  });
+}
+function leaveIndoor(){
+  fade(city.whereAmI(returnTo.x, returnTo.z), () => {
+    MODE = 'city';
+    document.getElementById('indoor').classList.remove('on');
+    document.getElementById('city').style.display = '';
+    hero.group.position.set(returnTo.x, .3, returnTo.z);
+    advanceTime(1);
+  });
+}
+
+/* ===================================================================
+   輸入 / 主迴圈
+   =================================================================== */
+const keys = {};
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if(k === ' ' || k === 'enter'){
+    e.preventDefault();
+    if(advanceDialog()) return;
+    if(menuEl.classList.contains('on')) return;
+    if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
+    else if(nearDoor) enterIndoor(nearDoor);
+  }
+  if(k === 'escape' && menuEl.classList.contains('on')) closeMenu();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+let camYaw = 0, nearDoor = null;
+const tmp = new THREE.Vector3();
+const whereEl = document.getElementById('where');
+
+function updateCity(dt){
+  if(keys['q']) camYaw -= dt*.0018;
+  if(keys['e']) camYaw += dt*.0018;
+
+  let ix=0, iz=0;
+  if(keys['a']||keys['arrowleft'])  ix -= 1;
+  if(keys['d']||keys['arrowright']) ix += 1;
+  if(keys['w']||keys['arrowup'])    iz -= 1;
+  if(keys['s']||keys['arrowdown'])  iz += 1;
+
+  const run = keys['shift'] ? 1.9 : 1;
+  const speed = 0.005 * dt * run;
+  const pos = hero.group.position;
+  let moving = false;
+
+  if(!busy && !dlg.on && (ix||iz)){
+    const len = Math.hypot(ix,iz);
+    const dx = (ix*Math.cos(camYaw) - iz*Math.sin(camYaw))/len;
+    const dz = (ix*Math.sin(camYaw) + iz*Math.cos(camYaw))/len;
+    const nx = pos.x + dx*speed, nz = pos.z + dz*speed;
+    if(!city.blocked(nx, pos.z)) pos.x = Math.max(CITY.bounds.x[0], Math.min(CITY.bounds.x[1], nx));
+    if(!city.blocked(pos.x, nz)) pos.z = Math.max(CITY.bounds.z[0], Math.min(CITY.bounds.z[1], nz));
+    hero.group.rotation.y = Math.atan2(dx, dz);
+    moving = true;
+  }
+  hero.animate(dt, moving, run);
+
+  let onRoad = false;
+  for(const r of CITY.H_ROADS) if(Math.abs(pos.z-r.z) < CITY.ROAD_HW) onRoad = true;
+  for(const r of CITY.V_ROADS) if(Math.abs(pos.x-r.x) < CITY.ROAD_HW) onRoad = true;
+  pos.y += ((onRoad ? .1 : .3) - pos.y)*.3;
+
+  tmp.set(Math.sin(camYaw)*23, 29, Math.cos(camYaw)*23);
+  camera.position.lerp(tmp.add(pos), 1 - Math.pow(.0015, dt/1000));
+  camera.lookAt(pos.x, pos.y+1.4, pos.z);
+
+  keyLight.position.set(pos.x-24, 34, pos.z+20);
+  keyLight.target.position.copy(pos);
+  city.updateLights(pos.x, pos.z);
+  whereEl.textContent = city.whereAmI(pos.x, pos.z);
+
+  nearDoor = null;
+  for(const d of city.doors)
+    if(Math.hypot(pos.x-d.x, pos.z-d.z) < 3.6){ nearDoor = d; break; }
+  if(nearDoor && !busy && !dlg.on){
+    hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> 進去';
+    hintEl.classList.add('on');
+  } else if(MODE === 'city') hintEl.classList.remove('on');
+}
+
+let lastW=0, lastH=0;
+function fit(){
+  if(innerWidth===lastW && innerHeight===lastH) return;
+  lastW=innerWidth; lastH=innerHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+}
+
+const fpsEl = document.getElementById('fps');
+let last = performance.now(), acc = 0, frames = 0;
+renderer.setAnimationLoop(now => {
+  const dt = Math.min(50, now-last); last = now;
+  fit(); tickDialog(dt);
+  if(MODE === 'city'){ updateCity(dt); composer.render(); }
+  else { updateIndoor(dt); renderIndoor(); }
+  acc += dt; frames++;
+  if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc=0; frames=0; }
+});
+
+syncHUD(); drawTags();
+
+/* 除錯用:主控台可以直接把角色傳到某個門口，省得走一分鐘 */
+window.__dbg = {
+  goto(id){
+    const d = city.doors.find(x => x.id === id);
+    if(!d) return '沒有這個門：' + city.doors.map(x=>x.id).join(', ');
+    hero.group.position.set(d.x, .3, d.z);
+    return `已移到 ${d.name} (${d.x.toFixed(1)}, ${d.z.toFixed(1)})`;
+  },
+  enter(id){ const d = city.doors.find(x => x.id === id); if(d) enterIndoor(d); return MODE; },
+  leave(){ leaveIndoor(); },
+  mode: () => MODE,
+  state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
+                  pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] })
+};
+</script>
+</body>
+</html>
