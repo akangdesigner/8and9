@@ -104,7 +104,7 @@ const costHTML = f => {
   const bits = [];
   if (f.money)    bits.push(`<span class="m">−$${Math.abs(f.money)}</span>`);
   if (f.moneyAll) bits.push(`<span class="m">身上全部</span>`);
-  if (f.calm)     bits.push(`<span class="c">安全感 ${f.calm}</span>`);
+  if (f.calm)     bits.push(`<span class="c">歸屬感 ${f.calm}</span>`);
   if (f.full)     bits.push(`<span class="c">飽足 ${f.full}</span>`);
   if (f.debt)     bits.push(`<span class="d">債 +${f.debt}</span>`);
   return bits.join('　') || '—';

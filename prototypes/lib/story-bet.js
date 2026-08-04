@@ -34,13 +34,13 @@
       menu: [
         {
           label: '「喔。」',
-          cost: '安全感 −8',
+          cost: '歸屬感 −8',
           calm: -8,
           beats: [ { toast:'你知道月底不會有月底。' } ]
         },
         {
           label: '「那是我要註冊的。」',
-          cost: '安全感 −14',
+          cost: '歸屬感 −14',
           calm: -14,
           beats: [
             { who:'mom', text:'「我知道啊。」\n\n她沒有抬頭。\n「我又不是不還你。」' }
@@ -73,7 +73,7 @@
         },
         {
           label: '「我沒有。」',
-          cost: '安全感 −10　債 +5000',
+          cost: '歸屬感 −10　債 +5000',
           calm: -10, debt: +5000,
           beats: [
             { who:'mom', text:'「沒關係啦。」' },
@@ -96,7 +96,7 @@
       menu: [
         {
           label: '給她',
-          cost: '−$2500　安全感 −6',
+          cost: '−$2500　歸屬感 −6',
           money: -2500, calm: -6,
           truth: 2,
           beats: [
@@ -107,7 +107,7 @@
         },
         {
           label: '下樓看那台車',
-          cost: '安全感 −16　債 +8000',
+          cost: '歸屬感 −16　債 +8000',
           calm: -16, debt: +8000,
           beats: [
             { who:'pc',  text:'車好好的。\n\n你上樓，她已經不在客廳了。' },
@@ -131,7 +131,7 @@
       menu: [
         {
           label: '把身上的錢給她',
-          cost: '身上全部　安全感 −12',
+          cost: '身上全部　歸屬感 −12',
           moneyAll: true, calm: -12,
           truth: 3,
           beats: [
@@ -144,7 +144,7 @@
         },
         {
           label: '「沒有。」',
-          cost: '安全感 −18　債 +12000',
+          cost: '歸屬感 −18　債 +12000',
           calm: -18, debt: +12000,
           beats: [
             { who:'mom', text:'「⋯⋯好。」' },
@@ -166,7 +166,7 @@
       menu: [
         {
           label: '敲門',
-          cost: '安全感 −8',
+          cost: '歸屬感 −8',
           calm: -8,
           truth: 4,
           beats: [
@@ -178,7 +178,7 @@
         },
         {
           label: '回自己房間',
-          cost: '安全感 −4',
+          cost: '歸屬感 −4',
           calm: -4,
           beats: [
             { who:'pc',  text:'你躺下來，聽見隔壁有很小的聲音。' },
@@ -200,7 +200,7 @@
       menu: [
         {
           label: '打開來看',
-          cost: '安全感 −20',
+          cost: '歸屬感 −20',
           calm: -20,
           truth: 5,
           beats: [
