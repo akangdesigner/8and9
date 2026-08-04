@@ -193,7 +193,9 @@ export function buildCity(THREE, scene){
   row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.net(),S.sh,S.sh,S.food(),S.sh,S.sh ]});
 
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 ===== */
+  const alleys = [];
   function alley(x, z0, z1){
+    alleys.push({ x, z0, z1 });                        // 小地圖要畫,別在外面重算一次
     const HW = 3.2, len = Math.abs(z1-z0), cz = (z0+z1)/2;
     add(box(HW*2+8, .28, len, M.walk), x, .14, cz, false, true);
     [-1,1].forEach(s => {
@@ -328,7 +330,7 @@ export function buildCity(THREE, scene){
     return false;
   }
 
-  return { colliders, doors, lampSpots, updateLights, whereAmI, blocked, materials:M };
+  return { colliders, doors, alleys, lampSpots, updateLights, whereAmI, blocked, materials:M };
 }
 
 /* ---------------- 角色(方塊人,之後換模型) ---------------- */
