@@ -120,6 +120,40 @@ export function buildCity(THREE, scene){
     tin:std({color:0x6a6f6a,roughness:.7,metalness:.4})
   };
 
+  /* ---- 外部貼圖 ----
+   * assets/tex/ 底下有對應的 png 就換上去,沒有就維持上面那張程序生成的。
+   * 缺檔案不會壞,只是質感回到灰模,所以可以一張一張補。
+   * 尺寸不限,但要能上下左右接起來(tileable),不然牆上會看到接縫。 */
+  const TEX_DIR = new URL('../../assets/tex/', import.meta.url).href;
+
+  /* AI 生的圖幾乎不會真的無縫,直接平鋪牆上會出現一條一條的接縫。
+     鏡像成 2×2 之後左右上下自然接得起來,代價是圖案有對稱感——
+     遠景的牆面看不出來,近距離的東西才需要真的 tileable。 */
+  const mirror = img => {
+    const W = img.width, H = img.height;
+    const c = document.createElement('canvas'); c.width = W*2; c.height = H*2;
+    const x = c.getContext('2d');
+    [[1,1,0,0], [-1,1,-W*2,0], [1,-1,0,-H*2], [-1,-1,-W*2,-H*2]].forEach(([sx,sy,dx,dy]) => {
+      x.save(); x.scale(sx,sy); x.drawImage(img, dx, dy, W, H); x.restore();
+    });
+    return c;
+  };
+
+  const loader = new THREE.ImageLoader();
+  [ [[M.wall, M.wallB, M.wallC, M.pillar], 'wall.png',    [1,1]],
+    [[M.shutter],                          'shutter.png', [1.5,1]],
+    [[M.road],                             'road.png',    [4,4]],
+    [[M.walk],                             'walk.png',    [3,3]],
+    [[M.stone],                            'stone.png',   [5,5]]
+  ].forEach(([mats, file, rep]) => {
+    loader.load(TEX_DIR + file, img => {
+      const t = new THREE.CanvasTexture(mirror(img));
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      mats.forEach(m => { m.map = t; m.needsUpdate = true; });
+    }, undefined, () => {});                 // 沒這張圖就算了,不要吵
+  });
+
   const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
   const colliders = [], doors = [], lampSpots = [];
   const add = (mesh,x,y,z,cast,recv) => {
