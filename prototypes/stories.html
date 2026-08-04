@@ -77,10 +77,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>家裡的六條線</h1>
+  <h1>劇情線</h1>
   <div class="lede">
-    開局選的父母個性 ＝ 你這輩子要對付的是哪一種漏水。一輪只會遇到一組（爸 ＋ 媽）。<br>
-    <b style="color:#8d949e">現在只做「爸：喝 ＋ 母：賭」這一組</b>，其餘四條寫好了先冰著。
+    <b style="color:#8d949e">外面那條是主軸</b>（「別人怎麼看你」）；家裡的是你背在身上的重量。<br>
+    家裡一輪只會遇到一組（爸 ＋ 媽），現在只做「爸：喝 ＋ 母：賭」，其餘四條先冰著。
   </div>
 
   <div class="fams" id="fams"></div>
@@ -89,6 +89,7 @@
   <div id="chain"></div>
 </div>
 
+<script src="lib/story-school.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
 <script src="lib/story-work.js"></script>
@@ -112,6 +113,9 @@ const LINES = {
   gone:{ label:'父親・走了', data:StoryGone,
     core:'<b>人走了，債留下來。</b>而且他在別的地方過得比你好。',
     warn:'這條線沒有人在你家裡。痛的是你在還一個不在場的人的債——你連要恨誰都找不到對象。' },
+  school:{ label:'學校・同儕', data:StorySchool,
+    core:'<b>沒有人霸凌你。你只是慢慢消失。</b>每一次都是你自己說「不用了」「我明天帶」「我不想去」，而他們每一次都說「喔，好啊」。',
+    warn:'⚠ 不要寫成「壞同學欺負窮學生」，那是獵奇。班上沒有壞人，他們只是不知道六百塊對你是什麼。到最後你自己退出了，而且找不到任何一個人可以怪——這比霸凌狠，而且更真實。' },
   bf:{ label:'母親・男朋友', data:StoryBf,
     core:'<b>你在自己家裡是客人。</b>他甚至對你不錯，那才是最難處理的地方。',
     warn:'⚠ 不要把他寫成壞人。他不打你、不偷錢、還給你錢。痛的是位置：毛巾被移到最下面那一格、吵架時你才是打擾的人、你媽問你意見但她已經決定了。' }
@@ -120,12 +124,13 @@ const LINES = {
 /* 2026-08-04 kc：「先做父親酗酒母親賭博的故事線就好，不然太累。」
    → 只有第一組是現行。其他四條寫好了先冰著，不刪，要用的時候直接接。 */
 const FAMILIES = [
-  { label:'現行　爸：喝　母：賭', keys:['drink','bet'], live:true },
-  { label:'暫緩　（寫好了，先不接進遊戲）', keys:['work','hit','gone','bf'] }
+  { label:'外面　（同儕 ＝ 這款的主軸）', keys:['school'], live:true },
+  { label:'家裡　現行　爸：喝　母：賭', keys:['drink','bet'], live:true },
+  { label:'家裡　暫緩　（寫好了，先不接進遊戲）', keys:['work','hit','gone','bf'] }
 ];
 
 const NAME = { mom:'母親', dad:'父親', bf:'他', pc:'' };
-let cur = 'bet';
+let cur = 'school';
 
 const $ = id => document.getElementById(id);
 
