@@ -634,6 +634,26 @@ kc 的硬需求是**一個網址就能玩**。Godot 在這件事上有四個硬�
 發布仍為靜態檔 → Cloudflare Pages / itch.io。
 **翻案條件**:只有「確定以 Steam 桌面版為主要通路」才值得回頭用 Godot 或 Unity。
 
+### 「真的有遊戲是 HTML 檔案嗎?」——有,而且賣爆過(2026-08-04 查證)
+
+kc 問過一次,答案記在這裡,以後不要再懷疑一次。
+
+| 作品 | 事實 |
+|---|---|
+| **《Vampire Survivors》** | **原本就是 HTML5 ＋ Phaser(JavaScript)**,一人開發。賣破百萬套,**2022 年 Steam 評價最高的遊戲**(20 萬篇評測、98% 壓倒性好評),兩座 BAFTA 含「最佳遊戲」,《紐約客》年度最佳。**1.6 版之後才移植 Unity** |
+| 《Game Dev Tycoon》 | HTML5 做的。該工作室反過來開源了 **Greenworks**,專門讓 HTML5 遊戲接 Steamworks API |
+
+**重點是 Vampire Survivors 換引擎的時機**:它不是因為 HTML 撐不住才換,
+是**賣太好、規模長太大**才換。本專案沒有幾百隻怪同屏。
+
+**上 Steam 的路徑是成熟的**:Electron 打包成 exe(遊戲跑在自己的瀏覽器視窗),
+Steam API 用 `greenworks` 或較新的 `steamworks.js`。所以「先出 web、之後上 Steam」
+不需要重寫,這也讓上面那條翻案條件的成本更低了。
+
+**而且反過來看更關鍵**:kc 的硬需求是「一個網址就能玩」,HTML 是唯一直接做到的。
+`prototypes/*.html` 現在雙擊就開、不用 build 不用安裝——
+**那不是原型階段的權宜,那就是最後出貨的形式。**
+
 ---
 
 ## 待決定(擋住後續設計)
