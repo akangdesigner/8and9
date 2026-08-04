@@ -117,7 +117,6 @@ export function buildCity(THREE, scene){
     glassOff:std({color:0x1c2731,roughness:.28,metalness:.45}),
     glassLit:std({color:0xe4ead8,emissive:0xf4f6e8,emissiveIntensity:1.1,roughness:.35}),
     metal:std({color:0x3a3f46,roughness:.5,metalness:.6}),
-    seat:std({color:0x22262b,roughness:.8}),
     tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
     plastic:std({color:0xc0473a,roughness:.75}),
     tin:std({color:0x6a6f6a,roughness:.7,metalness:.4})
@@ -367,24 +366,9 @@ export function buildCity(THREE, scene){
   }
   tableSet(-18,-86); tableSet(-9,-87); tableSet(16,-85);
 
-  /* 機車 */
-  function motorbike(x, z, rot){
-    const g = new THREE.Group();
-    const w1 = new THREE.Mesh(new THREE.TorusGeometry(.45,.14,8,16), M.metal);
-    w1.rotation.y = Math.PI/2; w1.position.set(0,.45,-.75); g.add(w1);
-    const w2 = w1.clone(); w2.position.z = .75; g.add(w2);
-    const part = (w,h,d,m,px,py,pz) => { const b = box(w,h,d,m); b.position.set(px,py,pz); g.add(b); };
-    part(.52,.55,1.8, M.seat, 0,.88,0);   part(.58,.3,.95, M.seat, 0,1.24,-.32);
-    part(.48,.95,.38, M.metal,0,1.22,.82); part(1.15,.13,.13, M.metal,0,1.65,.76);
-    g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-    g.position.set(x,0,z); g.rotation.y = rot||0; scene.add(g);
-    solid(x, z, .85, 1.05);
-  }
-  H_ROADS.forEach(r => {
-    for(let i=0;i<16;i++) motorbike(-84+i*11, r.z-ROAD_HW-1.6, Math.PI/2+(i%2)*.12);
-    for(let i=0;i<14;i++) motorbike(-78+i*12, r.z+ROAD_HW+1.6, -Math.PI/2+(i%2)*.1);
-  });
-  for(let i=0;i<8;i++) motorbike(-40+i*5.6, -84, (i%2)*.2);
+  /* 機車 2026-08-04 拿掉:方塊拼出來的機車太假(kc)。相機壓低之後它們就在
+     畫面正中間,一整排黑團塊,比沒有還糟。要放回來就得是真的模型或 sprite。
+     舊的方塊版在 git 裡:git show cf8cb7a:prototypes/lib/scene-city3d.js */
 
   /* 電線杆 + 路燈 */
   H_ROADS.forEach(r => {
