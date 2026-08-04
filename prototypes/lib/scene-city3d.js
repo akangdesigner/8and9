@@ -189,6 +189,30 @@ export function buildCity(THREE, scene){
     return m;
   }
 
+  /* ===== 樓上的立面 =====
+   * assets/tex/facade-N.png:騎樓頂以上那幾層——鐵窗、冷氣主機、曬的衣服、水管、
+   * 加蓋的鐵皮。這是台灣街景資訊量最大的一塊,現在整片是空白磁磚。
+   * 只貼朝街那一面,而且是獨立一塊薄板貼在建築正面外側,不動建築本體。
+   * 一樓不畫在這張裡:騎樓頂會把它整個擋掉。 */
+  const FACADES = ['facade-1.png','facade-2.png','facade-3.png','facade-4.png'];
+  const facadeCache = {};
+  function facadeMat(file, aspect, base){
+    const key = `${file}|${aspect.toFixed(2)}|${base.color.getHex()}`;
+    if(key in facadeCache) return facadeCache[key];
+    const m = base.clone();                              // 還沒載到圖就維持磁磚
+    facadeCache[key] = m;
+    loader.load(TEX_DIR + file, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      const ia = img.width / img.height;
+      if(ia > aspect){ const r = aspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
+      else { const r = ia/aspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = .22;
+      m.color.setHex(0xffffff); m.needsUpdate = true;    // 窗戶裡的燈自己微微亮
+    }, undefined, () => {});
+    return m;
+  }
+
   const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
   const colliders = [], doors = [], lampSpots = [];
   const add = (mesh,x,y,z,cast,recv) => {
@@ -227,8 +251,11 @@ export function buildCity(THREE, scene){
       const alongW = UNIT - .4;
       const w = axis==='x' ? alongW : DEPTH;
       const d = axis==='x' ? DEPTH  : alongW;
-      const h = 9 + ((i*7)%3)*2.4;
-      add(box(w,h,d, [M.wall,M.wallB,M.wallC,M.wallD][(i*3)%4]), X, h/2, Z);
+      /* 台灣街屋是 3~5 層。舊的 9~13.8 單位換算只有 3.8~5.8 米,建築比招牌高不了多少,
+         整條街看起來像一排積木盒子——這是「假」最大的來源,比貼圖還關鍵。 */
+      const h = 17 + ((i*7)%3)*5;                        // 7.1 / 9.2 / 11.3 米,約 2~4 層
+      const wallM = [M.wall,M.wallB,M.wallC,M.wallD][(i*3)%4];
+      add(box(w,h,d, wallM), X, h/2, Z);
       solid(X, Z, w/2, d/2);
 
       const fX = axis==='x' ? X : X + face*(DEPTH/2);
@@ -240,6 +267,16 @@ export function buildCity(THREE, scene){
       /* 門面。有 assets/tex/shop-<kind>.png 就整面貼上去,那張圖裡本來就有門、
          櫥窗、堆的東西跟透出來的光——玩家走過去真正在看的是這個,不是牆。
          沒有圖就回到原本的鐵捲門／玻璃。 */
+      /* 樓上立面:貼在建築正面外側 0.1 的一塊薄板,從騎樓頂上緣一路到頂 */
+      const upY0 = 5.9, upH = h - upY0;
+      if(upH > 3){
+        const alongF = axis==='x' ? w : d;
+        add(box(axis==='x' ? alongF : .14, upH, axis==='x' ? .14 : alongF,
+                facadeMat(FACADES[(i*5)%FACADES.length], alongF/upH, wallM)),
+            fX + (axis==='z' ? face*.1 : 0), upY0 + upH/2,
+            fZ + (axis==='x' ? face*.1 : 0), false, true);
+      }
+
       /* offset 要往街道那邊推(fZ+offZ),不是往回推。原本寫成 fZ-offZ,
          門面整塊 0.3 厚的板子沉進 0.2 深的牆體裡,從街上根本看不到——
          鐵捲門那張貼圖貼上去之後一直沒出現就是這個原因。 */
@@ -460,7 +497,7 @@ export const PLAYER = { height:4.0, eyeY:3.65 };
    lookY 是看向角色的哪個高度(0=腳、1=頭頂),抬高一點才把招牌收進畫面上緣。
    fov 40 是望遠端:退遠 ＋ 縮視角,角色在畫面上反而更大,招牌也還收得進來,
    而且背景會被壓平,街看起來更像一條街,不像一個模型。 */
-export const CAM = { dist:22, high:11, lookY:.78, fov:40 };
+export const CAM = { dist:22, high:11, lookY:1.55, fov:40 };
 
 export function buildPlayer(THREE, scene){
   const M = {
