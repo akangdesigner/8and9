@@ -162,6 +162,33 @@ export function buildCity(THREE, scene){
     }, undefined, () => {});                 // 沒這張圖就算了,不要吵
   });
 
+  /* ===== 店家門面 =====
+   * assets/tex/shop-<kind>.png,一種店一張(所有檳榔攤長一樣,要變體之後再加)。
+   * emissiveMap 用同一張:店內的燈自己會亮,不然騎樓底下什麼都看不見。
+   * 圖的長寬比跟門面對不上就取中間裁切,不要拉伸——AI 給的多半是 3:2,門面是 1.96:1。 */
+  const FRONT_ASPECT = (UNIT - .4 - 2.6) / 4.6;
+  const frontMats = {};
+  function shopFront(kind){
+    if(!kind || kind === 'shutter' || kind === 'gap') return null;
+    if(kind in frontMats) return frontMats[kind];
+
+    /* 還沒載到圖的時候要跟原本長得一模一樣,不能因為多了這條管線就變差 */
+    const m = std(kind === 'store'
+      ? { color:0xe4ead8, emissive:0xf4f6e8, emissiveIntensity:1.1, roughness:.35 }
+      : { color:0x1c2731, roughness:.28, metalness:.45 });
+    loader.load(TEX_DIR + `shop-${kind}.png`, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      const ia = img.width / img.height;
+      if(ia > FRONT_ASPECT){ const r = FRONT_ASPECT/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
+      else { const r = ia/FRONT_ASPECT; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = .55;
+      m.color.setHex(0xffffff); m.roughness = .6; m.metalness = 0; m.needsUpdate = true;
+    }, undefined, () => {});
+    frontMats[kind] = m;
+    return m;
+  }
+
   const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
   const colliders = [], doors = [], lampSpots = [];
   const add = (mesh,x,y,z,cast,recv) => {
@@ -210,11 +237,15 @@ export function buildCity(THREE, scene){
       const faceD = axis==='x' ? .3 : alongW-2.6;
       const offX = axis==='z' ? face*.2 : 0, offZ = axis==='x' ? face*.2 : 0;
 
+      /* 門面。有 assets/tex/shop-<kind>.png 就整面貼上去,那張圖裡本來就有門、
+         櫥窗、堆的東西跟透出來的光——玩家走過去真正在看的是這個,不是牆。
+         沒有圖就回到原本的鐵捲門／玻璃。 */
       if(s.kind === 'shutter'){
         add(box(faceW,4.4,faceD, M.shutter), fX-offX, 2.3, fZ-offZ, false, true);
       } else {
         const lit = s.kind === 'store';
-        add(box(faceW,4.2,faceD, lit?M.glassLit:M.glassOff), fX-offX, 2.3, fZ-offZ, false, true);
+        add(box(faceW,4.6,faceD, shopFront(s.kind) || (lit?M.glassLit:M.glassOff)),
+            fX-offX, 2.5, fZ-offZ, false, true);
         if(lit || s.kind==='tattoo' || s.kind==='arcade')
           lampSpots.push({ x:fX + (axis==='z'?face*2.6:0), y:3.2, z:fZ + (axis==='x'?face*2.6:0),
                            c: lit?0xf6f7ec:(s.sign||0x88aacc), i: lit?30:18, r: lit?28:20 });
