@@ -83,8 +83,8 @@
       menu: [
         {
           label: '扶他起來',
-          cost: '歸屬感 −4　飽足 −4',
-          calm: -4, full: -4,
+          cost: '歸屬感 −4',
+          calm: -4,
           beats: [
             { who:'pc',  text:'他比你想的還要輕。' },
             { who:'dad', text:'「⋯⋯你回來啦。」' },

@@ -96,8 +96,8 @@
       menu: [
         {
           label: '收下',
-          cost: '＋$3000　歸屬感 −13',
-          money: 3000, calm: -13,
+          cost: '＋$3000　歸屬感 +4',
+          money: 3000, calm: +4,
           beats: [
             { who:'pc',  text:'你說了謝謝。' },
             { who:'pc',  text:'你需要這三千塊。\n你這個月差的就是三千塊。' },

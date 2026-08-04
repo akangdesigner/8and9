@@ -57,8 +57,8 @@
       menu: [
         {
           label: '從後陽台繞',
-          cost: '飽足 −5',
-          full: -5,
+          cost: '歸屬感 −3',
+          calm: -3,
           beats: [
             { who:'pc',  text:'要多走兩分鐘，\n而且要從隔壁的曬衣區跨過去。' },
             { who:'pc',  text:'但這條路不會經過客廳。' },
@@ -91,8 +91,8 @@
       menu: [
         {
           label: '坐下來吃',
-          cost: '飽足 +12　歸屬感 −6',
-          full: 12, calm: -6,
+          cost: '飽足 +12　歸屬感 +4',
+          full: 12, calm: +4,
           beats: [
             { who:'pc',  text:'他叫了兩份鹹酥雞。' },
             { who:'dad', text:'「你以前不是很愛吃這個。」' },

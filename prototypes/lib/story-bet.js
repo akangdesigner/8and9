@@ -62,8 +62,8 @@
       menu: [
         {
           label: '給她三千二',
-          cost: '−$3200　飽足 −6',
-          money: -3200, full: -6,
+          cost: '−$3200　歸屬感 +5',
+          money: -3200, calm: +5,
           truth: 1,
           beats: [
             { who:'mom', text:'「⋯⋯欸。」\n\n她收下了，然後看著你。\n「你那時候也是這樣。」' },
@@ -96,8 +96,8 @@
       menu: [
         {
           label: '給她',
-          cost: '−$2500　歸屬感 −6',
-          money: -2500, calm: -6,
+          cost: '−$2500　歸屬感 +2',
+          money: -2500, calm: +2,
           truth: 2,
           beats: [
             { who:'mom', text:'「你不要跟阿嬤講。」' },
@@ -131,8 +131,8 @@
       menu: [
         {
           label: '把身上的錢給她',
-          cost: '身上全部　歸屬感 −12',
-          moneyAll: true, calm: -12,
+          cost: '身上全部',
+          moneyAll: true,
           truth: 3,
           beats: [
             { who:'mom', text:'她數了兩次。' },
