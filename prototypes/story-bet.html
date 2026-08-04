@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 劇情線：母親・賭</title>
+<style>
+  :root{
+    --bg:#14161a; --card:#1c1f25; --line:#282c33; --edge:#343943;
+    --ink:#e4e6ea; --dim:#8d949e; --faint:#5c636d;
+    --mom:#e0c98a; --pc:#a8b0ba; --money:#f2d888; --calm:#6fc3b4;
+    --debt:#e0685f; --truth:#c9a3e0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.85 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+       padding:32px 18px 80px}
+  .wrap{max-width:860px;margin:0 auto}
+
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:.03em}
+  .lede{color:var(--faint);font-size:13px;margin-bottom:8px}
+  .rules{background:#191c21;border:1px solid var(--line);border-radius:9px;
+         padding:14px 18px;margin:18px 0 30px;font-size:13.5px;color:var(--dim)}
+  .rules b{color:var(--ink);font-weight:600}
+  .rules div{margin:5px 0}
+
+  .node{margin-bottom:34px}
+  .day{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+  .day-n{font-size:12px;color:var(--faint);letter-spacing:.18em;
+         border:1px solid var(--edge);border-radius:4px;padding:2px 9px}
+  .day-t{font-size:16px;color:var(--ink)}
+
+  .scene{background:var(--card);border:1px solid var(--line);
+         border-radius:10px;padding:20px 22px}
+  .beat{margin:0 0 11px}
+  .beat:last-child{margin-bottom:0}
+  .who{font-size:11px;letter-spacing:.16em;color:var(--faint);margin-bottom:2px}
+  .mom .txt{color:var(--mom)}
+  .pc  .txt{color:var(--pc)}
+  .txt{white-space:pre-line;font-size:15px;line-height:1.85}
+  .toast{color:var(--faint);font-size:13.5px;font-style:normal;
+         border-left:2px solid var(--edge);padding-left:11px;margin-top:4px}
+
+  .forks{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  @media(max-width:700px){.forks{grid-template-columns:1fr}}
+  .fork{border:1px solid var(--line);border-radius:9px;padding:15px 16px;background:#191c21}
+  .fork.pay{border-color:#3a4340}
+  .fork.no{border-color:#3f3230}
+  .pick{font-size:14.5px;margin-bottom:4px}
+  .cost{font-size:11.5px;color:var(--faint);margin-bottom:12px;letter-spacing:.03em}
+  .cost .m{color:var(--money)} .cost .c{color:var(--calm)} .cost .d{color:var(--debt)}
+
+  .truth{margin-top:12px;padding:10px 12px;background:#221d29;
+         border-left:2px solid var(--truth);border-radius:0 6px 6px 0}
+  .truth-l{font-size:10.5px;letter-spacing:.16em;color:#8a7a99;margin-bottom:3px}
+  .truth-t{color:var(--truth);font-size:14px}
+
+  .sum{margin-top:52px;border-top:1px solid var(--line);padding-top:28px}
+  .sum h2{font-size:13px;color:var(--faint);letter-spacing:.16em;margin:0 0 16px;font-weight:600}
+  .chain{background:#1a1720;border:1px solid #2e2838;border-radius:10px;padding:22px 24px}
+  .chain li{color:var(--truth);margin-bottom:7px;font-size:15px}
+  .chain ol{margin:0;padding-left:22px}
+  .punch{margin-top:20px;padding-top:18px;border-top:1px solid #2e2838;
+         color:var(--ink);font-size:15px;line-height:1.9}
+  .punch small{display:block;color:var(--faint);font-size:12.5px;margin-top:9px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>劇情線：母親・賭</h1>
+  <div class="lede">接 <code>FAMILIES</code> 的 <code>mom:'bet'</code>。第 3 天那一段是遊戲裡已經有的，其餘往下接。</div>
+
+  <div class="rules">
+    <div><b>她主動來找你。</b>你不能靠不靠近沙發來避開。</div>
+    <div><b>給錢會解鎖一段真相。</b>你買的不是好結果，是「知道」。</div>
+    <div><b>不給錢，債反而變大</b>——她會去更貴的地方借。所以「都不給」不是最佳解。</div>
+  </div>
+
+  <div id="out"></div>
+
+  <div class="sum">
+    <h2>給錢才拼得到的五句</h2>
+    <div class="chain">
+      <ol id="chain"></ol>
+      <div class="punch">
+        五句拼完，玩家自己會得出那句<b>從頭到尾沒有人講出來</b>的話：<br>
+        她賭，是因為她想把害你背債的那筆錢賺回來。
+        <small>
+          所以這條線不能讓任何一句台詞把它說破。她不是壞人，她是一個把事情越弄越糟的人——
+          寫的時候站在她那一邊。第 6 天那次是真的，那是整條線的地基：
+          她騙了你很多次，但第一次沒有，而且那一次她也是為了救人。
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="lib/story-bet.js"></script>
+<script>
+const NAME = { mom:'母親', pc:'' };
+
+const costHTML = f => {
+  const bits = [];
+  if (f.money)    bits.push(`<span class="m">−$${Math.abs(f.money)}</span>`);
+  if (f.moneyAll) bits.push(`<span class="m">身上全部</span>`);
+  if (f.calm)     bits.push(`<span class="c">安全感 ${f.calm}</span>`);
+  if (f.full)     bits.push(`<span class="c">飽足 ${f.full}</span>`);
+  if (f.debt)     bits.push(`<span class="d">債 +${f.debt}</span>`);
+  return bits.join('　') || '—';
+};
+
+const beatsHTML = bs => bs.map(b => {
+  if (b.toast) return `<div class="toast">${b.text || b.toast}</div>`;
+  return `<div class="beat ${b.who}">
+    ${NAME[b.who] ? `<div class="who">${NAME[b.who]}</div>` : ''}
+    <div class="txt">${b.text}</div>
+  </div>`;
+}).join('');
+
+document.getElementById('out').innerHTML = StoryBet.NODES.map(n => `
+  <div class="node">
+    <div class="day">
+      <span class="day-n">第 ${n.day} 天</span>
+      <span class="day-t">${n.title}</span>
+    </div>
+    <div class="scene">
+      ${beatsHTML(n.beats)}
+      <div class="forks">
+        ${n.menu.map((f, i) => `
+          <div class="fork ${i === 0 ? 'pay' : 'no'}">
+            <div class="pick">${f.label}</div>
+            <div class="cost">${costHTML(f)}</div>
+            ${beatsHTML(f.beats)}
+            ${f.truth ? `<div class="truth">
+                <div class="truth-l">解鎖・真相 ${f.truth}</div>
+                <div class="truth-t">${StoryBet.TRUTHS[f.truth]}</div>
+              </div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`).join('');
+
+document.getElementById('chain').innerHTML =
+  Object.keys(StoryBet.TRUTHS).map(k => `<li>${StoryBet.TRUTHS[k]}</li>`).join('');
+</script>
+</body>
+</html>
