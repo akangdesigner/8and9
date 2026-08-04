@@ -11,246 +11,276 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
-       font:15px/1.85 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+       font:15px/1.9 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
        min-height:100vh;padding:26px 18px 60px}
-  .wrap{max-width:660px;margin:0 auto}
+  .wrap{max-width:640px;margin:0 auto}
 
   h1{font-size:17px;margin:0 0 3px;letter-spacing:.03em}
-  .lede{color:var(--faint);font-size:12.5px;margin-bottom:20px}
+  .lede{color:var(--faint);font-size:12.5px;margin-bottom:18px}
 
-  /* 進度條:三年 */
-  .span{margin-bottom:22px}
+  /* 三年進度 */
   .span-l{display:flex;justify-content:space-between;font-size:11px;
           color:var(--faint);letter-spacing:.1em;margin-bottom:6px}
-  .span-bar{height:6px;background:#15181d;border-radius:3px;position:relative;overflow:hidden}
+  .span-l b{color:var(--calm);font-weight:400}
+  .span-bar{height:5px;background:#15181d;border-radius:3px;position:relative;
+            overflow:hidden;margin-bottom:22px}
   .span-bar>i{position:absolute;left:0;top:0;height:100%;
               background:linear-gradient(90deg,#3f6a63,var(--calm));
-              transition:width .8s cubic-bezier(.3,.9,.3,1)}
-  .span-bar>.pin{position:absolute;top:-3px;width:2px;height:12px;background:#3a4048}
-  .span-bar>.pin.done{background:var(--gold)}
+              transition:width .9s cubic-bezier(.3,.9,.3,1)}
 
   .stage{background:var(--card);border:1px solid var(--line);border-radius:11px;
-         padding:22px 24px;min-height:280px;position:relative;overflow:hidden}
+         padding:24px 26px;min-height:300px;position:relative;overflow:hidden}
 
-  .head{display:flex;align-items:baseline;gap:11px;margin-bottom:4px}
+  .head{display:flex;align-items:baseline;gap:11px;margin-bottom:2px}
   .dn{font-size:11px;color:var(--faint);letter-spacing:.18em;
       border:1px solid var(--edge);border-radius:4px;padding:2px 9px}
   .term{font-size:11px;color:var(--faint);letter-spacing:.14em}
-  .title{font-size:19px;margin:6px 0 14px}
+  .title{font-size:19px;margin:8px 0 14px}
 
-  .body{white-space:pre-line;color:#c3c9d2;margin-bottom:8px}
+  .body{white-space:pre-line;color:#c5cbd4}
   .quiet{color:var(--faint);font-size:13.5px;border-left:2px solid var(--edge);
-         padding-left:12px;margin-top:12px}
+         padding-left:12px;margin-top:13px}
 
-  .acts{margin-top:20px;display:flex;flex-direction:column;gap:7px}
+  .cap{font-size:11px;letter-spacing:.24em;color:var(--faint);margin:22px 0 8px}
+  .acts{display:flex;flex-direction:column;gap:7px}
   button.act{text-align:left;background:rgba(12,16,23,.9);color:#dfe4ea;
     border:1px solid #333c48;border-left:3px solid #4a5563;padding:11px 15px;
     font:inherit;font-size:15px;cursor:pointer;border-radius:4px;transition:.13s;
     display:flex;justify-content:space-between;align-items:baseline;gap:14px}
   button.act:hover{background:rgba(34,42,55,.98);border-left-color:var(--gold);transform:translateX(3px)}
   button.act .c{font-size:12px;color:var(--faint);white-space:nowrap}
+  button.act .c .m{color:var(--money)} button.act .c .k{color:var(--calm)}
   button.act.sleep{border-left-color:#5a6b8a}
-  button.act.plan{border-left-color:#6a5a8a}
 
-  .cap{font-size:11px;letter-spacing:.24em;color:var(--faint);margin:22px 0 8px}
+  /* ── 過場:全黑,只有文字跟選項 ── */
+  .over{position:fixed;inset:0;background:#06070a;z-index:9;
+        display:flex;align-items:center;justify-content:center;padding:30px 20px;
+        opacity:0;pointer-events:none;transition:opacity .55s}
+  .over.on{opacity:1;pointer-events:auto}
+  .over-in{max-width:520px;width:100%}
+  .over .mark{font-size:26px;letter-spacing:.22em;color:#e8e2d5;margin-bottom:18px;
+              opacity:0;animation:fin .8s .25s forwards}
+  .over .said{color:#9aa2ac;white-space:pre-line;margin-bottom:26px;line-height:2;
+              opacity:0;animation:fin .8s .8s forwards}
+  .over .acts{opacity:0;animation:fin .8s 1.5s forwards}
+  .over button.act{background:rgba(16,20,28,.9)}
+  @keyframes fin{to{opacity:1}}
 
-  /* 時間流逝 */
-  .void{position:absolute;inset:0;background:#07080b;display:flex;
-        align-items:center;justify-content:center;flex-direction:column;gap:14px;
-        opacity:0;pointer-events:none;transition:opacity .5s}
-  .void.on{opacity:1;pointer-events:auto}
-  .void .big{font-size:34px;letter-spacing:.14em;color:#cfd6df;font-variant-numeric:tabular-nums}
-  .void .sm{font-size:13px;color:var(--faint);letter-spacing:.16em}
+  .flash{position:absolute;inset:0;background:#07080b;display:flex;
+         align-items:center;justify-content:center;flex-direction:column;gap:12px;
+         opacity:0;pointer-events:none;transition:opacity .45s}
+  .flash.on{opacity:1}
+  .flash .big{font-size:30px;letter-spacing:.16em;color:#cfd6df;font-variant-numeric:tabular-nums}
+  .flash .sm{font-size:12.5px;color:var(--faint);letter-spacing:.18em}
 
   .note{margin-top:20px;background:#161a20;border:1px solid var(--line);
-        border-radius:9px;padding:14px 17px;font-size:12.5px;color:var(--dim);line-height:1.8}
+        border-radius:9px;padding:15px 18px;font-size:12.5px;color:var(--dim);line-height:1.85}
   .note b{color:var(--ink)}
-  .note code{color:var(--calm);font-size:12px}
-
-  .reset{margin-top:14px;background:none;border:0;color:var(--faint);
+  .reset{margin-top:13px;background:none;border:0;color:var(--faint);
          font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>一天怎麼結束，時間怎麼跳</h1>
-  <div class="lede">睡覺 ＝ 今天結束。跳時間是另一個動作，而且一定先預告。</div>
+  <div class="lede">睡覺 ＝ 今天結束。跳時間走學期，過場只用文字跟選項帶過。</div>
 
-  <div class="span">
-    <div class="span-l"><span>15 歲・入學</span><span id="pct">第 3 天</span><span>18 歲・畢業</span></div>
-    <div class="span-bar"><i id="bar"></i><span id="pins"></span></div>
+  <div class="span-l">
+    <span>15 歲・入學</span><b id="pct"></b><span>18 歲・畢業</span>
   </div>
+  <div class="span-bar"><i id="bar"></i></div>
 
   <div class="stage">
     <div id="scene"></div>
-    <div class="void" id="void">
-      <div class="sm" id="vSm">時間過去了</div>
-      <div class="big" id="vBig"></div>
-    </div>
+    <div class="flash" id="flash"><div class="sm" id="fSm"></div><div class="big" id="fBig"></div></div>
   </div>
 
-  <button class="reset" id="reset">從頭再來</button>
+  <button class="reset" id="reset">從入學重來</button>
 
   <div class="note">
-    <b>哪幾天要玩，玩家不用選。</b>有事的日子遊戲才把你放進場景，其他時間全部跳掉——
-    三年 1095 天，實際會玩到的大約 <b>40–60 天</b>。<br><br>
-    <b>出事的時候遊戲不肯跳。</b>看完她包包裡那疊紙之後，接下來幾天變成一天一天過，
-    連「接下來要幹嘛」都不問你。玩家會直接感覺到不對勁，不需要任何 UI 提示。<br><br>
-    <b>跳過去積了好幾件事，只演最重要的一件</b>，其餘用場景裡東西的變化承接——
+    <b>哪幾天要玩，玩家不用選。</b>有事的日子遊戲才把你放進場景，其他全部跳掉。
+    三年 1095 天，實際玩到的大約 40–60 天。<br><br>
+    <b>出事之後遊戲不肯跳。</b>連續幾天一天一天過，連「要幹嘛」都不問——
+    玩家直接感覺到不對勁，不需要任何提示。<br><br>
+    <b>回來時不報告你錯過了什麼</b>，只讓場景裡少掉一樣東西。
     見 DESIGN_NOTES「跳過去之後：用隱喻，不要用報告」。
   </div>
 </div>
 
+<div class="over" id="over"><div class="over-in">
+  <div class="mark" id="oMark"></div>
+  <div class="said" id="oSaid"></div>
+  <div class="acts" id="oActs"></div>
+</div></div>
+
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
 <script>
-/* ── 把兩條線的節點排成一個隊列 ──────────────────────────
-   ⚠ 資料裡的 day 目前是絕對天數(3/6/10…)。三年下來會全部擠在第一個月,
-     所以這裡把它當成「這條線的第幾拍」,實際落在哪一天由跳躍決定。
-     真的要做的時候,資料應該從 day 改成 gap(距上一拍至少幾天)。 */
-const QUEUE = [];
-StoryBet.NODES.forEach((n,i)   => QUEUE.push({ who:'媽', n, gap:[0,3,6,9,12,14][i] || 10 }));
-StoryDrink.NODES.forEach((n,i) => QUEUE.push({ who:'爸', n, gap:[1,5,8,11,16][i] || 10 }));
-
-const TOTAL = 1095;
+/* ── 三年的骨架:學期與假期。跳躍長度由這張表決定,不是任意數字。 ──
+   kc 2026-08-04:「比如暑假開始了，這段時間你決定去…」 */
 const TERMS = [
-  [0,140,'高一上'], [140,180,'寒假'], [180,320,'高一下'], [320,380,'暑假'],
-  [380,520,'高二上'], [520,560,'寒假'], [560,700,'高二下'], [700,760,'暑假'],
-  [760,900,'高三上'], [900,940,'寒假'], [940,1095,'高三下']
+  { name:'高一上', days:140, mark:'開學了。',   said:'你十五歲。\n那張本票上的名字也是你。' },
+  { name:'寒假',   days:30,  mark:'寒假。',     said:'一個月。\n過年前後大家都在找臨時工。' },
+  { name:'高一下', days:135, mark:'開學了。',   said:'你又要穿制服了。' },
+  { name:'暑假',   days:60,  mark:'暑假開始了。', said:'兩個月。\n你可以整天工作。' },
+  { name:'高二上', days:140, mark:'開學了。',   said:'班上有人開始講大學的事。' },
+  { name:'寒假',   days:30,  mark:'寒假。',     said:'又一年。' },
+  { name:'高二下', days:135, mark:'開學了。',   said:'導師找你談過一次出席率。' },
+  { name:'暑假',   days:60,  mark:'暑假開始了。', said:'兩個月。\n明年這個時候你就畢業了。' },
+  { name:'高三上', days:140, mark:'開學了。',   said:'最後一年。' },
+  { name:'寒假',   days:30,  mark:'寒假。',     said:'剩半年。' },
+  { name:'高三下', days:135, mark:'開學了。',   said:'再來就結束了。' }
 ];
-const termOf = d => (TERMS.find(t => d >= t[0] && d < t[1]) || [,,'畢業'])[2];
 
-/* 跳時間的選項。長度不固定 —— 這就是時間的疏密。 */
-const PLANS = [
-  { label:'排全職夜班',   days:58, cost:'錢 +18000',   after:'你這兩個月上了 47 天班。' },
-  { label:'回學校把課補完', days:41, cost:'錢 −2400',  after:'你回去了。有些課補得回來，有些補不回來。' },
-  { label:'留在家裡',     days:12, cost:'錢 −1800',    after:'什麼都沒做。錢少了，日子過了。' }
+/* 每個階段能做的事。暑假可以全職，學期中不行 —— 選項本身就在講你的處境。 */
+const LONG = [
+  { label:'去工地',         m:24000, k:-6, after:'你曬到脫皮。手上多了兩個繭。' },
+  { label:'超商全職排班',   m:16000, k:-3, after:'你把整個假期排滿了。店長說你很好用。' },
+  { label:'回學校參加輔導', m:-3000, k:+5, after:'你去了。有些課補得回來，有些補不回來。' }
+];
+const SHORT = [
+  { label:'晚班排到最滿',   m:11000, k:-5, after:'你每天回到家都過十一點半。' },
+  { label:'照常上課',       m:2000,  k:+4, after:'你去了大部分的課。' },
+  { label:'蹺課去打零工',   m:7000,  k:-8, after:'導師打過兩次電話到家裡。' }
 ];
 
-/* 跳過去之後,家裡會少掉的東西(隱喻,不寫成報告) */
+/* 跳過去之後家裡少掉的東西。不寫成報告,讓玩家自己看見。 */
 const DECAY = [
   '客廳的燈泡壞了一顆，沒有人換。',
   '神明桌上本來兩盞紅燈，現在只剩一盞還亮著。',
   '冰箱門上的繳費單多了一張。',
   '曬衣架上你的制服還掛在那裡，沒有人收。',
-  '電視櫃上那台電視不見了。'
+  '浴室的鏡子裂了一角，用膠帶黏著。',
+  '餐桌少了一張椅子。',
+  '電視櫃上那台電視不見了。',
+  '神明桌上的水果已經乾掉了。',
+  '你房間的門把鬆了，要抬起來才關得上。',
+  '客廳的日光燈開始閃，沒有人換。'
 ];
 
-let day, qi, decayI, tight;
+/* 兩條線交錯,一個階段一件事 —— 11 個節點對 11 個階段。 */
+const QUEUE = [];
+(function(){
+  const a = StoryBet.NODES.map(n => ({ who:'媽', n }));
+  const b = StoryDrink.NODES.map(n => ({ who:'爸', n }));
+  for(let i=0;i<6;i++){ if(a[i]) QUEUE.push(a[i]); if(b[i]) QUEUE.push(b[i]); }
+})();
 
-function reset(){ day = 3; qi = 0; decayI = 0; tight = 0; render(); }
-
+const TOTAL = TERMS.reduce((s,t) => s + t.days, 0);
 const $ = id => document.getElementById(id);
 
+let day, ti, qi, decayI, tight;
+
+function reset(){ day = 6; ti = 0; qi = 0; decayI = 0; tight = 0; scene(); }
+
 function bar(){
-  $('bar').style.width = (day / TOTAL * 100) + '%';
-  $('pct').textContent = `第 ${day} 天　${termOf(day)}`;
-  $('pins').outerHTML = `<span id="pins">${
-    QUEUE.map((q,i) => `<span class="pin ${i<qi?'done':''}" style="left:${
-      Math.min(99, (day + (i-qi)*14) / TOTAL * 100)}%"></span>`).join('')}</span>`;
+  $('bar').style.width = Math.min(100, day / TOTAL * 100) + '%';
+  $('pct').textContent = `第 ${day} 天　${TERMS[Math.min(ti,TERMS.length-1)].name}`;
 }
 
-function render(){
+/* ── 有事的日子:進場景 ── */
+function scene(){
   bar();
   const item = QUEUE[qi];
-  if(!item){ $('scene').innerHTML = `<div class="title">畢業了。</div>
-    <div class="body">債還在。</div>`; return; }
-
+  if(!item || ti >= TERMS.length){ return end(); }
   const n = item.n;
   $('scene').innerHTML = `
-    <div class="head">
-      <span class="dn">第 ${day} 天</span>
-      <span class="term">${termOf(day)}　・　${item.who}</span>
-    </div>
+    <div class="head"><span class="dn">第 ${day} 天</span>
+      <span class="term">${TERMS[ti].name}　・　${item.who}</span></div>
     <div class="title">${n.title}</div>
     <div class="body">${n.beats.map(b => b.text).join('\n')}</div>
     <div class="cap">你可以</div>
-    <div class="acts">
-      ${n.menu.map((m,i) => `<button class="act" data-i="${i}">
-        <span>${m.label}</span><span class="c">${m.cost || '—'}</span></button>`).join('')}
-    </div>`;
-  $('scene').querySelectorAll('button').forEach(b => b.onclick = () => pick(+b.dataset.i));
+    <div class="acts">${n.menu.map((m,i) =>
+      `<button class="act" data-i="${i}"><span>${m.label}</span>
+       <span class="c">${m.cost || '—'}</span></button>`).join('')}</div>`;
+  $('scene').querySelectorAll('button').forEach(b => b.onclick = () => picked(+b.dataset.i));
 }
 
-function pick(i){
+function picked(i){
   const item = QUEUE[qi], m = item.n.menu[i];
   $('scene').innerHTML = `
     <div class="head"><span class="dn">第 ${day} 天</span>
-      <span class="term">${termOf(day)}</span></div>
+      <span class="term">${TERMS[ti].name}</span></div>
     <div class="title">${m.label}</div>
     <div class="body">${m.beats.filter(b=>!b.toast).map(b=>b.text).join('\n')}</div>
     ${m.beats.filter(b=>b.toast).map(b=>`<div class="quiet">${b.text||b.toast}</div>`).join('')}
     <div class="cap">今天結束了</div>
-    <div class="acts">
-      <button class="act sleep" id="sleep"><span>睡覺</span>
-        <span class="c">${tight>0 ? '明天還有事' : '結束這一天'}</span></button>
-    </div>`;
+    <div class="acts"><button class="act sleep" id="sleep">
+      <span>睡覺</span><span class="c">${tight>0?'明天還有事':'結束這一天'}</span></button></div>`;
   qi++;
-  /* 出事之後,接下來幾天不跳 —— 時間的疏密就是情緒的疏密 */
-  if(item.n.day >= 20) tight = 3;
+  if(item.n.day >= 20) tight = 2;      // 出事了 → 接下來幾天不跳
   $('sleep').onclick = sleep;
 }
 
+/* ── 睡覺:只結束今天。要不要跳,看下面 ── */
 function sleep(){
-  if(tight > 0){                       // 緊繃期:一天一天過,不問你要幹嘛
-    tight--; day += 1;
-    flash('隔天', 900, render);
-    return;
-  }
-  plan();                              // 平常:先問你接下來要幹嘛,才跳
+  if(tight > 0){ tight--; day += 1; flash('', '隔天', 900, scene); return; }
+  overlay();                            // 這個階段的事完了 → 過場
 }
 
-function plan(){
-  $('scene').innerHTML = `
-    <div class="head"><span class="dn">第 ${day} 天</span>
-      <span class="term">${termOf(day)}</span></div>
-    <div class="title">接下來這段時間，你要幹嘛？</div>
-    <div class="body quiet">你自己選跳多久。跳過去的代價，是你不在場。</div>
-    <div class="acts">
-      ${PLANS.map((p,i) => `<button class="act plan" data-i="${i}">
-        <span>${p.label}</span><span class="c">${p.days} 天　${p.cost}</span></button>`).join('')}
-    </div>`;
-  $('scene').querySelectorAll('button').forEach(b => b.onclick = () => jump(+b.dataset.i));
+/* ── 過場:全黑,一句時間標記 + 一段文字 + 選項 ── */
+function overlay(){
+  ti++;
+  if(ti >= TERMS.length) return end();
+  const T = TERMS[ti];
+  const opts = T.days >= 60 ? LONG : SHORT;
+
+  $('oMark').textContent = T.mark;
+  $('oSaid').textContent = T.said + '\n這段時間你決定——';
+  $('oActs').innerHTML = opts.map((o,i) =>
+    `<button class="act" data-i="${i}"><span>${o.label}</span><span class="c">
+      <span class="m">${o.m>0?'+':'−'}$${Math.abs(o.m)}</span>
+      <span class="k">歸屬感 ${o.k>0?'+':''}${o.k}</span></span></button>`).join('');
+  $('over').classList.add('on');
+  $('oActs').querySelectorAll('button').forEach(b => b.onclick = () => {
+    $('over').classList.remove('on');
+    setTimeout(() => passTime(T, opts[+b.dataset.i]), 550);
+  });
 }
 
-function jump(i){
-  const p = PLANS[i];
-  const target = day + p.days;
-  $('vSm').textContent = p.label;
-  $('void').classList.add('on');
-
-  const t0 = performance.now(), from = day;
+/* ── 時間流過去 ── */
+function passTime(T, o){
+  const from = day, target = day + T.days - 20 + Math.round(Math.random()*20);
+  $('fSm').textContent = o.label;
+  $('flash').classList.add('on');
+  const t0 = performance.now();
   (function tick(t){
-    const k = Math.min(1, (t - t0) / 1400);
-    const e = 1 - Math.pow(1 - k, 3);
-    day = Math.round(from + (target - from) * e);
-    $('vBig').textContent = `第 ${day} 天`;
+    const k = Math.min(1, (t - t0) / 1300);
+    day = Math.round(from + (target - from) * (1 - Math.pow(1-k, 3)));
+    $('fBig').textContent = `第 ${day} 天`;
     bar();
     if(k < 1) requestAnimationFrame(tick);
-    else setTimeout(() => { $('void').classList.remove('on'); land(p); }, 500);
+    else setTimeout(() => { $('flash').classList.remove('on'); land(o); }, 480);
   })(t0);
 }
 
-function land(p){
+function land(o){
   const gone = DECAY[decayI % DECAY.length]; decayI++;
   $('scene').innerHTML = `
     <div class="head"><span class="dn">第 ${day} 天</span>
-      <span class="term">${termOf(day)}</span></div>
+      <span class="term">${TERMS[ti].name}</span></div>
     <div class="title">你回來了</div>
-    <div class="body">${p.after}</div>
+    <div class="body">${o.after}</div>
     <div class="quiet">${gone}</div>
     <div class="cap">遊戲沒有告訴你這段時間發生了什麼</div>
-    <div class="acts">
-      <button class="act" id="go"><span>開門進去</span>
-        <span class="c">下一件有事的日子</span></button>
-    </div>`;
-  $('go').onclick = render;
+    <div class="acts"><button class="act" id="go">
+      <span>開門進去</span><span class="c">下一件有事的日子</span></button></div>`;
+  $('go').onclick = scene;
 }
 
-function flash(txt, ms, done){
-  $('vSm').textContent = ''; $('vBig').textContent = txt;
-  $('void').classList.add('on');
-  setTimeout(() => { $('void').classList.remove('on'); done(); }, ms);
+function end(){
+  bar();
+  $('scene').innerHTML = `
+    <div class="head"><span class="dn">第 ${TOTAL} 天</span><span class="term">畢業</span></div>
+    <div class="title">你畢業了。</div>
+    <div class="body">你十八歲。\n\n那張本票上的名字還是你。</div>
+    <div class="quiet">三年裡你實際玩到的，是上面走過的那十幾天。</div>`;
+}
+
+function flash(sm, big, ms, done){
+  $('fSm').textContent = sm; $('fBig').textContent = big;
+  $('flash').classList.add('on');
+  setTimeout(() => { $('flash').classList.remove('on'); done(); }, ms);
 }
 
 $('reset').onclick = reset;
