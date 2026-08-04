@@ -495,9 +495,11 @@ export const PLAYER = { height:4.0, eyeY:3.65 };
    高 9、距 17 是站在街上的高度,磁磚跟柏油在這個距離才看得到質感。
    再低就看不到招牌了——招牌掛在 8.3~11,相機壓到 6 的話整排會被切在畫面外。
    lookY 是看向角色的哪個高度(0=腳、1=頭頂),抬高一點才把招牌收進畫面上緣。
+   曾經為了看到樓上立面拉到 1.55,kc 說「調回去 原本的視角還好」——
+   樓上是遠景才看得到的東西,不值得為它改掉近景的構圖。
    fov 40 是望遠端:退遠 ＋ 縮視角,角色在畫面上反而更大,招牌也還收得進來,
    而且背景會被壓平,街看起來更像一條街,不像一個模型。 */
-export const CAM = { dist:22, high:11, lookY:1.55, fov:40 };
+export const CAM = { dist:22, high:11, lookY:.78, fov:40 };
 
 export function buildPlayer(THREE, scene){
   const M = {
