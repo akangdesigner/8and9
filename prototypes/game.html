@@ -599,7 +599,7 @@ function updateCity(dt){
 
   tmp.set(Math.sin(camYaw)*23, 29, Math.cos(camYaw)*23);
   camera.position.lerp(tmp.add(pos), 1 - Math.pow(.0015, dt/1000));
-  camera.lookAt(pos.x, pos.y+1.4, pos.z);
+  camera.lookAt(pos.x, pos.y + hero.eyeY*.55, pos.z);   // 看胸口偏上,不是頭頂
 
   keyLight.position.set(pos.x-24, 34, pos.z+20);
   keyLight.target.position.copy(pos);
