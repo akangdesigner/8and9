@@ -103,9 +103,12 @@ export function buildCity(THREE, scene){
   const M = {
     stone:std({map:T.stone,roughness:.95}), walk:std({map:T.walk,roughness:.94}),
     road:std({map:T.road,roughness:.8,metalness:.06}),
-    wall:std({map:T.wall,roughness:.96}),
-    wallB:std({map:T.wall,color:0xc8bfa8,roughness:.96}),
-    wallC:std({map:T.wall,color:0xa89e88,roughness:.96}),
+    /* 四種牆色。台灣街屋是一戶一戶自己貼的,隔壁跟你不會同一批磁磚——
+       換成真實照片之後這個色差要拉更開,不然整條街糊成同一個顏色。 */
+    wall:std({map:T.wall,color:0xe8e2d4,roughness:.96}),
+    wallB:std({map:T.wall,color:0xd8c49a,roughness:.96}),
+    wallC:std({map:T.wall,color:0x9aa2a6,roughness:.96}),
+    wallD:std({map:T.wall,color:0xb08a76,roughness:.96}),
     shutter:std({map:T.shutter,roughness:.65,metalness:.35}),
     red:std({map:T.red,roughness:.85}), redD:std({map:T.red,color:0xb0b0b0,roughness:.85}),
     gold:std({color:0xd8a63c,roughness:.36,metalness:.75,emissive:0x3a2a08,emissiveIntensity:.6}),
@@ -126,31 +129,35 @@ export function buildCity(THREE, scene){
    * 尺寸不限,但要能上下左右接起來(tileable),不然牆上會看到接縫。 */
   const TEX_DIR = new URL('../../assets/tex/', import.meta.url).href;
 
-  /* AI 生的圖幾乎不會真的無縫,直接平鋪牆上會出現一條一條的接縫。
-     鏡像成 2×2 之後左右上下自然接得起來,代價是圖案有對稱感——
-     遠景的牆面看不出來,近距離的東西才需要真的 tileable。 */
-  const mirror = img => {
-    const W = img.width, H = img.height;
-    const c = document.createElement('canvas'); c.width = W*2; c.height = H*2;
+  /* 地面那種一張圖鋪幾十公尺的,AI 生的圖不會真的無縫,直接平鋪會出現一條一條接縫,
+     所以鏡像成 2×2 讓它自己接起來(代價是有對稱感)。
+     牆跟鐵捲門是一個面貼一整張,根本不重複,鏡像反而多一份對稱,不要做。
+     lift = 疊一層半透明白:AI 給的髒污圖通常偏暗偏高對比,場景燈一打會整條街糊成一團。 */
+  const prep = (img, opt) => {
+    const W = img.width, H = img.height, m = opt.mirror ? 2 : 1;
+    const c = document.createElement('canvas'); c.width = W*m; c.height = H*m;
     const x = c.getContext('2d');
-    [[1,1,0,0], [-1,1,-W*2,0], [1,-1,0,-H*2], [-1,-1,-W*2,-H*2]].forEach(([sx,sy,dx,dy]) => {
-      x.save(); x.scale(sx,sy); x.drawImage(img, dx, dy, W, H); x.restore();
-    });
+    if(opt.mirror){
+      [[1,1,0,0], [-1,1,-W*2,0], [1,-1,0,-H*2], [-1,-1,-W*2,-H*2]].forEach(([sx,sy,dx,dy]) => {
+        x.save(); x.scale(sx,sy); x.drawImage(img, dx, dy, W, H); x.restore();
+      });
+    } else x.drawImage(img, 0, 0);
+    if(opt.lift){ x.fillStyle = `rgba(255,255,255,${opt.lift})`; x.fillRect(0,0,W*m,H*m); }
     return c;
   };
 
   const loader = new THREE.ImageLoader();
-  [ [[M.wall, M.wallB, M.wallC, M.pillar], 'wall.png',    [1,1]],
-    [[M.shutter],                          'shutter.png', [1.5,1]],
-    [[M.road],                             'road.png',    [4,4]],
-    [[M.walk],                             'walk.png',    [3,3]],
-    [[M.stone],                            'stone.png',   [5,5]]
-  ].forEach(([mats, file, rep]) => {
-    loader.load(TEX_DIR + file, img => {
-      const t = new THREE.CanvasTexture(mirror(img));
-      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]);
+  [ { mats:[M.wall, M.wallB, M.wallC, M.wallD], file:'wall.png', rep:[1,1], lift:.16 },
+    { mats:[M.shutter],                file:'shutter.png', rep:[1,1] },
+    { mats:[M.road],  file:'road.png',  rep:[4,4], mirror:true, lift:.06 },
+    { mats:[M.walk],  file:'walk.png',  rep:[3,3], mirror:true, lift:.08 },
+    { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, lift:.08 }
+  ].forEach(o => {
+    loader.load(TEX_DIR + o.file, img => {
+      const t = new THREE.CanvasTexture(prep(img, o));
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(o.rep[0], o.rep[1]);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-      mats.forEach(m => { m.map = t; m.needsUpdate = true; });
+      o.mats.forEach(m => { m.map = t; m.needsUpdate = true; });
     }, undefined, () => {});                 // 沒這張圖就算了,不要吵
   });
 
@@ -193,7 +200,7 @@ export function buildCity(THREE, scene){
       const w = axis==='x' ? alongW : DEPTH;
       const d = axis==='x' ? DEPTH  : alongW;
       const h = 9 + ((i*7)%3)*2.4;
-      add(box(w,h,d, [M.wall,M.wallB,M.wallC][i%3]), X, h/2, Z);
+      add(box(w,h,d, [M.wall,M.wallB,M.wallC,M.wallD][(i*3)%4]), X, h/2, Z);
       solid(X, Z, w/2, d/2);
 
       const fX = axis==='x' ? X : X + face*(DEPTH/2);
