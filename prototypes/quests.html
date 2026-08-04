@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 任務總表</title>
+<style>
+  :root{
+    --bg:#0e1014; --card:#181b21; --line:#252931; --edge:#323740;
+    --ink:#e6e8ec; --dim:#8d949e; --faint:#5a616b;
+    --money:#f2d888; --calm:#6fc3b4; --cool:#d05fa0; --debt:#e0685f;
+    --white:#8d949e; --grey:#c9a34a; --black:#e0483a; --gold:#d8b24a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.85 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+       padding:26px 16px 70px}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:18px;margin:0 0 3px}
+  .lede{color:var(--faint);font-size:12.5px;margin-bottom:16px}
+
+  .keys{background:#151920;border:1px solid var(--line);border-radius:9px;
+        padding:13px 17px;margin-bottom:22px;font-size:12.5px;color:var(--dim);line-height:1.9}
+  .keys b{color:var(--ink)}
+  .t-白{color:var(--white)} .t-灰{color:var(--grey)} .t-黑{color:var(--black)}
+
+  .grp{margin-bottom:30px}
+  .grp h2{font-size:13px;letter-spacing:.2em;color:var(--gold);margin:0 0 4px;font-weight:600}
+  .grp .sub{font-size:12px;color:var(--faint);margin-bottom:13px}
+
+  .q{background:var(--card);border:1px solid var(--line);border-radius:9px;
+     padding:15px 17px;margin-bottom:9px}
+  .q.oneway{border-left:3px solid var(--black)}
+  .q.chain{border-left:3px solid #6a5a8a}
+  .qh{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .tier{font-size:10px;letter-spacing:.14em;border:1px solid var(--edge);
+        border-radius:3px;padding:1px 7px}
+  .qt{font-size:16px}
+  .from{font-size:11.5px;color:var(--faint)}
+  .flag{font-size:10px;letter-spacing:.1em;color:var(--black);border:1px solid #4a2e2c;
+        border-radius:3px;padding:1px 7px}
+  .hook{color:#c1c8d1;font-size:14px;margin:7px 0 10px}
+
+  .meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--faint);
+        padding-top:9px;border-top:1px solid var(--line)}
+  .meta .m{color:var(--money)} .meta .k{color:var(--calm)}
+  .meta .o{color:var(--cool)} .meta .r{color:var(--debt)} .meta .g{color:#5fb87a}
+
+  .det{margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);display:none}
+  .q.open .det{display:block}
+  .beat{white-space:pre-line;color:#c9cfd8;font-size:14px;margin-bottom:8px}
+  .quiet{color:var(--faint);font-size:12.5px;border-left:2px solid var(--edge);
+         padding-left:11px;margin-top:10px;line-height:1.8}
+  .fork{background:#13161c;border:1px solid var(--line);border-radius:7px;
+        padding:11px 13px;margin-top:9px}
+  .fork .fl{font-size:13.5px;color:var(--gold);margin-bottom:6px}
+  .refuse{margin-top:10px;font-size:12.5px;color:#8a8078}
+  .refuse b{color:#a89a8a}
+  .later{margin-top:10px;font-size:12.5px;color:var(--debt);
+         border-left:2px solid #4a2e2c;padding-left:11px;white-space:pre-line}
+  .more{margin-top:9px;font-size:11.5px;color:var(--faint);cursor:pointer;
+        text-decoration:underline;user-select:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>任務總表</h1>
+  <div class="lede">點任何一條展開內容。</div>
+
+  <div class="keys">
+    <b>門檻是雙向的。</b>帥潮不夠他們不找你，風評太差廟方不要你——連「壞人的圈子」都有門檻。<br>
+    <b>你不是選擇變壞，你是被一步一步帶進去的。</b>
+    所以有幾個任務接的時候以為是 A，做到一半才知道是 B，那時候才給你「繼續／走人」，而走人要付歸屬感。<br>
+    <b>拒絕也有代價。</b>沒有安全的選項，這是這款遊戲的基本盤。<br>
+    <span class="t-白">白</span>＝乾淨
+    <span class="t-灰">灰</span>＝說不出哪裡不對
+    <span class="t-黑">黑</span>＝回不去
+    <span style="color:var(--black)">不可逆</span>＝做了就是做了，遊戲不警告
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script src="lib/quests.js"></script>
+<script>
+const G = [
+  { key:'TEMPLE', name:'廟口', sub:'8+9 那條。錢最多，風評掉最快，而且有一個會跟你一輩子。' },
+  { key:'SCHOOL', name:'學校', sub:'小美那條要帥潮才進得去；導師那條要風評。兩邊都要花格子。' },
+  { key:'WORK',   name:'打工', sub:'唯一乾淨的錢。但代班會吃掉隔天早上。' }
+];
+
+const money = v => `<span class="m">${v>0?'+':'−'}$${Math.abs(v)}</span>`;
+function payHTML(p){
+  if(!p) return '—';
+  const t = [];
+  if(p.money) t.push(money(p.money));
+  if(p.calm)  t.push(`<span class="k">歸屬 ${p.calm>0?'+':''}${p.calm}</span>`);
+  if(p.cool)  t.push(`<span class="o">帥潮 ${p.cool>0?'+':''}${p.cool}</span>`);
+  if(p.rep)   t.push(`<span class="${p.rep>0?'g':'r'}">風評 ${p.rep>0?'+':''}${p.rep}</span>`);
+  if(p.full)  t.push(`飽足 +${p.full}`);
+  return t.join('　') || '—';
+}
+function needHTML(n){
+  if(!n || !Object.keys(n).length) return '無門檻';
+  const t = [];
+  if(n.cool)      t.push(`帥潮 ≥ ${n.cool}`);
+  if(n.repMin)    t.push(`風評 ≥ ${n.repMin}`);
+  if(n.rep)       t.push(`風評 ≥ ${n.rep}`);
+  if(n.calm)      t.push(`歸屬 ≥ ${n.calm}`);
+  if(n.money)     t.push(`身上 ≥ $${n.money}`);
+  if(n.rel)       t.push(`熟 ≥ ${n.rel}`);
+  if(n.chainDone) t.push(`要先完成「${n.chainDone}」`);
+  return t.join('　・　');
+}
+
+document.getElementById('out').innerHTML = G.map(g => `
+  <div class="grp">
+    <h2>${g.name}</h2><div class="sub">${g.sub}</div>
+    ${Quests[g.key].map((q,i) => `
+      <div class="q ${q.oneway?'oneway':''} ${q.chain?'chain':''}" id="q-${g.key}-${i}">
+        <div class="qh">
+          <span class="tier t-${q.tier}">${q.tier}</span>
+          <span class="qt">${q.title}</span>
+          <span class="from">${q.from}</span>
+          ${q.oneway ? '<span class="flag">不可逆</span>' : ''}
+          ${q.chain ? '<span class="flag" style="color:#a98ac9;border-color:#4a3f5c">連鎖</span>' : ''}
+          ${q.dead ? '<span class="flag" style="color:#c99a4a;border-color:#5c4a2e">吃掉隔天早上</span>' : ''}
+        </div>
+        <div class="hook">${q.hook}</div>
+        <div class="meta">
+          <span>門檻：${needHTML(q.need)}</span>
+          <span>${q.slots} 格　${q.days>50?'無期限':q.days+' 天內'}</span>
+          <span>${payHTML(q.pay)}</span>
+        </div>
+        <div class="more" data-id="q-${g.key}-${i}">展開內容 ▾</div>
+        <div class="det">
+          ${(q.beats||[]).map(b => `<div class="beat">${b.text}</div>`).join('')}
+          ${q.quiet ? `<div class="quiet">${q.quiet}</div>` : ''}
+          ${q.twist ? `
+            <div class="fork">
+              <div class="fl">中途：${q.twist.title}</div>
+              ${q.twist.beats.map(b=>`<div class="beat">${b.text}</div>`).join('')}
+              <div class="quiet"><b>${q.twist.go.label}</b>　${payHTML(q.twist.go.pay)}<br>${q.twist.go.line}</div>
+              <div class="quiet"><b>${q.twist.stop.label}</b>　${payHTML(q.twist.stop.pay)}<br>${q.twist.stop.line}</div>
+            </div>` : ''}
+          ${(q.branch||[]).map(b => `
+            <div class="fork"><div class="fl">${b.label}　${payHTML(b.pay)}</div>
+              ${b.beats.map(x=>`<div class="beat">${x.text}</div>`).join('')}
+              <div class="quiet">${b.quiet}</div></div>`).join('')}
+          ${q.later ? `<div class="later">⚠ 第 ${q.later.day} 天：債 +${q.later.debt}
+            \n${q.later.line}</div>` : ''}
+          ${q.refuse ? `<div class="refuse"><b>拒絕：</b>${payHTML(q.refuse)}
+            ${q.refuse.line ? '　' + q.refuse.line : ''}</div>` : ''}
+        </div>
+      </div>`).join('')}
+  </div>`).join('');
+
+document.querySelectorAll('.more').forEach(m => m.onclick = () => {
+  const q = document.getElementById(m.dataset.id);
+  q.classList.toggle('open');
+  m.textContent = q.classList.contains('open') ? '收起 ▴' : '展開內容 ▾';
+});
+</script>
+</body>
+</html>
