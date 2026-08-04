@@ -165,7 +165,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
-import { CITY, buildCity, buildPlayer } from './lib/scene-city3d.js';
+import { CITY, CAM, buildCity, buildPlayer } from './lib/scene-city3d.js';
 
 /* ===================================================================
    共用狀態 —— 兩層都吃同一份。走進超商買東西，出來街上錢就少了。
@@ -306,7 +306,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d141e);
 scene.fog = new THREE.FogExp2(0x0d141e, 0.0058);
 
-const camera = new THREE.PerspectiveCamera(56, innerWidth/innerHeight, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(CAM.fov, innerWidth/innerHeight, 0.1, 400);
 camera.position.set(0, 29, 23);
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
@@ -597,9 +597,9 @@ function updateCity(dt){
   for(const r of CITY.V_ROADS) if(Math.abs(pos.x-r.x) < CITY.ROAD_HW) onRoad = true;
   pos.y += ((onRoad ? .1 : .3) - pos.y)*.3;
 
-  tmp.set(Math.sin(camYaw)*23, 29, Math.cos(camYaw)*23);
+  tmp.set(Math.sin(camYaw)*CAM.dist, CAM.high, Math.cos(camYaw)*CAM.dist);
   camera.position.lerp(tmp.add(pos), 1 - Math.pow(.0015, dt/1000));
-  camera.lookAt(pos.x, pos.y + hero.eyeY*.55, pos.z);   // 看胸口偏上,不是頭頂
+  camera.lookAt(pos.x, pos.y + hero.eyeY*CAM.lookY, pos.z);
 
   keyLight.position.set(pos.x-24, 34, pos.z+20);
   keyLight.target.position.copy(pos);

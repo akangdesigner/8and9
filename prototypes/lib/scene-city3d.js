@@ -432,7 +432,17 @@ export function buildCity(THREE, scene){
  * 街上相機在 29 高、23 遠,臉根本看不到——決定像不像人的是**頭身比跟剪影**,
  * 不是面數。臉留給 2D 室內(見 DESIGN_NOTES「美術與視角」)。
  * 四肢掛在 pivot 上(髖、肩),不是繞自己中心轉,腿長了才擺得像走路。 */
-export const PLAYER = { height:3.2, eyeY:2.92 };
+/* 身高 4.0:用車道半寬(ROAD_HW=9,雙向道約 7.5 米)回推,1 單位 ≈ 0.42 米,
+   4.0 單位 ≈ 1.7 米。舊的 3.2 只有 1.34 米,站在機車旁邊像國中生。 */
+export const PLAYER = { height:4.0, eyeY:3.65 };
+
+/* 相機。2026-08-04 kc 定案壓低:「29 高那張看起來像地圖」。
+   高 9、距 17 是站在街上的高度,磁磚跟柏油在這個距離才看得到質感。
+   再低就看不到招牌了——招牌掛在 8.3~11,相機壓到 6 的話整排會被切在畫面外。
+   lookY 是看向角色的哪個高度(0=腳、1=頭頂),抬高一點才把招牌收進畫面上緣。
+   fov 40 是望遠端:退遠 ＋ 縮視角,角色在畫面上反而更大,招牌也還收得進來,
+   而且背景會被壓平,街看起來更像一條街,不像一個模型。 */
+export const CAM = { dist:22, high:11, lookY:.78, fov:40 };
 
 export function buildPlayer(THREE, scene){
   const M = {
@@ -446,24 +456,24 @@ export function buildPlayer(THREE, scene){
   const g = new THREE.Group();
   const put = (b,x,y,z) => { b.position.set(x,y,z); g.add(b); return b; };
 
-  put(box(.60,1.05,.34, M.hood),  0, 2.10, 0);      // 連帽外套
-  put(box(.17,.16,.17,  M.skin),  0, 2.66, 0);      // 脖子
-  put(box(.42,.46,.44,  M.skin),  0, 2.92, 0);      // 頭
-  put(box(.46,.13,.47,  M.hair),  0, 3.16, 0);      // 頭髮
-  put(box(.56,.26,.20,  M.hood),  0, 2.62, -.22);   // 兜帽垂在背後
+  put(box(.75,1.31,.43, M.hood),  0, 2.63, 0);      // 連帽外套
+  put(box(.21,.20,.21, M.skin),   0, 3.33, 0);      // 脖子
+  put(box(.53,.58,.55, M.skin),   0, 3.65, 0);      // 頭
+  put(box(.58,.16,.59, M.hair),   0, 3.95, 0);      // 頭髮
+  put(box(.70,.33,.25, M.hood),   0, 3.28, -.28);   // 兜帽垂在背後
 
-  /* 手腳掛 pivot:髖在 1.57,肩在 2.58 */
+  /* 手腳掛 pivot:髖在 1.96,肩在 3.23 */
   const limb = (x, y, w, h, d, m, zOff) => {
     const p = new THREE.Group(); p.position.set(x, y, 0);
     const b = box(w, h, d, m); b.position.set(0, -h/2, zOff||0); p.add(b);
     g.add(p); return p;
   };
-  const armL = limb(-.385, 2.58, .17, 1.02, .19, M.hood);
-  const armR = limb( .385, 2.58, .17, 1.02, .19, M.hood);
-  const legL = limb(-.155, 1.57, .23, 1.50, .25, M.pants);
-  const legR = limb( .155, 1.57, .23, 1.50, .25, M.pants);
-  [[legL,-1],[legR,1]].forEach(([p]) => {
-    const s = box(.26,.16,.42, M.shoe); s.position.set(0,-1.42,.07); p.add(s);
+  const armL = limb(-.48, 3.23, .21, 1.28, .24, M.hood);
+  const armR = limb( .48, 3.23, .21, 1.28, .24, M.hood);
+  const legL = limb(-.19, 1.96, .29, 1.88, .31, M.pants);
+  const legR = limb( .19, 1.96, .29, 1.88, .31, M.pants);
+  [legL, legR].forEach(p => {
+    const s = box(.33,.20,.53, M.shoe); s.position.set(0,-1.78,.09); p.add(s);
   });
 
   g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
@@ -472,7 +482,7 @@ export function buildPlayer(THREE, scene){
   let phase = 0;
   function animate(dt, moving, run){
     if(moving){
-      phase += dt*.0092*run;                        // 腿長了,步頻要慢一點才不像小碎步
+      phase += dt*.0082*run;                        // 腿長了,步頻要慢一點才不像小碎步
       const sw = Math.sin(phase)*.52;
       legL.rotation.x = sw;      legR.rotation.x = -sw;
       armL.rotation.x = -sw*.75; armR.rotation.x = sw*.75;
