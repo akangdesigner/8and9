@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>no-way-up ／ 一天要做什麼</title>
+<title>no-way-up ／ 一天要怎麼過</title>
 <style>
   :root{
     --bg:#0e1014; --card:#181b21; --line:#252931; --edge:#323740;
@@ -13,99 +13,90 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
        font:15px/1.85 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
-       min-height:100vh;padding:22px 16px 60px}
+       min-height:100vh;padding:20px 16px 60px}
   .wrap{max-width:600px;margin:0 auto}
   h1{font-size:16px;margin:0 0 3px}
-  .lede{color:var(--faint);font-size:12.5px;margin-bottom:16px}
+  .lede{color:var(--faint);font-size:12.5px;margin-bottom:14px}
 
-  .hud{display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap}
+  .hud{display:flex;gap:5px;margin-bottom:9px}
   .pod{background:var(--card);border:1px solid var(--line);border-radius:4px;
-       padding:5px 9px 6px;flex:1;min-width:66px}
-  .pod .lb{color:#7c8593;font-size:9.5px;letter-spacing:.14em}
-  .pod .nm{font-size:15px;margin-top:2px;font-variant-numeric:tabular-nums}
+       padding:5px 8px 6px;flex:1;min-width:0}
+  .pod .lb{color:#7c8593;font-size:9.5px;letter-spacing:.12em}
+  .pod .nm{font-size:14.5px;margin-top:2px;font-variant-numeric:tabular-nums}
   .pod.money .nm{color:var(--money)} .pod.full .nm{color:var(--full)}
   .pod.calm .nm{color:var(--calm)}   .pod.cool .nm{color:var(--cool)}
-  .pod .track{height:3px;margin-top:4px;background:rgba(255,255,255,.09);border-radius:2px;overflow:hidden}
-  .pod .track i{display:block;height:100%;transition:width .5s}
-  .pod.full .track i{background:var(--full)} .pod.calm .track i{background:var(--calm)}
-  .pod.cool .track i{background:var(--cool)}
   .pod.hit{animation:hit .55s}
   @keyframes hit{30%{border-color:var(--gold);transform:translateY(-3px)}}
 
-  /* 風評:中間 0,往左壞往右好 */
-  .pod.rep .bi{height:3px;margin-top:4px;background:rgba(255,255,255,.09);
-               border-radius:2px;position:relative}
-  .pod.rep .bi:before{content:'';position:absolute;left:50%;top:-1px;
-                      width:1px;height:5px;background:#4a515c}
-  .pod.rep .bi i{position:absolute;top:0;height:100%;border-radius:2px;transition:.5s}
-  .pod.rep .nm.g{color:var(--good)} .pod.rep .nm.b{color:var(--bad)}
-
-  .daybar{display:flex;justify-content:space-between;align-items:baseline;
-          font-size:11.5px;color:var(--faint);letter-spacing:.12em;margin:13px 0 8px}
-  .daybar b{color:var(--ink);font-size:14px;letter-spacing:.06em;font-weight:400}
-  .slots{display:flex;gap:5px;margin-bottom:15px}
-  .slot{flex:1;height:25px;border:1px solid var(--line);border-radius:4px;
+  .bar{display:flex;justify-content:space-between;align-items:baseline;
+       font-size:11.5px;color:var(--faint);letter-spacing:.1em;margin:12px 0 8px}
+  .bar b{color:var(--ink);font-size:14px;font-weight:400;letter-spacing:.05em}
+  .slots{display:flex;gap:5px;margin-bottom:14px}
+  .slot{flex:1;height:24px;border:1px solid var(--line);border-radius:4px;
         display:flex;align-items:center;justify-content:center;
         font-size:11px;color:var(--faint);letter-spacing:.1em;background:#131720}
   .slot.now{border-color:var(--gold);color:var(--gold)}
-  .slot.done{background:#1b2028;color:#6d7684;border-color:var(--edge)}
+  .slot.done{background:#1b2028;color:#6d7684}
   .slot.dead{background:#1a1416;color:#7a5a5a;border-color:#3a2a2c}
 
   .stage{background:var(--card);border:1px solid var(--line);border-radius:10px;
-         padding:20px 22px;min-height:250px;position:relative;overflow:hidden}
+         padding:19px 21px;min-height:280px;position:relative;overflow:hidden}
   .when{font-size:11px;letter-spacing:.24em;color:var(--faint)}
-  .title{font-size:18px;margin:7px 0 12px}
+  .title{font-size:18px;margin:7px 0 11px}
+  .amb{color:var(--faint);font-size:13px;white-space:pre-line;
+       border-left:2px solid var(--edge);padding-left:11px;margin-bottom:15px}
   .body{white-space:pre-line;color:#c5cbd4;font-size:14.5px}
   .quiet{color:var(--faint);font-size:13px;border-left:2px solid var(--edge);
-         padding-left:11px;margin-top:12px}
+         padding-left:11px;margin-top:12px;white-space:pre-line;line-height:1.8}
 
-  .acts{display:flex;flex-direction:column;gap:6px;margin-top:18px}
+  .cap{font-size:11px;letter-spacing:.24em;color:var(--faint);margin:16px 0 8px}
+  .acts{display:flex;flex-direction:column;gap:6px}
   button.act{text-align:left;background:rgba(12,16,23,.9);color:#dfe4ea;
     border:1px solid #333c48;border-left:3px solid #4a5563;padding:10px 14px;
-    font:inherit;font-size:14.5px;cursor:pointer;border-radius:4px;transition:.13s;
-    display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+    font:inherit;font-size:14.5px;cursor:pointer;border-radius:4px;transition:.13s}
   button.act:hover:not(:disabled){background:rgba(34,42,55,.98);
     border-left-color:var(--gold);transform:translateX(3px)}
-  button.act:disabled{opacity:.3;cursor:default}
-  button.act .c{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  button.act:disabled{opacity:.32;cursor:default}
+  button.act .c{float:right;font-size:11.5px;color:var(--faint)}
+  button.act .d{font-size:12.5px;color:#7f8794;margin-top:3px;line-height:1.7}
   .c .m{color:var(--money)} .c .f{color:var(--full)} .c .k{color:var(--calm)}
   .c .o{color:var(--cool)} .c .r{color:var(--bad)} .c .g{color:var(--good)}
-  .c .b{color:var(--book)}
-  button.act.sleep{border-left-color:#5a6b8a}
-  button.act.tired{border-left-color:#6b4a4a}
+  button.act.steal{border-left-color:#7a4a4a}
+  button.act.seen{border-left-color:#8a7a3a}
   button.act.book{border-left-color:var(--book)}
+  button.act.back{border-left-color:#4a5563;color:#98a1ac;font-size:13.5px}
 
-  /* 解題 */
+  .clerk{font-size:12.5px;color:var(--gold);border:1px solid #4a4030;
+         background:#1e1a12;border-radius:5px;padding:8px 12px;margin-bottom:11px}
+  .risk{float:right;color:var(--faint)}
+
   .qsubj{display:inline-block;font-size:10.5px;letter-spacing:.16em;color:var(--book);
-         border:1px solid #33445c;border-radius:3px;padding:1px 8px;margin-bottom:9px}
-  .qtext{font-size:16px;line-height:1.9;margin-bottom:4px}
-  .grade{float:right;font-size:11.5px;color:var(--faint);letter-spacing:.1em}
+         border:1px solid #33445c;border-radius:3px;padding:1px 8px;margin-bottom:8px}
+  .qtext{font-size:16px;line-height:1.9}
   .ansOK{border-left-color:var(--good)!important;background:rgba(50,90,66,.35)!important}
   .ansNO{border-left-color:var(--bad)!important;background:rgba(90,44,40,.3)!important}
-  .note{color:var(--faint);font-size:12.5px;margin-top:11px;
-        border-left:2px solid var(--edge);padding-left:11px}
 
   .flash{position:absolute;inset:0;background:#07080b;display:flex;
-         align-items:center;justify-content:center;flex-direction:column;gap:10px;
+         align-items:center;justify-content:center;flex-direction:column;gap:9px;
          opacity:0;pointer-events:none;transition:opacity .4s}
   .flash.on{opacity:1}
-  .flash .big{font-size:26px;letter-spacing:.16em;color:#cfd6df}
-  .flash .sm{font-size:12px;color:var(--faint);letter-spacing:.14em;text-align:center;padding:0 20px}
+  .flash .big{font-size:25px;letter-spacing:.16em;color:#cfd6df}
+  .flash .sm{font-size:12px;color:var(--faint);letter-spacing:.12em;text-align:center;padding:0 24px}
 
-  .foot{margin-top:18px;background:#151920;border:1px solid var(--line);
+  .foot{margin-top:17px;background:#151920;border:1px solid var(--line);
         border-radius:9px;padding:14px 17px;font-size:12.5px;color:var(--dim);line-height:1.85}
   .foot b{color:var(--ink)}
-  .reset{margin-top:12px;background:none;border:0;color:var(--faint);
+  .reset{margin-top:11px;background:none;border:0;color:var(--faint);
          font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>一天要做什麼</h1>
-  <div class="lede">三格。想做的永遠比三件多，而昨晚做了什麼會吃掉今天早上。</div>
+  <h1>一天要怎麼過</h1>
+  <div class="lede">先決定去哪裡，到了那裡再面對具體的東西。</div>
 
   <div class="hud" id="hud"></div>
-  <div class="daybar"><b id="dTitle"></b><span id="dSub"></span></div>
+  <div class="bar"><b id="dTitle"></b><span id="dSub"></span></div>
   <div class="slots" id="slots"></div>
 
   <div class="stage">
@@ -116,248 +107,246 @@
   <button class="reset" id="reset">重來</button>
 
   <div class="foot">
-    <b>兩條路都是真的能走的。</b>街頭那條給你歸屬感跟帥潮，代價是風評往左掉；
-    讀書那條要你把格子花在教室裡，換成績、獎學金、以及打工時那張成績單。
-    <b>而你一天只有三格</b>——時間不夠才是這款遊戲真正的敵人。<br><br>
-    <b>晚班會吃掉隔天早上。</b>上完晚班回家十一點半，第一節你就是睡著的，那一格直接沒了。
-    「不是你笨，是你上完晚班回家已經十一點半」寫在 DESIGN_NOTES 第一天，這裡是它的機制版。<br><br>
-    <b>風評不是善惡。</b>你抽菸不是惡，你考獎學金也不是善——
-    真正發生的是派出所有你的名字，或者學校會提你的名字。評價你的是別人，不是遊戲。
+    <b>鮮食櫃是整個遊戲的縮影。</b>同一個櫃子前面三個選項，三種代價：
+    正價 89 花<b>錢</b>、黃標 58 花<b>歸屬感</b>（會被看見）、
+    塞進外套花<b>風評</b>（而且會被抓）。<br><br>
+    <b>偷之前先看店員朝哪邊。</b>那是空間感，不是骰子——
+    畫面先告訴你他在幹嘛，你才有得算。<br><br>
+    <b>晚班會吃掉隔天早上。</b>回到家十一點半，第一節你就是睡著的，那一格直接沒了。
   </div>
 </div>
 
 <script src="lib/quiz.js"></script>
+<script src="lib/places.js"></script>
 <script>
-const ST0 = { money:63, full:42, calm:55, cool:8, rep:0 };
+const P = Places, $ = id => document.getElementById(id);
 const WD = ['日','一','二','三','四','五','六'];
-let ST, day, slot, tiredAM, attend, right, wrong, log, qi, gotSchol, hasCard;
-
-const $ = id => document.getElementById(id);
-const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
-
-/* ── 行動表 ───────────────────────────────── */
-const ACTS = {
-  am: [
-    { id:'class', label:'上課', quiz:true, att:1,
-      say:'', quiet:'' },
-    { id:'skip',  label:'蹺課去打零工', att:-1, d:{money:+700, calm:-2, rep:-3},
-      say:'發傳單。站四個小時，七百塊。',
-      quiet:'導師沒有打電話來。他已經不打了。' },
-    { id:'late',  label:'睡到中午再去', att:-1, d:{calm:-3, rep:-2},
-      say:'你醒來的時候十一點四十。',
-      quiet:'你在校門口站了一下，還是進去了。' }
-  ],
-  noon: [
-    { id:'stair', label:'去後面樓梯間', d:{calm:+6, rep:-5, money:-60},
-      say:'四五個人蹲在那裡。\n有人往旁邊挪，空出一個位子。',
-      quiet:'那個位子不是白給的。' },
-    { id:'cards', label:'最後一排打牌', d:{calm:+5, rep:-4}, gamble:true,
-      say:'一局五十。',
-      quiet:'他們叫你的綽號。那個綽號是上禮拜才有的。' },
-    { id:'study', label:'留在教室寫題目', quiz:true, att:1, quiet2:'午休四十分鐘。你寫了兩題。' },
-    { id:'alone', label:'自己吃便當', d:{full:+22, calm:-3},
-      say:'你在座位上吃完，沒有人過來。',
-      quiet:'你趴著睡了二十分鐘。' }
-  ],
-  night: [
-    { id:'shift', label:'超商晚班', d:{money:+850, full:-12}, dead:true, needJob:true,
-      say:'到十一點。收銀、補貨、拖地。',
-      quiet:'回到家十一點半。明天第一節你會睡著。' },
-    { id:'ride',  label:'跟他們去繞車', d:{calm:+8, cool:+4, money:-180, rep:-6},
-      say:'從廟口繞到後火車站，來回兩趟。\n風很大，沒有人講話。',
-      quiet:'那兩個小時你什麼都沒有想。' },
-    { id:'home',  label:'回家', d:{full:+14},
-      say:'客廳燈亮著，電視開著。他在沙發上。',
-      quiet:'你煮了泡麵。他沒有問你今天去哪。' },
-    { id:'night', label:'在超商角落寫題目', d:{money:-35}, quiz:true, att:1,
-      quiet2:'你買了一杯思樂冰坐到打烊。' }
-  ]
-};
 const SLOT_NAME = { am:'上午', noon:'午休', night:'晚上' };
 const ORDER = ['am','noon','night'];
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
-/* ── HUD ──────────────────────────────────── */
-function hud(hit){
-  const rp = ST.rep, w = Math.min(50, Math.abs(rp)/100*50);
-  $('hud').innerHTML = `
-    <div class="pod money ${hit&&hit.money?'hit':''}"><div class="lb">金錢</div>
-      <div class="nm">$${ST.money}</div></div>
-    <div class="pod full ${hit&&hit.full?'hit':''}"><div class="lb">飽足</div>
-      <div class="nm">${ST.full}</div><div class="track"><i style="width:${ST.full}%"></i></div></div>
-    <div class="pod calm ${hit&&hit.calm?'hit':''}"><div class="lb">歸屬感</div>
-      <div class="nm">${ST.calm}</div><div class="track"><i style="width:${ST.calm}%"></i></div></div>
-    <div class="pod cool ${hit&&hit.cool?'hit':''}"><div class="lb">帥潮</div>
-      <div class="nm">${ST.cool}</div><div class="track"><i style="width:${ST.cool}%"></i></div></div>
-    <div class="pod rep ${hit&&hit.rep?'hit':''}"><div class="lb">風評</div>
-      <div class="nm ${rp>0?'g':rp<0?'b':''}">${rp>0?'+':''}${rp}</div>
-      <div class="bi"><i style="${rp>=0
-        ? `left:50%;width:${w}%;background:var(--good)`
-        : `right:50%;width:${w}%;background:var(--bad)`}"></i></div></div>`;
+let ST, day, slot, tiredAM, attend, right, wrong, qi, log, hasJob, caught, clerk;
+
+function reset(){
+  ST = { money:63, full:42, calm:55, cool:8, rep:0 };
+  day = 1; slot = 0; tiredAM = false; attend = 0;
+  right = 0; wrong = 0; qi = 0; log = []; hasJob = false; caught = 0;
+  pickClerk(); go();
 }
+function pickClerk(){ clerk = P.CLERK[Math.floor(Math.random()*P.CLERK.length)]; }
 
-function slots(){
+function hud(hit){
+  const rp = ST.rep;
+  $('hud').innerHTML = `
+    <div class="pod money ${hit&&hit.money?'hit':''}"><div class="lb">金錢</div><div class="nm">$${ST.money}</div></div>
+    <div class="pod full ${hit&&hit.full?'hit':''}"><div class="lb">飽足</div><div class="nm">${ST.full}</div></div>
+    <div class="pod calm ${hit&&hit.calm?'hit':''}"><div class="lb">歸屬感</div><div class="nm">${ST.calm}</div></div>
+    <div class="pod cool ${hit&&hit.cool?'hit':''}"><div class="lb">帥潮</div><div class="nm">${ST.cool}</div></div>
+    <div class="pod rep ${hit&&hit.rep?'hit':''}"><div class="lb">風評</div>
+      <div class="nm" style="color:${rp>0?'var(--good)':rp<0?'var(--bad)':'var(--ink)'}">${rp>0?'+':''}${rp}</div></div>`;
+  $('dTitle').textContent = `第 ${day} 天　星期${WD[day%7]}`;
+  $('dSub').textContent = `答對 ${right}／${right+wrong}${hasJob?'　・有排班':''}`;
   $('slots').innerHTML = ORDER.map((s,i) => {
     const dead = (s==='am' && tiredAM);
     return `<div class="slot ${dead?'dead':i<slot?'done':i===slot?'now':''}">${
-      dead ? '睡著了' : SLOT_NAME[s]}</div>`;
+      dead?'睡著了':SLOT_NAME[s]}</div>`;
   }).join('');
-  $('dTitle').textContent = `第 ${day} 天　星期${WD[day % 7]}`;
-  $('dSub').textContent = `答對 ${right}／${right+wrong}${hasCard?'　・成績單已備':''}`;
 }
 
-/* ── 主流程 ───────────────────────────────── */
-function render(){
-  hud(); slots();
-  const s = ORDER[slot];
-
-  if(s === 'am' && tiredAM){
-    $('scene').innerHTML = `
-      <div class="when">上午</div><div class="title">你睡著了</div>
-      <div class="body">第一節下課的時候有人推你。\n第二節你又睡著了。</div>
-      <div class="quiet">老師從你旁邊走過去，看了一眼，沒有叫你。</div>
-      <div class="acts"><button class="act tired" id="sk">
-        <span>這一格沒了</span><span class="c">昨天的晚班吃掉的</span></button></div>`;
-    $('sk').onclick = () => { attend--; slot++; tiredAM = false; render(); };
-    return;
+function apply(c){
+  const hit = {};
+  for(const k in (c||{})){
+    ST[k] = k==='money' ? ST[k]+c[k] : clamp(ST[k]+c[k], k==='rep'?-100:0, 100);
+    hit[k] = 1;
   }
+  hud(hit); return hit;
+}
+function costHTML(c){
+  const t = [];
+  for(const k in (c||{})){
+    const v = c[k], s = v>0?'+':'−', a = Math.abs(v);
+    if(k==='money') t.push(`<span class="m">${s}$${a}</span>`);
+    if(k==='full')  t.push(`<span class="f">飽足 ${v>0?'+':''}${v}</span>`);
+    if(k==='calm')  t.push(`<span class="k">歸屬 ${v>0?'+':''}${v}</span>`);
+    if(k==='cool')  t.push(`<span class="o">帥潮 +${v}</span>`);
+    if(k==='rep')   t.push(`<span class="${v>0?'g':'r'}">風評 ${v>0?'+':''}${v}</span>`);
+  }
+  return t.join('　');
+}
 
-  const list = ACTS[s];
+/* ── 1. 去哪裡 ── */
+function go(){
+  hud();
+  const s = ORDER[slot];
+  if(s === 'am' && tiredAM) return slept();
+
   $('scene').innerHTML = `
     <div class="when">${SLOT_NAME[s]}</div>
-    <div class="title">你要做什麼？</div>
-    <div class="body quiet">三格用完就是一天。</div>
-    <div class="acts">${list.map((a,i) => {
-      const lock = a.needJob && ST.rep < -25;
-      return `<button class="act ${a.quiz?'book':''}" data-i="${i}" ${lock?'disabled':''}>
-        <span>${a.label}</span><span class="c">${lock ? '店長說不缺人了' : cost(a)}</span></button>`;
-    }).join('')}</div>`;
-  $('scene').querySelectorAll('button').forEach(b => b.onclick = () => choose(list[+b.dataset.i]));
+    <div class="title">去哪裡？</div>
+    <div class="amb">一格只能去一個地方。</div>
+    <div class="acts">${P.BY_SLOT[s].map(k =>
+      `<button class="act" data-k="${k}">${P.PLACES[k].name}
+        <div class="d">${P.PLACES[k].amb.split('\n')[0]}</div></button>`).join('')}</div>`;
+  $('scene').querySelectorAll('button').forEach(b => b.onclick = () => enter(b.dataset.k));
 }
 
-function cost(a){
-  if(a.quiz) return '<span class="b">解題</span>';
-  const t = [], d = a.d || {};
-  if(d.money) t.push(`<span class="m">${d.money>0?'+':'−'}$${Math.abs(d.money)}</span>`);
-  if(a.gamble) t.push('<span class="m">±$?</span>');
-  if(d.full)  t.push(`<span class="f">飽足 ${d.full>0?'+':''}${d.full}</span>`);
-  if(d.calm)  t.push(`<span class="k">歸屬 ${d.calm>0?'+':''}${d.calm}</span>`);
-  if(d.cool)  t.push(`<span class="o">帥潮 +${d.cool}</span>`);
-  if(d.rep)   t.push(`<span class="${d.rep>0?'g':'r'}">風評 ${d.rep>0?'+':''}${d.rep}</span>`);
-  return t.join('　') || '—';
+function slept(){
+  $('scene').innerHTML = `
+    <div class="when">上午</div><div class="title">你睡著了</div>
+    <div class="body">第一節下課的時候有人推你。\n第二節你又睡著了。</div>
+    <div class="quiet">老師從你旁邊走過去，看了一眼，沒有叫你。</div>
+    <div class="acts"><button class="act back" id="sk">這一格沒了
+      <span class="c">昨天的晚班吃掉的</span></button></div>`;
+  $('sk').onclick = () => { attend--; slot++; tiredAM = false; go(); };
 }
 
-/* ── 解題 ─────────────────────────────────── */
+/* ── 2. 在那裡面對什麼 ── */
+function enter(k){
+  const pl = P.PLACES[k];
+  if(k === 'store') pickClerk();
+  hud();
+  $('scene').innerHTML = `
+    <div class="when">${SLOT_NAME[ORDER[slot]]}　・　${pl.name}</div>
+    <div class="amb">${pl.amb}</div>
+    ${k==='store' ? `<div class="clerk">店員${clerk.face}
+      <span class="risk">被抓機率 ${Math.round(clerk.risk*100)}%</span></div>` : ''}
+    <div class="cap">你走到</div>
+    <div class="acts">
+      ${pl.spots.map((sp,i) => `<button class="act" data-i="${i}">${sp.name}
+        <div class="d">${sp.desc}</div></button>`).join('')}
+      <button class="act back" id="leave">離開　<span class="c">這一格用掉了</span></button>
+    </div>`;
+  $('scene').querySelectorAll('button[data-i]').forEach(b =>
+    b.onclick = () => spot(k, pl.spots[+b.dataset.i]));
+  $('leave').onclick = nextSlot;
+}
+
+function spot(k, sp){
+  $('scene').innerHTML = `
+    <div class="when">${P.PLACES[k].name}　・　${sp.name}</div>
+    <div class="body">${sp.desc}</div>
+    ${k==='store' ? `<div class="clerk" style="margin-top:13px">店員${clerk.face}
+      <span class="risk">被抓機率 ${Math.round(clerk.risk*100)}%</span></div>` : ''}
+    <div class="cap">你</div>
+    <div class="acts">
+      ${sp.acts.map((a,i) => `<button class="act ${a.steal?'steal':a.seen?'seen':a.quiz?'book':''}"
+        data-i="${i}" ${a.work && !hasJob ? 'disabled':''}>
+        ${a.label}<span class="c">${a.work&&!hasJob ? '你還沒排班'
+          : a.steal ? `<span class="r">風險 ${Math.round(clerk.risk*100)}%</span>`
+          : a.quiz ? '<span style="color:var(--book)">解題</span>'
+          : costHTML(a.cost)}</span></button>`).join('')}
+      <button class="act back" id="back">看看別的</button>
+    </div>`;
+  $('scene').querySelectorAll('button[data-i]').forEach(b =>
+    b.onclick = () => act(k, sp, sp.acts[+b.dataset.i]));
+  $('back').onclick = () => enter(k);
+}
+
+/* ── 3. 做那件事 ── */
+function act(k, sp, a){
+  if(a.quiz) return quiz(a);
+  if(a.sleep) return nextSlot(true);
+  if(a.job){ hasJob = true; }
+  if(a.steal) return steal(k, sp, a);
+
+  apply(a.cost);
+  if(a.dead) tiredAM = true;
+  if(a.att) attend += a.att;
+  if(a.seen) seenPenalty();
+  log.push(sp.name + '：' + a.label);
+
+  result(k, a.label, a.say, a.quiet);
+}
+
+/* 買 i珍食 = 會被看見 */
+function seenPenalty(){
+  if(Math.random() < 0.45){
+    ST.calm = clamp(ST.calm - 7, 0, 100);
+    hud({calm:1});
+  }
+}
+
+function steal(k, sp, a){
+  const bust = Math.random() < clerk.risk;
+  if(bust){
+    caught++;
+    const d = caught >= 2 ? -30 : -18;
+    apply({ rep:d });
+    result(k, a.label,
+      '你走到自動門，他叫住你。\n\n「弟弟。」',
+      caught >= 2
+        ? '第二次了。這次他報警。\n你在派出所坐到十一點，你媽沒有來。'
+        : '他沒有報警，叫你把東西放回去。\n他記得你的臉。');
+    return;
+  }
+  apply(a.cost);
+  log.push(sp.name + '：' + a.label);
+  result(k, a.label, a.say, a.quiet);
+}
+
+function result(k, title, say, quiet){
+  $('scene').innerHTML = `
+    <div class="when">${P.PLACES[k].name}</div>
+    <div class="title">${title}</div>
+    <div class="body">${say||''}</div>
+    ${quiet ? `<div class="quiet">${quiet}</div>` : ''}
+    <div class="acts">
+      <button class="act" id="stay">還在店裡　<span class="c">再看一個地方</span></button>
+      <button class="act back" id="out">離開　<span class="c">這一格用掉了</span></button>
+    </div>`;
+  $('stay').onclick = () => enter(k);
+  $('out').onclick = nextSlot;
+}
+
+/* ── 解題 ── */
 function quiz(a){
   const q = Quiz.BANK[qi % Quiz.BANK.length]; qi++;
   $('scene').innerHTML = `
-    <div class="when">${SLOT_NAME[ORDER[slot]]}<span class="grade">答對 ${right}／${right+wrong}</span></div>
+    <div class="when">教室</div>
     <div class="qsubj">${q.subj}</div>
     <div class="qtext">${q.q}</div>
+    <div class="cap">　</div>
     <div class="acts">${q.opts.map((o,i) =>
-      `<button class="act" data-i="${i}"><span>${'ABCD'[i]}　${o}</span></button>`).join('')}</div>`;
-  $('scene').querySelectorAll('button').forEach(b =>
-    b.onclick = () => answer(q, +b.dataset.i, a));
-}
-
-function answer(q, pick, a){
-  const ok = pick === q.a;
-  const btns = $('scene').querySelectorAll('button');
-  btns.forEach((b,i) => {
-    b.disabled = true;
-    if(i === q.a) b.classList.add('ansOK');
-    else if(i === pick) b.classList.add('ansNO');
+      `<button class="act" data-i="${i}">${'ABCD'[i]}　${o}</button>`).join('')}</div>`;
+  $('scene').querySelectorAll('button').forEach(b => b.onclick = () => {
+    const pick = +b.dataset.i, ok = pick === q.a;
+    $('scene').querySelectorAll('button').forEach((x,i) => {
+      x.disabled = true;
+      if(i === q.a) x.classList.add('ansOK'); else if(i === pick) x.classList.add('ansNO');
+    });
+    if(ok){ right++; apply({ rep:+3 }); } else wrong++;
+    if(a.att) attend += a.att;
+    const line = ok ? Quiz.RIGHT[right % Quiz.RIGHT.length] : Quiz.WRONG[wrong % Quiz.WRONG.length];
+    $('scene').insertAdjacentHTML('beforeend', `
+      <div class="quiet">${line}<br><br>${q.note}</div>
+      <div class="acts"><button class="act back" id="nx">離開教室
+        <span class="c">這一格用掉了</span></button></div>`);
+    $('nx').onclick = nextSlot;
   });
-  const hit = {};
-  if(ok){ right++; ST.rep = clamp(ST.rep + 3, -100, 100); hit.rep = 1; }
-  else   { wrong++; }
-  if(a.att) attend += a.att;
-  if(a.d)  for(const k in a.d){ ST[k] = k==='money' ? ST[k]+a.d[k]
-    : clamp(ST[k]+a.d[k], k==='rep'?-100:0, 100); hit[k]=1; }
-  log.push(a.label);
-  hud(hit);
-
-  const line = ok ? Quiz.RIGHT[right % Quiz.RIGHT.length]
-                  : Quiz.WRONG[wrong % Quiz.WRONG.length];
-  $('scene').insertAdjacentHTML('beforeend', `
-    <div class="note">${line}<br><br>${q.note}</div>
-    <div class="acts"><button class="act" id="nx">
-      <span>${slot < 2 ? '接下來' : '睡覺'}</span>
-      <span class="c">${a.quiet2 || (slot<2 ? SLOT_NAME[ORDER[slot+1]] : '結束這一天')}</span>
-    </button></div>`);
-  $('nx').onclick = () => { slot++; slot > 2 ? endDay() : render(); };
 }
 
-/* ── 一般行動 ─────────────────────────────── */
-function choose(a){
-  if(a.quiz) return quiz(a);
-  const hit = {}, d = Object.assign({}, a.d);
-  if(a.gamble) d.money = [200,-300,150,-450,100][day % 5];
-  for(const k in d){
-    ST[k] = k==='money' ? ST[k]+d[k] : clamp(ST[k]+d[k], k==='rep'?-100:0, 100);
-    hit[k] = 1;
-  }
-  if(a.att) attend += a.att;
-  if(a.dead) tiredAM = true;
-  log.push(a.label);
-  hud(hit);
-
-  const g = a.gamble ? (d.money>0 ? `\n你贏了 ${d.money}。` : `\n你輸了 ${-d.money}。`) : '';
-  $('scene').innerHTML = `
-    <div class="when">${SLOT_NAME[ORDER[slot]]}</div>
-    <div class="title">${a.label}</div>
-    <div class="body">${a.say}${g}</div>
-    ${a.quiet ? `<div class="quiet">${a.quiet}</div>` : ''}
-    <div class="acts"><button class="act" id="nx">
-      <span>${slot < 2 ? '接下來' : '睡覺'}</span>
-      <span class="c">${slot<2 ? SLOT_NAME[ORDER[slot+1]] : '結束這一天'}</span></button></div>`;
-  $('nx').onclick = () => { slot++; slot > 2 ? endDay() : render(); };
+/* ── 換時段／換天 ── */
+function nextSlot(isSleep){
+  slot++;
+  if(slot > 2 || isSleep) return endDay();
+  go();
 }
 
-/* ── 一天結束 ─────────────────────────────── */
 function endDay(){
-  ST.full = Math.max(0, ST.full - 18);
-  $('fSm').textContent = log.join('　→　');
+  ST.full = Math.max(0, ST.full - 16);
+  $('fSm').textContent = log.slice(-3).join('　→　') || '什麼都沒做';
   $('fBig').textContent = `第 ${day+1} 天`;
   $('flash').classList.add('on');
   setTimeout(() => {
     $('flash').classList.remove('on');
     day++; slot = 0; log = [];
-    if(!gotSchol && right >= 6){ gotSchol = true; return schol(); }
-    if(!hasCard && right >= 3){ hasCard = true; return card(); }
     if(day % 7 === 0) return bill();
-    render();
+    go();
   }, 1400);
 }
 
-/* 好學生事件:獎學金 */
-function schol(){
-  ST.money += 6000; ST.rep = clamp(ST.rep + 12, -100, 100);
-  hud({money:1, rep:1});
-  $('scene').innerHTML = `
-    <div class="when">早上・導師室</div><div class="title">清寒獎學金</div>
-    <div class="body">導師把表格推過來，已經幫你填好一半。\n\n「你這次段考有幾科拉起來。」\n「六千，下個月會下來。」</div>
-    <div class="quiet">他講的時候沒有看你，一直在看表格。\n你知道那是他不想讓你覺得是施捨。</div>
-    <div class="acts"><button class="act" id="ok">
-      <span>去上課</span><span class="c">這一格已經用掉了</span></button></div>`;
-  $('ok').onclick = () => { slot = 1; render(); };
-}
-
-/* 好學生事件:成績單 = 打工的通行證 */
-function card(){
-  hud();
-  $('scene').innerHTML = `
-    <div class="when">早上・教務處</div><div class="title">你去申請了成績單</div>
-    <div class="body">二十塊，兩份。\n\n你把它折好放進書包夾層。</div>
-    <div class="quiet">面試的時候拿得出這張，店長看你的眼神會不一樣。
-      \n那不是因為成績有用，是因為它證明你「還在讀」。</div>
-    <div class="acts"><button class="act" id="ok">
-      <span>去上課</span><span class="c">這一格已經用掉了</span></button></div>`;
-  $('ok').onclick = () => { ST.money -= 20; slot = 1; render(); };
-}
-
-/* 帳單 */
 function bill(){
-  const amt = 3200 + (Math.floor(day/7)-1) * 900;
+  const amt = 3200 + (Math.floor(day/7)-1)*900;
   ST.money -= amt; hud({money:1});
   $('scene').innerHTML = `
     <div class="when">早上・信箱</div><div class="title">又一張</div>
@@ -365,18 +354,11 @@ function bill(){
     <div class="quiet">${ST.money < 0
       ? '你付不出來。你把它跟前面幾張放在一起。'
       : '你付了。剩下的錢你數了兩次。'}</div>
-    <div class="acts"><button class="act" id="ok">
-      <span>去上學</span><span class="c">這一格已經用掉了</span></button></div>`;
-  $('ok').onclick = () => { slot = 1; render(); };
+    <div class="acts"><button class="act back" id="ok">去上學
+      <span class="c">這一格用掉了</span></button></div>`;
+  $('ok').onclick = () => { slot = 1; go(); };
 }
 
-function reset(){
-  ST = Object.assign({}, ST0);
-  day = 1; slot = 0; tiredAM = false; attend = 0;
-  right = 0; wrong = 0; qi = 0; log = [];
-  gotSchol = false; hasCard = false;
-  render();
-}
 $('reset').onclick = reset;
 reset();
 </script>
