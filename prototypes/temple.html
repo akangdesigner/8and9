@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 廟口</title>
+<style>
+  :root{
+    --bg:#0e1014; --card:#181b21; --line:#252931; --edge:#323740;
+    --ink:#e6e8ec; --dim:#8d949e; --faint:#5a616b;
+    --money:#f2d888; --full:#c9bb44; --calm:#6fc3b4; --red:#e0483a; --gold:#d8b24a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.9 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+       min-height:100vh;padding:22px 16px 60px}
+  .wrap{max-width:620px;margin:0 auto}
+  h1{font-size:16px;margin:0 0 3px}
+  .lede{color:var(--faint);font-size:12.5px;margin-bottom:15px}
+
+  .hud{display:flex;gap:6px;margin-bottom:9px}
+  .pod{background:var(--card);border:1px solid var(--line);border-radius:4px;
+       padding:5px 9px 6px;flex:1}
+  .pod .lb{color:#7c8593;font-size:9.5px;letter-spacing:.14em}
+  .pod .nm{font-size:15px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .pod.money .nm{color:var(--money)} .pod.full .nm{color:var(--full)}
+  .pod.calm .nm{color:var(--calm)}
+  .pod.hit{animation:hit .55s}
+  @keyframes hit{30%{border-color:var(--gold);transform:translateY(-3px)}}
+
+  .bar{display:flex;justify-content:space-between;align-items:baseline;
+       font-size:11.5px;color:var(--faint);letter-spacing:.12em;margin:12px 0 9px}
+  .bar b{color:var(--ink);font-size:14px;font-weight:400;letter-spacing:.05em}
+
+  .place{background:var(--card);border:1px solid var(--line);border-radius:10px;
+         padding:19px 21px;min-height:270px}
+  .amb{color:var(--faint);font-size:13.5px;white-space:pre-line;margin-bottom:16px;
+       border-left:2px solid var(--edge);padding-left:12px}
+
+  .who{font-size:11px;letter-spacing:.24em;color:var(--faint);margin-bottom:9px}
+  .people{display:flex;flex-direction:column;gap:7px}
+  button.p{text-align:left;background:rgba(12,16,23,.9);color:#dfe4ea;
+    border:1px solid #333c48;border-left:3px solid #4a5563;padding:11px 15px;
+    font:inherit;cursor:pointer;border-radius:4px;transition:.13s}
+  button.p:hover{background:rgba(34,42,55,.98);border-left-color:var(--gold);transform:translateX(3px)}
+  button.p .n{font-size:15px}
+  button.p .t{font-size:11.5px;color:var(--faint);margin-left:9px}
+  button.p .d{font-size:12.5px;color:#7f8794;margin-top:3px;line-height:1.7}
+  button.p .r{float:right;font-size:11px;color:var(--calm);letter-spacing:.05em}
+  button.p.ev{border-left-color:var(--gold)}
+  button.p.ev .r{color:var(--gold)}
+  button.leave{border-left-color:#5a6b8a;color:#9aa3ae}
+
+  .title{font-size:18px;margin:2px 0 13px}
+  .beat{margin-bottom:11px;white-space:pre-line;font-size:15px;color:#c9cfd8}
+  .quiet{color:var(--faint);font-size:13px;border-left:2px solid var(--edge);
+         padding-left:12px;margin-top:14px;line-height:1.85}
+  .gain{margin-top:14px;font-size:12.5px;color:var(--calm);letter-spacing:.06em}
+  .gain .m{color:var(--money)} .gain .f{color:var(--full)}
+
+  .acts{margin-top:18px;display:flex;flex-direction:column;gap:7px}
+  .gone{color:#8a7a72;font-size:13.5px;white-space:pre-line;
+        border-left:2px solid #4a3f38;padding-left:12px;margin-bottom:15px}
+
+  .foot{margin-top:18px;background:#151920;border:1px solid var(--line);
+        border-radius:9px;padding:14px 17px;font-size:12.5px;color:var(--dim);line-height:1.85}
+  .foot b{color:var(--ink)}
+  .reset{margin-top:12px;background:none;border:0;color:var(--faint);
+         font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>廟口</h1>
+  <div class="lede">來這裡要花掉一格。那一格沒有拿去打工，也沒有拿去讀書。</div>
+
+  <div class="hud" id="hud"></div>
+  <div class="bar"><b id="dTitle"></b><span id="dSub"></span></div>
+
+  <div class="place" id="place"></div>
+  <button class="reset" id="reset">重來</button>
+
+  <div class="foot">
+    <b>這是歸屬感唯一穩定的來源。</b>學校是學店、家裡在漏水，只有這裡有人把你當自己人。
+    所以「不要一直來廟口」這句話，遊戲裡沒有人有資格講。<br><br>
+    <b>他們不可憐。</b>他們就是這樣過。每個人的處境要你自己拼出來——
+    阿源國中畢業那年他爸走了、阿姨的兒子在裡面、阿伯的兒子過年才回來——
+    這些都不是他們自己講的。<br><br>
+    <b>而這裡的人會消失。</b>到後面阿源會去當兵、小胖會不見。
+    遊戲不解釋也不哀悼，下次來就是少一個。
+  </div>
+</div>
+
+<script src="lib/npc-temple.js"></script>
+<script>
+const T = NpcTemple, $ = id => document.getElementById(id);
+let ST, day, rel, seen, goneShown;
+
+function reset(){
+  ST = { money:420, full:55, calm:48 };
+  day = 12; rel = {}; seen = {}; goneShown = {};
+  T.NPCS.forEach(n => { rel[n.id] = 0; seen[n.id] = 0; });
+  render();
+}
+
+function hud(hit){
+  $('hud').innerHTML = `
+    <div class="pod money ${hit&&hit.money?'hit':''}"><div class="lb">金錢</div>
+      <div class="nm">$${ST.money}</div></div>
+    <div class="pod full ${hit&&hit.full?'hit':''}"><div class="lb">飽足</div>
+      <div class="nm">${ST.full}</div></div>
+    <div class="pod calm ${hit&&hit.calm?'hit':''}"><div class="lb">歸屬感</div>
+      <div class="nm">${ST.calm}</div></div>`;
+  $('dTitle').textContent = `第 ${day} 天　晚上`;
+  $('dSub').textContent = '這一格用在這裡了';
+}
+
+/* 誰不在了 */
+function isGone(id){ return T.GONE.some(g => g.id === id && day >= g.after); }
+
+/* 下一個事件(還沒看過而且熟悉度到了) */
+function nextEvent(n){
+  return n.events.find(e => rel[n.id] >= e.at && !seen[n.id + '_' + e.at]);
+}
+
+function render(){
+  hud();
+  const here = T.NPCS.filter(n => !isGone(n.id));
+
+  /* 剛消失的人,講一次就好 */
+  const justGone = T.GONE.filter(g => day >= g.after && !goneShown[g.id]);
+  const goneHTML = justGone.map(g => { goneShown[g.id] = 1;
+    return `<div class="gone">${g.line}</div>`; }).join('');
+
+  if(!here.length){
+    $('place').innerHTML = goneHTML + `<div class="amb">${T.EMPTY[day % T.EMPTY.length]}</div>
+      <div class="acts">${leaveBtn()}</div>`;
+    wireLeave(); return;
+  }
+
+  $('place').innerHTML = goneHTML + `
+    <div class="amb">香的味道。廟裡的音樂放很小聲。\n金爐旁邊有人在講話。</div>
+    <div class="who">誰在這裡</div>
+    <div class="people">
+      ${here.map(n => {
+        const ev = nextEvent(n);
+        return `<button class="p ${ev?'ev':''}" data-id="${n.id}">
+          <span class="r">${ev ? '有話跟你說' : '熟 '+rel[n.id]}</span>
+          <span class="n">${n.name}</span><span class="t">${n.tag}</span>
+          <div class="d">${n.desc}</div></button>`;
+      }).join('')}
+      ${leaveBtn()}
+    </div>`;
+  $('place').querySelectorAll('button[data-id]').forEach(b =>
+    b.onclick = () => meet(T.NPCS.find(n => n.id === b.dataset.id)));
+  wireLeave();
+}
+
+function leaveBtn(){
+  return `<button class="p leave" id="leave">
+    <span class="n">回家</span><span class="t">今天到這裡</span></button>`;
+}
+function wireLeave(){
+  const b = $('leave'); if(!b) return;
+  b.onclick = () => { day += [2,3,5,4,7][day % 5]; render(); };
+}
+
+function meet(n){
+  const ev = nextEvent(n);
+  if(ev) return doEvent(n, ev);
+
+  /* 日常:輪替台詞,熟悉度 +1,歸屬感小幅 */
+  const line = n.talk[seen[n.id] % n.talk.length];
+  seen[n.id]++; rel[n.id]++;
+  ST.calm = Math.min(100, ST.calm + 2);
+  hud({calm:1});
+
+  $('place').innerHTML = `
+    <div class="who">${n.name}　${n.tag}</div>
+    <div class="beat">${line}</div>
+    <div class="gain">歸屬感 +2　・　跟 ${n.name} 更熟了（${rel[n.id]}）</div>
+    <div class="acts">
+      <button class="p" id="back"><span class="n">還有誰在</span></button>
+      ${leaveBtn()}</div>`;
+  $('back').onclick = render; wireLeave();
+}
+
+function doEvent(n, ev){
+  seen[n.id + '_' + ev.at] = 1; rel[n.id]++;
+  const hit = {};
+  ['calm','money','full'].forEach(k => {
+    if(ev[k]){ ST[k] = k==='money' ? ST[k]+ev[k] : Math.min(100, Math.max(0, ST[k]+ev[k])); hit[k]=1; }
+  });
+  hud(hit);
+
+  const g = [];
+  if(ev.calm)  g.push(`歸屬感 +${ev.calm}`);
+  if(ev.money) g.push(`<span class="m">−$${-ev.money}</span>`);
+  if(ev.full)  g.push(`<span class="f">飽足 +${ev.full}</span>`);
+
+  $('place').innerHTML = `
+    <div class="who">${n.name}　${n.tag}</div>
+    <div class="title">${ev.title}</div>
+    ${ev.beats.map(b => `<div class="beat">${b.text}</div>`).join('')}
+    <div class="quiet">${ev.quiet}</div>
+    <div class="gain">${g.join('　・　')}</div>
+    <div class="acts">
+      <button class="p" id="back"><span class="n">還有誰在</span></button>
+      ${leaveBtn()}</div>`;
+  $('back').onclick = render; wireLeave();
+}
+
+$('reset').onclick = reset;
+reset();
+</script>
+</body>
+</html>
