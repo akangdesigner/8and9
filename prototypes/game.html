@@ -125,7 +125,7 @@
 <div class="hud">
   <div class="pod money" id="pMoney"><div class="lb">金錢</div><div class="nm">$63</div></div>
   <div class="pod full"  id="pFull"><div class="lb">飽足</div><div class="nm">42</div><div class="track"><i></i></div></div>
-  <div class="pod calm"  id="pCalm"><div class="lb">安全感</div><div class="nm">55</div><div class="track"><i></i></div></div>
+  <div class="pod calm"  id="pCalm"><div class="lb">歸屬感</div><div class="nm">55</div><div class="track"><i></i></div></div>
   <div class="pod cool"  id="pCool"><div class="lb">帥潮</div><div class="nm">8</div><div class="track"><i></i></div></div>
   <div class="pod star"  id="pStar"><div class="lb">通緝</div><div class="stars"></div></div>
 </div>
@@ -213,7 +213,7 @@ function syncHUD(){
   }
 }
 const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', star:'#e0483a' };
-const NAMES = { money:'', full:'飽足', calm:'安全感', cool:'帥潮', star:'通緝' };
+const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', star:'通緝' };
 function chg(k, d){
   if(!d) return;
   ST[k] += d;
