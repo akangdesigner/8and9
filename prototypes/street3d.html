@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 3D 街區</title>
+<style>
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#0a0c10; }
+  body { font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; }
+  #app { position:fixed; inset:0; }
+  #app canvas { display:block; }
+
+  .hud { position:fixed; left:16px; top:14px; z-index:5; display:flex; gap:7px; font-size:12px; }
+  .pod { background:rgba(9,12,17,.7); border:1px solid rgba(120,134,158,.28);
+         border-radius:4px; padding:5px 10px 6px; min-width:74px; backdrop-filter:blur(4px); }
+  .pod .lb { color:#7c8593; font-size:10px; letter-spacing:.14em; }
+  .pod .nm { color:#eef1f5; font-size:15px; margin-top:2px; }
+  .pod.money .nm { color:#f2d888; }
+
+  #where { position:fixed; left:50%; top:14px; transform:translateX(-50%); z-index:5;
+           background:rgba(9,12,17,.7); border:1px solid rgba(120,134,158,.28); border-radius:4px;
+           padding:6px 18px; font-size:14px; color:#e6eaf0; letter-spacing:.18em;
+           backdrop-filter:blur(4px); transition:opacity .3s; }
+
+  #hint { position:fixed; left:50%; bottom:15%; transform:translateX(-50%); z-index:5;
+          background:rgba(8,10,14,.86); border:1px solid #3b4452; padding:7px 17px;
+          font-size:15px; color:#e8ecf1; border-radius:3px; letter-spacing:.05em;
+          opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap; }
+  #hint.on { opacity:1; }
+  #hint b { color:#f2d888; }
+
+  #minimap { position:fixed; right:14px; top:14px; z-index:5;
+             background:rgba(9,12,17,.72); border:1px solid rgba(120,134,158,.28);
+             border-radius:4px; padding:8px; backdrop-filter:blur(4px); }
+  #minimap canvas { display:block; }
+
+  #bar { position:fixed; left:50%; bottom:12px; transform:translateX(-50%); z-index:6;
+         display:flex; gap:7px; flex-wrap:wrap; justify-content:center; }
+  button.tool { background:rgba(20,24,32,.9); color:#c8cfda; border:1px solid #313846;
+                padding:6px 13px; font-size:12px; font-family:inherit; letter-spacing:.06em;
+                cursor:pointer; border-radius:3px; }
+  button.tool:hover { background:#242b36; color:#fff; }
+  button.tool.on { background:#2d3646; border-color:#55617a; color:#fff; }
+  #fps { position:fixed; right:14px; bottom:12px; z-index:6; font-size:11px;
+         color:#5c6470; letter-spacing:.1em; font-variant-numeric:tabular-nums; }
+  #keys { position:fixed; left:16px; bottom:12px; z-index:6; font-size:11.5px; color:#6a727f;
+          letter-spacing:.08em; line-height:1.8; }
+  #keys b { color:#9aa3b0; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div class="hud">
+  <div class="pod money"><div class="lb">金錢</div><div class="nm">$63</div></div>
+  <div class="pod"><div class="lb">飽足</div><div class="nm">42</div></div>
+  <div class="pod"><div class="lb">安全感</div><div class="nm">55</div></div>
+  <div class="pod"><div class="lb">帥潮</div><div class="nm">8</div></div>
+</div>
+
+<div id="where">中華路</div>
+<div id="minimap"><canvas id="mm" width="190" height="190"></canvas></div>
+<div id="hint"></div>
+
+<div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機　<b>Shift</b> 跑</div>
+
+<div id="bar">
+  <button class="tool on" id="tBloom">光暈：開</button>
+  <button class="tool on" id="tShadow">陰影：開</button>
+  <button class="tool" id="tTop">切成俯視</button>
+  <button class="tool" onclick="location.reload()">重來</button>
+</div>
+<div id="fps">—</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+
+const app = document.getElementById('app'), hintEl = document.getElementById('hint');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d141e);
+scene.fog = new THREE.FogExp2(0x0d141e, 0.0058);
+
+const camera = new THREE.PerspectiveCamera(56, innerWidth/innerHeight, 0.1, 400);
+camera.position.set(0, 18, 15);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.32;
+app.appendChild(renderer.domElement);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.48, 0.55, 0.82);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+let useBloom = true;
+
+/* ================= 貼圖(程序生成,零外部檔案) ================= */
+function tex(size, draw, rep){
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(rep[0], rep[1]);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+const grit = (x,S,n,a) => { for(let i=0;i<n;i++){
+  x.fillStyle = `rgba(0,0,0,${(Math.random()*a).toFixed(3)})`;
+  x.fillRect(Math.random()*S, Math.random()*S, 1+Math.random()*3, 1+Math.random()*3); } };
+
+const texStone = tex(256,(x,S)=>{ x.fillStyle='#8d887b'; x.fillRect(0,0,S,S);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){ const v=132+Math.random()*26;
+    x.fillStyle=`rgb(${v|0},${(v-5)|0},${(v-16)|0})`; x.fillRect(i*64+2,j*64+2,60,60); }
+  grit(x,S,2600,.16); },[10,10]);
+const texWalk = tex(256,(x,S)=>{ x.fillStyle='#7e7a70'; x.fillRect(0,0,S,S);
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){ const v=140+Math.random()*18;
+    x.fillStyle=`rgb(${v|0},${(v-4)|0},${(v-12)|0})`; x.fillRect(i*32+1.5,j*32+1.5,29,29); }
+  grit(x,S,2000,.14); },[6,6]);
+const texRoad = tex(256,(x,S)=>{ x.fillStyle='#3c4046'; x.fillRect(0,0,S,S);
+  for(let i=0;i<5000;i++){ const v=40+Math.random()*40;
+    x.fillStyle=`rgba(${v|0},${(v+2)|0},${(v+6)|0},.6)`; x.fillRect(Math.random()*S,Math.random()*S,2,2); }
+  x.fillStyle='rgba(0,0,0,.22)';
+  for(let i=0;i<12;i++) x.fillRect(Math.random()*S,Math.random()*S,20+Math.random()*40,3); },[8,8]);
+const texWall = tex(256,(x,S)=>{ x.fillStyle='#8a8272'; x.fillRect(0,0,S,S);
+  for(let j=0;j<16;j++)for(let i=0;i<8;i++){ const v=158+Math.random()*22;
+    x.fillStyle=`rgb(${v|0},${(v-8)|0},${(v-26)|0})`; x.fillRect(i*32+1,j*16+1,30,14); }
+  x.fillStyle='rgba(60,52,40,.20)';
+  for(let i=0;i<7;i++) x.fillRect(Math.random()*S,Math.random()*S,6+Math.random()*22,30+Math.random()*60);
+  grit(x,S,1400,.12); },[2,2]);
+const texShutter = tex(128,(x,S)=>{ x.fillStyle='#6b716d'; x.fillRect(0,0,S,S);
+  for(let j=0;j<S;j+=8){ x.fillStyle='#7f857f'; x.fillRect(0,j,S,5);
+    x.fillStyle='#5a605c'; x.fillRect(0,j+5,S,3); } grit(x,S,700,.2); },[3,2]);
+const texRed = tex(128,(x,S)=>{ x.fillStyle='#8e281f'; x.fillRect(0,0,S,S);
+  for(let i=0;i<900;i++){ const v=Math.random()*40;
+    x.fillStyle=`rgba(${(150+v)|0},${(44+v/2)|0},${(34+v/2)|0},.5)`;
+    x.fillRect(Math.random()*S,Math.random()*S,3,3); } },[2,2]);
+
+/* ================= 光 ================= */
+scene.add(new THREE.HemisphereLight(0x6b7fa4, 0x3a3f4a, 1.85));
+const key = new THREE.DirectionalLight(0xd2dfff, 1.0);
+key.position.set(-24, 34, 20); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1; key.shadow.camera.far = 130;
+key.shadow.camera.left = -44; key.shadow.camera.right = 44;
+key.shadow.camera.top = 40;   key.shadow.camera.bottom = -40;
+key.shadow.bias = -0.0013;
+scene.add(key, key.target);
+
+/* ================= 材質 ================= */
+const std = o => new THREE.MeshStandardMaterial(o);
+const glow = (c,i) => std({ color:c, emissive:c, emissiveIntensity:i||1.6, roughness:.5 });
+const M = {
+  stone:std({map:texStone,roughness:.95}), walk:std({map:texWalk,roughness:.94}),
+  road:std({map:texRoad,roughness:.8,metalness:.06}),
+  wall:std({map:texWall,roughness:.96}),
+  wallB:std({map:texWall,color:0xc8bfa8,roughness:.96}),
+  wallC:std({map:texWall,color:0xa89e88,roughness:.96}),
+  shutter:std({map:texShutter,roughness:.65,metalness:.35}),
+  red:std({map:texRed,roughness:.85}), redD:std({map:texRed,color:0xb0b0b0,roughness:.85}),
+  gold:std({color:0xd8a63c,roughness:.36,metalness:.75,emissive:0x3a2a08,emissiveIntensity:.6}),
+  roof:std({color:0x6d3a26,roughness:.85}),
+  curb:std({color:0x8a857a,roughness:.9}),
+  pillar:std({map:texWall,color:0xd0c8b6,roughness:.9}),
+  glassOff:std({color:0x1c2731,roughness:.28,metalness:.45}),
+  glassLit:std({color:0xe4ead8,emissive:0xf4f6e8,emissiveIntensity:1.1,roughness:.35}),
+  metal:std({color:0x3a3f46,roughness:.5,metalness:.6}),
+  seat:std({color:0x22262b,roughness:.8}),
+  tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
+  plastic:std({color:0xc0473a,roughness:.75}),
+  tin:std({color:0x6a6f6a,roughness:.7,metalness:.4}),
+  skin:std({color:0xc1926e,roughness:.85}), hair:std({color:0x241d19,roughness:.9}),
+  hood:std({color:0x4a5563,roughness:.9}), pants:std({color:0x333a44,roughness:.9}),
+  shoe:std({color:0x191c21,roughness:.9})
+};
+
+const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+const colliders = [], doors = [], lampSpots = [];
+function add(mesh,x,y,z,cast,recv){
+  mesh.position.set(x,y,z);
+  mesh.castShadow = cast !== false; mesh.receiveShadow = recv !== false;
+  scene.add(mesh); return mesh;
+}
+const solid = (x,z,hw,hd) => colliders.push({x,z,hw,hd});
+
+/* ================= 街道網格 =================
+   橫街三條:廟口路 z=-78、中華路 z=0、後火車站 z=72
+   縱街兩條:x=-84、x=84
+   街廓夾在中間,巷子穿過街廓把兩條橫街接起來。 */
+const ROAD_HW = 9;        // 車道半寬
+const WALK_W  = 7;        // 人行道寬
+const UNIT    = 12;       // 一間店的面寬
+const DEPTH   = 11;       // 建築進深
+
+const H_ROADS = [
+  { z:-78, name:'廟口路' },
+  { z:  0, name:'中華路' },
+  { z: 72, name:'後火車站' }
+];
+const V_ROADS = [ { x:-84, name:'西園街' }, { x:84, name:'東和街' } ];
+
+/* --- 路面 --- */
+H_ROADS.forEach(r => {
+  add(box(210, .2, ROAD_HW*2, M.road), 0, 0, r.z, false, true);
+  [-1,1].forEach(s => {
+    add(box(210, .3, WALK_W, M.walk), 0, .15, r.z + s*(ROAD_HW+WALK_W/2), false, true);
+    add(box(210, .34, .6, M.curb), 0, .17, r.z + s*(ROAD_HW+.3), false, true);
+  });
+  for(let x=-100;x<104;x+=7) add(box(3.4,.02,.2, glow(0xb8ad72,.3)), x, .11, r.z, false, true);
+});
+V_ROADS.forEach(r => {
+  add(box(ROAD_HW*2, .2, 172, M.road), r.x, 0, -3, false, true);
+  [-1,1].forEach(s => {
+    add(box(WALK_W, .3, 172, M.walk), r.x + s*(ROAD_HW+WALK_W/2), .15, -3, false, true);
+    add(box(.6, .34, 172, M.curb), r.x + s*(ROAD_HW+.3), .17, -3, false, true);
+  });
+});
+
+/* --- 一排店面 --- */
+function row(cfg){
+  const { axis, at, face, from, shops } = cfg;   // axis:'x' 沿 x 排;at:另一軸的建築中心線
+  shops.forEach((s, i) => {
+    const p = from + i*UNIT;
+    const X = axis === 'x' ? p : at;
+    const Z = axis === 'x' ? at : p;
+    if(s.kind === 'gap') return;                 // 留空,巷子從這裡穿過去
+
+    const alongW = UNIT - .4;
+    const w = axis === 'x' ? alongW : DEPTH;
+    const d = axis === 'x' ? DEPTH  : alongW;
+    const h = 9 + ((i*7)%3)*2.4;
+    add(box(w, h, d, [M.wall,M.wallB,M.wallC][i%3]), X, h/2, Z);
+    solid(X, Z, w/2, d/2);
+
+    /* 店面朝街心的那一面 */
+    const fX = axis === 'x' ? X : X + face*(DEPTH/2);
+    const fZ = axis === 'x' ? Z + face*(DEPTH/2) : Z;
+    const faceW = axis === 'x' ? alongW-2.6 : .3;
+    const faceD = axis === 'x' ? .3 : alongW-2.6;
+
+    if(s.kind === 'shutter'){
+      add(box(faceW, 4.4, faceD, M.shutter), fX - (axis==='z'?face*.2:0), 2.3,
+          fZ - (axis==='x'?face*.2:0), false, true);
+    } else {
+      const lit = s.kind === 'store';
+      add(box(faceW, 4.2, faceD, lit ? M.glassLit : M.glassOff),
+          fX - (axis==='z'?face*.2:0), 2.3, fZ - (axis==='x'?face*.2:0), false, true);
+      if(lit || s.kind==='tattoo' || s.kind==='arcade')
+        lampSpots.push({ x:fX + (axis==='z'?face*2.6:0), y:3.2,
+                         z:fZ + (axis==='x'?face*2.6:0),
+                         c: lit?0xf6f7ec:(s.sign||0x88aacc), i: lit?30:18, r: lit?28:20 });
+    }
+    if(s.sign){
+      const sw = axis==='x' ? alongW-2 : .45, sd = axis==='x' ? .45 : alongW-2;
+      /* 招牌掛在騎樓外緣,不然會被騎樓頂整個擋掉 */
+      add(box(sw, 2.2, sd, glow(s.sign, 1.35)),
+          fX + (axis==='z'?face*3.9:0), 8.6, fZ + (axis==='x'?face*3.9:0), false, false);
+    }
+    if(s.label) doors.push({ name:s.label,
+      x: fX + (axis==='z'?face*2.4:0), z: fZ + (axis==='x'?face*2.4:0) });
+
+    /* 騎樓 */
+    const aX = fX + (axis==='z'?face*3.4:0), aZ = fZ + (axis==='x'?face*3.4:0);
+    const pX = axis==='x' ? X - UNIT/2 + .5 : aX;
+    const pZ = axis==='x' ? aZ : Z - UNIT/2 + .5;
+    add(box(.85, 5.8, .85, M.pillar), pX, 2.9, pZ);
+    solid(pX, pZ, .42, .42);
+    add(box(axis==='x'?alongW:3.6, .4, axis==='x'?3.6:alongW, M.wallB),
+        fX + (axis==='z'?face*1.9:0), 5.35, fZ + (axis==='x'?face*1.9:0));
+  });
+}
+
+const S = {
+  sh:{kind:'shutter'}, gap:{kind:'gap'},
+  food:(c)=>({kind:'food',sign:c||0xd94a35}),
+  betel:()=>({kind:'betel',sign:0x5ce08a}),
+  net:()=>({kind:'net',sign:0x4fc8f0}),
+  arcade:()=>({kind:'arcade',sign:0xff4fa0}),
+  moto:()=>({kind:'moto',sign:0x3f8fd8}),
+  drug:()=>({kind:'drug',sign:0x35b06a})
+};
+const B_LINE = ROAD_HW + WALK_W + DEPTH/2;      // 建築中心線離路中心的距離 = 21.5
+
+/* 中華路(z=0):你家、超商、刺青店在這條 */
+row({ axis:'x', at:-B_LINE, face:1, from:-72, shops:[
+  S.sh, {kind:'home',label:'你家'}, S.food(), S.betel(), S.gap,
+  {kind:'store',label:'超商',sign:0xf2efe4}, S.moto(), S.drug(), S.sh, S.food(0xe8b52c),
+  S.sh, S.sh, S.sh ]});
+row({ axis:'x', at:B_LINE, face:-1, from:-72, shops:[
+  S.sh, S.food(), S.sh, S.net(), S.gap,
+  {kind:'tattoo',label:'刺青店',sign:0xff4a5a}, S.arcade(), S.sh, S.betel(), S.sh,
+  S.sh, S.food(0xe8b52c), S.sh ]});
+
+/* 廟口路(z=-78) */
+row({ axis:'x', at:-78+B_LINE, face:-1, from:-60, shops:[
+  S.sh, S.food(), S.betel(), S.gap, S.food(0xe8b52c), S.sh, S.drug(), S.sh, S.net(), S.sh ]});
+
+/* 後火車站(z=72):暗的那一條,鐵皮跟資源回收 */
+row({ axis:'x', at:72-B_LINE, face:1, from:-60, shops:[
+  S.sh, S.sh, S.gap, S.sh, S.moto(), S.sh, S.sh, S.sh, S.sh, S.sh ]});
+
+/* 縱街兩側 */
+row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh, S.food(), S.sh, S.sh, S.betel(), S.sh, S.sh, S.sh ]});
+row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh, S.sh, S.net(), S.sh, S.sh, S.food(), S.sh, S.sh ]});
+
+/* ================= 巷子:把兩條橫街接起來 =================
+   走進去、穿過街廓、從另一條街走出來。沒有轉場,就是走過去。 */
+function alley(x, z0, z1, name){
+  const HW = 3.2;                                  // 巷寬的一半
+  const len = Math.abs(z1 - z0), cz = (z0+z1)/2;
+  add(box(HW*2+8, .28, len, M.walk), x, .14, cz, false, true);
+  [-1,1].forEach(s => {
+    add(box(6, 13, len, M.wallC), x + s*(HW+3), 6.5, cz);
+    solid(x + s*(HW+3), cz, 3, len/2);
+  });
+  /* 巷子裡的東西:冷氣、水管、垃圾袋、一盞燈 */
+  for(let i=0;i<5;i++){
+    const zz = z0 + (i+.5)*(z1-z0)/5;
+    add(box(1.6,1.1,1.2, M.tin), x + (i%2?1:-1)*(HW-.3), 4.4+((i*3)%3), zz, true, false);
+    if(i%2) add(box(1.2,1.1,1.2, std({color:0x3f444b,roughness:.9})), x + (i%2?-1:1)*(HW-1), .6, zz);
+  }
+  const lz = (z0+z1)/2;
+  add(box(1.3,.32,.9, glow(0xffe6a8, 2.0)), x, 6.4, lz, false, false);
+  lampSpots.push({ x, y:6.4, z:lz, c:0xffe6a8, i:26, r:30 });
+  add(box(1.3,.32,.9, glow(0xffe6a8, 2.0)), x, 6.4, lz + (z1-z0)*.32, false, false);
+  lampSpots.push({ x, y:6.4, z:lz + (z1-z0)*.32, c:0xffe6a8, i:22, r:26 });
+}
+/* 中華路 ⇄ 廟口路 */
+alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -78 + B_LINE + DEPTH/2, '巷');
+/* 中華路 ⇄ 後火車站 */
+alley(-60 + 2*UNIT, B_LINE + DEPTH/2, 72 - B_LINE - DEPTH/2, '巷');
+
+/* ================= 廟埕(廟口路北側) ================= */
+(function temple(){
+  const z = -108, W = 34;
+  add(box(96, .3, 22, M.stone), 0, .15, -92, false, true);       // 廟埕
+  add(box(W, 12, 9, M.red), 0, 6, z); solid(0, z, W/2, 4.5);
+  add(box(W+4, 1.3, 11, M.roof), 0, 12.4, z);
+  add(box(W-6, 1.2, 9.5, M.roof), 0, 13.6, z);
+  add(box(W-16, 1.1, 8, M.roof), 0, 14.7, z);
+  [-1,1].forEach(s => { for(let k=0;k<4;k++)
+    add(box(2.2,.8,2.2, M.roof), s*(W/2+1.4-k*.5), 12.6+k*.75, z+(k-1.5)*2.6); });
+  add(box(2.4,1.2,2.4, M.gold), 0, 15.5, z);
+  add(box(9,2.2,.5, M.gold), 0, 9.2, z+4.7, false, false);
+  [-13,-5,5,13].forEach(x => { add(box(1.7,8.5,1.7, M.redD), x, 4.25, z+5.2); solid(x, z+5.2, .85,.85); });
+  [[-9,3.4],[0,4.4],[9,3.4]].forEach(([x,w]) =>
+    add(box(w,6,.4, std({color:0x6e1c14,roughness:.8})), x, 3, z+4.6, false, true));
+  for(let k=0;k<8;k++){
+    const x = -14.5 + k*4.15;
+    add(box(.16,1.1,.16, M.metal), x, 9.4, z+5.3, false, false);
+    add(box(1.5,1.9,1.5, glow(0xe8442e, 1.35)), x, 8, z+5.3, false, false);
+  }
+  lampSpots.push({ x:0, y:8, z:z+11, c:0xff8a5a, i:50, r:44 });
+  const wash = new THREE.SpotLight(0xffd0a0, 90, 44, .72, .55, 1.4);
+  wash.position.set(0, 7, z+24); wash.target.position.set(0, 8, z+4);
+  scene.add(wash, wash.target);
+  [-15.5,15.5].forEach(x => { add(box(2,1,2.6, M.curb), x, .8, z+7.4);
+                              add(box(1.4,1.8,1.6, M.curb), x, 2.1, z+7); solid(x, z+7.2, 1.1, 1.4); });
+  doors.push({ name:'宮廟', x:0, z:z+10 });
+  /* 香爐 + 金爐 */
+  add(box(5,2.4,3.4, M.gold), 0, 1.5, z+22); add(box(6,.5,4.2, M.gold), 0, 2.9, z+22, false, false);
+  solid(0, z+22, 2.6, 1.8);
+  lampSpots.push({ x:0, y:4, z:z+22, c:0xffb066, i:24, r:22 });
+  add(box(4.4,7,4.4, M.red), 24, 3.6, z+20); solid(24, z+20, 2.2, 2.2);
+  add(box(5,1,5, M.roof), 24, 7.4, z+20);
+})();
+
+/* 攤子 + 塑膠桌椅(廟埕上) */
+function stall(x, z, c){
+  add(box(6.4,.4,3.6, c), x, 3.5, z, true, false);
+  [[-2.9,1.5],[2.9,1.5],[-2.9,-1.5],[2.9,-1.5]].forEach(([a,b]) =>
+    add(box(.2,3.4,.2, M.metal), x+a, 1.7, z+b));
+  add(box(5.6,1.7,2.4, M.metal), x, 1.1, z);
+  add(box(5.8,.25,2.6, std({color:0xd8cdb4,roughness:.8})), x, 2.05, z, false, true);
+  add(box(.5,.24,.5, glow(0xfff0cc, 1.4)), x, 3.15, z, false, false);
+  lampSpots.push({ x, y:3.05, z, c:0xffd79a, i:18, r:16 });
+  solid(x, z, 3, 1.8);
+}
+stall(-22, -92, M.tarp); stall(-13, -92, M.tarpB); stall(20, -90, M.tarp);
+function tableSet(x, z){
+  add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
+  [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) => add(box(.14,1.5,.14, M.plastic), x+a*1.05, .75, z+b*1.05));
+  [[-2.4,0],[2.4,0],[0,2.4]].forEach(([a,b]) => {
+    add(box(1.1,.12,1.1, M.plastic), x+a, .9, z+b);
+    add(box(1.1,1.1,.12, M.plastic), x+a, 1.4, z+b-.5, true, false); });
+  solid(x, z, 2.6, 2.6);
+}
+tableSet(-18, -86); tableSet(-9, -87); tableSet(16, -85);
+
+/* ================= 機車 ================= */
+function motorbike(x, z, rot){
+  const g = new THREE.Group();
+  const w1 = new THREE.Mesh(new THREE.TorusGeometry(.45,.14,8,16), M.metal);
+  w1.rotation.y = Math.PI/2; w1.position.set(0,.45,-.75); g.add(w1);
+  const w2 = w1.clone(); w2.position.z = .75; g.add(w2);
+  const part = (w,h,d,m,px,py,pz) => { const b = box(w,h,d,m); b.position.set(px,py,pz); g.add(b); };
+  part(.52,.55,1.8, M.seat, 0,.88,0);
+  part(.58,.3,.95,  M.seat, 0,1.24,-.32);
+  part(.48,.95,.38, M.metal,0,1.22,.82);
+  part(1.15,.13,.13,M.metal,0,1.65,.76);
+  g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  g.position.set(x,0,z); g.rotation.y = rot||0; scene.add(g);
+  solid(x, z, .85, 1.05);
+}
+H_ROADS.forEach(r => {
+  for(let i=0;i<16;i++) motorbike(-84+i*11, r.z - ROAD_HW - 1.6, Math.PI/2+(i%2)*.12);
+  for(let i=0;i<14;i++) motorbike(-78+i*12, r.z + ROAD_HW + 1.6, -Math.PI/2+(i%2)*.1);
+});
+for(let i=0;i<8;i++) motorbike(-40+i*5.6, -84, (i%2)*.2);
+
+/* ================= 電線杆 ================= */
+H_ROADS.forEach(r => {
+  for(let x=-90;x<=96;x+=32){
+    add(box(.5,15,.5, M.pillar), x, 7.5, r.z - ROAD_HW - .8);
+    add(box(2.8,.22,.22, M.pillar), x, 13.2, r.z - ROAD_HW - .8);
+    add(box(1.2,.32,.8, glow(0xffd9a0, 2.4)), x+1.5, 12, r.z - ROAD_HW + .2, false, false);
+    lampSpots.push({ x:x+1.5, y:12, z:r.z - ROAD_HW + .2, c:0xffd9a0, i:40, r:46 });
+  }
+});
+
+/* ================= 光源池 =================
+   場景有六十幾個光點,但 forward render 一次只能吃幾盞。
+   做法:只讓離玩家最近的 8 盞真的亮,其餘的靠 emissive 自己發光。 */
+const POOL = [];
+for(let i=0;i<12;i++){
+  const l = new THREE.PointLight(0xffffff, 0, 1, 2);
+  scene.add(l); POOL.push(l);
+}
+function updateLights(px, pz){
+  lampSpots.forEach(s => { const dx = s.x-px, dz = s.z-pz; s._d = dx*dx + dz*dz; });
+  lampSpots.sort((a,b) => a._d - b._d);
+  POOL.forEach((l, i) => {
+    const s = lampSpots[i];
+    if(s && s._d < 90*90){
+      l.position.set(s.x, s.y, s.z);
+      l.color.setHex(s.c); l.intensity = s.i; l.distance = s.r;
+    } else l.intensity = 0;
+  });
+}
+
+/* ================= 角色 ================= */
+const player = new THREE.Group();
+const torso = box(.86,1.12,.5, M.hood); torso.position.y = 1.42; player.add(torso);
+const head = box(.6,.58,.58, M.skin);   head.position.y = 2.28;  player.add(head);
+const cap = box(.66,.2,.64, M.hair);    cap.position.y = 2.55;   player.add(cap);
+const hoodB = box(.9,.34,.34, M.hood);  hoodB.position.set(0,2.16,-.34); player.add(hoodB);
+const armL = box(.24,1,.26, M.hood); armL.position.set(-.56,1.44,0); player.add(armL);
+const armR = armL.clone(); armR.position.x = .56; player.add(armR);
+const legL = box(.3,.92,.32, M.pants); legL.position.set(-.22,.5,0); player.add(legL);
+const legR = legL.clone(); legR.position.x = .22; player.add(legR);
+const shoeL = box(.32,.18,.5, M.shoe); shoeL.position.set(-.22,.09,.06); player.add(shoeL);
+const shoeR = shoeL.clone(); shoeR.position.x = .22; player.add(shoeR);
+player.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+player.position.set(0, .3, -11.5);   // 站在中華路北側的人行道上
+scene.add(player);
+
+/* ================= 控制 ================= */
+const keys = {};
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+let camYaw = 0, topDown = false, walkPhase = 0;
+function blocked(x,z){
+  for(const c of colliders)
+    if(Math.abs(x-c.x) < c.hw+.55 && Math.abs(z-c.z) < c.hd+.55) return true;
+  return false;
+}
+
+/* 你在哪一條街 */
+const whereEl = document.getElementById('where');
+function whereAmI(x, z){
+  for(const r of H_ROADS) if(Math.abs(z - r.z) < ROAD_HW + WALK_W + 2) return r.name;
+  for(const r of V_ROADS) if(Math.abs(x - r.x) < ROAD_HW + WALK_W + 2) return r.name;
+  if(z < -84) return '廟埕';
+  return '巷子';
+}
+
+const tmp = new THREE.Vector3();
+function update(dt){
+  if(keys['q']) camYaw -= dt*.0018;
+  if(keys['e']) camYaw += dt*.0018;
+
+  let ix=0, iz=0;
+  if(keys['a']||keys['arrowleft'])  ix -= 1;
+  if(keys['d']||keys['arrowright']) ix += 1;
+  if(keys['w']||keys['arrowup'])    iz -= 1;
+  if(keys['s']||keys['arrowdown'])  iz += 1;
+
+  const run = keys['shift'] ? 1.9 : 1;
+  const speed = 0.005 * dt * run;
+
+  if(ix||iz){
+    const len = Math.hypot(ix,iz);
+    const dx = (ix*Math.cos(camYaw) - iz*Math.sin(camYaw))/len;
+    const dz = (ix*Math.sin(camYaw) + iz*Math.cos(camYaw))/len;
+    const nx = player.position.x + dx*speed, nz = player.position.z + dz*speed;
+    if(!blocked(nx, player.position.z)) player.position.x = Math.max(-104, Math.min(104, nx));
+    if(!blocked(player.position.x, nz)) player.position.z = Math.max(-118, Math.min(92, nz));
+
+    player.rotation.y = Math.atan2(dx, dz);
+    walkPhase += dt*.012*run;
+    const sw = Math.sin(walkPhase)*.5;
+    legL.rotation.x = sw;  legR.rotation.x = -sw;
+    shoeL.rotation.x = sw; shoeR.rotation.x = -sw;
+    armL.rotation.x = -sw*.7; armR.rotation.x = sw*.7;
+    shoeL.position.z = .06 + sw*.28; shoeR.position.z = .06 - sw*.28;
+  } else {
+    walkPhase = 0;
+    [legL,legR,shoeL,shoeR,armL,armR].forEach(m => m.rotation.x *= .82);
+    shoeL.position.z = shoeR.position.z = .06;
+  }
+
+  /* 站在馬路上比人行道低一階 */
+  let onRoad = false;
+  for(const r of H_ROADS) if(Math.abs(player.position.z - r.z) < ROAD_HW) onRoad = true;
+  for(const r of V_ROADS) if(Math.abs(player.position.x - r.x) < ROAD_HW) onRoad = true;
+  player.position.y += ((onRoad ? .1 : .3) - player.position.y)*.3;
+
+  const dist = topDown ? 4 : 23, high = topDown ? 46 : 29;
+  tmp.set(Math.sin(camYaw)*dist, high, Math.cos(camYaw)*dist);
+  camera.position.lerp(tmp.add(player.position), 1 - Math.pow(.0015, dt/1000));
+  camera.lookAt(player.position.x, player.position.y+1.4, player.position.z);
+
+  key.position.set(player.position.x-24, 34, player.position.z+20);
+  key.target.position.copy(player.position);
+  updateLights(player.position.x, player.position.z);
+
+  whereEl.textContent = whereAmI(player.position.x, player.position.z);
+
+  let near = null;
+  for(const d of doors)
+    if(Math.hypot(player.position.x-d.x, player.position.z-d.z) < 3.6){ near = d; break; }
+  if(near){ hintEl.innerHTML = near.name + '　按 <b>空白鍵</b> 進去'; hintEl.classList.add('on'); }
+  else hintEl.classList.remove('on');
+}
+
+/* ================= 小地圖 ================= */
+const mm = document.getElementById('mm').getContext('2d');
+const MM_S = 190, MM_SCALE = MM_S / 250;
+function drawMap(){
+  mm.clearRect(0,0,MM_S,MM_S);
+  mm.fillStyle = 'rgba(20,26,34,.8)'; mm.fillRect(0,0,MM_S,MM_S);
+  const px = v => MM_S/2 + v*MM_SCALE;
+  mm.strokeStyle = '#4c5665'; mm.lineWidth = ROAD_HW*2*MM_SCALE;
+  H_ROADS.forEach(r => { mm.beginPath(); mm.moveTo(px(-105), px(r.z)); mm.lineTo(px(105), px(r.z)); mm.stroke(); });
+  V_ROADS.forEach(r => { mm.beginPath(); mm.moveTo(px(r.x), px(-90)); mm.lineTo(px(r.x), px(80)); mm.stroke(); });
+  mm.strokeStyle = '#6b7788'; mm.lineWidth = 6*MM_SCALE;
+  mm.beginPath(); mm.moveTo(px(-72+4*UNIT), px(-B_LINE)); mm.lineTo(px(-72+4*UNIT), px(-78+B_LINE)); mm.stroke();
+  mm.beginPath(); mm.moveTo(px(-60+2*UNIT), px(B_LINE));  mm.lineTo(px(-60+2*UNIT), px(72-B_LINE)); mm.stroke();
+  mm.fillStyle = '#a8321f'; mm.fillRect(px(-17), px(-113), 34*MM_SCALE, 10*MM_SCALE);
+  doors.forEach(d => { mm.fillStyle = '#d8b24a';
+    mm.fillRect(px(d.x)-2, px(d.z)-2, 4, 4); });
+  mm.fillStyle = '#6fe0b0';
+  mm.beginPath(); mm.arc(px(player.position.x), px(player.position.z), 3.2, 0, 7); mm.fill();
+}
+
+/* ================= loop ================= */
+let lastW=0, lastH=0;
+function fit(){
+  if(innerWidth===lastW && innerHeight===lastH) return;
+  lastW=innerWidth; lastH=innerHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+}
+const fpsEl = document.getElementById('fps');
+let last = performance.now(), acc = 0, frames = 0;
+renderer.setAnimationLoop(now => {
+  const dt = Math.min(50, now-last); last = now;
+  fit(); update(dt); drawMap();
+  useBloom ? composer.render() : renderer.render(scene, camera);
+  acc += dt; frames++;
+  if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc = 0; frames = 0; }
+});
+
+document.getElementById('tBloom').onclick = e => {
+  useBloom = !useBloom; e.target.classList.toggle('on', useBloom);
+  e.target.textContent = '光暈：' + (useBloom?'開':'關'); };
+document.getElementById('tShadow').onclick = e => {
+  renderer.shadowMap.enabled = !renderer.shadowMap.enabled;
+  scene.traverse(o => { if(o.isMesh) o.material.needsUpdate = true; });
+  e.target.classList.toggle('on', renderer.shadowMap.enabled);
+  e.target.textContent = '陰影：' + (renderer.shadowMap.enabled?'開':'關'); };
+document.getElementById('tTop').onclick = e => {
+  topDown = !topDown; e.target.classList.toggle('on', topDown);
+  e.target.textContent = topDown ? '切回斜視' : '切成俯視'; };
+</script>
+</body>
+</html>

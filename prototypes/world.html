@@ -197,10 +197,15 @@
 
 <div class="note">
   <kbd>← ↑ → ↓</kbd>／<kbd>WASD</kbd> 走動，走到互動點前面按 <kbd>空白</kbd>。
-  從<b>家的大門</b>出去就到<b>街上</b>——那條街有 <b>1600 寬，畫面只看得到 640</b>，
-  相機會跟著你走，走到頭才停。街上可以進<b>你家、超商、刺青店</b>三個門。
   <hr>
-  <b>街上是用走的，距離自己換成時間</b>（走一段路，時鐘就跳一分鐘）。不是選單傳送。
+  <b>兩條街，走得過去。</b>「巷子口」（你家、麵店、檳榔攤、超商、機車行、藥局）
+  跟「廟口」（宮廟、宵夜攤、遊藝場、刺青店、網咖）。每條 <b>1600 寬，畫面只看得到 640</b>，
+  相機跟著你走。
+  <hr>
+  <b>換街不是選單，是走進巷子。</b>街的中間有一個<b>巷口</b>，站到巷子那一格
+  一直往裡面走（<kbd>↑</kbd>）走到底，就走到另一條街——而且是從那一條街的巷口走出來的。
+  <hr>
+  <b>街上是用走的，距離自己換成時間</b>（走一段路，時鐘就跳一分鐘）。
   <hr>
   <b>「換一組爸媽」那顆</b>是重點：客廳的事件表就是開局選的那兩格。
   同一張沙發，換一組爸媽，你走過去看到的東西完全不一樣。
@@ -434,33 +439,24 @@ SF.renderBackground(mockStore.getContext('2d'), { doorOpen:0, taken:false });
 const mockHome = document.createElement('canvas'); mockHome.width = LW; mockHome.height = LH;
 HM.renderBackground(mockHome.getContext('2d'), { sofaFront:false, vignette:true });
 
-/* 街:1600 寬,一次只看得到 640,相機跟著角色走 */
-const mockStreet = document.createElement('canvas');
-mockStreet.width = SR.W; mockStreet.height = SR.H;
-SR.renderBackground(mockStreet.getContext('2d'));
+/* ===== 兩條街 =====
+   一條街 = 一份店面清單。加一條街的成本是加一份資料,不是寫一個新場景。
+   街與街靠「巷口」接:走到巷口往深處走到底就換街,不是選單傳送。 */
+const STREETS = {};
+for(const k in SR.STREET_DATA) STREETS[k] = SR.makeStreet(SR.STREET_DATA[k]);
+const mockStreets = {};
+for(const k in STREETS){
+  const c = document.createElement('canvas');
+  c.width = STREETS[k].W; c.height = STREETS[k].H;
+  STREETS[k].renderBackground(c.getContext('2d'));
+  mockStreets[k] = c;
+}
+const DOOR_NAME = { home:'你家', store:'超商', tattoo:'刺青店' };
 let camX = 0;
 
 const STORE_HOT = { x:230, y:290, w:208, h:100, cut:{ sx:600, sy:495, sw:545, sh:260 } };
 
 const SCENES = {
-  street: {
-    name:'街上', walkN:SR.WALK_N, walkS:SR.WALK_S, wide:SR.W, camera:true,
-    spots: [
-      { id:'dHome',   name:'你家',   x:212, w:58, y0:SR.WALK_N, y1:SR.WALK_S },
-      { id:'dStore',  name:'超商',   x:852, w:58, y0:SR.WALK_N, y1:SR.WALK_S },
-      { id:'dTattoo', name:'刺青店', x:1492, w:58, y0:SR.WALK_N, y1:SR.WALK_S }
-    ],
-    draw(){
-      vg.imageSmoothingEnabled = false;
-      vg.drawImage(mockStreet, 0,0,SR.W,SR.H, 0,0,SR.W*SC,SR.H*SC);
-    },
-    items(){
-      /* 騎樓柱子永遠在最前面,角色從柱子後面走過去 */
-      return [{ y: 9999, draw(){ vg.save(); vg.imageSmoothingEnabled = false; vg.scale(SC,SC);
-          SR.pillars(vg); vg.restore(); } }];
-    }
-  },
-
   home: {
     name:'家', walkN:HM.WALK_N, walkS:HM.WALK_S,
     spots: [
@@ -530,6 +526,26 @@ const SCENES = {
   }
 };
 
+/* 兩條街掛進 SCENES —— 引擎一行都不用改,只是多兩筆資料 */
+for(const key in STREETS){
+  const st = STREETS[key];
+  SCENES[key] = {
+    name: st.name, walkN: st.walkN, walkS: st.walkS, wide: st.W,
+    camera: true, street: st,
+    spots: st.doors.map(d => ({ id:'d_'+d.id, name:DOOR_NAME[d.id],
+                                x:d.x, w:d.w, y0:d.y0, y1:d.y1 })),
+    draw(){
+      vg.imageSmoothingEnabled = false;
+      vg.drawImage(mockStreets[key], 0,0,st.W,st.H, 0,0,st.W*SC,st.H*SC);
+    },
+    items(){
+      /* 騎樓柱子跟路邊機車永遠在最前面,角色從它們後面走過去 */
+      return [{ y:9999, draw(){ vg.save(); vg.imageSmoothingEnabled = false; vg.scale(SC,SC);
+          st.pillars(vg); vg.restore(); } }];
+    }
+  };
+}
+
 /* ================= 互動 ================= */
 function openSpot(id){
   if(S.busy || dlg.on) return;
@@ -537,7 +553,7 @@ function openSpot(id){
 
   if(sc === 'home'){
     if(id === 'door') openMenu('大門', [
-      { label:'出門', cost:'', run:() => go('street', {x:246,y:308}, 1) },
+      { label:'出門', cost:'', run:() => go('st1', {x:246,y:308}, 1) },
       { label:'算了', cls:'back', run(){} }
     ]);
     else if(id === 'god') openMenu('神明桌', [
@@ -581,10 +597,10 @@ function openSpot(id){
     ]);
   }
 
-  else if(sc === 'street'){
-    if(id === 'dHome')  go('home',  {x:120,y:322}, 1);
-    else if(id === 'dStore') go('store', {x:150,y:320}, 1);
-    else if(id === 'dTattoo'){
+  else if(SCENES[sc].street){
+    if(id === 'd_home')  go('home',  {x:120,y:322}, 1);
+    else if(id === 'd_store') go('store', {x:150,y:320}, 1);
+    else if(id === 'd_tattoo'){
       if(S.inked){ toast('師傅在忙。而且你手上那隻還在脫皮。', 3000); return; }
       openMenu('刺青店　（場景還沒畫，機制先能玩）', [
         { label:'小的，手腕內側', cost:'$1500　帥潮 +8　通緝 +1', cls:'risk',
@@ -599,7 +615,7 @@ function openSpot(id){
 
   else if(sc === 'store'){
     if(id === 'door') openMenu('門口', [
-      { label:'走出去', cost:'', run:() => go('street', {x:886,y:308}, 1) },
+      { label:'走出去', cost:'', run:() => go('st1', {x:886,y:308}, 1) },
       { label:'再待一下', cls:'back', run(){} }
     ]);
     else if(id === 'hot') openMenu('鮮食櫃', [
@@ -704,7 +720,7 @@ addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 /* 走不進去的地方 */
 function blocked(x, y){
-  if(S.scene === 'street') return false;
+  if(SCENES[S.scene].street) return false;
   if(S.scene === 'store'){
     const h = STORE_HOT;
     return x > h.x-6 && x < h.x+h.w+6 && y > h.y-42 && y < h.y+4;
@@ -760,12 +776,31 @@ function update(dt){
   for(const sp of sc.spots){
     if(S.px > sp.x-12 && S.px < sp.x+sp.w+12 && S.py >= sp.y0 && S.py <= sp.y1){ S.near = sp.id; break; }
   }
+
+  /* 巷口:站在巷子那一格,一直往深處走(↑)走到底 → 換到另一條街。
+     不用按鍵,走過去就是了。 */
+  let alleyTo = null;
+  if(sc.street && !S.busy && !dlg.on){
+    for(const a of sc.street.alleys){
+      if(S.px > a.x && S.px < a.x + a.w){ alleyTo = a; break; }
+    }
+    if(alleyTo && S.py <= sc.walkN + 2){
+      const dest = STREETS[alleyTo.to];
+      const back = dest.alleys.find(z => z.to === S.scene) || dest.alleys[0];
+      go(alleyTo.to, { x: back.x + back.w / 2, y: dest.walkS - 22 }, 1);
+      alleyTo = null;
+    }
+  }
+
   const show = S.near && !S.busy && !dlg.on;
-  hintEl.classList.toggle('on', !!show);
   if(show){
     const sp = sc.spots.find(s => s.id === S.near);
     hintEl.innerHTML = sp.name + '　按 <b>空白鍵</b>';
-  }
+    hintEl.classList.add('on');
+  } else if(alleyTo){
+    hintEl.innerHTML = '巷子　往裡面走 <b>↑</b>　→　' + STREETS[alleyTo.to].name;
+    hintEl.classList.add('on');
+  } else hintEl.classList.remove('on');
 }
 
 /* ================= render ================= */

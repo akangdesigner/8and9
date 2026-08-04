@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 視角比較：平視 vs 相機拉高</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 18px 20px 40px;
+    background: #0d0f14; color: #b9bfc9;
+    font-family: "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { font-size: 12px; letter-spacing: .18em; color: #6a727f; margin: 0 0 4px; font-weight: 600; }
+  h2 { font-size: 18px; color: #e2e6ec; margin: 0 0 4px; letter-spacing: .04em; font-weight: 600; }
+  .lead { font-size: 13.5px; color: #7e8794; letter-spacing: .04em; margin-bottom: 14px; }
+  .lead b { color: #d8b24a; font-weight: 600; }
+
+  .pane { width: 100%; max-width: 760px; margin-bottom: 14px; }
+  .cap {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 13px; letter-spacing: .08em; margin-bottom: 5px; padding: 0 2px;
+  }
+  .cap .l { color: #e2e6ec; font-weight: 600; }
+  .cap .l small { color: #6f7885; font-weight: 400; margin-left: 8px; letter-spacing: .02em; }
+  .cap .r { font-size: 12.5px; color: #7e8794; font-variant-numeric: tabular-nums; }
+  .cap .r b { color: #d8b24a; }
+  canvas {
+    display: block; width: 100%; height: auto; background: #11141a;
+    border: 1px solid #262b34; box-shadow: 0 12px 34px rgba(0,0,0,.6);
+  }
+  .pane.hi canvas { border-color: #55617a; }
+
+  .bar { display: flex; gap: 9px; margin: 4px 0 12px; flex-wrap: wrap; justify-content: center; }
+  button.tool {
+    background: #1a1e26; color: #c8cfda; border: 1px solid #313846;
+    padding: 8px 16px; font-size: 13px; font-family: inherit; letter-spacing: .06em;
+    cursor: pointer; border-radius: 3px;
+  }
+  button.tool:hover { background: #242b36; color: #fff; }
+  button.tool.on { background: #2d3646; border-color: #55617a; color: #fff; }
+
+  .note { max-width: 760px; font-size: 13.5px; line-height: 2; color: #767e8b; }
+  .note b { color: #b6bdc8; font-weight: 600; }
+  .note kbd { background: #1c212a; border: 1px solid #363d4a; border-bottom-width: 2px;
+              padding: 1px 7px; border-radius: 3px; font-size: 12px; color: #cdd5e0; }
+  .note hr { border: 0; border-top: 1px solid #212630; margin: 12px 0; }
+  .note table { border-collapse: collapse; margin: 10px 0; font-size: 13px; width: 100%; }
+  .note th, .note td { border: 1px solid #262b34; padding: 6px 10px; text-align: left; }
+  .note th { color: #9aa3b0; font-weight: 600; background: #14181f; }
+</style>
+</head>
+<body>
+
+<h1>NO-WAY-UP ／ 視角比較</h1>
+<h2>同一組按鍵，同時控制兩個畫面</h2>
+<div class="lead">按 <b>← ↑ → ↓</b>，兩邊會一起走。看的是<b>上下能走多深</b>。</div>
+
+<div class="pane">
+  <div class="cap">
+    <div class="l">現行：平視<small>街道帶狀走道</small></div>
+    <div class="r">可走深度 <b>106</b> px　／　地面佔畫面 <b>38%</b></div>
+  </div>
+  <canvas id="ca" width="1280" height="720"></canvas>
+</div>
+
+<div class="pane hi">
+  <div class="cap">
+    <div class="l">提案：相機拉高<small>二樓切掉，地面吃掉大半畫面</small></div>
+    <div class="r">可走深度 <b>186</b> px　／　地面佔畫面 <b>58%</b></div>
+  </div>
+  <canvas id="cb" width="1280" height="720"></canvas>
+</div>
+
+<div class="bar">
+  <button class="tool" id="tArea">顯示可走範圍</button>
+  <button class="tool on" id="tShadow">影子：開</button>
+  <button class="tool" onclick="location.reload()">重來</button>
+</div>
+
+<div class="note">
+  <b>這不是斜俯視。</b>是把相機抬高的平視——二樓被切掉，地面吃掉畫面 58%，
+  但角色<b>還是看得到臉</b>（朝哪邊、有沒有在看你，全都還在）。
+  <hr>
+  <table>
+    <tr><th></th><th>平視（上）</th><th>相機拉高（下）</th><th>斜俯視（大多數）</th></tr>
+    <tr><td>看得到臉</td><td>✅</td><td>✅</td><td>❌ 只有頭頂</td></tr>
+    <tr><td>上下走的深度</td><td>106px</td><td><b>186px</b></td><td>整片</td></tr>
+    <tr><td>可以繞東西</td><td>❌</td><td><b>✅ 機車、紙箱、盆栽</b></td><td>✅</td></tr>
+    <tr><td>背景製作量</td><td>一張正面圖</td><td>一張正面圖</td><td>每個物件畫成斜的</td></tr>
+    <tr><td>角色製作量</td><td>4 張</td><td>4 張</td><td>8 方向</td></tr>
+  </table>
+  <hr>
+  下面那個畫面的空間感，有一半不是來自視角，是來自<b>地上有東西可以繞</b>
+  跟<b>光鋪在地上</b>。這兩樣平視也能加，成本很低。
+  <hr>
+  按<b>顯示可走範圍</b>那顆，兩邊的走道會畫出來——差別是一眼的事。
+</div>
+
+<script src="lib/scene-store-front.js"></script>
+<script src="lib/scene-street.js"></script>
+<script src="lib/scene-block.js"></script>
+<script>
+const SF = SceneStoreFront, SR = SceneStreet, SB = SceneBlock, P = SF.P;
+const SC = 2;
+
+const ca = document.getElementById('ca'), ga = ca.getContext('2d');
+const cb = document.getElementById('cb'), gb = cb.getContext('2d');
+
+/* ---------- 上：現行平視（取 st1 的一段，含超商） ---------- */
+const st1 = SR.makeStreet(SR.STREET_DATA.st1);
+const mockA = document.createElement('canvas');
+mockA.width = st1.W; mockA.height = st1.H;
+st1.renderBackground(mockA.getContext('2d'));
+const VIEW_X = 768;                       // 顯示 768–1408 這一段
+
+/* ---------- 下：相機拉高 ---------- */
+const mockB = document.createElement('canvas');
+mockB.width = SB.W; mockB.height = SB.H;
+SB.renderBackground(mockB.getContext('2d'));
+
+/* ---------- 顆粒 ---------- */
+let seed = 20260804;
+const rnd = () => (seed = (seed*1664525 + 1013904223) >>> 0) / 4294967296;
+const grain = (() => {
+  const c = document.createElement('canvas'); c.width = 640; c.height = 360;
+  const x = c.getContext('2d'), img = x.createImageData(640, 360);
+  for(let i=0;i<img.data.length;i+=4){
+    const v = rnd() < .5 ? 0 : 255;
+    img.data[i]=img.data[i+1]=img.data[i+2]=v;
+    img.data[i+3] = rnd() < .05 ? 10 : 0;
+  }
+  x.putImageData(img,0,0);
+  return c;
+})();
+
+/* ---------- 兩個角色，同一組輸入 ---------- */
+const keys = {};
+let showArea = false, useShadow = true;
+
+const A = { x: VIEW_X + 300, y: 300, face:'F', walkT:0, moving:false };
+const B = { x: 300,          y: 268, face:'F', walkT:0, moving:false };
+
+addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+/* 下面那個畫面：地上的東西會擋 —— 這就是「可以繞」 */
+function blockedB(x, y){
+  for(const o of SB.OBJECTS){
+    if(Math.abs(x - o.x) < o.r && Math.abs(y - o.y) < o.r * .55) return true;
+  }
+  return false;
+}
+
+function update(dt){
+  let dx=0, dy=0;
+  if(keys['arrowleft']||keys['a'])  dx -= 1;
+  if(keys['arrowright']||keys['d']) dx += 1;
+  if(keys['arrowup']||keys['w'])    dy -= 1;
+  if(keys['arrowdown']||keys['s'])  dy += 1;
+
+  const sp = 1.35 * (dx&&dy ? .71 : 1);
+  const face = dx<0 ? 'L' : dx>0 ? 'R' : dy<0 ? 'B' : dy>0 ? 'F' : null;
+
+  /* 上：平視 */
+  if(dx||dy){
+    A.x = Math.max(VIEW_X+20, Math.min(VIEW_X+620, A.x + dx*sp));
+    A.y = Math.max(st1.walkN, Math.min(st1.walkS, A.y + dy*sp*.62));
+    A.moving = true; A.walkT += dt; if(face) A.face = face;
+  } else A.moving = false;
+
+  /* 下：相機拉高 */
+  if(dx||dy){
+    const nx = Math.max(20, Math.min(SB.W-20, B.x + dx*sp));
+    const ny = Math.max(SB.WALK_N, Math.min(SB.WALK_S, B.y + dy*sp*.62));
+    if(!blockedB(nx, B.y)) B.x = nx;
+    if(!blockedB(B.x, ny)) B.y = ny;
+    B.moving = true; B.walkT += dt; if(face) B.face = face;
+  } else B.moving = false;
+}
+
+const PC = { skin:P.pcSkin, hair:P.pcHair, top:P.pcHood, topD:P.pcHoodD, pants:P.pcPants, hood:true };
+
+function renderA(){
+  ga.clearRect(0,0,ca.width,ca.height);
+  ga.imageSmoothingEnabled = false;
+  ga.drawImage(mockA, VIEW_X,0,640,360, 0,0,ca.width,ca.height);
+
+  ga.save();
+  ga.scale(SC, SC);
+  ga.translate(-VIEW_X, 0);
+
+  if(showArea){
+    ga.globalAlpha = .22; ga.fillStyle = '#4fd0a0';
+    ga.fillRect(VIEW_X, st1.walkN, 640, st1.walkS - st1.walkN);
+    ga.globalAlpha = 1;
+    ga.strokeStyle = '#4fd0a0'; ga.lineWidth = 1;
+    ga.strokeRect(VIEW_X+.5, st1.walkN+.5, 639, st1.walkS - st1.walkN);
+  }
+
+  const k = 0.78 + 0.22 * ((A.y - st1.walkN) / (st1.walkS - st1.walkN));
+  SF.person(ga, A.x, A.y, Object.assign({ face:A.face, k,
+    walk: A.moving ? (Math.floor(A.walkT/150)%2 ? 1 : -1) : 0 }, PC));
+  st1.pillars(ga);
+  ga.restore();
+
+  ga.globalAlpha = .5;
+  ga.drawImage(grain, 0,0,640,360, 0,0,ca.width,ca.height);
+  ga.globalAlpha = 1;
+}
+
+function renderB(){
+  gb.clearRect(0,0,cb.width,cb.height);
+  gb.imageSmoothingEnabled = false;
+  gb.drawImage(mockB, 0,0,SB.W,SB.H, 0,0,cb.width,cb.height);
+
+  gb.save();
+  gb.scale(SC, SC);
+
+  if(showArea){
+    gb.globalAlpha = .22; gb.fillStyle = '#4fd0a0';
+    gb.fillRect(0, SB.WALK_N, SB.W, SB.WALK_S - SB.WALK_N);
+    gb.globalAlpha = 1;
+    gb.strokeStyle = '#4fd0a0'; gb.lineWidth = 1;
+    gb.strokeRect(.5, SB.WALK_N+.5, SB.W-1, SB.WALK_S - SB.WALK_N);
+  }
+
+  /* 地上的東西跟角色一起排序 —— 你可以走到機車前面或後面 */
+  const items = SB.OBJECTS.map(o => ({ y:o.y, draw(){ SB.drawObject(gb, o); } }));
+  items.push({ y: B.y, draw(){
+    if(useShadow) SB.shadow(gb, B.x, B.y);
+    SF.person(gb, B.x, B.y, Object.assign({ face:B.face, k:SB.depthScale(B.y),
+      walk: B.moving ? (Math.floor(B.walkT/150)%2 ? 1 : -1) : 0 }, PC));
+  } });
+  items.sort((a,b) => a.y - b.y).forEach(i => i.draw());
+
+  SB.foreground(gb);
+  gb.restore();
+
+  gb.globalAlpha = .5;
+  gb.drawImage(grain, 0,0,640,360, 0,0,cb.width,cb.height);
+  gb.globalAlpha = 1;
+}
+
+let last = performance.now();
+(function loop(now){
+  const dt = Math.min(50, now - last); last = now;
+  update(dt); renderA(); renderB();
+  requestAnimationFrame(loop);
+})(last);
+
+document.getElementById('tArea').onclick = e => {
+  showArea = !showArea;
+  e.target.classList.toggle('on', showArea);
+  e.target.textContent = showArea ? '隱藏可走範圍' : '顯示可走範圍';
+};
+document.getElementById('tShadow').onclick = e => {
+  useShadow = !useShadow;
+  e.target.classList.toggle('on', useShadow);
+  e.target.textContent = '影子：' + (useShadow ? '開' : '關');
+};
+</script>
+</body>
+</html>

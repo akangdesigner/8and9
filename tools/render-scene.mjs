@@ -196,17 +196,21 @@ const DESKTOP = desktopDir();
   write(path.join(ROOT, 'prototypes', 'out', 'home-blockout.png'), png);
 }
 
-/* ===== 街:1600 寬。太寬了不放大,拿去上質感時要分段餵 ===== */
+/* ===== 街:每條 1600 寬。太寬了不放大,拿去上質感時要分段餵 ===== */
 {
   const S = globalThis.SceneStreet;
-  const ctx = new MiniCtx(S.W, S.H);
-  S.renderBackground(ctx);
-  S.pillars(ctx);
-  const png = encodePNG(S.W, S.H, ctx.buf);
+  for (const key of Object.keys(S.STREET_DATA)) {
+    const st = S.makeStreet(S.STREET_DATA[key]);
+    const ctx = new MiniCtx(st.W, st.H);
+    st.renderBackground(ctx);
+    st.pillars(ctx);
+    const png = encodePNG(st.W, st.H, ctx.buf);
 
-  console.log(`街 ${S.W}×${S.H} ×1`);
-  if (DESKTOP) write(path.join(DESKTOP, 'street-blockout.png'), png);
-  write(path.join(ROOT, 'prototypes', 'out', 'street-blockout.png'), png);
+    console.log(`街「${st.name}」 ${st.W}×${st.H} ×1`);
+    const name = `street-${key}-blockout.png`;
+    if (DESKTOP) write(path.join(DESKTOP, name), png);
+    write(path.join(ROOT, 'prototypes', 'out', name), png);
+  }
 }
 
 /* ===== 斜俯視:已擱置,只在明確要求時才出 ===== */
