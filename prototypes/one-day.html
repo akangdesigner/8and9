@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 一天要做什麼</title>
+<style>
+  :root{
+    --bg:#0e1014; --card:#181b21; --line:#252931; --edge:#323740;
+    --ink:#e6e8ec; --dim:#8d949e; --faint:#5a616b;
+    --money:#f2d888; --full:#c9bb44; --calm:#6fc3b4; --cool:#d05fa0; --star:#e0483a;
+    --gold:#d8b24a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.85 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+       min-height:100vh;padding:22px 16px 60px}
+  .wrap{max-width:600px;margin:0 auto}
+
+  h1{font-size:16px;margin:0 0 3px}
+  .lede{color:var(--faint);font-size:12.5px;margin-bottom:16px}
+
+  /* HUD */
+  .hud{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .pod{background:var(--card);border:1px solid var(--line);border-radius:4px;
+       padding:5px 9px 6px;min-width:70px;flex:1}
+  .pod .lb{color:#7c8593;font-size:9.5px;letter-spacing:.14em}
+  .pod .nm{font-size:15px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .pod.money .nm{color:var(--money)} .pod.full .nm{color:var(--full)}
+  .pod.calm .nm{color:var(--calm)}   .pod.cool .nm{color:var(--cool)}
+  .pod.star .nm{color:var(--star)}
+  .pod .track{height:3px;margin-top:4px;background:rgba(255,255,255,.09);border-radius:2px;overflow:hidden}
+  .pod .track i{display:block;height:100%;transition:width .5s}
+  .pod.full .track i{background:var(--full)} .pod.calm .track i{background:var(--calm)}
+  .pod.cool .track i{background:var(--cool)}
+  .pod.hit{animation:hit .55s}
+  @keyframes hit{30%{border-color:var(--gold);transform:translateY(-3px)}}
+
+  .daybar{display:flex;justify-content:space-between;align-items:baseline;
+          font-size:11.5px;color:var(--faint);letter-spacing:.12em;margin:14px 0 9px}
+  .daybar b{color:var(--ink);font-size:14px;letter-spacing:.06em;font-weight:400}
+
+  /* 三格 */
+  .slots{display:flex;gap:5px;margin-bottom:16px}
+  .slot{flex:1;height:26px;border:1px solid var(--line);border-radius:4px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:11px;color:var(--faint);letter-spacing:.1em;background:#131720}
+  .slot.now{border-color:var(--gold);color:var(--gold)}
+  .slot.done{background:#1b2028;color:#6d7684;border-color:var(--edge)}
+  .slot.dead{background:#1a1416;color:#7a5a5a;border-color:#3a2a2c}
+
+  .stage{background:var(--card);border:1px solid var(--line);border-radius:10px;
+         padding:20px 22px;min-height:250px;position:relative;overflow:hidden}
+  .when{font-size:11px;letter-spacing:.24em;color:var(--faint)}
+  .title{font-size:18px;margin:7px 0 12px}
+  .body{white-space:pre-line;color:#c5cbd4;font-size:14.5px}
+  .quiet{color:var(--faint);font-size:13px;border-left:2px solid var(--edge);
+         padding-left:11px;margin-top:12px}
+
+  .acts{display:flex;flex-direction:column;gap:6px;margin-top:18px}
+  button.act{text-align:left;background:rgba(12,16,23,.9);color:#dfe4ea;
+    border:1px solid #333c48;border-left:3px solid #4a5563;padding:10px 14px;
+    font:inherit;font-size:14.5px;cursor:pointer;border-radius:4px;transition:.13s;
+    display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  button.act:hover:not(:disabled){background:rgba(34,42,55,.98);
+    border-left-color:var(--gold);transform:translateX(3px)}
+  button.act:disabled{opacity:.32;cursor:default}
+  button.act .c{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  .c .m{color:var(--money)} .c .f{color:var(--full)} .c .k{color:var(--calm)}
+  .c .o{color:var(--cool)} .c .s{color:var(--star)}
+  button.act.sleep{border-left-color:#5a6b8a}
+  button.act.tired{border-left-color:#6b4a4a}
+
+  .flash{position:absolute;inset:0;background:#07080b;display:flex;
+         align-items:center;justify-content:center;flex-direction:column;gap:10px;
+         opacity:0;pointer-events:none;transition:opacity .4s}
+  .flash.on{opacity:1}
+  .flash .big{font-size:26px;letter-spacing:.16em;color:#cfd6df}
+  .flash .sm{font-size:12px;color:var(--faint);letter-spacing:.18em}
+
+  .note{margin-top:18px;background:#151920;border:1px solid var(--line);
+        border-radius:9px;padding:14px 17px;font-size:12.5px;color:var(--dim);line-height:1.85}
+  .note b{color:var(--ink)}
+  .reset{margin-top:12px;background:none;border:0;color:var(--faint);
+         font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>一天要做什麼</h1>
+  <div class="lede">三格。你想做的永遠比三件多，而昨晚做了什麼會吃掉今天早上。</div>
+
+  <div class="hud" id="hud"></div>
+
+  <div class="daybar"><b id="dTitle"></b><span id="dSub"></span></div>
+  <div class="slots" id="slots"></div>
+
+  <div class="stage">
+    <div id="scene"></div>
+    <div class="flash" id="flash"><div class="sm" id="fSm"></div><div class="big" id="fBig"></div></div>
+  </div>
+
+  <button class="reset" id="reset">重來</button>
+
+  <div class="note">
+    <b>上課沒有立即好處，這是故意的。</b>這是學店——待在教室換不到錢也換不到位置。
+    出席率不顯示在畫面上，<b>三年後結算才看得到</b>：畢業證書是唯一能帶你去下一個地方的東西。
+    你每天都在賣未來換現在，而遊戲不告訴你賣了多少。<br><br>
+    <b>晚班會吃掉隔天早上。</b>上完晚班回家十一點半，第一節你就是睡著的——
+    那一格直接沒了。「不是你笨，是你上完晚班回家已經十一點半」寫在 DESIGN_NOTES 第一天，
+    這裡把它做成機制。
+  </div>
+</div>
+
+<script>
+/* ── 狀態 ───────────────────────────────────── */
+const ST0 = { money:63, full:42, calm:55, cool:8, star:0 };
+const META = [
+  ['money','金錢',  v => '$'+v,        null],
+  ['full', '飽足',  v => v,            100],
+  ['calm', '歸屬感',v => v,            100],
+  ['cool', '帥潮',  v => v,            100],
+  ['star', '通緝',  v => '★'.repeat(v)||'—', null]
+];
+const WD = ['日','一','二','三','四','五','六'];
+let ST, day, slot, tiredAM, attend, log;
+
+/* ── 三個時段的行動表 ──────────────────────────
+   d: 對指標的影響 / dead: 這格會廢掉隔天早上 / att: 出席(隱藏) */
+const ACTS = {
+  am: [
+    { id:'class', label:'上課', att:1, d:{},
+      say:'你坐在教室裡。\n黑板上的東西你跟不上，但你在。',
+      quiet:'今天沒有賺到錢。' },
+    { id:'skip',  label:'蹺課去打零工', att:-1, d:{money:+700, calm:-2},
+      say:'發傳單。站四個小時，七百塊。',
+      quiet:'導師沒有打電話來。他已經不打了。' },
+    { id:'late',  label:'睡到中午再去', att:-1, d:{calm:-3},
+      say:'你醒來的時候十一點四十。',
+      quiet:'你在校門口站了一下，還是進去了。' }
+  ],
+  noon: [
+    { id:'stair', label:'去後面樓梯間', d:{calm:+6, star:+1, money:-60},
+      say:'四五個人蹲在那裡。\n有人往旁邊挪，空出一個位子。',
+      quiet:'那個位子不是白給的。' },
+    { id:'cards', label:'最後一排打牌', d:{calm:+5},
+      say:'一局五十。今天手氣普通。',
+      quiet:'他們叫你的綽號。那個綽號是上禮拜才有的。', gamble:true },
+    { id:'alone', label:'自己吃便當', d:{full:+22, calm:-3},
+      say:'你在座位上吃完，沒有人過來。',
+      quiet:'你把便當盒收好，趴著睡了二十分鐘。' },
+    { id:'shop',  label:'去合作社', d:{money:-45, full:+18},
+      say:'麵包跟奶茶。四十五塊。',
+      quiet:'' }
+  ],
+  night: [
+    { id:'shift', label:'超商晚班', d:{money:+850, full:-12}, dead:true,
+      say:'到十一點。收銀、補貨、拖地。',
+      quiet:'回到家十一點半。明天第一節你會睡著。' },
+    { id:'ride',  label:'跟他們去繞車', d:{calm:+8, cool:+4, money:-180, star:+1},
+      say:'從廟口繞到後火車站，來回兩趟。\n風很大，沒有人講話。',
+      quiet:'那兩個小時你什麼都沒有想。' },
+    { id:'home',  label:'回家', d:{full:+14},
+      say:'客廳燈亮著，電視開著。\n他在沙發上。',
+      quiet:'你煮了泡麵。他沒有問你今天去哪。', home:true },
+    { id:'study', label:'待在超商角落看書', d:{money:-35, calm:-4}, att:1,
+      say:'你買了一杯思樂冰坐在窗邊。\n看了四十分鐘，看不進去。',
+      quiet:'隔壁桌那兩個穿的是前面那間的制服。' }
+  ]
+};
+
+const SLOT_NAME = { am:'上午', noon:'午休', night:'晚上' };
+const ORDER = ['am','noon','night'];
+const $ = id => document.getElementById(id);
+
+/* ── 畫面 ───────────────────────────────────── */
+function hud(hit){
+  $('hud').innerHTML = META.map(([k,lb,fmt,max]) => `
+    <div class="pod ${k} ${hit&&hit[k]?'hit':''}">
+      <div class="lb">${lb}</div><div class="nm">${fmt(ST[k])}</div>
+      ${max ? `<div class="track"><i style="width:${Math.min(100,ST[k]/max*100)}%"></i></div>` : ''}
+    </div>`).join('');
+}
+
+function slots(){
+  $('slots').innerHTML = ORDER.map((s,i) => {
+    const dead = (s==='am' && tiredAM);
+    const cls = dead ? 'dead' : i < slot ? 'done' : i === slot ? 'now' : '';
+    return `<div class="slot ${cls}">${dead ? '睡著了' : SLOT_NAME[s]}</div>`;
+  }).join('');
+  $('dTitle').textContent = `第 ${day} 天　星期${WD[day % 7]}`;
+  $('dSub').textContent = tiredAM && slot === 0 ? '你昨天上到十一點半' : '';
+}
+
+function render(){
+  hud(); slots();
+  const s = ORDER[slot];
+
+  /* 昨晚上晚班 → 上午這一格直接沒了 */
+  if(s === 'am' && tiredAM){
+    $('scene').innerHTML = `
+      <div class="when">上午</div>
+      <div class="title">你睡著了</div>
+      <div class="body">第一節下課的時候有人推你。\n第二節你又睡著了。</div>
+      <div class="quiet">老師從你旁邊走過去，看了一眼，沒有叫你。</div>
+      <div class="acts"><button class="act tired" id="skip">
+        <span>這一格沒了</span><span class="c">昨天的晚班吃掉的</span></button></div>`;
+    $('skip').onclick = () => { attend--; slot++; tiredAM = false; render(); };
+    return;
+  }
+
+  const list = ACTS[s];
+  $('scene').innerHTML = `
+    <div class="when">${SLOT_NAME[s]}</div>
+    <div class="title">你要做什麼？</div>
+    <div class="body quiet">三格用完就是一天。你想做的比三件多。</div>
+    <div class="acts">${list.map((a,i) => `
+      <button class="act" data-i="${i}"><span>${a.label}</span>
+      <span class="c">${cost(a)}</span></button>`).join('')}</div>`;
+  $('scene').querySelectorAll('button').forEach(b => b.onclick = () => choose(list[+b.dataset.i]));
+}
+
+function cost(a){
+  const t = [];
+  const d = a.d || {};
+  if(d.money) t.push(`<span class="m">${d.money>0?'+':'−'}$${Math.abs(d.money)}</span>`);
+  if(a.gamble) t.push(`<span class="m">±$?</span>`);
+  if(d.full)  t.push(`<span class="f">飽足 ${d.full>0?'+':''}${d.full}</span>`);
+  if(d.calm)  t.push(`<span class="k">歸屬 ${d.calm>0?'+':''}${d.calm}</span>`);
+  if(d.cool)  t.push(`<span class="o">帥潮 +${d.cool}</span>`);
+  if(d.star)  t.push(`<span class="s">通緝 +${d.star}</span>`);
+  return t.join('　') || '—';
+}
+
+function choose(a){
+  const hit = {};
+  const d = Object.assign({}, a.d);
+  if(a.gamble){                                   // 打牌:輸贏隨機,長期是負的
+    d.money = [200, -300, 150, -450, 100][day % 5];
+  }
+  for(const k in d){
+    ST[k] = k==='star' ? ST[k]+d[k] : Math.max(0, Math.min(k==='money'?999999:100, ST[k]+d[k]));
+    hit[k] = 1;
+  }
+  if(a.att) attend += a.att;
+  if(a.dead) tiredAM = true;
+  log.push(a.label);
+
+  hud(hit);
+  const gain = a.gamble ? (d.money > 0 ? `\n你贏了 ${d.money}。` : `\n你輸了 ${-d.money}。`) : '';
+  $('scene').innerHTML = `
+    <div class="when">${SLOT_NAME[ORDER[slot]]}</div>
+    <div class="title">${a.label}</div>
+    <div class="body">${a.say}${gain}</div>
+    ${a.quiet ? `<div class="quiet">${a.quiet}</div>` : ''}
+    <div class="acts"><button class="act" id="next">
+      <span>${slot < 2 ? '接下來' : '睡覺'}</span>
+      <span class="c">${slot < 2 ? SLOT_NAME[ORDER[slot+1]] : '結束這一天'}</span></button></div>`;
+  $('next').onclick = () => { slot++; slot > 2 ? endDay() : render(); };
+}
+
+function endDay(){
+  ST.full = Math.max(0, ST.full - 18);            // 睡一覺會餓
+  const broke = ST.money < 100, hungry = ST.full < 20;
+  $('fSm').textContent = log.join('　→　');
+  $('fBig').textContent = `第 ${day+1} 天`;
+  $('flash').classList.add('on');
+  setTimeout(() => {
+    $('flash').classList.remove('on');
+    day++; slot = 0; log = [];
+    if(day % 7 === 0) bill();                     // 每七天一張帳單
+    else render();
+  }, 1500);
+}
+
+function bill(){
+  const amt = 3200 + (Math.floor(day/7)-1) * 900;
+  ST.money -= amt;
+  hud({money:1});
+  $('scene').innerHTML = `
+    <div class="when">早上・信箱</div>
+    <div class="title">又一張</div>
+    <div class="body">${amt} 元。\n上面是他的名字，地址是你家。</div>
+    <div class="quiet">${ST.money < 0
+      ? '你付不出來。你把它跟前面幾張放在一起。'
+      : '你付了。剩下的錢你數了兩次。'}</div>
+    <div class="acts"><button class="act" id="ok">
+      <span>去上學</span><span class="c">這一格已經用掉了</span></button></div>`;
+  $('ok').onclick = () => { slot = 1; render(); };   // 帳單吃掉上午那一格
+}
+
+$('reset').onclick = reset;
+function reset(){
+  ST = Object.assign({}, ST0);
+  day = 1; slot = 0; tiredAM = false; attend = 0; log = [];
+  render();
+}
+reset();
+</script>
+</body>
+</html>
