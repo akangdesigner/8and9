@@ -53,6 +53,36 @@ function makeTextures(THREE){
   };
 }
 
+/* ---------------- 招牌 ----------------
+ * 暗底 ＋ 亮字,map 跟 emissiveMap 用同一張,所以夜裡發光的只有字,底板是暗的。
+ * 整塊一起發光看起來像燈箱廣告,台灣街上的招牌是字在亮。 */
+function signMaterial(THREE, text, hex, axis, face){
+  const W = 512, H = 144;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const r = (hex>>16)&255, g = (hex>>8)&255, b = hex&255;
+  const mix = k => `rgb(${(r+(255-r)*k)|0},${(g+(255-g)*k)|0},${(b+(255-b)*k)|0})`;
+
+  x.fillStyle = `rgb(${r*.18|0},${g*.18|0},${b*.18|0})`; x.fillRect(0,0,W,H);
+  x.strokeStyle = mix(.1); x.lineWidth = 7; x.strokeRect(4,4,W-8,H-8);
+  const font = s => `bold ${s}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+  let fs = 112; x.font = font(fs);
+  while(x.measureText(text).width > W-60 && fs > 40){ fs -= 4; x.font = font(fs); }
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = mix(.5);
+  x.fillText(text, W/2, H/2 + 4);
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  const lit = new THREE.MeshStandardMaterial({
+    map:t, emissive:0xffffff, emissiveMap:t, emissiveIntensity:1.5, roughness:.6 });
+  const back = new THREE.MeshStandardMaterial({ color:0x2a2e34, roughness:.85 });
+
+  /* BoxGeometry 的面順序:[+x, -x, +y, -y, +z, -z]。只有朝街心那面印字。 */
+  const idx = axis === 'x' ? (face > 0 ? 4 : 5) : (face > 0 ? 0 : 1);
+  return Array.from({length:6}, (_, i) => i === idx ? lit : back);
+}
+
 /* ---------------- 街區尺寸(遊戲端也會用到) ---------------- */
 export const CITY = {
   ROAD_HW: 9, WALK_W: 7, UNIT: 12, DEPTH: 11,
@@ -149,9 +179,11 @@ export function buildCity(THREE, scene){
       }
       /* 招牌掛在騎樓外緣,不然會被騎樓頂整個擋掉 */
       if(s.sign){
-        const sw = axis==='x' ? alongW-2 : .45, sd = axis==='x' ? .45 : alongW-2;
-        add(box(sw,2.2,sd, glow(s.sign,1.35)),
-            fX + (axis==='z'?face*3.9:0), 8.6, fZ + (axis==='x'?face*3.9:0), false, false);
+        const sw = axis==='x' ? alongW-1.2 : .45, sd = axis==='x' ? .45 : alongW-1.2;
+        const txt = s.text || s.label;
+        /* 高度錯開:一整排招牌切齊會像百貨公司,台灣街上是誰先掛誰佔位 */
+        add(box(sw,2.7,sd, txt ? signMaterial(THREE, txt, s.sign, axis, face) : glow(s.sign,1.35)),
+            fX + (axis==='z'?face*3.9:0), 8.3 + ((i*5)%3)*.62, fZ + (axis==='x'?face*3.9:0), false, false);
       }
       if(s.id) doors.push({ id:s.id, name:s.label,
         x: fX + (axis==='z'?face*2.4:0), z: fZ + (axis==='x'?face*2.4:0) });
@@ -166,11 +198,17 @@ export function buildCity(THREE, scene){
     });
   }
 
+  /* 店名。台灣街的辨識度幾乎全在招牌那幾個字上,同類型的店輪流換名字,
+     整條街才不會像同一間開了八家。 */
+  const FOOD = ['魯肉飯','切仔麵','鹹酥雞','自助餐','熱炒','豆漿'];
+  const BETEL = ['檳榔','阿美檳榔','雙葉檳榔'];
+  let nFood = 0, nBetel = 0;
   const S = {
     sh:{kind:'shutter'}, gap:{kind:'gap'},
-    food:c=>({kind:'food',sign:c||0xd94a35}), betel:()=>({kind:'betel',sign:0x5ce08a}),
-    net:()=>({kind:'net',sign:0x4fc8f0}), arcade:()=>({kind:'arcade',sign:0xff4fa0}),
-    moto:()=>({kind:'moto',sign:0x3f8fd8}), drug:()=>({kind:'drug',sign:0x35b06a})
+    food:c=>({kind:'food',sign:c||0xd94a35,text:FOOD[nFood++ % FOOD.length]}),
+    betel:()=>({kind:'betel',sign:0x5ce08a,text:BETEL[nBetel++ % BETEL.length]}),
+    net:()=>({kind:'net',sign:0x4fc8f0,text:'網咖'}), arcade:()=>({kind:'arcade',sign:0xff4fa0,text:'遊藝場'}),
+    moto:()=>({kind:'moto',sign:0x3f8fd8,text:'機車行'}), drug:()=>({kind:'drug',sign:0x35b06a,text:'藥局'})
   };
 
   /* 中華路:你家、超商在這條 */

@@ -228,6 +228,17 @@ renderer.setAnimationLoop(now => {
   if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc = 0; frames = 0; }
 });
 
+/* 除錯:主控台打 __go('tattoo') 或 __go(-84, -20) 直接過去,省得走一分鐘 */
+window.__go = (a, b) => {
+  if(typeof a === 'string'){
+    const d = city.doors.find(x => x.id === a);
+    if(!d) return '沒有這個門：' + city.doors.map(x=>x.id).join(', ');
+    a = d.x; b = d.z;
+  }
+  hero.group.position.set(a, .3, b);
+  return `(${a.toFixed(1)}, ${b.toFixed(1)}) ／ ${city.whereAmI(a, b)}`;
+};
+
 document.getElementById('tBloom').onclick = e => {
   useBloom = !useBloom; e.target.classList.toggle('on', useBloom);
   e.target.textContent = '光暈：' + (useBloom?'開':'關'); };
