@@ -62,3 +62,55 @@
 ## Git 慣例
 
 單人興趣專案,直接在 main commit 即可,不需要開分支或發 PR。
+
+## 常用指令
+
+沒有 build step、沒有 package.json、零依賴。
+
+- **室內／定點原型**(純 `<script src>`,非 ES module)直接雙擊 `.html` 開,
+  例如 `prototypes/one-day.html`、`prototypes/world.html`、`prototypes/tattoo-room.html`。
+- **`prototypes/game.html`**(主線)裡的 3D 街道用 ES module 從 CDN 載入 three.js,
+  `file://` 會被 CORS 擋,要先起本機 server:
+  ```
+  cd prototypes && python -m http.server
+  ```
+  再開 `http://localhost:8000/game.html`。
+- `node tools/render-scene.mjs [--scale 2] [--no-people]`——把 2D 場景灰模輸出成 PNG。
+- `node tools/comfy-img2img.mjs [--denoise 0.7] [--model ...]`——對本機 ComfyUI
+  (port 8000)打 img2img API 幫灰模上質感;只有 kc 本機能跑(3050 Laptop 4GB VRAM,SD 1.5)。
+
+沒有 lint、沒有測試框架——原型階段靠雙擊瀏覽器肉眼驗證。
+
+## 架構概觀
+
+**入口是 `prototypes/game.html`**(3D 街上走 → 走進門口 → 2D 超商 → 出來回原位)。
+其他 `prototypes/*.html` 多半是還沒接進主線的獨立原型,或已完成任務的紀錄——
+DESIGN_NOTES「目前的原型」那張表是權威盤點,改動原型後要記得回去更新那張表,
+不要自己在別處重新盤點一次。
+
+### 兩種模組寫法並存,不要混用
+
+| 寫法 | 用在哪 | 為什麼 |
+|---|---|---|
+| **IIFE 掛全域**(`(function(root){...})(window)`,`<script src>` 引入) | 所有 2D 場景模組(`scene-home.js`、`scene-store-front.js`、`scene-tattoo.js`、`scene-street.js`)、`src/tags.js`、`lib/places.js`、`lib/quests.js`、`lib/npc-temple.js`、`lib/story-*.js` | 讓 `.html` 檔可以直接雙擊開,`file://` 不會被 CORS 擋 |
+| **ES module**(`export`/`import`) | 只有 3D 相關(`scene-city3d.js`),因為要 `import * as THREE` | 唯一需要本機 server 的路徑(見上面常用指令) |
+
+新增 2D 場景模組時跟著 IIFE 那一套,不要因為「ES module 比較新」就換掉——
+那會讓那個場景的原型失去雙擊即開的能力。
+
+### `game.html` 的狀態模型
+
+單一全域物件 `ST`,五條固定指標:`money`(金錢)／`full`(飽足)／
+`calm`(歸屬感——顯示名稱已改,程式 key 還沒改,見 DESIGN_NOTES「實作現況」)／
+`cool`(帥潮)／`star`(通緝,上限 5)。改動指標一律走 `chg(k, d)`,不要直接寫
+`ST.xxx = ...`——`chg` 負責 clamp 範圍、更新 HUD、跳飄字。五條指標各自
+「只由什麼改變」的邊界記在 DESIGN_NOTES「五條指標各自管什麼」,那條規則
+容易被劇情檔悄悄違反,寫新劇情前先看。
+
+### 劇情資料檔(`lib/story-*.js`)
+
+一個家庭故事線一份檔,固定節點結構(第幾天觸發、`TRUTHS` 真相陣列等)。
+現行只接了母・賭(`story-bet.js`)+ 父・喝(`story-drink.js`)這組合,
+其餘四條(`story-work.js`、`story-hit.js`、`story-gone.js`、`story-bf.js`)
+劇本寫好但冰存,`game.html` 也還沒有這組家庭資料——
+見 DESIGN_NOTES「家裡的拉扯 → 範圍:先只做一組父母」。
