@@ -217,6 +217,7 @@
   三個放在一起就看得出補上去差多少。
 </div>
 
+<script src="lib/character.js"></script>
 <script src="lib/scene-store-front.js"></script>
 <script src="lib/scene-home.js"></script>
 <script src="lib/scene-street.js"></script>
@@ -302,7 +303,7 @@ function toast(txt, ms){
 
 /* ================= 對話框 ================= */
 const WHO = {
-  pc:    { name:'你',   opt:{ face:'F', skin:P.pcSkin, hair:P.pcHair, top:P.pcHood, topD:P.pcHoodD, pants:P.pcPants, hood:true } },
+  pc:    { name:'你',   opt:{ face:'F', skin:P.pcSkin, hair:P.pcHair, top:P.pcHood, topD:P.pcHoodD, pants:P.pcPants, shoe:P.pcShoe, hood:true } },
   clerk: { name:'店員', opt:{ face:'F', skin:P.clSkin, hair:P.clHair, top:P.clVest, topD:P.clShirt, pants:'#2c3340' } },
   mom:   { name:'媽',   opt:{ face:'F', skin:HM.P.momSkin, hair:HM.P.momHair, top:HM.P.momTop, topD:HM.P.momTopD, pants:HM.P.momPants } },
   dad:   { name:'爸',   opt:{ face:'F', skin:HM.P.dadSkin, hair:HM.P.dadHair, top:HM.P.dadTop, topD:HM.P.dadTopD, pants:HM.P.dadPants } }
@@ -823,7 +824,7 @@ function render(){
   const items = sc.items();
   items.push({ y: S.py, draw(){ drawPerson(S.px, S.py, {
       face:S.face, skin:P.pcSkin, hair:P.pcHair, top:P.pcHood, topD:P.pcHoodD,
-      pants:P.pcPants, hood:true,
+      pants:P.pcPants, shoe:P.pcShoe, hood:true,
       walk: S.moving ? (Math.floor(S.walkT/150)%2 ? 1 : -1) : 0 }); } });
   items.sort((a,b) => a.y - b.y).forEach(i => i.draw());
 

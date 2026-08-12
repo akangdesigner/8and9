@@ -15,6 +15,14 @@
 
   const depthScale = y => 0.76 + 0.24 * ((y - WALK_N) / (WALK_S - WALK_N));
 
+  /* 把 hex 顏色調暗一點,拿來配陰影/次要色調,不用另外手挑一個色碼——
+   * 主色改了,配色跟著變,不會漂移。 */
+  const shade = (hex, k) => {
+    const n = parseInt(hex.slice(1), 16);
+    const c = v => Math.round(((n >> v) & 255) * k);
+    return `#${((c(16) << 16) | (c(8) << 8) | c(0)).toString(16).padStart(6, '0')}`;
+  };
+
   /* 色調基準:真實的台灣超商,晚上八點——裡面亮到有點刺眼,外面才是暗的。
      不要陰森。歧視發生在明亮正常的地方,那才是重點。見 DESIGN_NOTES「美術與視角」。 */
   const P = {
@@ -29,7 +37,12 @@
     hotBody:'#d4762f', hotDark:'#a15a22', hotInner:'#c4c9bf',
     bento:'#e8dfc8', bentoLid:'#cfc3a4', tagY:'#f0c22c', tagW:'#f2efe4', ink:'#191c21',
     counter:'#9c8c72', counterTop:'#b3a68c', reg:'#5a626d', regScreen:'#7fd4c4',
-    pcSkin:'#c1926e', pcHair:'#231c18', pcHood:'#4a5563', pcHoodD:'#3a434f', pcPants:'#333a44',
+    /* 主角外觀不寫死在這裡——讀 lib/character.js 那份共用資料,3D 街上跟這裡
+     * 才不會各改各的、看起來像換了個人(2026-08-12 kc:「就是一致啊」)。
+     * pcHoodD 是帽 T 的陰影色,用 shade() 從 pcHood 算,不用另外挑色碼。 */
+    pcSkin:root.Character.skin, pcHair:root.Character.hair, pcHood:root.Character.hood,
+    pcHoodD:shade(root.Character.hood, .78), pcPants:root.Character.pants,
+    pcShoe:root.Character.shoe,
     npcSkin:'#d6ab86', npcHair:'#1d1916', npcShirt:'#f2f5f2', npcShirtD:'#d8ddd8',
     npcPants:'#3a4460', npcBag:'#6b5a3c',
     clSkin:'#cfa279', clHair:'#201b17', clVest:'#2f6b48', clShirt:'#eceadd'
@@ -195,7 +208,7 @@
    */
   function person(g, cx, footY, o) {
     const { px, alp } = tools(g);
-    const { face = 'F', skin, hair, top, topD, pants, bag = false, hood = false,
+    const { face = 'F', skin, hair, top, topD, pants, shoe = P.ink, bag = false, hood = false,
             hold = false, walk = 0, s = 1 } = o;
     /* k 可以直接指定 —— 換成真實背景圖之後,深度縮放要跟著那張圖的地面走,
        不再是模組內建的 WALK_N/WALK_S。 */
@@ -208,8 +221,8 @@
     const swing = walk ? (walk > 0 ? u(4) : -u(4)) : 0;
     px(x - u(12), b - u(34), u(11), u(34), pants);
     px(x + u(2),  b - u(34), u(11), u(34), pants);
-    px(x - u(13) - swing, b - u(6), u(14), u(6), P.ink);
-    px(x + u(1)  + swing, b - u(6), u(14), u(6), P.ink);
+    px(x - u(13) - swing, b - u(6), u(14), u(6), shoe);
+    px(x + u(1)  + swing, b - u(6), u(14), u(6), shoe);
 
     px(x - u(15), b - u(74), u(30), u(42), top);
     px(x - u(15), b - u(74), u(30), u(9), topD);
