@@ -211,6 +211,7 @@ function update(dt){
   keyLight.position.set(pos.x-24, 34, pos.z+20);
   keyLight.target.position.copy(pos);
   city.updateLights(pos.x, pos.z);
+  city.updateBushBillboards(camera.position.x, camera.position.z);
 
   whereEl.textContent = city.whereAmI(pos.x, pos.z);
 

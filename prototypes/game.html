@@ -13,7 +13,7 @@
   #indoor { display:none; align-items:center; justify-content:center; background:#0a0c10; }
   #indoor.on { display:flex; }
   #indoorStage { position:relative; width:100%; max-width:1280px; aspect-ratio:1280/720; }
-  #c3d, #c2df { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  #c2dbg, #c3d, #c2df { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 
   /* ---- HUD(兩層共用) ---- */
   .hud { position:fixed; left:16px; top:14px; z-index:6; display:flex; gap:7px; font-size:12px; }
@@ -124,6 +124,7 @@
 
 <div id="city"></div>
 <div id="indoor"><div id="indoorStage">
+  <canvas id="c2dbg" width="1280" height="720"></canvas>
   <canvas id="c3d"></canvas>
   <canvas id="c2df" width="1280" height="720"></canvas>
 </div></div>
@@ -403,104 +404,65 @@ const STORE = {
 };
 
 /* ===================================================================
-   室內超商:整個場景(背景 + 鮮食櫃)搬進同一個 3D scene,角色也在裡面
-   (2026-08-12 kc:「場景也做個簡單 3D 圖,反正不會轉視角,一樣可以貼
-   圖」)。動機:先前「2D 背景 + 3D 角色疊圖」那版,角色要去對齊一張本質上
-   是手畫線性透視的背景圖,兩條透視曲線對不上,尺寸校正、鮮食櫃擋圖怎麼調
-   都有殘留的違和感(見下面舊筆記/docs/DESIGN_NOTES.md「室內 3D 疊圖尺寸
-   校正」)。現在背景跟鮮食櫃都變成 3D 場景裡正對鏡頭的貼圖平面(不是真的
-   建模——鏡頭固定不轉,一片平面貼圖跟真的建體積,鏡頭看起來沒有差別),
-   跟角色共用同一個投影,鮮食櫃的「玩家走到後面被擋住」直接靠 WebGL 深度
-   測試自動處理,不用再手動判斷 IN.py 跟鮮食櫃前後、也不用再算校正參數去
-   凑合兩條對不上的透視曲線。 */
+   室內超商:2026-08-13 晚間第二次改版,見 docs/DESIGN_NOTES.md「整體改回
+   2D 背景」。「真的長方體房間」(地板+天花板+北牆都是有真實尺寸的 3D 幾何)
+   這個做法本身就是問題:場景在鏡頭裡只佔一小塊,四面撐開的地板/天花板看
+   起來像浮在空曠展場裡的模型,店員也套 3D 骨架後跟其他照片級貼圖的材質
+   等級差太多,活像人形立牌。kc 決定改回**扁平 2D 背景**——牆/飲料櫃/貨架
+   /櫃台全部收進同一張畫面(`c2dbg`,純 Canvas 2D drawImage,見下面
+   `paintStoreBackdrop()`),不再是活在 3D 空間裡、需要校正的物件。
+   **只有鮮食櫃留 3D 箱體**(`buildHotCabinet`,原封不動)——這是唯一玩家
+   會走近、需要正確前後遮擋的互動點,黃標/正價便當的核心抉擇發生在這裡,
+   值得多花這個成本。店員(2D,畫進櫃台圖裡)由 kc 之後自己做,這次先不接。
+   `c3d`(WebGL)改成透明背景,只畫玩家跟鮮食櫃,疊在 `c2dbg` 這張平面
+   背景之上,回到 DESIGN_NOTES 提過的「PS1《惡靈古堡》疊圖」那套。 */
 const c3d = document.getElementById('c3d');
 const indoorScene = new THREE.Scene();
-indoorScene.add(new THREE.HemisphereLight(0xfff6e0, 0x2a2a30, 1.6));
+/* 參考照片是日光燈打得很均勻的亮空間,原本 groundColor 太暗(0x2a2a30)
+   會把牆面/地板全部拖暗,尤其朝下或側面的面——調亮、加強度。 */
+indoorScene.add(new THREE.HemisphereLight(0xfff6e0, 0x7a7a72, 2.0));
 const indoorKey = new THREE.DirectionalLight(0xfff2d8, 1.1);
 indoorKey.position.set(-2, 5, 6);
 indoorScene.add(indoorKey);
 
-const indoorCamera = new THREE.PerspectiveCamera(32, LW/LH, 0.1, 60);
+/* FOV 從 32 調到 50(2026-08-13,真房間上線時發現的必要調整,不是喜好
+   問題):地板/牆面改用真實世界座標後,玩家可以走到離鏡頭最近的地方(NZ_NEAR=5,
+   離鏡頭 7 個單位),原本 32° 的窄鏡頭在那個距離只看得到中間約 7 個單位寬
+   的範圍,玩家往左走去開門(門在畫面最左邊)會直接走出鏡頭外——這在舊版
+   「螢幕座標反推世界座標」的假房間裡不會發生(那套做法保證怎麼走都在
+   畫面內,代價就是 kc 這次抓到的透視不一致)。50° 是抓「房間整個寬度在
+   NZ_NEAR 那個距離仍然完整入鏡」反推出來的下限再留一點餘裕,角色的螢幕
+   身高有 heroScaleFor() 自動補償,不受 FOV 變寬影響;鮮食櫃/櫃台在畫面上
+   會因此看起來略小一點,kc 覺得不對可以再調這個數字。 */
+const indoorCamera = new THREE.PerspectiveCamera(50, LW/LH, 0.1, 60);
 /* 平視,不要斜俯視——跟 2D 那套「臉與視線」的構圖原則一致。 */
 indoorCamera.position.set(0, 1.7, 12);
 indoorCamera.lookAt(0, 1.35, 0);
-/* 校正用的 screenY()/screenX()(下面整段)在第一次 render() 之前就會被呼叫
- * (算 NZ_HOT/NZ_WALL/hotRect/wallRect/bgRect 這些模組層級常數),但
- * camera.matrixWorldInverse 預設是單位矩陣,要 updateMatrixWorld() 跑過
- * 一次才會真的反映上面 position/lookAt 設的值——沒有這行,所有校正都是拿
- * 錯的(單位矩陣)鏡頭去反推,算出來的深度/尺寸全部不準,卻不會報錯,非常
- * 難查(2026-08-12 踩了整個下午,鮮食櫃/貨架板子位置一直對不齊就是這個
- * 原因)。 */
+/* camera.matrixWorldInverse 預設是單位矩陣,要 updateMatrixWorld() 跑過
+ * 一次才會真的反映上面 position/lookAt 設的值——screenY()(下面,
+ * heroScaleFor() 靠這個反推畫面身高)沒有這行會拿錯的鏡頭去算,卻不會
+ * 報錯,非常難查(2026-08-12 踩了整個下午)。 */
 indoorCamera.updateMatrixWorld(true);
 
-const renderer3d = new THREE.WebGLRenderer({ canvas:c3d, antialias:true });
+/* alpha:true——c3d 現在疊在 c2dbg(平面背景)上面,只畫玩家跟鮮食櫃,
+   其餘畫面要透出底下那張圖,不能被 WebGL 的預設黑底蓋掉。 */
+const renderer3d = new THREE.WebGLRenderer({ canvas:c3d, antialias:true, alpha:true });
 renderer3d.setSize(1280, 720, false);
 renderer3d.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer3d.outputColorSpace = THREE.SRGBColorSpace;
+renderer3d.setClearColor(0x000000, 0);
 
-/* 算「在深度 nz 要填滿畫面矩形 (x0,y0)~(x1,y1)(canvas px)需要多大的世界
-   座標平面」——背景板、鮮食櫃板兩個都用這個,靠 THREE.Vector3.project()
-   反推,不是憑眼睛湊尺寸。 */
+/* 螢幕高度反推——現在只有 heroScaleFor()(把角色的畫面身高鎖定成固定值,
+   不管站多遠)還需要,靠 THREE.Vector3.project() 反推,不是憑眼睛湊。
+   房間跟家具的位置現在都是直接給真實世界座標,不用再靠這個對齊。 */
 function screenY(nz, y){
   const v = new THREE.Vector3(0, y, nz).project(indoorCamera);
   return (1 - v.y) / 2 * 720;
 }
-function screenX(x, y, nz){
-  const v = new THREE.Vector3(x, y, nz).project(indoorCamera);
-  return (v.x + 1) / 2 * 1280;
-}
-function bisect(fn, target, lo, hi){
-  const rising = fn(hi) > fn(lo);
-  for(let i=0; i<40; i++){
-    const mid = (lo+hi)/2;
-    if((fn(mid) < target) === rising) lo = mid; else hi = mid;
-  }
-  return (lo+hi)/2;
-}
-function frameRectAtDepth(nz, x0, y0, x1, y1){
-  const yMid = 1.2;   // 算左右邊界時取一個代表性高度,鏡頭幾乎平視,誤差可忽略
-  return {
-    left:   bisect(x => screenX(x, yMid, nz), x0, -40, 40),
-    right:  bisect(x => screenX(x, yMid, nz), x1, -40, 40),
-    top:    bisect(y => screenY(nz, y), y0, -30, 30),
-    bottom: bisect(y => screenY(nz, y), y1, -30, 30)
-  };
-}
-function planeFromRect(THREE, rect, nz, texture){
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(rect.right-rect.left, rect.top-rect.bottom),
-    new THREE.MeshBasicMaterial({ map:texture })
-  );
-  mesh.position.set((rect.left+rect.right)/2, (rect.top+rect.bottom)/2, nz);
-  return mesh;
-}
-/* 有厚度的箱體版 planeFromRect——正面(朝鏡頭)貼原本校正過的照片材質,
-   其餘五面共用一個素色材質。2026-08-13 kc 截圖抓到:鏡頭雖然固定平視,但
-   position.y=1.7 略高於 lookAt 的 1.35,是稍微往下看的角度,箱體的頂面
-   (朝上那面)其實會被看到一小條,原本用近黑色(0x2b2b2e)那面在鮮食櫃
-   頂端露出一條刺眼的黑邊。改成接近照片裡不鏽鋼檯面的淺灰,露出來也不突兀。
-   側/背面實際上仍然看不到,不用另外做圖。正面深度維持在 nz 不變,只往鏡頭
-   反方向長出 depth,原本 planeFromRect 那版驗證過的視覺對齊不受影響。見
-   docs/DESIGN_NOTES.md「室內固定物件的碰撞」那節。 */
-const FIXTURE_SIDE_MAT = new THREE.MeshBasicMaterial({ color:0xb8b8b8 });
-function boxFromRect(THREE, rect, nz, depth, texture, sideMat){
-  const faceMat = new THREE.MeshBasicMaterial({ map:texture });
-  const side = sideMat || FIXTURE_SIDE_MAT;
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(rect.right-rect.left, rect.top-rect.bottom, depth),
-    [side, side, side, side, faceMat, side]
-  );
-  mesh.position.set((rect.left+rect.right)/2, (rect.top+rect.bottom)/2, nz - depth/2);
-  return mesh;
-}
 
 /* 深度:門口(遠)到最近牆(近)的世界深度範圍。2026-08-12 kc 反應「走到底
-   感覺沒有真的很靠近貨架」,把 NZ_FAR 推到 -14 之後又反應「穿牆」——
-   原因是貨架那張照片本身就有透視(離鏡頭較遠的貨架在照片裡本來就該畫得
-   比人矮),角色貼近之後,一顆「畫面高度固定」的頭直接高過了照片裡貨架
-   在那個位置該有的視覺高度,看起來像頭穿進貨架的陳列區。退回一個沒那麼
-   極端的距離(-8),沒有完全貼齊貨架(那需要貨架自己也有一塊 3D 校正過的
-   板子,跟鮮食櫃一樣,或整個重抓比例——範圍更大,先不做)。 */
+   感覺沒有真的很靠近貨架」,把 NZ_FAR 推到 -14 之後又反應「穿牆」——退回
+   一個沒那麼極端的距離,沿用至今。 */
 const NZ_FAR = -8, NZ_NEAR = 5;
 function nzForPy(py){
   const t = (py - STORE.walkN) / (STORE.walkS - STORE.walkN);
@@ -512,165 +474,80 @@ function pyForNz(nz){
   const t = (nz - NZ_FAR) / (NZ_NEAR - NZ_FAR);
   return STORE.walkN + t * (STORE.walkS - STORE.walkN);
 }
-/* 三個室內固定物件先共用一個厚度(世界單位,約 0.59 公尺,對照
-   scene-city3d.js「1 單位 ≈ 0.42 公尺」)。playtest 覺得某個櫃子看起來/
-   擋起來不對再拆成各自的值。 */
-const FIXTURE_DEPTH = 1.4;
-/* NZ_HOT 不能用 nzForPy(STORE.hot.y)——那只是沿用「角色深度」那條線性公式,
-   跟「鮮食櫃在照片裡貼地的畫面位置」沒有直接關係,兩者剛好對上純屬巧合
-   (加上今天稍早 camera.updateMatrixWorld() 沒補那個 bug,巧合更巧合)。
-   跟 NZ_WALL 一樣,改用 bisect 直接反推「世界 Y=0(真地板)投影到哪」,
-   角色站到鮮食櫃前面互動時腳才會踩在地上,不會懸空(2026-08-12 kc 截圖
-   抓到:腳跟地板中間有一截空隙)。 */
-const NZ_HOT = bisect(nz => screenY(nz,0), STORE.hot.y * SC, -60, 11.9);
-const NZ_HOT_BACK = NZ_HOT - FIXTURE_DEPTH;
 
-/* 2026-08-13:背景圖改成 store-wall.png(只有牆——門口/飲料櫃/貨架,
-   不含收銀台、不含鮮食櫃),取代原本整間店都畫在一張照片裡的 store-front.png
-   ——鮮食櫃、櫃台現在都是各自獨立的 3D 物件、各自的貼圖(見下面),不用再
-   靠裁切同一張照片湊,也不會再跟新蓋的 3D 家具「疊出兩個一樣的東西」
-   (kc 截圖抓到的問題)。之前那段暫時擋著的遮色板邏輯(`bgMaskCanvas` 等)
-   已經整段刪掉,不再需要。 */
-const bgTex = new THREE.TextureLoader().load(STORE.bgSrc, () => { refreshWallTex(); });
-bgTex.colorSpace = THREE.SRGBColorSpace;
-const NZ_BG = -22;
-indoorScene.add(planeFromRect(THREE, frameRectAtDepth(NZ_BG, 0,0,1280,720), NZ_BG, bgTex));
+/* 玩家/鮮食櫃座標換算(px↔world)還是要用——這兩個是唯二活在 3D 空間裡的
+   東西,跟這個換算比例無關的房間幾何(地板/天花板/牆)都拿掉了。數值沿用
+   原本校正過的,不要動。 */
+const ROOM_HALF_WIDTH = 6;
+const WORLD_PER_PX = ROOM_HALF_WIDTH / 320;
+function worldXForPx(px){ return (px - 320) * WORLD_PER_PX; }
+function pxForWorldX(x){ return x / WORLD_PER_PX + 320; }
 
-/* 鮮食櫃板:2026-08-13 改成獨立貼圖(store-hot-cabinet.png,見
-   assets/bg/PROMPTS.md),不再裁自背景圖——整張圖本身就是這個箱體正面要
-   貼的內容,直接當材質,不用另外裁切到獨立畫布。 */
+/* 平面背景:牆(store-wall.png)+ 櫃台(store-counter.png)畫進同一張
+   Canvas 2D(`c2dbg`),疊在 c3d 底下——不用相機投影校正,兩張圖擺在畫面
+   上「看起來對」就好,跟 scene-home.js 那套 2D 場景同等級的精確度。地板
+   店家沒有專門拍floor 段的照片(store-wall.png 幾乎拍到牆跟磁磚交界就切
+   了,沒有留前景地板),先用 store-floor.png 這張可平鋪磁磚貼圖用純
+   2D flat 貼滿下半部頂著,不做透視——跟像素風時代 scene-store-front.js
+   的地板畫法(純色棋盤格,也沒做透視)同一個精神,先求「看起來是地板」,
+   不是照片級。這幾個版位數字都是這次先湊出來的,kc 覺得比例不對再調。 */
+const c2dbg = document.getElementById('c2dbg'), gbg = c2dbg.getContext('2d');
+const WALL_ZONE_H = 400;      // 背景圖(牆)畫到這個高度為止,以下是地板
+function paintStoreBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  gbg.imageSmoothingEnabled = true;
+  // 地板:store-floor.png 本身已經是 3×3 磁磚,拉滿整塊地板一次畫完就好
+  // ——再迴圈平鋪等於同一個 3×3 網格疊乘,格線會密到變成一片小碎格。
+  if(floorImg.complete) gbg.drawImage(floorImg, 0,WALL_ZONE_H,1280,720-WALL_ZONE_H);
+  else { gbg.fillStyle = '#c9c6bc'; gbg.fillRect(0,WALL_ZONE_H,1280,720-WALL_ZONE_H); }
+  // 牆(門/飲料櫃/貨架):壓縮塞進上面那塊高度,不要拉伸變形太嚴重就好
+  if(wallImg.complete) gbg.drawImage(wallImg, 0,0,1280,WALL_ZONE_H);
+  // 櫃台:貼在牆面圖右側原本留白(kc 生圖時特意留的空牆)那一塊
+  if(counterImg.complete) gbg.drawImage(counterImg, 918,260,362,190);
+}
+const wallImg = new Image(); wallImg.onload = paintStoreBackdrop; wallImg.src = STORE.bgSrc;
+const floorImg = new Image(); floorImg.onload = paintStoreBackdrop; floorImg.src = '../assets/bg/store-floor.png';
+const counterImg = new Image(); counterImg.onload = paintStoreBackdrop; counterImg.src = '../assets/bg/store-counter.png';
+
+/* 鮮食櫃:唯一維持真的 3D 箱體的家具(見上面「整體改回 2D 背景」)——
+   給真實世界尺寸,正面貼 store-hot-cabinet.png,不從照片反推深度。位置
+   沿用 STORE.hot 這組既有的邏輯座標,互動熱區共用同一組數字,不用兩份。 */
 const hotTex = new THREE.TextureLoader().load('../assets/bg/store-hot-cabinet.png');
 hotTex.colorSpace = THREE.SRGBColorSpace;
-const hotRect = frameRectAtDepth(NZ_HOT,
-  STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, (STORE.hot.x+STORE.hot.w)*SC, STORE.hot.y*SC);
-indoorScene.add(boxFromRect(THREE, hotRect, NZ_HOT, FIXTURE_DEPTH, hotTex));
-
-/* 後牆那排(飲料櫃/貨架)也補一塊板子(2026-08-12,kc:「還是有走到裡面
-   去的感覺」)——這兩個原本只有背景那張遠景平面(NZ_BG),角色貼近時沒有
-   東西擋住,看起來像整個人陷進貨架的陳列區裡。裁切座標是直接在原圖
-   (`assets/bg/store-front.png`,1672×941)上量出來的,深度算法見下面
-   NZ_WALL 那行的註解——玩家走近時會被這塊板子擋住下半身,只露頭肩膀,
-   跟鮮食櫃那個效果一樣。
-   **收銀台刻意不含在這塊板子裡**——店員站在收銀台後面,深度比這塊板子
-   還遠,會被整個擋住(踩過這個坑,店員一度只剩兩隻腳露在板子下面)。 */
-const WALL_CUT = { sx:350, sy:65, sw:830, sh:435 };
-const IMG_TO_CANVAS_X = 1280/1672, IMG_TO_CANVAS_Y = 720/941;
-const wallCanvas = document.createElement('canvas');
-wallCanvas.width = WALL_CUT.sw; wallCanvas.height = WALL_CUT.sh;
-const wallCtx = wallCanvas.getContext('2d');
-const wallTex = new THREE.CanvasTexture(wallCanvas);
-wallTex.colorSpace = THREE.SRGBColorSpace;
-function refreshWallTex(){
-  const c = WALL_CUT;
-  wallCtx.drawImage(bgTex.image, c.sx,c.sy,c.sw,c.sh, 0,0,c.sw,c.sh);
-  wallTex.needsUpdate = true;
-}
-/* NZ_WALL 不能沿用 nzForPy() 隨便挑一個深度——踩過一次坑:一開始用
-   nzForPy(230),角色整個消失了(頭反而被擋、腳露在外面),因為那個深度的
-   「地板」投影位置跟照片裡貨架真正貼地的畫面位置對不上,solve 出來的板子
-   底邊懸在半空中(世界 Y=1.4,不是 0)。改成用 bisect 直接反推:哪個深度
-   讓「世界 Y=0(真地板)」剛好投影到貨架貼地那個畫面位置,板子才會真的
-   從地板長起來,擋住的才會是下半身而不是頭。 */
-const NZ_WALL = bisect(nz => screenY(nz,0), (WALL_CUT.sy+WALL_CUT.sh)*IMG_TO_CANVAS_Y, -60, 11.9);
-const wallRect = frameRectAtDepth(NZ_WALL,
-  WALL_CUT.sx*IMG_TO_CANVAS_X, WALL_CUT.sy*IMG_TO_CANVAS_Y,
-  (WALL_CUT.sx+WALL_CUT.sw)*IMG_TO_CANVAS_X, (WALL_CUT.sy+WALL_CUT.sh)*IMG_TO_CANVAS_Y);
-indoorScene.add(boxFromRect(THREE, wallRect, NZ_WALL, FIXTURE_DEPTH, wallTex));
-
-/* 櫃台原本刻意沒有近景看板(店員站在後面要被完整擋住,見上面「收銀台刻意
-   不含在這塊板子裡」)——2026-08-13 kc 截圖抓到:碰撞修好、玩家真的能貼近
-   之後,店員下半身沒東西擋,跟玩家整個疊在一起。
-
-   一開始比照鮮食櫃/貨架牆那套「照片矩形貼到箱體上,用 frameRectAtDepth
-   反推對齊」的做法,結果一路踩坑:深度淺了側面會露出來、店員站太近會
-   z-fighting、深度退深了比例又跟 kc 的參考圖差一大截、寬度不夠店員肩膀會
-   露出箱體外——每次都是在同一個「拿 2D 照片矩形硬套 3D 深度」的框架裡
-   打補丁。**kc 一句話點出根本方向錯了:櫃台應該當真的 3D 物件蓋出來,跟
-   街上的小狗、路口圓環同一套做法**(`scene-city3d.js` 的 `buildDog()`/
-   `roundabout()`,基本幾何 + 素色材質,給真實世界尺寸,不從照片反推)。
-   寬高深都是設計時就決定好的真實數字,店員站在後面自然就對,因為兩者
-   活在同一個真實比例的 3D 世界裡,不需要另外對齊、不需要量店員肩膀
-   幾個像素去卡邊界。
-
-   尺寸對照 scene-city3d.js「1 單位 ≈ 0.42 公尺」:高 2.1(≈90cm,既有
-   COUNTER_WORLD_HEIGHT 這個數字幾輪驗證下來是對的,沿用)、寬 3.6
-   (≈1.5m,比店員肩膀寬綽有餘,不用再卡邊界)、深 1.3(≈55cm,真實
-   物理厚度,不是為了怕側面穿幫刻意縮薄的障眼法,側面本來就看得到,是
-   真正的箱體側面)。深度位置(NZ_COUNTER)沿用這幾輪已經校正過、比例
-   跟參考圖對得上的值。 */
-const NZ_COUNTER = -8;
-const COUNTER_WORLD_HEIGHT = 2.1, COUNTER_WORLD_WIDTH = 3.6, COUNTER_WORLD_DEPTH = 1.3;
-/* 正面貼獨立生成的 store-counter.png(2026-08-13,見 assets/bg/PROMPTS.md)
-   ——櫃台是獨立 3D 家具,不再跟牆面共用/裁切同一張背景照片。 */
-const counterFaceTex = new THREE.TextureLoader().load('../assets/bg/store-counter.png');
-counterFaceTex.colorSpace = THREE.SRGBColorSpace;
-const COUNTER_BODY_SIDE_MAT = new THREE.MeshStandardMaterial({ color:0x9c8e78, roughness:.9 });
-const COUNTER_BODY_FACE_MAT = new THREE.MeshStandardMaterial({ map:counterFaceTex, roughness:.9 });
-const COUNTER_TOP_MAT = new THREE.MeshStandardMaterial({ color:0xb8b8b8, roughness:.6, metalness:.2 });
-const COUNTER_MONITOR_MAT = new THREE.MeshStandardMaterial({ color:0x1a1a1a, roughness:.5 });
-const COUNTER_SCREEN_MAT = new THREE.MeshStandardMaterial({ color:0x9fc8e0, roughness:.4, emissive:0x2a4a5c, emissiveIntensity:.6 });
-function buildCounterDesk(nz, screenXTarget){
+const HOT_WORLD_WIDTH = 2.6, HOT_WORLD_HEIGHT = 2.1, HOT_WORLD_DEPTH = 1.0;
+const HOT_BODY_SIDE_MAT = new THREE.MeshStandardMaterial({ color:0x9c8e78, roughness:.9 });
+const HOT_BODY_FACE_MAT = new THREE.MeshStandardMaterial({ map:hotTex, roughness:.9 });
+const HOT_TOP_MAT = new THREE.MeshStandardMaterial({ color:0xb8b8b8, roughness:.6, metalness:.2 });
+function buildHotCabinet(nz, pxCenter){
   const g = new THREE.Group();
-  const cx = worldXForScreenX(screenXTarget, nz);
-  const cz = nz - COUNTER_WORLD_DEPTH/2;              // 正面卡在 nz,往鏡頭反方向長出深度
+  const cx = worldXForPx(pxCenter);
+  const cz = nz - HOT_WORLD_DEPTH/2;
   g.position.set(cx, 0, cz);
-
-  /* BoxGeometry 材質陣列順序是 [+x,-x,+y,-y,+z,-z]——鏡頭在 +z 方向看過來,
-     朝鏡頭那面(+z,index 4)貼照片材質,其餘素色,跟 boxFromRect() 同一招。 */
   const body = new THREE.Mesh(
-    new THREE.BoxGeometry(COUNTER_WORLD_WIDTH, COUNTER_WORLD_HEIGHT, COUNTER_WORLD_DEPTH),
-    [COUNTER_BODY_SIDE_MAT, COUNTER_BODY_SIDE_MAT, COUNTER_BODY_SIDE_MAT, COUNTER_BODY_SIDE_MAT,
-     COUNTER_BODY_FACE_MAT, COUNTER_BODY_SIDE_MAT]);
-  body.position.y = COUNTER_WORLD_HEIGHT/2;
+    new THREE.BoxGeometry(HOT_WORLD_WIDTH, HOT_WORLD_HEIGHT, HOT_WORLD_DEPTH),
+    [HOT_BODY_SIDE_MAT, HOT_BODY_SIDE_MAT, HOT_BODY_SIDE_MAT, HOT_BODY_SIDE_MAT,
+     HOT_BODY_FACE_MAT, HOT_BODY_SIDE_MAT]);
+  body.position.y = HOT_WORLD_HEIGHT/2;
   g.add(body);
-
-  const top = new THREE.Mesh(
-    new THREE.BoxGeometry(COUNTER_WORLD_WIDTH+.15, .08, COUNTER_WORLD_DEPTH+.15),
-    COUNTER_TOP_MAT);
-  top.position.y = COUNTER_WORLD_HEIGHT + .04;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(HOT_WORLD_WIDTH+.1, .06, HOT_WORLD_DEPTH+.1), HOT_TOP_MAT);
+  top.position.y = HOT_WORLD_HEIGHT + .03;
   g.add(top);
-
-  /* 收銀機示意,不強制要有——一個小箱體疊在檯面上,增加識別度,比照
-     buildDog() 疊耳朵/尾巴那種「基本幾何堆出輪廓」的做法。這麼小的物件
-     不值得另外裁一張照片材質(kc 抓到「收銀機也沒貼」——這裡先用兩層
-     素色做出「深色機身 + 亮螢幕」的意思,比純黑一塊看起來有東西,真的
-     要照片級細節再回頭補)。 */
-  const monitor = new THREE.Mesh(new THREE.BoxGeometry(.35,.32,.05), COUNTER_MONITOR_MAT);
-  monitor.position.set(-COUNTER_WORLD_WIDTH*.22, COUNTER_WORLD_HEIGHT+.24, -COUNTER_WORLD_DEPTH*.3);
-  g.add(monitor);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(.27,.22), COUNTER_SCREEN_MAT);
-  screen.position.set(monitor.position.x, monitor.position.y+.01, monitor.position.z+.026);
-  g.add(screen);
-
   indoorScene.add(g);
-  return { group:g, halfWidth: COUNTER_WORLD_WIDTH/2, centerX: cx };
+  return { group:g, halfWidth: HOT_WORLD_WIDTH/2, centerX: cx, frontZ: nz, backZ: nz - HOT_WORLD_DEPTH };
 }
-const counterDesk = buildCounterDesk(NZ_COUNTER, 548*SC);
+const hotCabinet = buildHotCabinet(nzForPy(STORE.hot.y), STORE.hot.x + STORE.hot.w/2);
 
-/* 貨架牆(飲料櫃/貨架)不用另外補碰撞框——量出來 NZ_WALL≈-24,比玩家能走到
-   最深的 NZ_FAR(-8)還遠 16 個單位,超出 nzForPy()/pyForNz() 的有效範圍
-   (walkN/walkS 早就把玩家夾在 [NZ_FAR,NZ_NEAR] 裡)。也就是說玩家在
-   updateIndoor() 那個既有的 walkN clamp 就已經先停下來了,physically 走不到
-   貨架牆真正的深度,不需要也不能再用 pyForNz(NZ_WALL) 湊一個碰撞框(算出來
-   會落在 walkN/walkS 範圍外,永遠不會觸發,是死碼)。這塊只靠貼圖看板的
-   WebGL 深度測試處理「靠近時擋住下半身」的視覺效果就夠了,不是漏做。
-
-   櫃台的碰撞維持獨立訂一個「玩家不能太靠近」的站立距離(`COUNTER_STAND_PY`,
-   遊戲設計取捨),不然會走進箱體、跟店員疊在一起。跟鮮食櫃那種「碰撞直接
-   從箱體深度算」是不同情況。
-
-   室內固定物件的碰撞:每個元素的 x0/x1/pyFront/pyBack 盡量從同一批深度
-   常數算出來,不再手打第二份座標(2026-08-13,見 DESIGN_NOTES「室內固定
-   物件的碰撞」)。 */
+/* 櫃台不再是 3D 物件(見上面「整體改回 2D 背景」),已經畫進
+   `paintStoreBackdrop()` 那張平面背景圖裡,不需要幾何/材質,也不需要另外
+   校正深度。碰撞維持「玩家不能太靠近」這個站立距離(遊戲設計取捨,跟
+   鮮食櫃那種從箱體深度算不一樣),邊界直接用 STORE.spots 裡本來就有的
+   `counter` 那組 px 座標,不用再繞去世界座標换算一圈。 */
 const COUNTER_STAND_PY = 230;
-/* 櫃台的碰撞寬度直接從真箱體的真實寬度換算回畫面座標(screenX 在固定深度
-   下對世界 X 是線性的),不用再手打一份寬度數字。 */
-const counterScreenLeft  = screenX(counterDesk.centerX - counterDesk.halfWidth, 1.2, NZ_COUNTER);
-const counterScreenRight = screenX(counterDesk.centerX + counterDesk.halfWidth, 1.2, NZ_COUNTER);
+const counterSpot = STORE.spots.find(s => s.id === 'counter');
 const FIXTURE_COLLIDERS = [
   { x0: STORE.hot.x, x1: STORE.hot.x + STORE.hot.w,
-    pyBack: pyForNz(NZ_HOT_BACK), pyFront: pyForNz(NZ_HOT) },
-  { x0: counterScreenLeft/SC, x1: counterScreenRight/SC,
+    pyBack: pyForNz(hotCabinet.backZ), pyFront: pyForNz(hotCabinet.frontZ) },
+  { x0: counterSpot.x, x1: counterSpot.x + counterSpot.w,
     pyBack: STORE.walkN, pyFront: COUNTER_STAND_PY }
 ];
 const COLLIDE_PAD = 6;
@@ -691,61 +568,23 @@ function heroScaleFor(nz){
 
 const heroIndoor = buildPlayer(THREE, indoorScene);
 
-/* 店員改成跟玩家同一顆骨架模型換膚(2026-08-12 kc:「店員改成真人」),
-   不再是 2D 像素小人。IN.clerkFace 那顆計時器(F/B 交替)還是控制轉向,
-   只是從切換 2D 圖案改成轉 3D 模型的 rotation.y——見 renderIndoor3D()。
-   buildNPC() 內部固定把 group.position.y 設成 .3(street 場景的地面基準),
-   這裡地面是 0,建完要扳回來。
-
-   身高**不要**套用 heroScaleFor(2026-08-13 修正,上面那句舊註解「兩者比例
-   才會一致」的邏輯是錯的):heroScaleFor 是專門補償「玩家在很寬的深度範圍
-   走動時,自然透視縮放看起來變化太劇烈」用的(見 INDOOR_HERO_TARGET_PX
-   那段),讓畫面身高固定不管站多遠。**店員站定不動,不需要這個補償**——
-   buildNPC() 已經把它蓋成 PLAYER.height 對應的真實世界身高,套用固定畫面
-   身高等於硬把「站得比較深」的店員撐成跟站在鏡頭正前方的玩家一樣大,
-   kc 截圖抓到玩家貼近櫃台時兩個模型會整個疊在一起,這是主因之一——店員
-   头顶本該因為透視自然縮小、讓出空間,結果被撐到跟近處的玩家一樣高。
-   維持 buildNPC() 給的預設 scale(自然透視),店員該有多小看深度自己決定。 */
-/* 店員站在箱體背面外面,而且要跟箱體的「背面」(不是正面)留夠間隔——
-   2026-08-13 踩過一次坑:只留 0.3 的時候 kc 反應「店員卡在半空中」,截圖
-   看起來像肢體斷開飄浮。關掉箱體單獨看店員,模型本身完全正常、沒有骨架
-   問題——是箱體有厚度,店員身體(真的有體積,不是薄片)幾乎貼著箱體站,
-   兩者的幾何在深度上互相穿插,造成局部深度測試閃爍(z-fighting),看起來
-   像身體被切成碎片飄在半空。**這是通用教訓:角色跟一塊有厚度的箱體疊放
-   時,間隔要明顯大於箱體厚度,不能只留一個象徵性的小數字。**
-   現在箱體是真的有物理深度的家具(COUNTER_WORLD_DEPTH),背面在
-   `NZ_COUNTER - COUNTER_WORLD_DEPTH`,店員站在那之後再留 1.5 個單位。 */
-const clerkNZ = NZ_COUNTER - COUNTER_WORLD_DEPTH - 1.5;
-const clerkNPC = buildNPC(THREE, indoorScene, {
-  x: worldXForScreenX(548*SC, clerkNZ), z: clerkNZ, rig:'m2',
-  skin:P2.clSkin, hair:P2.clHair, hood:P2.clVest, pants:'#2c3340', shoe:'#2c3340'
-});
-clerkNPC.group.position.y = 0;
+/* 店員 3D 骨架模型拿掉了(2026-08-13,見上面「整體改回 2D 背景」)——跟
+   照片級背景擺在一起像人形立牌,質感差太多。kc 說他之後自己做 2D 版畫進
+   `paintStoreBackdrop()` 的櫃台圖裡,這次先不接、櫃台後面暫時沒有人。 */
 
 /* IN.px/IN.py(2D 640×360 邏輯座標)換算成這個獨立場景的世界座標:
-   py 對到「離鏡頭遠近」(world Z),用上面 nzForPy();px 對到左右(world X)
-   ——2026-08-12 踩過一個坑:一開始 nx 用跟深度無關的線性公式,結果角色走去
-   門口(nz 比較遠)時,因為 nx 沒有跟著深度縮放,實際落點跑到鮮食櫃那塊
-   3D 貼圖板的「陰影」範圍裡,被錯誤地整個擋住(不是視覺 bug,是真的站在
-   板子後面,深度測試正確地擋住它,只是站錯地方)。screenX() 對世界 X 是
-   線性的(鏡頭沒有 roll),所以每幀重算「這個深度下,1 世界 X 單位對應幾個
-   畫面 px」不貴,不用整段都用固定公式。 */
-function worldXForScreenX(targetScreenX, nz){
-  const y = 1.2;
-  const x0 = screenX(0, y, nz), x1 = screenX(1, y, nz);
-  return (targetScreenX - x0) / (x1 - x0);
-}
+   py 對到「離鏡頭遠近」(world Z),用上面 nzForPy();px 對到左右(world X),
+   用 worldXForPx()——現在房間是真的長方體,1 世界 X 單位對應的畫面寬度
+   不再隨深度變(不像舊版那套假透視卡片),所以是固定比例,不用每幀重算。 */
 function renderIndoor3D(dt){
   const nz = nzForPy(IN.py);
-  const nx = worldXForScreenX(IN.px * SC, nz);
+  const nx = worldXForPx(IN.px);
   heroIndoor.group.position.set(nx, 0, nz);
   heroIndoor.group.scale.setScalar(heroScaleFor(nz));
   heroIndoor.group.rotation.y =
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
   heroIndoor.animate(dt, IN.moving, 1);
-  clerkNPC.group.rotation.y = IN.clerkFace === 'B' ? Math.PI : 0;
-  clerkNPC.animate(dt);
   renderer3d.render(indoorScene, indoorCamera);
 }
 
@@ -859,8 +698,8 @@ function updateIndoor(dt){
   } else hintEl.classList.remove('on');
 }
 
-/* 店員改 3D 模型了(見上面 clerkNPC),c2df 現在只剩顆粒雜訊那層,疊在
-   c3d(背景/鮮食櫃/角色/店員都在裡面)最上層。 */
+/* c2df 只剩顆粒雜訊這層,疊在最上層;c2dbg(平面背景)在最底、c3d(玩家/
+   鮮食櫃)在中間——見上面「整體改回 2D 背景」。 */
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
   g2f.imageSmoothingEnabled = false;
@@ -1031,6 +870,7 @@ function updateCity(dt){
   keyLight.position.set(pos.x-24, 34, pos.z+20);
   keyLight.target.position.copy(pos);
   city.updateLights(pos.x, pos.z);
+  city.updateBushBillboards(camera.position.x, camera.position.z);
   whereEl.textContent = city.whereAmI(pos.x, pos.z);
 
   nearDoor = null;
@@ -1145,12 +985,12 @@ window.__dbg = {
   heroIndoor, indoorScene, renderer3d,
   indoorCalib(){
     const z = heroIndoor.group.position.z, s = heroIndoor.group.scale.x;
-    return { NZ_FAR, NZ_HOT, NZ_NEAR, NZ_WALL, NZ_COUNTER, FIXTURE_COLLIDERS,
+    return { NZ_FAR, NZ_NEAR, ROOM_HALF_WIDTH, FIXTURE_COLLIDERS,
       heroPos: heroIndoor.group.position.toArray(), heroScale: s,
       footScreenY: screenY(z, 0), headScreenY: screenY(z, s*PLAYER.height) };
   },
   mode: () => MODE,
-  screenY, screenX, cam: indoorCamera,
+  screenY, cam: indoorCamera,
   state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
                   pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] })
 };

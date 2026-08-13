@@ -357,32 +357,60 @@ export function buildCity(THREE, scene){
     solid(cx, cz, w*.3, w*.3);
   }
 
-  /* ===== 真的灌木叢(2026-08-13,kc 說多面體灰模不是真灌木叢,要真的)=====
-   * 跟樹冠同一招(十字交叉去背照片卡片),用 tree-crown-4.png——kc 那批
-   * 4 選 1 的樹冠組合圖裡,那張本來就是矮圓形灌木,不是高大的樹,拿來當
-   * 灌木叢用剛好合適,不用另外再生一張。bushLine() 沿一條線密集排一串、
-   * 大小跟位置都帶點隨機,湊出圍籬那種「長了一排叢」的感覺,不是等距排列
-   * 的裝飾品。 */
-  const bushMat = std({ color:0x2f4a26, roughness:.9, transparent:true, alphaTest:.5, side:THREE.DoubleSide });
-  loader.load(TEX_DIR + 'tree-crown-4.png', img => {
-    const t = new THREE.Texture(img);
-    t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
-    bushMat.map = t; bushMat.color.setHex(0xffffff); bushMat.needsUpdate = true;
-  }, undefined, () => {});
-  function buildBush(cx, cz, scale){
+  /* ===== 真的灌木叢(2026-08-13,kc 說多面體灰模不是真灌木叢,要真的;
+   * 同一天第二次修正:kc 抓到整排都只用 tree-crown-4.png 一張圖,沿著
+   * 籬笆密集排列時同一張照片的圓頂輪廓+高光位置一直重複,看起來像複製
+   * 貼上;第三次修正:改成 3 片/60° 靜態十字排列,俯視縫隙有縮小,但 kc
+   * 站近了看還是整片破綻(平面邊緣、卡片間的黑縫都看得一清二楚)——因為
+   * 鏡頭是繞角色轉的第三人稱(見 game.html updateCity 的 camYaw),灌木
+   * 的朝向固定不動,玩家繞到側面/走近時卡片幾乎一定會被看到側邊。真正
+   * 的解法不是加卡片數量,是讓卡片跟招牌一樣「隨時轉向鏡頭」(billboard)
+   * ——只要卡片永遠正對鏡頭,就永遠不會被看到邊緣。改成每叢一個 THREE.Group
+   * 裝 2 片夾角 36° 的卡片(留一點厚度感,又不會露出明顯側邊),group 本身
+   * 不再是固定角度,每幀由 updateBushBillboards() 轉向鏡頭。 */
+  const bushMats = [1,2,3,4].map(v => {
+    const m = std({ color:0x2f4a26, roughness:.9, transparent:true, alphaTest:.5, side:THREE.DoubleSide });
+    loader.load(TEX_DIR + `tree-crown-${v}.png`, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+      m.map = t; m.color.setHex(0xffffff); m.needsUpdate = true;
+    }, undefined, () => {});
+    return m;
+  });
+  const bushGroups = [];
+  function buildBush(cx, cz, scale, variant){
     const size = 2.1*scale;
-    [0, Math.PI/2].forEach(ry => {
-      const card = new THREE.Mesh(new THREE.PlaneGeometry(size,size), bushMat);
-      card.rotation.y = ry;
-      add(card, cx, size*.26, cz, false, false);
+    const mat = bushMats[(variant-1+bushMats.length) % bushMats.length];
+    const g = new THREE.Group();
+    [-1, 1].forEach(side => {
+      const card = new THREE.Mesh(new THREE.PlaneGeometry(size,size), mat);
+      card.rotation.y = side * (Math.PI/10);
+      if(Math.random() < .5) card.scale.x *= -1;
+      card.castShadow = true; card.receiveShadow = false;
+      g.add(card);
     });
+    g.userData.twist = (Math.random()-.5)*.6;      // 每叢留一點朝向誤差,不然轉向鏡頭後又長一樣
+    add(g, cx, size*.26, cz, false, false);
+    bushGroups.push(g);
+  }
+  /* game.html 的 updateCity() 每幀呼叫,camX/camZ 傳鏡頭現在的世界座標——
+     跟角色朝向鏡頭用同一個 atan2(dx,dz) 公式(見 game.html camYaw 那段),
+     不是這裡自己另發明一套。 */
+  function updateBushBillboards(camX, camZ){
+    for(const g of bushGroups){
+      g.rotation.y = Math.atan2(camX - g.position.x, camZ - g.position.z) + g.userData.twist;
+    }
   }
   function bushLine(ax, az, bx, bz){
     const dx = bx-ax, dz = bz-az, len = Math.hypot(dx,dz);
     const steps = Math.max(1, Math.round(len/1.15));
+    let prevVariant = 0;
     for(let i=0; i<=steps; i++){
       const t = steps ? i/steps : .5;
-      buildBush(ax+dx*t+(Math.random()-.5)*.3, az+dz*t+(Math.random()-.5)*.3, .55+Math.random()*.35);
+      let variant = 1 + Math.floor(Math.random()*4);
+      if(variant === prevVariant) variant = 1 + (variant % 4);   // 強制跟前一叢不同圖
+      prevVariant = variant;
+      buildBush(ax+dx*t+(Math.random()-.5)*.3, az+dz*t+(Math.random()-.5)*.3, .55+Math.random()*.35, variant);
     }
   }
 
@@ -477,78 +505,71 @@ export function buildCity(THREE, scene){
     }
     /* 長椅挪到入口兩側,不要跟鞦韆同一條 z 排排站——鞦韆的碰撞箱本來就要
        撐到快 3 個單位寬,兩邊都塞東西一定會卡到入口(kc 抓到「走不進去」
-       的問題)。 */
-    bench(cx-7, cz+3, 0);
-    bench(cx+7, cz+3, Math.PI);
+       的問題)。2026-08-13 換成真 3D 遊具後,鞦韆/滑梯/翹翹板改用實際佔地
+       長度反推位置(見上面 placeGltfProp() 那段),長椅位置跟著重算一次,
+       每邊留至少 0.3~0.5 個單位淨空,不要憑感覺挪。 */
+    bench(cx-8, cz+3, 0);
+    bench(x1-2.5, cz+3, Math.PI);
 
     /* 入口兩側各放一個盆栽,呼應現實公園入口常見的做法 */
     addProp('planter', cx-gateW/2-1, z1+.5, 1.0, 1.1, 0x6a7a5a);
     addProp('planter', cx+gateW/2+1, z1+.5, 1.0, 1.1, 0x6a7a5a);
 
-    /* 鞦韆:公園最好認的輪廓,兩個 A 字架 + 一根橫桿 + 兩張坐板。上一版
-       h=2.6,比角色(4 單位高)矮,站過去比人還矮一截,完全不像鞦韆架
-       (kc 抓到的問題)。現實鞦韆頂桿要高過大人頭頂才不會撞到,換算
-       (1 單位≈.42米)大概要 5.5 單位高。兩隻腳原本只在 Z 方向差 .8、
-       幾乎貼在一起,看起來是兩根細棒不是「A」——改成用旋轉角度算出腳的
-       中心跟長度,讓頂端收在同一點、底端撐開 spread 寬,真的撐成三角形。
-       add() 一律吃世界座標,細節見上面同一句註解,這裡不重複。 */
-    /* 鞦韆放園區中央、離入口(z1)跟長椅都留夠距離——上一版放在 cz+3.2,
-       碰撞箱(w/2+.6 寬、spread+.5 深,再加 blocked() 內建的 .55 緩衝)整個
-       蓋到入口那格,人根本走不進去(kc 抓到的問題)。cz 是整個園區的正中間,
-       跟南邊圍籬、北邊入口都有超過兩個單位淨空。 */
+    /* 遊樂器材:2026-08-13 箱體版本改了三輪(鞦韆比例、滑梯顏色/部件、滑梯
+       比例)kc 還是說「超怪」,最後 kc 自己拍板「小東西用真的 3D 是可以的」
+       ——手刻箱體撐不住這種需要一眼認出細節的小物,整條街靠大量重複量體
+       堆出來才划算(見 DESIGN_NOTES「美術管線」),遊樂器材不是這個情況。
+       改抓 Poly Pizza(收 Google Poly 舊模型,低模風格跟這座城市的箱體美術
+       搭得起來)的免費模型,CC-BY 3.0,授權見 assets/models/CREDITS.md。
+       placeGltfProp() 用 propModel() 把模型縮放/置中/貼地,沒載到圖之前先用
+       一塊灰色箱體佔位(跟 addProp()/bushMat 那套「沒圖不會壞」同一慣例),
+       solid() 的碰撞箱獨立於視覺模型載入與否,同步先站好位置,不等非同步
+       載入完成才能走路互動。
+       這幾個模型是寫實比例(swing.glb 光是橫桿跨距換算就快 3 米),整個抓
+       進來會塞爆這個小公園,所以 targetSize/lockAxis 不是照「身高」撐滿,
+       是照「這座小公園擠得下的佔地長度」反推——鞦韆撐橫桿跨距、滑梯撐
+       滑道總長、翹翹板撐板長,回推出來的高度自然比人高一截(仍然滿足
+       「滑梯至少要比人高」那條硬要求),但不是寫實原始比例。下面每個
+       solid() 的半寬/半深都是照 propModel() 縮放後量出來的實際佔地反推,
+       不是憑感覺抓的數字,跟長椅/圍籬之間的間距見呼叫處旁的座標算式。 */
+    function placeGltfProp(file, targetSize, lockAxis, sx, sz, ry, halfW, halfD){
+      const fallback = box(halfW*2, targetSize, halfD*2, std({ color:0x5a6068, roughness:.7 }));
+      const holder = add(fallback, sx, targetSize/2, sz, true, true);
+      loadModel(file).then(gltf => {
+        scene.remove(holder);
+        add(propModel(THREE, gltf, targetSize, lockAxis, ry), sx, 0, sz, false, false);
+      }).catch(() => {});
+      solid(sx, sz, halfW, halfD);
+    }
+
+    /* 鞦韆放園區中央、離入口(z1)跟長椅都留夠距離——見上面同一段「碰撞箱
+       蓋到入口」的踩坑記錄,cz 是整個園區的正中間。ry=90° 把模型原本沿
+       local Z 的橫桿跨距轉到世界 X 軸,搭這座公園東西向比較寬的地形。 */
     (function swing(){
-      const sx = cx, sz = cz, w = 3.6, h = 5.5, spread = 1.3;
-      const frameM = std({ color:0x5a6068, roughness:.5, metalness:.4 });
-      const legLen = Math.hypot(h, spread), tiltAngle = Math.atan2(spread, h);
-      [-1,1].forEach(side => {                       // 兩個 A 字架(左右兩端)
-        const topX = sx + side*w/2;
-        [-1,1].forEach(lean => {                      // 每個架子兩隻斜腳,頂端收在一起、底端撐開
-          const leg = box(.16, legLen, .16, frameM);
-          leg.rotation.x = lean*tiltAngle;
-          add(leg, topX, h/2, sz - lean*spread/2, true, true);
-        });
-      });
-      add(box(w+.3,.16,.16, frameM), sx, h, sz, true, false);   // 橫桿
-      [-.9,.9].forEach(seatX => {
-        const chainLen = h - 1.0;
-        add(box(.7,.1,.4, woodM), sx+seatX, 1.0, sz, false, false);
-        [-1,1].forEach(cside => {
-          add(box(.04,chainLen,.04, frameM), sx+seatX+cside*.16, 1.0+chainLen/2, sz, false, false);
-        });
-      });
-      solid(sx, sz, w/2+.6, spread+.5);
+      const sx = cx, sz = cz;
+      placeGltfProp('swing.glb', 6.4, 'z', sx, sz, Math.PI/2, 3.4, 2.0);
       play.push({ x:sx, z:sz, label:'鞦韆' });
     })();
 
-    /* 滑梯:跟鞦韆同一招算斜面(頂端收在平台、底端撐開一段水平距離),
-       跟 A 字腳的旋轉公式是同一套數學,只是只有一片,不是兩腳夾一個角。
-       2026-08-13 kc 要遊樂器材多幾種,不是只有鞦韆。 */
-    function buildSlide(sx, sz, faceDir){
-      const platH = 1.8, run = 2.3;
-      const m = std({ color:0x6a7078, roughness:.5, metalness:.3 });
-      add(box(1.0,.15,1.0, m), sx, platH, sz, false, true);                  // 平台
-      [-.4,.4].forEach(dx => add(box(.08,platH,.08, m), sx+dx, platH/2, sz-faceDir*.45, true, true)); // 爬梯支柱
-      const slideLen = Math.hypot(platH, run), tiltAngle = Math.atan2(run, platH);
-      const slide = box(.85,.1,slideLen, m);
-      slide.rotation.x = faceDir*tiltAngle;
-      add(slide, sx, platH/2, sz - faceDir*run/2, false, true);
-      solid(sx, sz - faceDir*run/2, .6, run/2+.6);
-      return { x:sx, z:sz-faceDir*run/2, label:'滑梯' };
+    /* 滑梯:targetSize 撐的是滑道+爬梯合計的佔地長度(lockAxis='z',模型
+       原始比例是等長分兩邊),不是平台高度——縮放後的高度大概 5.3 個單位,
+       比角色(4)高一截,滿足「滑梯要比人高才滑得下去」那條硬要求
+       (kc 抓到的問題,見這段之前的討論)。ry 決定滑道朝哪邊,目測校過。 */
+    function buildSlide(sx, sz, ry){
+      placeGltfProp('slide.glb', 7.5, 'z', sx, sz, ry, .82, 3.95);
+      return { x:sx, z:sz, label:'滑梯' };
     }
-    play.push(buildSlide(x0+7.5, z0+3, -1));
+    play.push(buildSlide(49.15, cz, 0));
 
-    /* 翹翹板:中間支柱 + 一根歪一點的長板(不要死板水平)+ 兩邊坐板 */
-    function buildSeesaw(sx, sz){
-      const m = std({ color:0x5a6068, roughness:.5, metalness:.3 });
-      add(box(.5,.6,.5, m), sx, .3, sz, true, true);
-      const plank = box(3.2,.14,.5, woodM);
-      plank.rotation.z = .12;
-      add(plank, sx, .68, sz, false, true);
-      [-1,1].forEach(s => add(box(.5,.35,.5, woodM), sx+s*1.35, .68+s*.16, sz, true, false));
-      solid(sx, sz, 1.8, .5);
+    /* 翹翹板:targetSize 撐板長(lockAxis='x'),6.0 是先定「翹翹板本來該多大」
+       (跟鞦韆的 6.4、滑梯的 7.5 同一個量級),不是先看縫隙多寬反推——上一版
+       3.6 就是反過來做的,結果 kc 說「太細太小」。轉 90 度(ry)讓板子長邊
+       改沿南北向,東西向只占鞦韆右邊原本就有的空隙,不會逼近長椅。 */
+    function buildSeesaw(sx, sz, ry){
+      placeGltfProp('seesaw.glb', 6.0, 'x', sx, sz, ry, 1.7, 3.2);
       return { x:sx, z:sz, label:'翹翹板' };
     }
-    play.push(buildSeesaw(x1-8, z0+3.2));
+    play.push(buildSeesaw(59.6, cz, Math.PI/2));
 
     buildTree(x0+2.2, z0+2.2, .8, 3);
     lampSpots.push({ x:cx, y:4.5, z:cz, c:0xffe6c0, i:22, r:22 });
@@ -743,20 +764,23 @@ export function buildCity(THREE, scene){
         const awnY = 5.35 + (((i*13)%7)-3)*.05;
         add(box(axis==='x'?alongW:3.6, .4, axis==='x'?3.6:alongW, awnM),
             fX + (axis==='z'?face*1.9:0), awnY, fZ + (axis==='x'?face*1.9:0));
-      }
 
-      /* 騎樓頂下面那支日光燈。沒有它騎樓底下全黑,鐵捲門跟店門都看不見。
-         全部一樣亮會像機場走廊——每七間壞一支,冷白暖白混著,才像有人在管跟沒人在管
-         的店混在同一條街上。強度小、範圍小,不會搶掉招牌。 */
-      const tX = fX + (axis==='z'?face*1.9:0), tZ = fZ + (axis==='x'?face*1.9:0);
-      const tubeW = axis==='x' ? alongW-3.4 : .16, tubeD = axis==='x' ? .16 : alongW-3.4;
-      const dead = (i*5)%7 === 3;
-      const warm = (i*3)%5 < 2;
-      const cLamp = warm ? 0xf2e3c0 : 0xdfe8f0;
-      add(box(tubeW, .12, tubeD,
-              dead ? std({color:0x555b60,roughness:.7}) : glow(cLamp, 1.05)),
-          tX, 5.06, tZ, false, false);
-      if(!dead) lampSpots.push({ x:tX, y:4.9, z:tZ, c:cLamp, i:warm?11:10, r:13 });
+        /* 騎樓頂下面那支日光燈。沒有它騎樓底下全黑,鐵捲門跟店門都看不見。
+           全部一樣亮會像機場走廊——每七間壞一支,冷白暖白混著,才像有人在管跟沒人在管
+           的店混在同一條街上。強度小、範圍小,不會搶掉招牌。
+           2026-08-13 kc 抓到:這支燈原本跟上面的雨遮不同一個 if 區塊,騎樓大砍之後
+           大多數店沒有雨遮了,這支燈卻還照樣點,變成浮在半空中沒有東西掛著的光管——
+           挪進 !noArcade 裡面,燈只在真的有雨遮可以掛的店才出現。 */
+        const tX = fX + (axis==='z'?face*1.9:0), tZ = fZ + (axis==='x'?face*1.9:0);
+        const tubeW = axis==='x' ? alongW-3.4 : .16, tubeD = axis==='x' ? .16 : alongW-3.4;
+        const dead = (i*5)%7 === 3;
+        const warm = (i*3)%5 < 2;
+        const cLamp = warm ? 0xf2e3c0 : 0xdfe8f0;
+        add(box(tubeW, .12, tubeD,
+                dead ? std({color:0x555b60,roughness:.7}) : glow(cLamp, 1.05)),
+            tX, 5.06, tZ, false, false);
+        if(!dead) lampSpots.push({ x:tX, y:4.9, z:tZ, c:cLamp, i:warm?11:10, r:13 });
+      }
     });
   }
 
@@ -984,26 +1008,34 @@ export function buildCity(THREE, scene){
     }, undefined, () => {});
     return m;
   }
-  /* kc 玩起來說看不到垃圾在哪(2026-08-13)。試過在垃圾本身的材質上加
-     emissive,效果靠圖片自己的亮度,寶特瓶那種偏透明偏白的照片加了也不明顯,
-     不保險。改成在垃圾底下疊一圈跟圖片內容無關的暖色光暈(跟 grimeTexture()
-     的假接觸陰影同一招,只是這個是亮的不是暗的)——不管垃圾照片本身多暗,
-     地上永遠有一圈微光可以吸引人過去看。 */
-  let _litterGlowTex = null;
-  function litterGlowTex(){
-    if(_litterGlowTex) return _litterGlowTex;
-    const S = 128;
-    const c = document.createElement('canvas'); c.width = c.height = S;
-    const x = c.getContext('2d');
-    const g = x.createRadialGradient(S/2,S/2,0, S/2,S/2,S/2);
-    g.addColorStop(0,'rgba(255,232,170,1)'); g.addColorStop(.55,'rgba(255,200,110,.6)');
-    g.addColorStop(1,'rgba(255,200,110,0)');
-    x.fillStyle = g; x.fillRect(0,0,S,S);
-    _litterGlowTex = new THREE.CanvasTexture(c);
-    return _litterGlowTex;
-  }
+  /* TODO(2026-08-13,未完成):kc 拍板垃圾也要比照遊樂器材換成真的 3D 模型
+     (不要扁平貼圖)。已從 Poly Pizza 下載好 3 個 CC0/CC-BY glb,放在
+     assets/models/:litter-bottle.glb、litter-cig.glb、litter-lunchbox.glb。
+     還缺 flyer(選好是 Quaternius 的 Debris Papers,CC0,頁面
+     https://poly.pizza/m/CCRSdAJxsD,下載卡在授權彈窗沒點完)跟 cup(選好是
+     Poly by Google 的 Coffee cup,CC BY 3.0,頁面
+     https://poly.pizza/m/fIuM_PW5prV,還沒下載)。下面這整段目前還是用
+     PlaneGeometry+照片貼圖那套(litterMaterial()),還沒接上 propModel()/
+     placeGltfProp()(滑梯/鞦韆/翹翹板已經在用的那套 GLTF 載入邏輯,直接照抄
+     即可)。記得把已下載的三個 glb 也補進 assets/models/CREDITS.md(目前只記
+     了遊樂器材那三個)。
+     kc 玩起來說看不到垃圾在哪(2026-08-13)。試過在垃圾本身的材質上加
+     emissive、疊一圈暖色光暈(additive blending)、把光暈掛進 lampSpots 系統
+     讓它像路燈一樣真的在地上投光——三次調整下來 kc 最後說「我不要光圈」,
+     直接不要這個方向,不是再調淡一點的問題。整段光暈/點光源拿掉,垃圾能不能
+     被看到回歸貼圖本身+墊高到人行道上面(見下面 y=.34 那條真正的結構性修正,
+     這個沒有問題、保留)。如果之後還是找不到,再想別的辦法(貼圖本身放大、
+     加陰影),不要再回頭加光暈。 */
   const litter = [];
   [
+    /* 2026-08-13 kc 要在出生點附近一次看五種樣式,方便比對——先放著,
+       kc 看完如果不想在出生點旁邊常駐這排垃圾,之後這五行整段刪掉或挪開
+       都行,不影響下面原本分散在地圖上的 10 個。 */
+    [-12,-13,'bottle',0xdce8e0],
+    [-6, -13,'lunchbox',0xc9c2a8],
+    [0,  -13,'cig',0x5a5650],
+    [6,  -13,'flyer',0xd8d2c0],
+    [12, -13,'cup',0xc2a0d0],
     [-40,-16.5,'bottle',0xdce8e0],
     [-5, 16.7,'lunchbox',0xc9c2a8],
     [15,-16.5,'cig',0x5a5650],
@@ -1020,22 +1052,11 @@ export function buildCity(THREE, scene){
     /* 人行道那塊 box 是 .3 厚(見 H_ROADS.forEach 的 M.walk,中心 y=.15、頂面在
        y=.3),垃圾之前放在 y=.04/.05——整片埋在人行道厚度裡面,從上面根本
        看不到,難怪 kc 說找不到垃圾(2026-08-13 抓到)。要蓋在人行道「上面」,
-       y 一定要大於 .3。 */
-    const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.6,3.6),
-      new THREE.MeshBasicMaterial({ map:litterGlowTex(), transparent:true, depthWrite:false,
-                                     blending:THREE.AdditiveBlending }));
-    glow.rotation.x = -Math.PI/2;
-    add(glow, x, .32, z, false, false);
+       y 一定要大於 .3。這條是結構性修正,跟上面拿掉的光暈無關,保留。 */
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4), litterMaterial(kind,tint));
     mesh.rotation.x = -Math.PI/2;
     add(mesh, x, .34, z, false, false);
-    /* 貼圖光暈修完之後 kc 說還是找不到——這遊戲的光池(POOL,見下面
-       updateLights)只讓離玩家最近的 12 盞真的發光,遠遠看沒點燈的東西
-       再怎麼加自發光都不會比旁邊真的在發光的招牌/路燈亮。垃圾直接掛進
-       lampSpots,跟路燈用同一套系統,才會真的在地上投出一圈光,走近的時候
-       自然被吸引過去,不是等玩家自己去找那塊暗色貼圖。 */
-    lampSpots.push({ x, y:.6, z, c:0xffcf8a, i:10, r:7 });
-    litter.push({ x, z, kind, mesh, glow });
+    litter.push({ x, z, kind, mesh });
   });
 
   /* 街道小物點綴(2026-08-13):消防栓、電箱,純裝飾、不能互動,單純讓街上
@@ -1087,7 +1108,7 @@ export function buildCity(THREE, scene){
     return false;
   }
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, lampSpots, updateLights, whereAmI, blocked, materials:M };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, lampSpots, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
 }
 
 /* ---------------- 角色 ----------------
@@ -1288,6 +1309,34 @@ function riggedCharacter(THREE, idleGltf, mats, heightUnits, parts){
     if(key) o.material = mats[key];
   });
   return model;
+}
+
+/* 靜態小物 GLTF:跟角色的 riggedCharacter() 同一套「量 bounding box 校正尺寸」
+ * 邏輯,但沒有骨架/換裝——縮放、水平置中、底部貼齊 y=0,回傳一個可以直接
+ * add(group, x, 0, z, ...) 擺放的 Group。
+ * 2026-08-13:kc 說遊樂器材這種小東西手刻箱體撐不住細節(滑梯改了三輪比例
+ * kc 還是說「超怪」),放棄箱體改抓 Poly Pizza 的免費低模模型(CC-BY 3.0,
+ * 授權見 assets/models/CREDITS.md)。lockAxis 選要撐滿 targetSize 的是哪個
+ * bounding box 軸('x'/'y'/'z')——鞦韆/翹翹板用長度撐滿(這座小公園擠不下
+ * 這些模型的原始寫實比例,佔地面積比身高更容易撞到隔壁的長椅/圍籬,見下面
+ * placeGltfProp() 呼叫處的間距推算),滑梯的「長度」也是撐滿軸,不是身高。 */
+function propModel(THREE, gltf, targetSize, lockAxis, ry){
+  const model = gltf.scene.clone(true);
+  model.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model);
+  const size = { x: box.max.x-box.min.x, y: box.max.y-box.min.y, z: box.max.z-box.min.z };
+  const scale = targetSize / Math.max(size[lockAxis || 'y'], 1e-4);
+  model.position.set(
+    -(box.min.x+box.max.x)/2*scale,
+    -box.min.y*scale,
+    -(box.min.z+box.max.z)/2*scale
+  );
+  model.scale.setScalar(scale);
+  const g = new THREE.Group();
+  g.add(model);
+  if(ry) g.rotation.y = ry;
+  return g;
 }
 
 /* 刺青(2026-08-12):不用 DecalGeometry——那個機制是對著 SkinnedMesh 的
