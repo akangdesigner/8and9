@@ -274,7 +274,8 @@ export function buildCity(THREE, scene){
   }
 
   const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
-  const colliders = [], doors = [], lampSpots = [];
+  const colliders = [], doors = [], lampSpots = [], play = [];
+  let parkBounds = null;                              // 見下面 park(),whereAmI() 要用
   const add = (mesh,x,y,z,cast,recv) => {
     mesh.position.set(x,y,z);
     mesh.castShadow = cast !== false; mesh.receiveShadow = recv !== false;
@@ -287,7 +288,14 @@ export function buildCity(THREE, scene){
     add(box(210,.2,ROAD_HW*2, M.road), 0, 0, r.z, false, true);
     [-1,1].forEach(s => {
       add(box(210,.3,WALK_W, M.walk), 0, .15, r.z + s*(ROAD_HW+WALK_W/2), false, true);
-      add(box(210,.34,.6, M.curb), 0, .17, r.z + s*(ROAD_HW+.3), false, true);
+      /* 廟口路南側(s=-1)正對廟埕那段不放 curb——見下面 temple() 的石板直接
+         跟路面接起來,不要有一條硬邊切過廣場(2026-08-13,kc 覺得路網太方正)。 */
+      if(r.z === H_ROADS[0].z && s === -1){
+        [[-105,-52.5],[52.5,105]].forEach(([x0,x1]) =>
+          add(box(x1-x0,.34,.6, M.curb), (x0+x1)/2, .17, r.z + s*(ROAD_HW+.3), false, true));
+      } else {
+        add(box(210,.34,.6, M.curb), 0, .17, r.z + s*(ROAD_HW+.3), false, true);
+      }
     });
     for(let x=-100;x<104;x+=7) add(box(3.4,.02,.2, glow(0xb8ad72,.3)), x, .11, r.z, false, true);
   });
@@ -298,6 +306,257 @@ export function buildCity(THREE, scene){
       add(box(.6,.34,172, M.curb), r.x + s*(ROAD_HW+.3), .17, -3, false, true);
     });
   });
+
+  /* ===== 樹:圓環跟公園都要用,抽成共用函式(2026-08-13)=====
+   * 樹冠先用幾顆多面體堆出灰模輪廓,assets/tex/tree-crown-<variant>.png(1~4,
+   * kc 一次生了 4 種變化,見 PROMPTS.md)補了會自動換成兩片十字交叉的去背
+   * 照片(常見的「樹卡片」省事作法,不用真的建樹葉幾何)。灰模留著當
+   * fallback,不是換掉,沒圖之前不會空著。variant 不同的呼叫用不同編號,
+   * 免得整條路每棵樹長得一模一樣。 */
+  function buildTree(cx, cz, scale, variant){
+    scale = scale || 1; variant = variant || 1;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.32*scale,.48*scale,3.2*scale,8),
+        std({ color:0x4a3626, roughness:.95 })), cx, 1.9*scale+.32*scale, cz, true, true);
+    const leaves = [[0,3.9,0,2.5],[1.3,3.4,.9,1.6],[-1.2,3.6,-.8,1.7],[.5,4.6,-1.0,1.5]]
+      .map(([x,y,z,r]) => add(new THREE.Mesh(new THREE.IcosahedronGeometry(r*scale,0),
+        std({ color:0x3c5a2e, roughness:.95 })), cx+x*scale, (y+.32)*scale, cz+z*scale, true, false));
+    loader.load(TEX_DIR + `tree-crown-${variant}.png`, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+      const cm = new THREE.MeshStandardMaterial({ map:t, transparent:true, alphaTest:.5, side:THREE.DoubleSide, roughness:.9 });
+      [0, Math.PI/2].forEach(ry => {
+        const card = new THREE.Mesh(new THREE.PlaneGeometry(5.4*scale,5.4*scale), cm);
+        card.rotation.y = ry;
+        add(card, cx, 4.2*scale, cz, false, false);
+      });
+      leaves.forEach(m => m.visible = false);
+    }, undefined, () => {});
+  }
+
+  /* ===== 街道小物:立牌卡片(2026-08-13)=====
+   * 電箱/消防栓/盆栽這種東西照片是 3/4 角度拍的,不是店面招牌那種平拍,
+   * 沒辦法好好包進盒子幾何的六個面——跟樹冠同一招,做成一片立起來的卡片,
+   * 這個遊戲的鏡頭角度變化不大,讀起來就是一個東西站在那裡。沒圖之前退回
+   * 一塊素色方塊,不會空著。 */
+  const propMats = {};
+  function propCard(name, colorFallback){
+    if(propMats[name]) return propMats[name];
+    const m = std({ color:colorFallback, roughness:.85, transparent:true, alphaTest:.5, side:THREE.DoubleSide });
+    propMats[name] = m;
+    loader.load(TEX_DIR + `prop-${name}.png`, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+      m.map = t; m.color.setHex(0xffffff); m.needsUpdate = true;
+    }, undefined, () => {});
+    return m;
+  }
+  function addProp(name, cx, cz, w, h, colorFallback, ry){
+    const card = new THREE.Mesh(new THREE.PlaneGeometry(w,h), propCard(name, colorFallback));
+    card.rotation.y = ry || 0;
+    add(card, cx, h/2, cz, false, false);
+    solid(cx, cz, w*.3, w*.3);
+  }
+
+  /* ===== 真的灌木叢(2026-08-13,kc 說多面體灰模不是真灌木叢,要真的)=====
+   * 跟樹冠同一招(十字交叉去背照片卡片),用 tree-crown-4.png——kc 那批
+   * 4 選 1 的樹冠組合圖裡,那張本來就是矮圓形灌木,不是高大的樹,拿來當
+   * 灌木叢用剛好合適,不用另外再生一張。bushLine() 沿一條線密集排一串、
+   * 大小跟位置都帶點隨機,湊出圍籬那種「長了一排叢」的感覺,不是等距排列
+   * 的裝飾品。 */
+  const bushMat = std({ color:0x2f4a26, roughness:.9, transparent:true, alphaTest:.5, side:THREE.DoubleSide });
+  loader.load(TEX_DIR + 'tree-crown-4.png', img => {
+    const t = new THREE.Texture(img);
+    t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+    bushMat.map = t; bushMat.color.setHex(0xffffff); bushMat.needsUpdate = true;
+  }, undefined, () => {});
+  function buildBush(cx, cz, scale){
+    const size = 2.1*scale;
+    [0, Math.PI/2].forEach(ry => {
+      const card = new THREE.Mesh(new THREE.PlaneGeometry(size,size), bushMat);
+      card.rotation.y = ry;
+      add(card, cx, size*.26, cz, false, false);
+    });
+  }
+  function bushLine(ax, az, bx, bz){
+    const dx = bx-ax, dz = bz-az, len = Math.hypot(dx,dz);
+    const steps = Math.max(1, Math.round(len/1.15));
+    for(let i=0; i<=steps; i++){
+      const t = steps ? i/steps : .5;
+      buildBush(ax+dx*t+(Math.random()-.5)*.3, az+dz*t+(Math.random()-.5)*.3, .55+Math.random()*.35);
+    }
+  }
+
+  /* ===== 路口圓環(西園街 ⇄ 中華路)=====
+   * kc 覺得整個路網太方正(2026-08-13)——不動路軸線,只在既有十字路口疊一個
+   * 圓環,周邊店面/alley 完全不用重算。中間放一棵樹,呼應老市區路口常見的
+   * 圓環/路樹景觀,人行道被切成繞過去的弧線而不是直角轉彎。 */
+  (function roundabout(){
+    const cx = V_ROADS[0].x, cz = H_ROADS[1].z, R = 5.0;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(R+.3,R+.3,.17,28), M.curb),
+        cx, .085, cz, false, true);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(R,R,.3,28),
+        std({ color:0x5a6b42, roughness:.96 })), cx, .17+.15, cz, false, true);
+    buildTree(cx, cz, 1, 1);
+    solid(cx, cz, R*.72, R*.72);
+    lampSpots.push({ x:cx, y:4.5, z:cz, c:0xffd9a0, i:26, r:24 });
+  })();
+
+  /* ===== 公園:中華路南側切兩個店面寬度出來(2026-08-13,kc 說要真的一塊
+   * 公園,不是隨便貼一張素材)=====
+   * 跟 temple()/roundabout() 同一套做法——先蓋灰模鎖構圖,草地材質有補圖片
+   * 就換,沒有就維持程序生成的綠色;圍籬留一個朝中華路的開口當入口,鞦韆/
+   * 長椅用現有的 box helper 湊,不找外部 3D 模型——這整個城市除了角色都是
+   * 「灰模 + AI 貼圖」這一套,公園沒有理由換一套做法,換了風格會跟旁邊的店
+   * 打起來(見 DESIGN_NOTES「美術管線」)。占掉的兩個店面格數在 row() 那邊
+   * 已經改成 S.gap,這裡只補公園本體。 */
+  (function park(){
+    const x0 = 42, x1 = 66, z0 = -B_LINE-DEPTH/2, z1 = -B_LINE+DEPTH/2;
+    const cx = (x0+x1)/2, cz = (z0+z1)/2, gateW = 4;
+
+    /* kc 說我上一版誤解了問題:不是矩形邊緣「貼幾塊裝飾」就好,是這塊地
+       打從輪廓就不應該是一個剛好的矩形/正方形(2026-08-13,第二次修正)。
+       改成 L 形:東南角整個切掉一塊(缺角),草地跟圍籬都照這個新輪廓走,
+       不是先蓋矩形再補丁。缺角大小 NOTCH,切在離入口最遠的那個角落,
+       不影響北側入口跟長椅/鞦韆的既有座標(它們都在缺角範圍外)。 */
+    const NOTCH = 5;                                    // 缺角邊長
+    const cutX = x1 - NOTCH, cutZ = z0 + NOTCH;          // 缺角的內角座標
+    const grassMat = std({ color:0x5c7a3e, roughness:.95 });
+    add(box(cutX-x0-.6, .12, z1-z0-.6, grassMat), (x0+cutX)/2, .06, cz, false, true);           // 主體(西側全深)
+    add(box(x1-cutX-.6, .12, z1-cutZ-.6, grassMat), (cutX+x1)/2, .06, (cutZ+z1)/2, false, true); // 東側上半(缺角剩下的部分)
+    loader.load(TEX_DIR + 'grass.png', img => {
+      const t = new THREE.CanvasTexture(prep(img, { mirror:true, lift:.1 }));
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3,2);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      grassMat.map = t; grassMat.color.setHex(0x9fb583); grassMat.needsUpdate = true;
+    }, undefined, () => {});
+
+    /* 矮圍籬:北側(朝路,z1)留 gateW 寬的入口,照 L 形輪廓走六段,不是
+       四段矩形。缺角內側兩段(往內切的那個直角)也要圍起來,不然草地跟
+       圍籬外的柏油路會直接連在一起。
+       2026-08-13 kc 第三次抓到:貼了 hedge.png 之後看起來還是太平整——一塊
+       平的箱體貼一張灌木葉子的無縫材質,終究是「一塊有紋路的箱體」,不是
+       真的凹凸不平的灌木。箱體降矮當隱形的碰撞底座(矮到幾乎被前面的灌木
+       卡片蓋住),真正看得到的外觀改成沿線密集排一排 buildBush() 的去背
+       灌木照片卡——跟上面「真的灌木叢」那段同一套,碰撞判定不變。 */
+    const hedge = std({ color:0x2a3a22, roughness:.95 });
+    const hedgeSeg = (w,d,x,z) => { add(box(w,.4,d, hedge), x, .2, z, false, true); solid(x,z,w/2,d/2); };
+    hedgeSeg(cutX-x0, .4, (x0+cutX)/2, z0);                        // 南邊(到缺角前)
+    hedgeSeg(.4, cutZ-z0, cutX, (z0+cutZ)/2);                       // 缺角內側:縱段
+    hedgeSeg(x1-cutX, .4, (cutX+x1)/2, cutZ);                       // 缺角內側:橫段
+    hedgeSeg(.4, z1-cutZ, x1, (cutZ+z1)/2);                         // 東邊(缺角之後到入口)
+    hedgeSeg(.4, z1-z0, x0, cz);                                    // 西邊
+    const sideW = (x1-x0-gateW)/2;                                  // 北邊剩下的寬度,左右各一段
+    hedgeSeg(sideW, .4, x0+sideW/2, z1);                            // 入口左半
+    hedgeSeg(sideW, .4, x1-sideW/2, z1);                            // 入口右半
+
+    bushLine(x0, z0, cutX, z0);                                     // 南邊
+    bushLine(cutX, z0, cutX, cutZ);                                 // 缺角內側:縱段
+    bushLine(cutX, cutZ, x1, cutZ);                                 // 缺角內側:橫段
+    bushLine(x1, cutZ, x1, z1);                                     // 東邊
+    bushLine(x0, z0, x0, z1);                                       // 西邊
+    bushLine(x0, z1, x0+sideW, z1);                                 // 入口左半
+    bushLine(x1-sideW, z1, x1, z1);                                 // 入口右半
+
+    /* 長椅 x2,跟 tableSet() 的塑膠桌椅同一種灰模語彙,換成木頭色。
+       2026-08-13 kc 說公園比例好怪——上一版座面是 .5 厚的方塊、座高只有 .5,
+       跟角色一比像個箱子不像長椅。這個場景 1 單位 ≈ .42 米(見 PLAYER 那節
+       身高換算),照現實長椅尺寸(座高 ~.45m、椅背頂 ~.85m)重新推:
+       座高 1.0、椅背頂 ~2.1、座板變薄成 .14。 */
+    const woodM = std({ color:0x8a6a42, roughness:.85 });
+    function bench(x, z, ry){
+      const g = new THREE.Group();
+      const seat = box(3.0,.14,.8, woodM); seat.position.y = 1.0; g.add(seat);
+      [[-1.3,-.28],[1.3,-.28],[-1.3,.28],[1.3,.28]].forEach(([bx,bz]) => {
+        const leg = box(.16,1.0,.16, M.metal); leg.position.set(bx,.5,bz); g.add(leg);
+      });
+      const back = box(3.0,1.1,.14, woodM); back.position.set(0,1.62,-.35); g.add(back);
+      g.rotation.y = ry || 0;
+      g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      add(g, x, 0, z, false, false);
+      solid(x, z, 1.7, .6);
+    }
+    /* 長椅挪到入口兩側,不要跟鞦韆同一條 z 排排站——鞦韆的碰撞箱本來就要
+       撐到快 3 個單位寬,兩邊都塞東西一定會卡到入口(kc 抓到「走不進去」
+       的問題)。 */
+    bench(cx-7, cz+3, 0);
+    bench(cx+7, cz+3, Math.PI);
+
+    /* 入口兩側各放一個盆栽,呼應現實公園入口常見的做法 */
+    addProp('planter', cx-gateW/2-1, z1+.5, 1.0, 1.1, 0x6a7a5a);
+    addProp('planter', cx+gateW/2+1, z1+.5, 1.0, 1.1, 0x6a7a5a);
+
+    /* 鞦韆:公園最好認的輪廓,兩個 A 字架 + 一根橫桿 + 兩張坐板。上一版
+       h=2.6,比角色(4 單位高)矮,站過去比人還矮一截,完全不像鞦韆架
+       (kc 抓到的問題)。現實鞦韆頂桿要高過大人頭頂才不會撞到,換算
+       (1 單位≈.42米)大概要 5.5 單位高。兩隻腳原本只在 Z 方向差 .8、
+       幾乎貼在一起,看起來是兩根細棒不是「A」——改成用旋轉角度算出腳的
+       中心跟長度,讓頂端收在同一點、底端撐開 spread 寬,真的撐成三角形。
+       add() 一律吃世界座標,細節見上面同一句註解,這裡不重複。 */
+    /* 鞦韆放園區中央、離入口(z1)跟長椅都留夠距離——上一版放在 cz+3.2,
+       碰撞箱(w/2+.6 寬、spread+.5 深,再加 blocked() 內建的 .55 緩衝)整個
+       蓋到入口那格,人根本走不進去(kc 抓到的問題)。cz 是整個園區的正中間,
+       跟南邊圍籬、北邊入口都有超過兩個單位淨空。 */
+    (function swing(){
+      const sx = cx, sz = cz, w = 3.6, h = 5.5, spread = 1.3;
+      const frameM = std({ color:0x5a6068, roughness:.5, metalness:.4 });
+      const legLen = Math.hypot(h, spread), tiltAngle = Math.atan2(spread, h);
+      [-1,1].forEach(side => {                       // 兩個 A 字架(左右兩端)
+        const topX = sx + side*w/2;
+        [-1,1].forEach(lean => {                      // 每個架子兩隻斜腳,頂端收在一起、底端撐開
+          const leg = box(.16, legLen, .16, frameM);
+          leg.rotation.x = lean*tiltAngle;
+          add(leg, topX, h/2, sz - lean*spread/2, true, true);
+        });
+      });
+      add(box(w+.3,.16,.16, frameM), sx, h, sz, true, false);   // 橫桿
+      [-.9,.9].forEach(seatX => {
+        const chainLen = h - 1.0;
+        add(box(.7,.1,.4, woodM), sx+seatX, 1.0, sz, false, false);
+        [-1,1].forEach(cside => {
+          add(box(.04,chainLen,.04, frameM), sx+seatX+cside*.16, 1.0+chainLen/2, sz, false, false);
+        });
+      });
+      solid(sx, sz, w/2+.6, spread+.5);
+      play.push({ x:sx, z:sz, label:'鞦韆' });
+    })();
+
+    /* 滑梯:跟鞦韆同一招算斜面(頂端收在平台、底端撐開一段水平距離),
+       跟 A 字腳的旋轉公式是同一套數學,只是只有一片,不是兩腳夾一個角。
+       2026-08-13 kc 要遊樂器材多幾種,不是只有鞦韆。 */
+    function buildSlide(sx, sz, faceDir){
+      const platH = 1.8, run = 2.3;
+      const m = std({ color:0x6a7078, roughness:.5, metalness:.3 });
+      add(box(1.0,.15,1.0, m), sx, platH, sz, false, true);                  // 平台
+      [-.4,.4].forEach(dx => add(box(.08,platH,.08, m), sx+dx, platH/2, sz-faceDir*.45, true, true)); // 爬梯支柱
+      const slideLen = Math.hypot(platH, run), tiltAngle = Math.atan2(run, platH);
+      const slide = box(.85,.1,slideLen, m);
+      slide.rotation.x = faceDir*tiltAngle;
+      add(slide, sx, platH/2, sz - faceDir*run/2, false, true);
+      solid(sx, sz - faceDir*run/2, .6, run/2+.6);
+      return { x:sx, z:sz-faceDir*run/2, label:'滑梯' };
+    }
+    play.push(buildSlide(x0+7.5, z0+3, -1));
+
+    /* 翹翹板:中間支柱 + 一根歪一點的長板(不要死板水平)+ 兩邊坐板 */
+    function buildSeesaw(sx, sz){
+      const m = std({ color:0x5a6068, roughness:.5, metalness:.3 });
+      add(box(.5,.6,.5, m), sx, .3, sz, true, true);
+      const plank = box(3.2,.14,.5, woodM);
+      plank.rotation.z = .12;
+      add(plank, sx, .68, sz, false, true);
+      [-1,1].forEach(s => add(box(.5,.35,.5, woodM), sx+s*1.35, .68+s*.16, sz, true, false));
+      solid(sx, sz, 1.8, .5);
+      return { x:sx, z:sz, label:'翹翹板' };
+    }
+    play.push(buildSeesaw(x1-8, z0+3.2));
+
+    buildTree(x0+2.2, z0+2.2, .8, 3);
+    lampSpots.push({ x:cx, y:4.5, z:cz, c:0xffe6c0, i:22, r:22 });
+    /* 公園沒有室內場景,不要塞進 doors——那個陣列是給 enterIndoor() 用的,
+       塞進去按空白鍵會跳出「室內場景還沒做」,語意不對(公園本來就是走進去
+       就好,不用「進門」)。只在 whereAmI() 補一個範圍判斷當地名顯示。 */
+    parkBounds = { x0:x0-1, x1:x1+1, z0:z0-1, z1:z1+1 };
+  })();
 
   /* ===== 店面「有厚度」的版本(先在單一店面試,見 DESIGN_NOTES) =====
    * 原本的門面是一片 0.3 厚的板子貼照片,平貼在牆面上,大腦會讀成「一張照片貼在牆上」。
@@ -417,15 +676,24 @@ export function buildCity(THREE, scene){
            整體偏暗、箱體比例窄高;藥局綠燈箱但比前兩間新,亮度正常偏亮。
            其餘店維持原本的偽隨機三款,但高度整體壓到原本的六到七成
            ——一整排招牌同高同比例同亮法,是「假」感最重的地方。 */
-        /* along/vertH 的比例要貼近生圖的實際長寬比(GPT 沒特別裁過的話是 3:2≈1.5:1)——
+        /* along/vertH 的比例要貼近生圖「招牌本體」的實際長寬比,不是整張 PNG 檔案的
+           長寬比——GPT 生招牌常常是黑底置中一塊招牌照片,四周留一圈黑邊(拍照感),
+           檔案本身 1536×1024≈1.5:1,但招牌本體常常更扁長。用檔案比例去配 along/vertH
+           的話裁切幾乎不會裁到黑邊,黑邊會整圈露在箱體上,跟 kc 指出的「上下黑邊沒
+           真正 match」是同一個原因(2026-08-13)。正確做法是先把 PNG 裁到招牌本體
+           edge-to-edge(量測非黑色範圍的 bounding box 裁掉黑邊),再用裁完的實際比例
+           配 along/vertH——一查發現 store/drug 的原始檔案也有同一個問題(上下各留
+           ~10% 黑邊,本體比例其實是 1.9:1,不是檔案的 1.5:1),三張都重裁過了。
            上一版改比例是對的,但同時把尺寸也一起縮太小了,招牌變成貼在一大片空牆上
            的小方塊,比例對但尺寸不合理(kc 抓到的問題)。「薄」講的是壓克力箱體的
            物理深度,不是招牌畫面本身要縮小——尺寸要跟原本一樣佔得住牆面。
-           moto 是特例,那張圖本身已經裁過、比例本來就對,維持原樣。 */
+           drug 原本 vertH 3.5 比 store 明顯大一號,箱體側面鋁框露出的面積跟著放大,
+           讀起來像一塊厚重的方塊而不是薄招牌(kc 抓到的問題)——縮到跟 store 同尺寸。 */
         const ART = {
-          store: { along: alongW-7.0, vertH:3.0,  y:8.0,  emissiveK:1.3 },
-          moto:  { along: alongW-3.5, vertH:2.3,  y:7.6,  emissiveK:.8 },
-          drug:  { along: alongW-6.2, vertH:3.5,  y:8.4,  emissiveK:1.1 }
+          store:  { along: alongW-6.5, vertH:2.7,  y:8.0,  emissiveK:1.3 },
+          moto:   { along: alongW-5.7, vertH:2.5,  y:7.8,  emissiveK:1.15 },
+          drug:   { along: alongW-6.5, vertH:2.7,  y:8.0,  emissiveK:1.1 },
+          tattoo: { along: alongW-5.9, vertH:2.8,  y:8.0,  emissiveK:1.15 }
         }[s.kind];
         let along, vertH, y, emissiveK, alongOff = 0;
         if(ART){ ({along,vertH,y,emissiveK} = ART); }
@@ -438,15 +706,19 @@ export function buildCity(THREE, scene){
           emissiveK = 1;
         }
         /* 招牌貼牆掛,不用伸長桿子撐出去——那條路線試過了,見 DESIGN_NOTES。
-           但箱體不能太薄:原本 .45 厚、只探出牆面 .5,側面幾乎跟鏡頭同一條視線,
-           看起來就是一張照片貼在牆上(kc 抓到的問題)。做成真的有深度的燈箱
-           (現實中招牌鐵殼大概 30~50cm 深),側面鋁框才會在大部分角度都露出來,
-           讀得出這是掛在牆上的箱子而不是貼圖。 */
-        const OUT = 1.0, THICK = 1.0;
+           箱體不能太薄:原本 .45 厚、只探出牆面 .5,側面幾乎跟鏡頭同一條視線,
+           看起來就是一張照片貼在牆上(kc 抓到的問題)。但 THICK 1.0 又太厚了
+           (2026-08-13 kc 抓到:上下側面那圈變成很寬的黑邊,箱體像塊磚)——
+           跟 OUT(離牆多遠,決定投影/立體感)是兩件事,OUT 維持 1.0,只把箱體
+           自己的深度 THICK 收窄。側面材質也從純色 alumFrame 換成跟 richStoreFront
+           共用的 frameMaterial(sign-frame.png 貼圖,沒補圖時退回深灰),
+           純色在黑邊變窄之後看起來更像沒做完,貼圖至少有亮暗變化。 */
+        const OUT = 1.0, THICK = .5;
         const sw = axis==='x' ? along : THICK, sd = axis==='x' ? THICK : along;
         const photo = signImage(s.signKey, along/vertH, emissiveK);
         const mainIdx = axis==='x' ? (face>0?4:5) : (face>0?0:1);
-        add(box(sw,vertH,sd, Array.from({length:6},(_,idx)=>idx===mainIdx?photo:M.alumFrame)),
+        const frame = frameMaterial(THREE);
+        add(box(sw,vertH,sd, Array.from({length:6},(_,idx)=>idx===mainIdx?photo:frame)),
             fX + aX*alongOff + nX*OUT, y, fZ + aZ*alongOff + nZ*OUT, false, false);
       }
       if(s.id) doors.push({ id:s.id, name:s.label,
@@ -509,17 +781,17 @@ export function buildCity(THREE, scene){
   row({ axis:'x', at:-B_LINE, face:1, from:-72, shops:[
     S.sh, {kind:'home',id:'home',label:'你家'}, S.food(undefined,true), S.betel(), S.gap,
     {kind:'store',id:'store',label:'超商',sign:0xf2efe4,signKey:'store'}, S.moto(), S.drug(), S.sh,
-    S.food(0xe8b52c), S.sh, S.sh, S.sh ]});
+    S.food(0xe8b52c), S.gap, S.gap, S.sh ]});
   row({ axis:'x', at:B_LINE, face:-1, from:-72, shops:[
     S.sh, S.food(), S.sh, S.net(), S.gap,
-    {kind:'tattoo',id:'tattoo',label:'刺青店',sign:0xff4a5a,signKey:'tattoo'}, S.arcade(), S.sh, S.betel(),
+    {kind:'tattoo',id:'tattoo',label:'刺青店',sign:0xff4a5a,signKey:'tattoo'}, S.arcade(), S.gap, S.betel(),
     S.sh, S.sh, S.food(0xe8b52c), S.sh ]});
   /* 廟口路 */
   row({ axis:'x', at:-78+B_LINE, face:-1, from:-60, shops:[
     S.sh, S.food(), S.betel(), S.gap, S.food(0xe8b52c), S.sh, S.drug(), S.sh, S.net(), S.sh ]});
   /* 後火車站:暗的那一條 */
   row({ axis:'x', at:72-B_LINE, face:1, from:-60, shops:[
-    S.sh, S.sh, S.gap, S.sh, S.moto(), S.sh, S.sh, S.sh, S.sh, S.sh ]});
+    S.sh, S.sh, S.gap, S.sh, S.moto(), S.sh, S.sh, S.sh, S.sh, S.gap ]});
   /* 縱街 */
   row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.food(),S.sh,S.sh,S.betel(),S.sh,S.sh,S.sh ]});
   row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.net(),S.sh,S.sh,S.food(),S.sh,S.sh ]});
@@ -548,10 +820,62 @@ export function buildCity(THREE, scene){
   alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -78 + B_LINE + DEPTH/2);   // 中華路 ⇄ 廟口路
   alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  72 - B_LINE - DEPTH/2);   // 中華路 ⇄ 後火車站
 
+  /* ===== 斜巷:跟 alley() 同一套「兩排素牆夾一條走道」邏輯,只是不沿 x/z
+   * 軸走,是斜的(2026-08-13——kc 說圓環、廟埕那些都是路口貼裝飾,路本身
+   * 還是直的;這條路本身就是斜的,呼應老市區地界不平整長出來的斜切捷徑)。
+   * 角度靠 rotation.y = atan2(dx,dz) 轉,跟玩家轉向、alley() 的牆用同一套
+   * 三角函數。碰撞箱用旋轉矩形的軸對齊包絡框(AABB)概略擋,巷子兩邊本來
+   * 就是空的街廓內部,擋多一點無傷。 */
+  const diagAlleys = [];
+  function alleyDiag(x0, z0, x1, z1){
+    diagAlleys.push({ x0, z0, x1, z1 });
+    const dx = x1-x0, dz = z1-z0, len = Math.hypot(dx,dz), ang = Math.atan2(dx,dz);
+    const ux = Math.sin(ang), uz = Math.cos(ang);      // 沿線方向單位向量
+    const nx = Math.cos(ang), nz = -Math.sin(ang);     // 垂直方向單位向量
+    const cx = (x0+x1)/2, cz = (z0+z1)/2;
+    const at = (along, side) => [cx + ux*along + nx*side, cz + uz*along + nz*side];
+    const HW = 3.6;
+
+    const floor = box(HW*2+8, .28, len, M.walk);
+    floor.rotation.y = ang;
+    add(floor, cx, .14, cz, false, true);
+
+    [-1,1].forEach(s => {
+      const wall = box(6, 13, len, M.wallC);
+      wall.rotation.y = ang;
+      const [wx,wz] = at(0, s*(HW+3));
+      add(wall, wx, 6.5, wz);
+      solid(wx, wz, Math.abs(len/2*ux)+Math.abs(3*nx), Math.abs(len/2*uz)+Math.abs(3*nz));
+    });
+    for(let i=0;i<6;i++){
+      const along = -len/2 + (i+.5)*len/6;
+      const [jx,jz] = at(along, (i%2?1:-1)*(HW-.3));
+      const junk = box(1.6,1.1,1.2, M.tin); junk.rotation.y = ang;
+      add(junk, jx, 4.4+((i*3)%3), jz, true, false);
+    }
+    [-.32,.32].forEach(f => {
+      const [lx,lz] = at(len*f, 0);
+      add(box(1.3,.32,.9, glow(0xffe6a8,2.0)), lx, 6.4, lz, false, false);
+      lampSpots.push({ x:lx, y:6.4, z:lz, c:0xffe6a8, i:26, r:30 });
+    });
+  }
+  alleyDiag(12, B_LINE+DEPTH/2, 48, 72-B_LINE-DEPTH/2);   // 中華路 ⇄ 後火車站,斜的那條
+
   /* ===== 廟埕 ===== */
   (function temple(){
     const z = -108, W = 34;
     add(box(96,.3,22, M.stone), 0, .15, -92, false, true);
+    /* 96×22 的矩形太乾淨了,跟旁邊的路網一樣方正——加幾塊大小不一、卡出去的
+       石板,北緣(朝廟口路那側)故意凸進路面凸得深淺不一,讀起來像廣場自己
+       長出去蓋過路面,不是切好角的方塊(2026-08-13,kc 覺得路網太方正,配合
+       上面 H_ROADS 那段廟口路南側 curb 留空一起看)。y 故意抬 .01 蓋過底板,
+       不然邊界重疊的地方會 z-fighting。 */
+    [
+      [-30, -78, 34, 10],
+      [ 22, -76, 26, 14],
+      [-52, -94, 14, 18],
+      [ 46, -96, 12, 14]
+    ].forEach(([x,zz,w,d]) => add(box(w,.3,d, M.stone), x, .16, zz, false, true));
     add(box(W,12,9, M.red), 0, 6, z); solid(0, z, W/2, 4.5);
     add(box(W+4,1.3,11, M.roof), 0, 12.4, z);
     add(box(W-6,1.2,9.5, M.roof), 0, 13.6, z);
@@ -605,6 +929,121 @@ export function buildCity(THREE, scene){
   }
   tableSet(-18,-86); tableSet(-9,-87); tableSet(16,-85);
 
+  /* ===== 小狗:街上第一個可以摸的互動物件(2026-08-13,kc 要的)=====
+   * 跟人物同一套「膠囊+球體」灰模語彙,不用另外找模型或動畫——這隻站著不動,
+   * 給人摸的時候用 pets 陣列讓 game.html 判斷距離、觸發獎勵(見那邊
+   * interactProp())。放在廟口攤販附近,呼應「小吃攤旁邊常有流浪狗」。 */
+  function buildDog(x, z){
+    const gcap = (w,h,d,m) => {
+      const r = Math.min(w,d)/2, len = Math.max(.001, h-r*2);
+      const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(r,len,4,8), m);
+      mesh.scale.set(w/(r*2), 1, d/(r*2));
+      return mesh;
+    };
+    const gd = new THREE.Group();
+    const fur = std({ color:0xa9793f, roughness:.95 });
+    const dark = std({ color:0x342519, roughness:.9 });
+    const body = gcap(.42,.66,.94, fur); body.rotation.z = Math.PI/2; body.position.set(0,.42,0);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.24,10,8), fur); head.position.set(0,.5,.5);
+    const snout = gcap(.14,.28,.14, dark); snout.rotation.x = Math.PI/2; snout.position.set(0,.44,.66);
+    [[-.09,.68,.42],[.09,.68,.42]].forEach(([x2,y2,z2]) => {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(.08,.18,6), dark);
+      ear.position.set(x2,y2,z2); ear.rotation.x = -.35; gd.add(ear);
+    });
+    const tail = gcap(.08,.42,.08, fur); tail.rotation.x = -Math.PI/3; tail.position.set(0,.56,-.5);
+    gd.add(body, head, snout, tail);
+    [[-.16,-.32],[.16,-.32],[-.16,.28],[.16,.28]].forEach(([x2,z2]) => {
+      const leg = gcap(.1,.4,.1, dark); leg.position.set(x2,.2,z2); gd.add(leg);
+    });
+    gd.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+    add(gd, x, 0, z, false, false);
+    return gd;
+  }
+  const pets = [];
+  [[28,-90,'小狗']].forEach(([x,z,label]) => {
+    buildDog(x, z);
+    pets.push({ x, z, label });
+  });
+
+  /* ===== 路上的垃圾:撿了 mood 扣一點、star 往好的方向動一點(善值,見
+   * DESIGN_NOTES「風評」),寶特瓶額外給一點錢(2026-08-13,kc 要的)。
+   * 圖檔 assets/tex/trash-<kind>.png,prompt 見 PROMPTS.md——GPT 生的是純黑底,
+   * 要先跑 tools/black-to-alpha.py 把黑轉透明再放進來,不然貼上去會帶一片黑
+   * 方塊。沒圖之前用一塊半透明色塊頂著位置,不會壞,跟這個檔案其他貼圖
+   * 同一套慣例。撿過的當場把 mesh 從場上移除,一次性,沒做每天重生。 */
+  const litterMats = {};
+  function litterMaterial(kind, tint){
+    if(litterMats[kind]) return litterMats[kind];
+    const m = std({ color:tint, roughness:.9, transparent:true, opacity:.85 });
+    m.depthWrite = false;
+    litterMats[kind] = m;
+    loader.load(TEX_DIR + `trash-${kind}.png`, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+      m.map = t; m.color.setHex(0xffffff); m.opacity = 1; m.needsUpdate = true;
+    }, undefined, () => {});
+    return m;
+  }
+  /* kc 玩起來說看不到垃圾在哪(2026-08-13)。試過在垃圾本身的材質上加
+     emissive,效果靠圖片自己的亮度,寶特瓶那種偏透明偏白的照片加了也不明顯,
+     不保險。改成在垃圾底下疊一圈跟圖片內容無關的暖色光暈(跟 grimeTexture()
+     的假接觸陰影同一招,只是這個是亮的不是暗的)——不管垃圾照片本身多暗,
+     地上永遠有一圈微光可以吸引人過去看。 */
+  let _litterGlowTex = null;
+  function litterGlowTex(){
+    if(_litterGlowTex) return _litterGlowTex;
+    const S = 128;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(S/2,S/2,0, S/2,S/2,S/2);
+    g.addColorStop(0,'rgba(255,232,170,1)'); g.addColorStop(.55,'rgba(255,200,110,.6)');
+    g.addColorStop(1,'rgba(255,200,110,0)');
+    x.fillStyle = g; x.fillRect(0,0,S,S);
+    _litterGlowTex = new THREE.CanvasTexture(c);
+    return _litterGlowTex;
+  }
+  const litter = [];
+  [
+    [-40,-16.5,'bottle',0xdce8e0],
+    [-5, 16.7,'lunchbox',0xc9c2a8],
+    [15,-16.5,'cig',0x5a5650],
+    [35, 16.7,'flyer',0xd8d2c0],
+    [-60,-16.5,'cup',0xc2a0d0],
+    /* 2026-08-13 kc 要 10 個,加東西不動原本 5 個的座標——分散到廟口路、
+       後火車站那兩排跟中華路剩下的空段,同一組 kind 用第二次。 */
+    [70,-16.5,'bottle',0xdce8e0],   // 原本放 50 撞到公園圍籬,2026-08-13 挪開
+    [60, 16.7,'lunchbox',0xc9c2a8],
+    [-70,16.7,'cig',0x5a5650],
+    [-40,-61.5,'flyer',0xd8d2c0],
+    [0,  55.5,'cup',0xc2a0d0]
+  ].forEach(([x,z,kind,tint]) => {
+    /* 人行道那塊 box 是 .3 厚(見 H_ROADS.forEach 的 M.walk,中心 y=.15、頂面在
+       y=.3),垃圾之前放在 y=.04/.05——整片埋在人行道厚度裡面,從上面根本
+       看不到,難怪 kc 說找不到垃圾(2026-08-13 抓到)。要蓋在人行道「上面」,
+       y 一定要大於 .3。 */
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.6,3.6),
+      new THREE.MeshBasicMaterial({ map:litterGlowTex(), transparent:true, depthWrite:false,
+                                     blending:THREE.AdditiveBlending }));
+    glow.rotation.x = -Math.PI/2;
+    add(glow, x, .32, z, false, false);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4), litterMaterial(kind,tint));
+    mesh.rotation.x = -Math.PI/2;
+    add(mesh, x, .34, z, false, false);
+    /* 貼圖光暈修完之後 kc 說還是找不到——這遊戲的光池(POOL,見下面
+       updateLights)只讓離玩家最近的 12 盞真的發光,遠遠看沒點燈的東西
+       再怎麼加自發光都不會比旁邊真的在發光的招牌/路燈亮。垃圾直接掛進
+       lampSpots,跟路燈用同一套系統,才會真的在地上投出一圈光,走近的時候
+       自然被吸引過去,不是等玩家自己去找那塊暗色貼圖。 */
+    lampSpots.push({ x, y:.6, z, c:0xffcf8a, i:10, r:7 });
+    litter.push({ x, z, kind, mesh, glow });
+  });
+
+  /* 街道小物點綴(2026-08-13):消防栓、電箱,純裝飾、不能互動,單純讓街上
+     多一點雜物不要太乾淨。座標挑跟垃圾點同一條人行道線(z=-16.5,已經驗證
+     過站得到、看得到),但錯開 x,不要疊到垃圾點或店面招牌。 */
+  addProp('hydrant', -52, -16.5, .9, 1.2, 0xa0402c);
+  addProp('utilitybox', -30, -16.5, 1.1, 1.4, 0x4a5a42);
+
   /* 機車 2026-08-04 拿掉:方塊拼出來的機車太假(kc)。相機壓低之後它們就在
      畫面正中間,一整排黑團塊,比沒有還糟。要放回來就得是真的模型或 sprite。
      舊的方塊版在 git 裡:git show cf8cb7a:prototypes/lib/scene-city3d.js */
@@ -636,6 +1075,7 @@ export function buildCity(THREE, scene){
   }
 
   function whereAmI(x, z){
+    if(parkBounds && x > parkBounds.x0 && x < parkBounds.x1 && z > parkBounds.z0 && z < parkBounds.z1) return '小公園';
     for(const r of H_ROADS) if(Math.abs(z-r.z) < ROAD_HW+WALK_W+2) return r.name;
     for(const r of V_ROADS) if(Math.abs(x-r.x) < ROAD_HW+WALK_W+2) return r.name;
     if(z < -84) return '廟埕';
@@ -647,7 +1087,7 @@ export function buildCity(THREE, scene){
     return false;
   }
 
-  return { colliders, doors, alleys, lampSpots, updateLights, whereAmI, blocked, materials:M };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, lampSpots, updateLights, whereAmI, blocked, materials:M };
 }
 
 /* ---------------- 角色 ----------------
@@ -759,11 +1199,18 @@ function buildPrimitiveRig(THREE, parent, M){
   function animate(dt, moving, run){
     if(moving){
       phase += dt*.0082*run;                        // 腿長了,步頻要慢一點才不像小碎步
-      const sw = Math.sin(phase)*.52;
+      /* run>1(按 Shift)不是只變快——手腳擺動幅度也跟著放大、身體前傾、
+         加一點垂直彈跳,不然只是「加速播放的走路」,看不出跑步的肢體感
+         (kc 抓到的問題)。跟下面 gltf 版本用同一套「幅度+前傾+彈跳」邏輯。 */
+      const amp = run > 1 ? .74 : .52;
+      const sw = Math.sin(phase)*amp;
       legL.rotation.x = sw;      legR.rotation.x = -sw;
       armL.rotation.x = -sw*.75; armR.rotation.x = sw*.75;
+      g.rotation.x = run > 1 ? .12 : 0;
+      g.position.y = run > 1 ? Math.abs(Math.sin(phase))*.06 : 0;
     } else {
       phase = 0;
+      g.rotation.x *= .8; g.position.y *= .8;
       [legL,legR,armL,armR].forEach(p => p.rotation.x *= .82);
     }
   }
@@ -789,7 +1236,7 @@ function buildPrimitiveRig(THREE, parent, M){
  * (Blender 匯出 log 印的是 mesh DATA 名字如 'Mesh.002',不是這裡要的
  * OBJECT 名字/glTF node 名字,兩個是不同的東西,2026-08-12 踩過)。 */
 const MODELS = {
-  m: { idle:'base-human-idle.glb',   walk:'base-human-walk.glb',
+  m: { idle:'base-human-idle.glb',   walk:'base-human-walk.glb', run:'base-human-run.glb',
        parts: { Body:'skin', Tops:'hood', Bottoms:'pants', Shoes:'shoe',
                  Hair:'hair', Eyes:'eyes', Eyelashes:'eyes' } },
   f: { idle:'base-human-f-idle.glb', walk:'base-human-f-walk.glb',
@@ -911,11 +1358,12 @@ export function buildPlayer(THREE, scene){
   const M = buildCharacterMaterials(THREE);
   const primitive = buildPrimitiveRig(THREE, g, M);
   let mode = 'primitive';
-  let mixer = null, idleAction = null, walkAction = null, activeAction = null;
+  let mixer = null, idleAction = null, walkAction = null, runAction = null, activeAction = null, model = null;
+  let runPhase = 0;                                   // 只在「跑步動畫還沒載到」的過渡期用,見下面
 
   const rig = MODELS.m;                               // 主角固定用 Remy(男性)這副骨架
   loadModel(rig.idle).then(idleGltf => {
-    const model = riggedCharacter(THREE, idleGltf, M, PLAYER.height, rig.parts);
+    model = riggedCharacter(THREE, idleGltf, M, PLAYER.height, rig.parts);
 
     /* 朝向:2026-08-12 實測 Remy 這份模型面向剛好跟場景一致,不用轉。
      * 之後換別的來源模型如果肉眼看反了,改這行成 Math.PI。 */
@@ -935,21 +1383,43 @@ export function buildPlayer(THREE, scene){
     loadModel(rig.walk).then(walkGltf => {
       if(walkGltf.animations[0]) walkAction = mixer.clipAction(walkGltf.animations[0]);
     }).catch(() => {});
+    /* 2026-08-13 從 Mixamo 抓的專門跑步動作(Remy,In Place 勾選,流程見
+       assets/models/README.md)——同一副骨架、同一支 mixer 直接套,不用另外
+       處理。在這之前(下面 fallback)是把走路動畫加速播放頂著用。 */
+    if(rig.run) loadModel(rig.run).then(runGltf => {
+      if(runGltf.animations[0]) runAction = mixer.clipAction(runGltf.animations[0]);
+    }).catch(() => {});
   }).catch(() => {});
 
   function animate(dt, moving, run){
     if(mode === 'primitive'){ primitive.animate(dt, moving, run); return; }
     if(!mixer) return;
     if(walkAction && idleAction){
-      walkAction.timeScale = run;                  // 複刻方塊人版「run 直接加速相位」的行為
-      const next = moving ? walkAction : idleAction;
-      if(next !== activeAction){                    // 狀態切換才 crossfade,不是每幀都呼叫
+      const useRun = moving && run > 1 && runAction;
+      if(!useRun) walkAction.timeScale = run;         // 還沒載到跑步動畫時,退回舊做法頂著
+      if(runAction) runAction.timeScale = 1;          // 跑步動畫節奏本身就對,不用再乘 run
+      const next = useRun ? runAction : (moving ? walkAction : idleAction);
+      if(next !== activeAction){                      // 狀態切換才 crossfade,不是每幀都呼叫
         activeAction.fadeOut(.15);
         next.reset().fadeIn(.15).play();
         activeAction = next;
       }
+      /* model 的前傾/彈跳只在「用跑步動畫」以外的情況疊加——真的跑步動畫
+         自己就有正確的前傾跟手臂擺動,再疊會變成兩層前傾一起加乘,反而怪。
+         這段只是 runAction 還沒載到那幾秒的過渡效果,見上面 fallback。 */
+      if(model){
+        if(!useRun && moving && run > 1){
+          runPhase += dt*.011*run;
+          model.rotation.x = .12;
+          model.position.y = Math.abs(Math.sin(runPhase))*.05;
+        } else {
+          runPhase = 0;
+          model.rotation.x *= .8;
+          model.position.y *= .8;
+        }
+      }
     }
-    mixer.update(dt/1000);                          // dt 這個檔案裡是毫秒,AnimationMixer 吃秒數
+    mixer.update(dt/1000);                            // dt 這個檔案裡是毫秒,AnimationMixer 吃秒數
   }
   return { group:g, animate, eyeY:PLAYER.eyeY, height:PLAYER.height };
 }

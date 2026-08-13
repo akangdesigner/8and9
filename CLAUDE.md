@@ -72,9 +72,12 @@
 - **`prototypes/game.html`**(主線)裡的 3D 街道用 ES module 從 CDN 載入 three.js,
   `file://` 會被 CORS 擋,要先起本機 server:
   ```
-  cd prototypes && python -m http.server
+  python -m http.server 8000
   ```
-  再開 `http://localhost:8000/game.html`。
+  **要在 repo 根目錄起(不是 `prototypes/`)**——`game.html` 有一行
+  `<script src="../src/tags.js">`,serve root 選 `prototypes/` 會讓這個路徑
+  落到 webroot 外面,404(2026-08-13 踩過)。再開
+  `http://localhost:8000/prototypes/game.html`。
 - `node tools/render-scene.mjs [--scale 2] [--no-people]`——把 2D 場景灰模輸出成 PNG。
 - `node tools/comfy-img2img.mjs [--denoise 0.7] [--model ...]`——對本機 ComfyUI
   (port 8000)打 img2img API 幫灰模上質感;只有 kc 本機能跑(3050 Laptop 4GB VRAM,SD 1.5)。

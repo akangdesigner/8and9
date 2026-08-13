@@ -30,6 +30,8 @@
   @keyframes lowpulse { 50% { border-color:rgba(224,72,58,.2); } }
   .pod.calm i { background:linear-gradient(90deg,#3f8f86,#6fc3b4); }
   .pod.cool i { background:linear-gradient(90deg,#8a4fa8,#d05fa0); }
+  .pod.mood i { background:linear-gradient(90deg,#c98a3f,#f2b25c); }
+  .pod.stamina i { background:linear-gradient(90deg,#4a8a5c,#6fc98a); }
   .pod .stars { margin-top:3px; font-size:14px; letter-spacing:.12em; color:#333a45; line-height:1; }
   .pod .stars b { color:#e0483a; font-weight:400; text-shadow:0 0 9px rgba(224,72,58,.65); }
   .pod.bump { animation:bump .5s; }
@@ -129,8 +131,10 @@
 <div class="hud">
   <div class="pod money" id="pMoney"><div class="lb">金錢</div><div class="nm">$63</div></div>
   <div class="pod full"  id="pFull"><div class="lb">飽足</div><div class="nm">42</div><div class="track"><i></i></div></div>
+  <div class="pod stamina" id="pStamina"><div class="lb">體力</div><div class="nm">100</div><div class="track"><i></i></div></div>
   <div class="pod calm"  id="pCalm"><div class="lb">歸屬感</div><div class="nm">55</div><div class="track"><i></i></div></div>
   <div class="pod cool"  id="pCool"><div class="lb">帥潮</div><div class="nm">8</div><div class="track"><i></i></div></div>
+  <div class="pod mood"  id="pMood"><div class="lb">情緒</div><div class="nm">60</div><div class="track"><i></i></div></div>
   <div class="pod star"  id="pStar"><div class="lb">通緝</div><div class="stars"></div></div>
 </div>
 <div id="tags"></div>
@@ -175,7 +179,19 @@ import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC } from './lib/scene
 /* ===================================================================
    共用狀態 —— 兩層都吃同一份。走進超商買東西，出來街上錢就少了。
    =================================================================== */
-const ST = { money:63, full:42, calm:55, cool:8, star:0 };
+/* mood(情緒):2026-08-13 kc 決定開的第六條,見 DESIGN_NOTES「五條指標各自
+   管什麼」節尾的補記——原本「五條是上限」的規則被 kc 自己推翻,不是我看漏。
+   只由路上的小互動改變(摸貓狗、撿垃圾這種環境小事),不要拿去承接家庭劇情
+   的情緒衝擊——那些依然是「感受用文字承接,不要用數值」,只用 toast 講,
+   這條規則沒被推翻,只是多開了一條專門給「街上的小確幸/小噁心」用。 */
+/* stamina(體力):2026-08-13 kc 要的第七條——DESIGN_NOTES 原本明講「體力」
+   這個名字踩過雷,決定不要另開、掛歸屬感/飽足就好,這次 kc 自己又推翻一次,
+   跟 mood 那次一樣不是後面的 Claude 看漏。範圍先只接街上的小互動(摸貓狗、
+   撿垃圾、玩遊樂器材)跟回家睡覺回滿,沒有去動整個遊戲其他系統(上課、
+   打工、劇情選項那些)——「每做一件事都會消耗」這句要真的做到全遊戲每個
+   動作都扣,是動到很多既有系統的大重構,今天先只接這三種新街上互動 +
+   睡覺回滿,其餘之後再擴。 */
+const ST = { money:63, full:42, calm:55, cool:8, mood:60, stamina:100, star:0 };
 let minute = 20*60 + 14, day = 3;
 const DAYS = ['日','一','二','三','四','五','六'];
 
@@ -204,8 +220,10 @@ const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).pa
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
   set('pFull', ST.full, ST.full);
+  set('pStamina', ST.stamina, ST.stamina);
   set('pCalm', ST.calm, ST.calm);
   set('pCool', ST.cool, ST.cool);
+  set('pMood', ST.mood, ST.mood);
   document.getElementById('pFull').classList.toggle('low', ST.full <= 25);
   document.querySelector('#pStar .stars').innerHTML =
     '<b>' + '★'.repeat(ST.star) + '</b>' + '★'.repeat(5-ST.star);
@@ -217,14 +235,14 @@ function syncHUD(){
     if(pct != null) pod.querySelector('.track i').style.width = Math.max(0,Math.min(100,pct)) + '%';
   }
 }
-const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', star:'#e0483a' };
-const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', star:'通緝' };
+const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', mood:'#f2b25c', stamina:'#6fc98a', star:'#e0483a' };
+const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', mood:'情緒', stamina:'體力', star:'通緝' };
 function chg(k, d){
   if(!d) return;
   ST[k] += d;
   if(k !== 'money') ST[k] = Math.max(0, Math.min(k==='star'?5:100, ST[k]));
   syncHUD();
-  const el = document.getElementById({money:'pMoney',full:'pFull',calm:'pCalm',cool:'pCool',star:'pStar'}[k]);
+  const el = document.getElementById({money:'pMoney',full:'pFull',calm:'pCalm',cool:'pCool',mood:'pMood',stamina:'pStamina',star:'pStar'}[k]);
   el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
   const f = document.createElement('div');
   f.className = 'fl'; f.style.color = COLOR[k];
@@ -373,7 +391,7 @@ const NPCS = [
 const c2df = document.getElementById('c2df'), g2f = c2df.getContext('2d');
 const LW = 640, LH = 360, SC = 2;
 const STORE = {
-  bgSrc:'../assets/bg/store-front.png', walkN:190, walkS:345,
+  bgSrc:'../assets/bg/store-wall.png', walkN:190, walkS:345,
   hot:{ x:230, y:290, w:208, h:100, cut:{ sx:600, sy:495, sw:545, sh:260 } },
   spots:[
     { id:'door',    name:'門口',   x:6,   w:120, y0:190, y1:345 },
@@ -456,6 +474,25 @@ function planeFromRect(THREE, rect, nz, texture){
   mesh.position.set((rect.left+rect.right)/2, (rect.top+rect.bottom)/2, nz);
   return mesh;
 }
+/* 有厚度的箱體版 planeFromRect——正面(朝鏡頭)貼原本校正過的照片材質,
+   其餘五面共用一個素色材質。2026-08-13 kc 截圖抓到:鏡頭雖然固定平視,但
+   position.y=1.7 略高於 lookAt 的 1.35,是稍微往下看的角度,箱體的頂面
+   (朝上那面)其實會被看到一小條,原本用近黑色(0x2b2b2e)那面在鮮食櫃
+   頂端露出一條刺眼的黑邊。改成接近照片裡不鏽鋼檯面的淺灰,露出來也不突兀。
+   側/背面實際上仍然看不到,不用另外做圖。正面深度維持在 nz 不變,只往鏡頭
+   反方向長出 depth,原本 planeFromRect 那版驗證過的視覺對齊不受影響。見
+   docs/DESIGN_NOTES.md「室內固定物件的碰撞」那節。 */
+const FIXTURE_SIDE_MAT = new THREE.MeshBasicMaterial({ color:0xb8b8b8 });
+function boxFromRect(THREE, rect, nz, depth, texture, sideMat){
+  const faceMat = new THREE.MeshBasicMaterial({ map:texture });
+  const side = sideMat || FIXTURE_SIDE_MAT;
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(rect.right-rect.left, rect.top-rect.bottom, depth),
+    [side, side, side, side, faceMat, side]
+  );
+  mesh.position.set((rect.left+rect.right)/2, (rect.top+rect.bottom)/2, nz - depth/2);
+  return mesh;
+}
 
 /* 深度:門口(遠)到最近牆(近)的世界深度範圍。2026-08-12 kc 反應「走到底
    感覺沒有真的很靠近貨架」,把 NZ_FAR 推到 -14 之後又反應「穿牆」——
@@ -469,6 +506,16 @@ function nzForPy(py){
   const t = (py - STORE.walkN) / (STORE.walkS - STORE.walkN);
   return NZ_FAR + t * (NZ_NEAR - NZ_FAR);
 }
+/* nzForPy 的反函式——把「箱體正面深度」換算回 py,拿去當碰撞邊界。
+   2026-08-13:碰撞從這裡反推,不再手打第二份座標,見 DESIGN_NOTES。 */
+function pyForNz(nz){
+  const t = (nz - NZ_FAR) / (NZ_NEAR - NZ_FAR);
+  return STORE.walkN + t * (STORE.walkS - STORE.walkN);
+}
+/* 三個室內固定物件先共用一個厚度(世界單位,約 0.59 公尺,對照
+   scene-city3d.js「1 單位 ≈ 0.42 公尺」)。playtest 覺得某個櫃子看起來/
+   擋起來不對再拆成各自的值。 */
+const FIXTURE_DEPTH = 1.4;
 /* NZ_HOT 不能用 nzForPy(STORE.hot.y)——那只是沿用「角色深度」那條線性公式,
    跟「鮮食櫃在照片裡貼地的畫面位置」沒有直接關係,兩者剛好對上純屬巧合
    (加上今天稍早 camera.updateMatrixWorld() 沒補那個 bug,巧合更巧合)。
@@ -476,27 +523,27 @@ function nzForPy(py){
    角色站到鮮食櫃前面互動時腳才會踩在地上,不會懸空(2026-08-12 kc 截圖
    抓到:腳跟地板中間有一截空隙)。 */
 const NZ_HOT = bisect(nz => screenY(nz,0), STORE.hot.y * SC, -60, 11.9);
+const NZ_HOT_BACK = NZ_HOT - FIXTURE_DEPTH;
 
-const bgTex = new THREE.TextureLoader().load(STORE.bgSrc, () => { refreshHotTex(); refreshWallTex(); });
+/* 2026-08-13:背景圖改成 store-wall.png(只有牆——門口/飲料櫃/貨架,
+   不含收銀台、不含鮮食櫃),取代原本整間店都畫在一張照片裡的 store-front.png
+   ——鮮食櫃、櫃台現在都是各自獨立的 3D 物件、各自的貼圖(見下面),不用再
+   靠裁切同一張照片湊,也不會再跟新蓋的 3D 家具「疊出兩個一樣的東西」
+   (kc 截圖抓到的問題)。之前那段暫時擋著的遮色板邏輯(`bgMaskCanvas` 等)
+   已經整段刪掉,不再需要。 */
+const bgTex = new THREE.TextureLoader().load(STORE.bgSrc, () => { refreshWallTex(); });
 bgTex.colorSpace = THREE.SRGBColorSpace;
 const NZ_BG = -22;
 indoorScene.add(planeFromRect(THREE, frameRectAtDepth(NZ_BG, 0,0,1280,720), NZ_BG, bgTex));
 
-/* 鮮食櫃板:貼圖用背景圖裡同一塊裁切(跟以前 2D 疊圖那版用同一組座標
-   STORE.hot.cut),畫到一塊獨立小畫布上再當材質,不用等整張背景圖對齊。 */
-const hotCanvas = document.createElement('canvas');
-hotCanvas.width = STORE.hot.cut.sw; hotCanvas.height = STORE.hot.cut.sh;
-const hotCtx = hotCanvas.getContext('2d');
-const hotTex = new THREE.CanvasTexture(hotCanvas);
+/* 鮮食櫃板:2026-08-13 改成獨立貼圖(store-hot-cabinet.png,見
+   assets/bg/PROMPTS.md),不再裁自背景圖——整張圖本身就是這個箱體正面要
+   貼的內容,直接當材質,不用另外裁切到獨立畫布。 */
+const hotTex = new THREE.TextureLoader().load('../assets/bg/store-hot-cabinet.png');
 hotTex.colorSpace = THREE.SRGBColorSpace;
-function refreshHotTex(){
-  const c = STORE.hot.cut;
-  hotCtx.drawImage(bgTex.image, c.sx,c.sy,c.sw,c.sh, 0,0,c.sw,c.sh);
-  hotTex.needsUpdate = true;
-}
 const hotRect = frameRectAtDepth(NZ_HOT,
   STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, (STORE.hot.x+STORE.hot.w)*SC, STORE.hot.y*SC);
-indoorScene.add(planeFromRect(THREE, hotRect, NZ_HOT, hotTex));
+indoorScene.add(boxFromRect(THREE, hotRect, NZ_HOT, FIXTURE_DEPTH, hotTex));
 
 /* 後牆那排(飲料櫃/貨架)也補一塊板子(2026-08-12,kc:「還是有走到裡面
    去的感覺」)——這兩個原本只有背景那張遠景平面(NZ_BG),角色貼近時沒有
@@ -506,7 +553,7 @@ indoorScene.add(planeFromRect(THREE, hotRect, NZ_HOT, hotTex));
    跟鮮食櫃那個效果一樣。
    **收銀台刻意不含在這塊板子裡**——店員站在收銀台後面,深度比這塊板子
    還遠,會被整個擋住(踩過這個坑,店員一度只剩兩隻腳露在板子下面)。 */
-const WALL_CUT = { sx:360, sy:90, sw:800, sh:410 };
+const WALL_CUT = { sx:350, sy:65, sw:830, sh:435 };
 const IMG_TO_CANVAS_X = 1280/1672, IMG_TO_CANVAS_Y = 720/941;
 const wallCanvas = document.createElement('canvas');
 wallCanvas.width = WALL_CUT.sw; wallCanvas.height = WALL_CUT.sh;
@@ -528,7 +575,105 @@ const NZ_WALL = bisect(nz => screenY(nz,0), (WALL_CUT.sy+WALL_CUT.sh)*IMG_TO_CAN
 const wallRect = frameRectAtDepth(NZ_WALL,
   WALL_CUT.sx*IMG_TO_CANVAS_X, WALL_CUT.sy*IMG_TO_CANVAS_Y,
   (WALL_CUT.sx+WALL_CUT.sw)*IMG_TO_CANVAS_X, (WALL_CUT.sy+WALL_CUT.sh)*IMG_TO_CANVAS_Y);
-indoorScene.add(planeFromRect(THREE, wallRect, NZ_WALL, wallTex));
+indoorScene.add(boxFromRect(THREE, wallRect, NZ_WALL, FIXTURE_DEPTH, wallTex));
+
+/* 櫃台原本刻意沒有近景看板(店員站在後面要被完整擋住,見上面「收銀台刻意
+   不含在這塊板子裡」)——2026-08-13 kc 截圖抓到:碰撞修好、玩家真的能貼近
+   之後,店員下半身沒東西擋,跟玩家整個疊在一起。
+
+   一開始比照鮮食櫃/貨架牆那套「照片矩形貼到箱體上,用 frameRectAtDepth
+   反推對齊」的做法,結果一路踩坑:深度淺了側面會露出來、店員站太近會
+   z-fighting、深度退深了比例又跟 kc 的參考圖差一大截、寬度不夠店員肩膀會
+   露出箱體外——每次都是在同一個「拿 2D 照片矩形硬套 3D 深度」的框架裡
+   打補丁。**kc 一句話點出根本方向錯了:櫃台應該當真的 3D 物件蓋出來,跟
+   街上的小狗、路口圓環同一套做法**(`scene-city3d.js` 的 `buildDog()`/
+   `roundabout()`,基本幾何 + 素色材質,給真實世界尺寸,不從照片反推)。
+   寬高深都是設計時就決定好的真實數字,店員站在後面自然就對,因為兩者
+   活在同一個真實比例的 3D 世界裡,不需要另外對齊、不需要量店員肩膀
+   幾個像素去卡邊界。
+
+   尺寸對照 scene-city3d.js「1 單位 ≈ 0.42 公尺」:高 2.1(≈90cm,既有
+   COUNTER_WORLD_HEIGHT 這個數字幾輪驗證下來是對的,沿用)、寬 3.6
+   (≈1.5m,比店員肩膀寬綽有餘,不用再卡邊界)、深 1.3(≈55cm,真實
+   物理厚度,不是為了怕側面穿幫刻意縮薄的障眼法,側面本來就看得到,是
+   真正的箱體側面)。深度位置(NZ_COUNTER)沿用這幾輪已經校正過、比例
+   跟參考圖對得上的值。 */
+const NZ_COUNTER = -8;
+const COUNTER_WORLD_HEIGHT = 2.1, COUNTER_WORLD_WIDTH = 3.6, COUNTER_WORLD_DEPTH = 1.3;
+/* 正面貼獨立生成的 store-counter.png(2026-08-13,見 assets/bg/PROMPTS.md)
+   ——櫃台是獨立 3D 家具,不再跟牆面共用/裁切同一張背景照片。 */
+const counterFaceTex = new THREE.TextureLoader().load('../assets/bg/store-counter.png');
+counterFaceTex.colorSpace = THREE.SRGBColorSpace;
+const COUNTER_BODY_SIDE_MAT = new THREE.MeshStandardMaterial({ color:0x9c8e78, roughness:.9 });
+const COUNTER_BODY_FACE_MAT = new THREE.MeshStandardMaterial({ map:counterFaceTex, roughness:.9 });
+const COUNTER_TOP_MAT = new THREE.MeshStandardMaterial({ color:0xb8b8b8, roughness:.6, metalness:.2 });
+const COUNTER_MONITOR_MAT = new THREE.MeshStandardMaterial({ color:0x1a1a1a, roughness:.5 });
+const COUNTER_SCREEN_MAT = new THREE.MeshStandardMaterial({ color:0x9fc8e0, roughness:.4, emissive:0x2a4a5c, emissiveIntensity:.6 });
+function buildCounterDesk(nz, screenXTarget){
+  const g = new THREE.Group();
+  const cx = worldXForScreenX(screenXTarget, nz);
+  const cz = nz - COUNTER_WORLD_DEPTH/2;              // 正面卡在 nz,往鏡頭反方向長出深度
+  g.position.set(cx, 0, cz);
+
+  /* BoxGeometry 材質陣列順序是 [+x,-x,+y,-y,+z,-z]——鏡頭在 +z 方向看過來,
+     朝鏡頭那面(+z,index 4)貼照片材質,其餘素色,跟 boxFromRect() 同一招。 */
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(COUNTER_WORLD_WIDTH, COUNTER_WORLD_HEIGHT, COUNTER_WORLD_DEPTH),
+    [COUNTER_BODY_SIDE_MAT, COUNTER_BODY_SIDE_MAT, COUNTER_BODY_SIDE_MAT, COUNTER_BODY_SIDE_MAT,
+     COUNTER_BODY_FACE_MAT, COUNTER_BODY_SIDE_MAT]);
+  body.position.y = COUNTER_WORLD_HEIGHT/2;
+  g.add(body);
+
+  const top = new THREE.Mesh(
+    new THREE.BoxGeometry(COUNTER_WORLD_WIDTH+.15, .08, COUNTER_WORLD_DEPTH+.15),
+    COUNTER_TOP_MAT);
+  top.position.y = COUNTER_WORLD_HEIGHT + .04;
+  g.add(top);
+
+  /* 收銀機示意,不強制要有——一個小箱體疊在檯面上,增加識別度,比照
+     buildDog() 疊耳朵/尾巴那種「基本幾何堆出輪廓」的做法。這麼小的物件
+     不值得另外裁一張照片材質(kc 抓到「收銀機也沒貼」——這裡先用兩層
+     素色做出「深色機身 + 亮螢幕」的意思,比純黑一塊看起來有東西,真的
+     要照片級細節再回頭補)。 */
+  const monitor = new THREE.Mesh(new THREE.BoxGeometry(.35,.32,.05), COUNTER_MONITOR_MAT);
+  monitor.position.set(-COUNTER_WORLD_WIDTH*.22, COUNTER_WORLD_HEIGHT+.24, -COUNTER_WORLD_DEPTH*.3);
+  g.add(monitor);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(.27,.22), COUNTER_SCREEN_MAT);
+  screen.position.set(monitor.position.x, monitor.position.y+.01, monitor.position.z+.026);
+  g.add(screen);
+
+  indoorScene.add(g);
+  return { group:g, halfWidth: COUNTER_WORLD_WIDTH/2, centerX: cx };
+}
+const counterDesk = buildCounterDesk(NZ_COUNTER, 548*SC);
+
+/* 貨架牆(飲料櫃/貨架)不用另外補碰撞框——量出來 NZ_WALL≈-24,比玩家能走到
+   最深的 NZ_FAR(-8)還遠 16 個單位,超出 nzForPy()/pyForNz() 的有效範圍
+   (walkN/walkS 早就把玩家夾在 [NZ_FAR,NZ_NEAR] 裡)。也就是說玩家在
+   updateIndoor() 那個既有的 walkN clamp 就已經先停下來了,physically 走不到
+   貨架牆真正的深度,不需要也不能再用 pyForNz(NZ_WALL) 湊一個碰撞框(算出來
+   會落在 walkN/walkS 範圍外,永遠不會觸發,是死碼)。這塊只靠貼圖看板的
+   WebGL 深度測試處理「靠近時擋住下半身」的視覺效果就夠了,不是漏做。
+
+   櫃台的碰撞維持獨立訂一個「玩家不能太靠近」的站立距離(`COUNTER_STAND_PY`,
+   遊戲設計取捨),不然會走進箱體、跟店員疊在一起。跟鮮食櫃那種「碰撞直接
+   從箱體深度算」是不同情況。
+
+   室內固定物件的碰撞:每個元素的 x0/x1/pyFront/pyBack 盡量從同一批深度
+   常數算出來,不再手打第二份座標(2026-08-13,見 DESIGN_NOTES「室內固定
+   物件的碰撞」)。 */
+const COUNTER_STAND_PY = 230;
+/* 櫃台的碰撞寬度直接從真箱體的真實寬度換算回畫面座標(screenX 在固定深度
+   下對世界 X 是線性的),不用再手打一份寬度數字。 */
+const counterScreenLeft  = screenX(counterDesk.centerX - counterDesk.halfWidth, 1.2, NZ_COUNTER);
+const counterScreenRight = screenX(counterDesk.centerX + counterDesk.halfWidth, 1.2, NZ_COUNTER);
+const FIXTURE_COLLIDERS = [
+  { x0: STORE.hot.x, x1: STORE.hot.x + STORE.hot.w,
+    pyBack: pyForNz(NZ_HOT_BACK), pyFront: pyForNz(NZ_HOT) },
+  { x0: counterScreenLeft/SC, x1: counterScreenRight/SC,
+    pyBack: STORE.walkN, pyFront: COUNTER_STAND_PY }
+];
+const COLLIDE_PAD = 6;
 
 /* 身高:2026-08-12 先讓角色照真的透視縮放,kc 反應「變小的幅度好誇張」→
    改成只留一點暗示的縮放範圍 → kc 反應「乾脆不要調小」→ 改成固定世界身高
@@ -547,18 +692,35 @@ function heroScaleFor(nz){
 const heroIndoor = buildPlayer(THREE, indoorScene);
 
 /* 店員改成跟玩家同一顆骨架模型換膚(2026-08-12 kc:「店員改成真人」),
-   不再是 2D 像素小人。站在鮮食櫃深度附近,身高套用跟玩家同一個固定倍率,
-   兩者比例才會一致。IN.clerkFace 那顆計時器(F/B 交替)還是控制轉向,
+   不再是 2D 像素小人。IN.clerkFace 那顆計時器(F/B 交替)還是控制轉向,
    只是從切換 2D 圖案改成轉 3D 模型的 rotation.y——見 renderIndoor3D()。
    buildNPC() 內部固定把 group.position.y 設成 .3(street 場景的地面基準),
-   這裡地面是 0,建完要扳回來。 */
-const clerkNZ = nzForPy(184);
+   這裡地面是 0,建完要扳回來。
+
+   身高**不要**套用 heroScaleFor(2026-08-13 修正,上面那句舊註解「兩者比例
+   才會一致」的邏輯是錯的):heroScaleFor 是專門補償「玩家在很寬的深度範圍
+   走動時,自然透視縮放看起來變化太劇烈」用的(見 INDOOR_HERO_TARGET_PX
+   那段),讓畫面身高固定不管站多遠。**店員站定不動,不需要這個補償**——
+   buildNPC() 已經把它蓋成 PLAYER.height 對應的真實世界身高,套用固定畫面
+   身高等於硬把「站得比較深」的店員撐成跟站在鏡頭正前方的玩家一樣大,
+   kc 截圖抓到玩家貼近櫃台時兩個模型會整個疊在一起,這是主因之一——店員
+   头顶本該因為透視自然縮小、讓出空間,結果被撐到跟近處的玩家一樣高。
+   維持 buildNPC() 給的預設 scale(自然透視),店員該有多小看深度自己決定。 */
+/* 店員站在箱體背面外面,而且要跟箱體的「背面」(不是正面)留夠間隔——
+   2026-08-13 踩過一次坑:只留 0.3 的時候 kc 反應「店員卡在半空中」,截圖
+   看起來像肢體斷開飄浮。關掉箱體單獨看店員,模型本身完全正常、沒有骨架
+   問題——是箱體有厚度,店員身體(真的有體積,不是薄片)幾乎貼著箱體站,
+   兩者的幾何在深度上互相穿插,造成局部深度測試閃爍(z-fighting),看起來
+   像身體被切成碎片飄在半空。**這是通用教訓:角色跟一塊有厚度的箱體疊放
+   時,間隔要明顯大於箱體厚度,不能只留一個象徵性的小數字。**
+   現在箱體是真的有物理深度的家具(COUNTER_WORLD_DEPTH),背面在
+   `NZ_COUNTER - COUNTER_WORLD_DEPTH`,店員站在那之後再留 1.5 個單位。 */
+const clerkNZ = NZ_COUNTER - COUNTER_WORLD_DEPTH - 1.5;
 const clerkNPC = buildNPC(THREE, indoorScene, {
   x: worldXForScreenX(548*SC, clerkNZ), z: clerkNZ, rig:'m2',
   skin:P2.clSkin, hair:P2.clHair, hood:P2.clVest, pants:'#2c3340', shoe:'#2c3340'
 });
 clerkNPC.group.position.y = 0;
-clerkNPC.group.scale.setScalar(heroScaleFor(clerkNZ));
 
 /* IN.px/IN.py(2D 640×360 邏輯座標)換算成這個獨立場景的世界座標:
    py 對到「離鏡頭遠近」(world Z),用上面 nzForPy();px 對到左右(world X)
@@ -604,8 +766,9 @@ const IN = { px:150, py:320, face:'F', walkT:0, moving:false, near:null,
              clerkT:0, clerkFace:'F', askedJob:false, holding:false };
 
 function inBlocked(x,y){
-  const h = STORE.hot;
-  return x > h.x-6 && x < h.x+h.w+6 && y > h.y-42 && y < h.y+4;
+  return FIXTURE_COLLIDERS.some(c =>
+    x > c.x0-COLLIDE_PAD && x < c.x1+COLLIDE_PAD &&
+    y > c.pyBack-COLLIDE_PAD && y < c.pyFront+COLLIDE_PAD);
 }
 function buy(price, feed, line){
   if(ST.money < price){ say('pc', price + ' 塊。\n你身上有 ' + ST.money + '。'); return false; }
@@ -723,7 +886,24 @@ function fade(label, mid){
 /* 2026-08-12 kc:「3D 人物要走進去 2D 場景啊」——原本按空白鍵是站在門口原地
  * 淡出,像瞬間傳送。現在先讓角色真的用走路動畫走到門口座標(walkIn 那段,
  * 在 updateCity() 裡跑),走到才觸發 fade,銜接感才對得上。 */
+/* 回家還沒有真的室內場景——先做一個「按空白鍵直接睡一覺」的輕量版本
+   (2026-08-13,kc 要體力值,睡覺要能補滿),淡出畫面、體力補滿、時間跳到
+   隔天早上,不用真的走進一個家的場景。之後真的做「家」的室內場景要整個
+   換掉這段,現在只是先讓「回家睡覺回體力」這句話有東西可以按。 */
+function sleep(){
+  const home = city.doors.find(d => d.id === 'home');
+  busy = true;
+  walkIn = { x: home.x, z: home.z, done(){
+    fade('回家睡了一覺', () => {
+      chg('stamina', 100 - ST.stamina);
+      minute = 7*60; day++;
+      syncHUD();
+      toast('你回去睡了一覺,體力補滿了。', 3000);
+    });
+  }};
+}
 function enterIndoor(door){
+  if(door.id === 'home'){ sleep(); return; }
   if(door.id !== 'store'){
     toast(door.name + ' 的室內場景還沒做。（刺青店在 tattoo-room.html,還沒接進來）', 3600);
     return;
@@ -764,21 +944,30 @@ addEventListener('keydown', e => {
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
     else if(nearDoor && !busy) enterIndoor(nearDoor);
+    else if(nearProp && !busy) interactProp(nearProp);
   }
   if(k === 'escape' && menuEl.classList.contains('on')) closeMenu();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-let camYaw = 0, nearDoor = null, walkIn = null;
+let camYaw = 0, nearDoor = null, nearProp = null, walkIn = null;
 const tmp = new THREE.Vector3();
+
+/* 相機防穿牆(kc 之前就遇過):建築/招牌都是 add() 直接掛在 scene 底下的
+   Mesh,角色跟 NPC 是 Group,只抓 scene.children 裡 isMesh 的那層、不遞迴,
+   天然排除人物,場景建好就不會再變,先快取一次。跟 street3d.html 同一招,
+   細節見那邊的註解。 */
+const occluders = scene.children.filter(o => o.isMesh);
+const camRay = new THREE.Raycaster();
+const eyePos = new THREE.Vector3(), camDir = new THREE.Vector3();
 const whereEl = document.getElementById('where');
 
 function updateCity(dt){
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
-  const run = keys['shift'] ? 1.9 : 1;
+  const run = keys['shift'] ? 2 : 1;
   const pos = hero.group.position;
   let moving = false;
 
@@ -803,8 +992,9 @@ function updateCity(dt){
     if(ix||iz){
       const speed = 0.005 * dt * run;
       const len = Math.hypot(ix,iz);
-      const dx = (ix*Math.cos(camYaw) - iz*Math.sin(camYaw))/len;
-      const dz = (ix*Math.sin(camYaw) + iz*Math.cos(camYaw))/len;
+      /* 移動要跟著鏡頭轉(kc 抓到的問題),細節見 street3d.html 同一段註解。 */
+      const dx = (ix*Math.cos(camYaw) + iz*Math.sin(camYaw))/len;
+      const dz = (-ix*Math.sin(camYaw) + iz*Math.cos(camYaw))/len;
       const nx = pos.x + dx*speed, nz = pos.z + dz*speed;
       if(!city.blocked(nx, pos.z)) pos.x = Math.max(CITY.bounds.x[0], Math.min(CITY.bounds.x[1], nx));
       if(!city.blocked(pos.x, nz)) pos.z = Math.max(CITY.bounds.z[0], Math.min(CITY.bounds.z[1], nz));
@@ -821,7 +1011,21 @@ function updateCity(dt){
   pos.y += ((onRoad ? .1 : .3) - pos.y)*.3;
 
   tmp.set(Math.sin(camYaw)*CAM.dist, CAM.high, Math.cos(camYaw)*CAM.dist);
-  camera.position.lerp(tmp.add(pos), 1 - Math.pow(.0015, dt/1000));
+  tmp.add(pos);
+  /* 相機防穿牆,細節見 street3d.html 同一段註解——理想機位跟角色中間隔了
+     牆的話,把鏡頭拉到撞點前面一點。 */
+  eyePos.set(pos.x, pos.y + hero.eyeY*CAM.lookY, pos.z);
+  camDir.subVectors(tmp, eyePos);
+  const wantDist = camDir.length();
+  let camTarget = tmp;
+  if(wantDist > .01){
+    camDir.divideScalar(wantDist);
+    camRay.set(eyePos, camDir);
+    camRay.far = wantDist;
+    const hit = camRay.intersectObjects(occluders, false)[0];
+    if(hit) camTarget = eyePos.clone().addScaledVector(camDir, Math.max(3, hit.distance - 1.2));
+  }
+  camera.position.lerp(camTarget, 1 - Math.pow(.0015, dt/1000));
   camera.lookAt(pos.x, pos.y + hero.eyeY*CAM.lookY, pos.z);
 
   keyLight.position.set(pos.x-24, 34, pos.z+20);
@@ -832,10 +1036,69 @@ function updateCity(dt){
   nearDoor = null;
   for(const d of city.doors)
     if(Math.hypot(pos.x-d.x, pos.z-d.z) < 3.6){ nearDoor = d; break; }
+
+  /* 街上的小互動(摸狗、撿垃圾),2026-08-13 加的——跟門用同一套「距離內才
+     顯示提示、按空白鍵觸發」,但門優先(nearDoor 先判斷),同一格站著不會
+     兩個提示打架。litter 撿過會被移出 city.litter(見 interactProp),
+     不用另外記一份「已撿」清單。 */
+  nearProp = null;
+  if(!nearDoor){
+    for(const p of city.pets)
+      if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'pet', ref:p }; break; }
+    if(!nearProp) for(const l of city.litter)
+      if(Math.hypot(pos.x-l.x, pos.z-l.z) < 3.2){ nearProp = { type:'litter', ref:l }; break; }
+    if(!nearProp) for(const p of city.play)
+      if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'play', ref:p }; break; }
+  }
+
   if(nearDoor && !busy && !dlg.on){
-    hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> 進去';
+    hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> ' + (nearDoor.id === 'home' ? '睡覺' : '進去');
+    hintEl.classList.add('on');
+  } else if(nearProp && !busy && !dlg.on){
+    hintEl.innerHTML = nearProp.type === 'pet' ? nearProp.ref.label + '　按 <b>空白鍵</b> 摸摸看'
+                      : nearProp.type === 'play' ? nearProp.ref.label + '　按 <b>空白鍵</b> 玩一下'
+                      : '按 <b>空白鍵</b> 撿起來';
     hintEl.classList.add('on');
   } else if(MODE === 'city') hintEl.classList.remove('on');
+}
+
+const PET_LINES = [
+  '牠讓你摸了好一會,尾巴搖得很兇。',
+  '牠靠著你的腳,好像沒有很想理你以外的人。',
+  '摸起來有點髒,但牠好像很開心。'
+];
+const LITTER_KIND_NAME = { bottle:'寶特瓶', lunchbox:'保麗龍便當盒', cig:'菸蒂', flyer:'傳單', cup:'手搖杯' };
+const PLAY_LINES = [
+  '玩了一下,喘得比想像中快。',
+  '好像有點久沒這樣玩了。',
+  '玩到有點累,但心情好一點。'
+];
+/* 2026-08-13 kc 加的體力值:摸狗、撿垃圾、玩遊樂器材都要扣一點,見 DESIGN_NOTES
+   「stamina」那節——範圍先只接這三種街上互動,沒有動到打工/上課/劇情那些
+   既有系統。 */
+function interactProp(prop){
+  if(prop.type === 'pet'){
+    chg('mood', 4);
+    chg('stamina', -3);
+    toast(PET_LINES[Math.random()*PET_LINES.length|0], 2400);
+  } else if(prop.type === 'play'){
+    chg('mood', 3);
+    chg('stamina', -5);
+    toast(prop.ref.label + '。' + PLAY_LINES[Math.random()*PLAY_LINES.length|0], 2400);
+  } else {
+    const l = prop.ref;
+    chg('mood', -3);
+    chg('stamina', -2);
+    chg('star', -1);                                    // 善值:見 DESIGN_NOTES「風評」,好事讓它往好的方向動
+    if(l.kind === 'bottle') chg('money', 2);
+    toast('撿起一個' + (LITTER_KIND_NAME[l.kind] || '垃圾') + '丟進垃圾桶。'
+          + (l.kind === 'bottle' ? '（$2）' : ''), 2200);
+    scene.remove(l.mesh);
+    if(l.glow) scene.remove(l.glow);
+    city.litter.splice(city.litter.indexOf(l), 1);
+    nearProp = null;
+    hintEl.classList.remove('on');
+  }
 }
 
 let lastW=0, lastH=0;
@@ -882,7 +1145,7 @@ window.__dbg = {
   heroIndoor, indoorScene, renderer3d,
   indoorCalib(){
     const z = heroIndoor.group.position.z, s = heroIndoor.group.scale.x;
-    return { NZ_FAR, NZ_HOT, NZ_NEAR,
+    return { NZ_FAR, NZ_HOT, NZ_NEAR, NZ_WALL, NZ_COUNTER, FIXTURE_COLLIDERS,
       heroPos: heroIndoor.group.position.toArray(), heroScale: s,
       footScreenY: screenY(z, 0), headScreenY: screenY(z, s*PLAYER.height) };
   },

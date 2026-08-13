@@ -45,7 +45,12 @@
     pcShoe:root.Character.shoe,
     npcSkin:'#d6ab86', npcHair:'#1d1916', npcShirt:'#f2f5f2', npcShirtD:'#d8ddd8',
     npcPants:'#3a4460', npcBag:'#6b5a3c',
-    clSkin:'#cfa279', clHair:'#201b17', clVest:'#2f6b48', clShirt:'#eceadd'
+    /* clVest 改成 LIFE POINT 招牌那個紫色(assets/tex/sign-store.png 上取樣,
+       #4a09b6),讓店員看起來像穿了這家店的制服,不是隨便一件毛衣。2026-08-13
+       kc 提的,見 DESIGN_NOTES「室內固定物件的碰撞」那節旁邊那則筆記。這是
+       純色近似,不是真的印花/名牌制服貼圖——那個等級要另外生一張像阿源
+       (`char-yuan-shirt.png`)那種材質圖,現在先用同色系。 */
+    clSkin:'#cfa279', clHair:'#201b17', clVest:'#4a09b6', clShirt:'#eceadd'
   };
 
   /* 把 ctx 包成 px / alp 兩個小工具 */
