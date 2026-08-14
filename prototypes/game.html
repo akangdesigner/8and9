@@ -470,15 +470,21 @@ function paintStoreBackdrop(){
   if(hotImg.complete) gbg.drawImage(hotImg, 0,0,hotImg.width,hotImg.height,
     STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC);
 }
-/* 鮮食櫃遮擋用的裁切圖,離線先做成一塊「頂部 40px 漸層淡出」的貼圖,不要
-   每幀重新裁。2026-08-14 kc 截圖抓到「上面有個怪的透明板子」:裁切矩形的
-   上緣不管角色站哪個深度,都會剛好切在螢幕上同一條高度——因為角色螢幕
-   身高是固定常數(不隨深度縮放),身體比例跟這個固定矩形對不上,才會在
-   軀幹中間看到一條突兀的分界線。漸層淡出不能解決「切的位置不對」這件事
-   (那是這套簡化 2D 系統的本質限制,鮮食櫃後面這條走道本來就不是核心
-   互動,先不為了它加真的透視),但可以讓那條線從「一刀切」變成柔和過渡,
-   肉眼不會再讀成一塊突兀的色塊。**改成獨立圖(hotImg)之後這段邏輯原封
-   不動**,只是遮罩來源從「裁一塊整合照片」換成「畫整張獨立圖」。 */
+/* 鮮食櫃遮擋用的裁切圖:用一塊小的重用畫布(hotCutBuf),每次真的需要遮擋
+   (見 renderIndoorForeground())才當場從 c2dbg 裁一次,不是載入時預先做好
+   快取一次就不動。試過「載入時預先做好」的寫法,結果偶爾會拿到空的遮擋
+   (兩張圖的 onload 誰先誰後、瀏覽器快取讓 onload 什麼時候真的觸發,都會
+   讓「載入當下」這個時間點跟「c2dbg 真的畫完兩張圖」的時間點對不齊,而且
+   很難每次重現)——**改成每次要用才當場裁,徹底不用管載入時序**,反正只有
+   玩家站在鮮食櫃附近才會呼叫,不是每幀都跑,效能上沒有差別。
+   頂部 40px 漸層淡出:2026-08-14 kc 截圖抓到「上面有個怪的透明板子」——
+   裁切矩形的上緣不管角色站哪個深度,都會剛好切在螢幕上同一條高度(角色
+   螢幕身高是固定常數,不隨深度縮放,身體比例跟這個固定矩形對不上),漸層
+   淡出讓那條線從一刀切變柔和過渡,肉眼不會再讀成一塊突兀的色塊。
+   裁切來源是 c2dbg(已經畫好的背景+鮮食櫃合成結果),不是 hotImg 本身——
+   新鮮食櫃圖的玻璃窗格是真的半透明(透出背後貨架),直接拿 hotImg 當遮擋
+   貼圖的話,玩家站在後面時身體會從玻璃窗格的透空處「穿幫」冒出來。從
+   c2dbg 裁,裁到的永遠是實心一塊,不會穿幫。 */
 const HOT_CUT_FADE_PX = 40;
 const hotCutBuf = document.createElement('canvas');
 hotCutBuf.width = STORE.hot.w*SC; hotCutBuf.height = STORE.hot.h*SC;
@@ -486,19 +492,29 @@ const hotCutCtx = hotCutBuf.getContext('2d');
 function buildHotCutMask(){
   hotCutCtx.clearRect(0,0,hotCutBuf.width,hotCutBuf.height);
   hotCutCtx.imageSmoothingEnabled = true;
-  hotCutCtx.drawImage(hotImg, 0,0,hotImg.width,hotImg.height, 0,0,hotCutBuf.width,hotCutBuf.height);
+  hotCutCtx.drawImage(c2dbg, STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC,
+    0,0,hotCutBuf.width,hotCutBuf.height);
+  /* 2026-08-14 抓到真正的根因:destination-in 不是「只在畫到的形狀裡調整
+     alpha」,是「整張畫布只要不在這次畫的形狀範圍內,alpha 直接歸零」——
+     之前分兩次 fillRect(先畫上面 40px 的漸層,再畫下面剩餘部分的實心黑)
+     時,第一刀畫上面 40px 那次,就已經把下面全部清成透明;第二刀畫下面
+     時,上面又被清成透明。兩刀互相清掉對方,結果永遠是整張全透明,只是
+     肉眼在別的測試位置剛好被角色本來就沒站到那個矩形擋住,才一直沒抓到。
+     改成**一次 fillRect 蓋滿整張畫布**,漸層本身有三個色標(0→透明,
+     淡出終點→不透明,1→維持不透明)做出同樣的「頂部淡出、其餘不透明」
+     效果,不會有「形狀外先清空」這個副作用。 */
   hotCutCtx.globalCompositeOperation = 'destination-in';
-  const grad = hotCutCtx.createLinearGradient(0,0,0,HOT_CUT_FADE_PX);
-  grad.addColorStop(0,'rgba(0,0,0,0)'); grad.addColorStop(1,'rgba(0,0,0,1)');
+  const grad = hotCutCtx.createLinearGradient(0,0,0,hotCutBuf.height);
+  const fadeStop = HOT_CUT_FADE_PX / hotCutBuf.height;
+  grad.addColorStop(0,'rgba(0,0,0,0)');
+  grad.addColorStop(fadeStop,'rgba(0,0,0,1)');
+  grad.addColorStop(1,'rgba(0,0,0,1)');
   hotCutCtx.fillStyle = grad;
-  hotCutCtx.fillRect(0,0,hotCutBuf.width,HOT_CUT_FADE_PX);
-  hotCutCtx.fillStyle = '#000';
-  hotCutCtx.fillRect(0,HOT_CUT_FADE_PX,hotCutBuf.width,hotCutBuf.height-HOT_CUT_FADE_PX);
+  hotCutCtx.fillRect(0,0,hotCutBuf.width,hotCutBuf.height);
   hotCutCtx.globalCompositeOperation = 'source-over';
 }
 const wallImg = new Image(); wallImg.onload = paintStoreBackdrop; wallImg.src = STORE.bgSrc;
-const hotImg = new Image();
-hotImg.onload = () => { paintStoreBackdrop(); buildHotCutMask(); };
+const hotImg = new Image(); hotImg.onload = paintStoreBackdrop;
 hotImg.src = '../assets/bg/store-hot-cabinet.png';
 
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
@@ -675,6 +691,7 @@ function updateIndoor(dt){
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
   if(IN.py < STORE.hot.y && IN.px > STORE.hot.x && IN.px < STORE.hot.x + STORE.hot.w){
+    buildHotCutMask();
     g2f.imageSmoothingEnabled = true;
     g2f.drawImage(hotCutBuf, STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC);
   }
