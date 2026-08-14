@@ -283,6 +283,47 @@ function advanceTime(min){
   syncHUD();
 }
 
+/* 街頭藝人的歌聲(見上面 BUSKER_POS 那段註解)。AudioContext 一定要在使用者
+   互動(keydown)裡才准建立/resume,不能頁面一載入就開——瀏覽器的 autoplay
+   政策會直接擋掉,靜音也不報錯,踩了會覺得「明明寫了怎麼沒聲音」,先在這裡
+   說清楚。startBuskerAudio() 只會真的跑一次(靠 buskerGain 判斷有沒有建過),
+   之後每次 keydown 呼叫都是白工但無害。 */
+let audioCtx = null, buskerGain = null;
+function startBuskerAudio(){
+  if(buskerGain) { if(audioCtx.state === 'suspended') audioCtx.resume(); return; }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  buskerGain = audioCtx.createGain();
+  buskerGain.gain.value = 0;
+  buskerGain.connect(audioCtx.destination);
+  /* 五聲音階(C D E G A)迴圈當佔位唱腔,不是真的歌——單音 sine 波,ADSR
+     只做簡單的淡入淡出,避免每個音之間喀一聲(click)。600ms 一個音,
+     8 個音一輪,跟 mood/stamina 那些數值改動無關,純氣氛。 */
+  const notes = [261.6, 293.7, 329.6, 392.0, 440.0, 392.0, 329.6, 293.7];
+  let i = 0;
+  (function playNote(){
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine'; osc.frequency.value = notes[i % notes.length];
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.5, t + .06);
+    g.gain.linearRampToValueAtTime(0, t + .55);
+    osc.connect(g); g.connect(buskerGain);
+    osc.start(t); osc.stop(t + .6);
+    i++;
+    setTimeout(playNote, 600);
+  })();
+}
+/* 靠近淡入、走遠淡出——20 單位外完全聽不到,站在他面前(距離 0)音量封頂
+   在 .55,不是開到最大聲,街頭藝人不該蓋過其他環境音。updateCity() 每幀
+   呼叫,數字沒特別校過,kc 覺得聽起來範圍不對再調。 */
+function updateBuskerAudio(px, pz){
+  if(!buskerGain) return;
+  const d = Math.hypot(px-BUSKER_POS.x, pz-BUSKER_POS.z);
+  const vol = Math.max(0, 1 - d/20) * .55;
+  buskerGain.gain.setTargetAtTime(vol, audioCtx.currentTime, .3);
+}
+
 /* ===================================================================
    對話框 / 選單(兩層共用)
    =================================================================== */
@@ -401,6 +442,15 @@ const city = buildCity(THREE, scene);
 const hero = buildPlayer(THREE, scene);
 hero.group.position.set(CITY.spawn.x, .3, CITY.spawn.z);
 
+/* 街頭藝人唱歌(2026-08-14,kc 要的)——站在中華路那座小公園(圓環,
+   V_ROADS[0].x/H_ROADS[1].z,見 scene-city3d.js 的 roundabout())旁邊,
+   跟公園中心錯開夠遠(公園碰撞半徑 R*.72≈3.6),站得到人行道上。真的唱歌
+   聲音還沒有錄音檔,先用 Web Audio 合成一段簡單五聲音階迴圈當佔位(見下面
+   BUSKER_AUDIO),不是要多好聽,是要有「路過會聽到有人在唱歌」的存在感——
+   之後 kc 想換真人錄音,只要把 startBuskerAudio() 裡的合成邏輯換成
+   `new Audio('...').play()` 就好,靠近淡入淡出那段(updateCity 裡)不用動。 */
+const BUSKER_POS = { x: -84+7, z: 4 };
+
 /* 廟口 NPC,2026-08-12 起先接兩個(其餘見 lib/npc-temple.js 的文字資料)。
  * 只做阿源跟阿姨——小胖(14 歲)、阿伯(70 幾)體型跟現有兩副骨架差太多,
  * 硬套會不像人,等有更合適的骨架再補,見 DESIGN_NOTES「3D 街上的角色」。
@@ -423,6 +473,11 @@ const NPCS = [
     x:6, z:-86, rotationY:0, rig:'f',
     skin:'#c9a077', hair:'#2c2420',
     hood:'#5c4a3a', pants:'#333333', shoe:'#4a4038'
+  }),
+  buildNPC(THREE, scene, {                             // 街頭藝人・中華路小公園旁
+    x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:Math.PI*.75, rig:'m2',
+    skin:'#b98a63', hair:'#3a3128',
+    hood:'#2e4a3a', pants:'#26241f', shoe:'#4a4038'
   })
 ];
 
@@ -854,11 +909,13 @@ const keys = {};
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   keys[k] = true;
+  startBuskerAudio();          // 第一次按鍵才建立 AudioContext,見上面那段註解
   if(k === ' ' || k === 'enter'){
     e.preventDefault();
     if(advanceDialog()) return;
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
+    else if(ridingMoto) dismountMoto();
     else if(nearDoor && !busy) enterIndoor(nearDoor);
     else if(nearProp && !busy) interactProp(nearProp);
   }
@@ -869,6 +926,19 @@ addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 let camYaw = 0, nearDoor = null, nearProp = null, walkIn = null;
 const tmp = new THREE.Vector3();
+
+/* 騎機車(2026-08-14,kc 要的——原本地圖太大,走路逛一圈太久)。ridingMoto
+   是 city.motos 裡正在騎的那個 entry,null 就是走路。角色本體不藏起來
+   (第一版藏起來,kc 玩起來說像鬼在騎車,當場改掉,見 mountMoto() 那段
+   註解)——那台車的 group 每幀跟著玩家座標/朝向跑(見 updateCity 移動那段),
+   下車時把車的 x/z 更新成當下位置——同一顆 THREE.Group,不是複製一份。
+   MOTO_MULT 比 Shift 跑步(run=2)還快,不然騎車不如用跑的沒有意義;騎乘中
+   Shift 不再疊加,見 updateCity 那行 speed 算式,先簡化成固定倍率,kc 覺得
+   不夠快再調。 */
+let ridingMoto = null;
+const MOTO_MULT = 3.2;
+const MOTO_SEAT_OFFSET = 2.6;   // 見 updateCity 那段「座墊沒對準」的註解,先湊的數字
+const MOTO_SEAT_Y = 1.05;       // 同上,kc 抓到「屁股懸空在座墊上面」,2026-08-14 從 1.7 調低
 
 /* 相機防穿牆(kc 之前就遇過):建築/招牌都是 add() 直接掛在 scene 底下的
    Mesh,角色跟 NPC 是 Group,只抓 scene.children 裡 isMesh 的那層、不遞迴,
@@ -906,7 +976,7 @@ function updateCity(dt){
     if(keys['w']||keys['arrowup'])    iz -= 1;
     if(keys['s']||keys['arrowdown'])  iz += 1;
     if(ix||iz){
-      const speed = 0.005 * dt * run;
+      const speed = 0.005 * dt * (ridingMoto ? MOTO_MULT : run);
       const len = Math.hypot(ix,iz);
       /* 移動要跟著鏡頭轉(kc 抓到的問題),細節見 street3d.html 同一段註解。 */
       const dx = (ix*Math.cos(camYaw) + iz*Math.sin(camYaw))/len;
@@ -918,13 +988,36 @@ function updateCity(dt){
       moving = true;
     }
   }
-  hero.animate(dt, moving, run);
-  NPCS.forEach(n => n.animate(dt));
+  hero.animate(dt, moving, run, !!ridingMoto);      // 第 4 參數:騎乘中蓋掉 idle/walk/run,撐坐姿(見 scene-city3d.js)
+  NPCS.forEach(n => n.animate(dt, pos));            // pos 給小步待機拿去算轉頭朝向,見 buildNPC 註解
 
-  let onRoad = false;
-  for(const r of CITY.H_ROADS) if(Math.abs(pos.z-r.z) < CITY.ROAD_HW) onRoad = true;
-  for(const r of CITY.V_ROADS) if(Math.abs(pos.x-r.x) < CITY.ROAD_HW) onRoad = true;
-  pos.y += ((onRoad ? .1 : .3) - pos.y)*.3;
+  /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
+     dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
+     用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
+     MOTO_SEAT_OFFSET:propModel() 把整台車的 bounding box 幾何中心對齊
+     local (0,0,0),但座墊實際位置偏車頭那端不是正中心(kc 抓到「人坐在
+     龍頭上,座墊空在後面」,2026-08-14)——車的 group 往「車頭方向」
+     (local +z,跟 hero.group.rotation.y 同一個 forward 慣例)推出去
+     MOTO_SEAT_OFFSET,等於把座墊那端拉回騎士(pos)所在的位置。只動車的
+     視覺位置,不動 pos 本身,碰撞/下車停車座標(m.x/m.z,見 dismountMoto())
+     不受影響。數字是先湊的,kc 玩起來覺得還是没對準再調。 */
+  if(ridingMoto && ridingMoto.group){
+    const fx = Math.sin(hero.group.rotation.y), fz = Math.cos(hero.group.rotation.y);
+    ridingMoto.group.position.set(pos.x + fx*MOTO_SEAT_OFFSET, 0, pos.z + fz*MOTO_SEAT_OFFSET);
+    ridingMoto.group.rotation.y = hero.group.rotation.y;
+  }
+
+  if(ridingMoto){
+    /* 座墊高度先湊的數字(車身縮放後量出來的整體高度 3.14 個單位反推座墊
+       約 6 成高),沒有逐一在實機校正過,kc 玩起來覺得懸空/穿模再調——跟
+       LITTER_SIZE 那組數字同一個「先湊再校」的做法。 */
+    pos.y += (MOTO_SEAT_Y - pos.y) * .3;
+  } else {
+    let onRoad = false;
+    for(const r of CITY.H_ROADS) if(Math.abs(pos.z-r.z) < CITY.ROAD_HW) onRoad = true;
+    for(const r of CITY.V_ROADS) if(Math.abs(pos.x-r.x) < CITY.ROAD_HW) onRoad = true;
+    pos.y += ((onRoad ? .1 : .3) - pos.y)*.3;
+  }
 
   tmp.set(Math.sin(camYaw)*CAM.dist, CAM.high, Math.cos(camYaw)*CAM.dist);
   tmp.add(pos);
@@ -947,6 +1040,7 @@ function updateCity(dt){
   keyLight.position.set(pos.x-24, 34, pos.z+20);
   keyLight.target.position.copy(pos);
   city.updateLights(pos.x, pos.z);
+  updateBuskerAudio(pos.x, pos.z);
   city.updateBushBillboards(camera.position.x, camera.position.z);
   whereEl.textContent = city.whereAmI(pos.x, pos.z);
 
@@ -959,13 +1053,17 @@ function updateCity(dt){
      兩個提示打架。litter 撿過會被移出 city.litter(見 interactProp),
      不用另外記一份「已撿」清單。 */
   nearProp = null;
-  if(!nearDoor){
+  /* 騎乘中不能再摸狗/撿垃圾/上另一台車(騎在車上手不空),也不進門——
+     ridingMoto 擋掉整段偵測,下面 hint 區塊另外處理「按空白鍵下車」。 */
+  if(!nearDoor && !ridingMoto){
     for(const p of city.pets)
       if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'pet', ref:p }; break; }
     if(!nearProp) for(const l of city.litter)
       if(Math.hypot(pos.x-l.x, pos.z-l.z) < 3.2){ nearProp = { type:'litter', ref:l }; break; }
     if(!nearProp) for(const p of city.play)
       if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'play', ref:p }; break; }
+    if(!nearProp) for(const m of city.motos)
+      if(!m.ridden && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
   }
 
   if(nearDoor && !busy && !dlg.on){
@@ -974,7 +1072,11 @@ function updateCity(dt){
   } else if(nearProp && !busy && !dlg.on){
     hintEl.innerHTML = nearProp.type === 'pet' ? nearProp.ref.label + '　按 <b>空白鍵</b> 摸摸看'
                       : nearProp.type === 'play' ? nearProp.ref.label + '　按 <b>空白鍵</b> 玩一下'
+                      : nearProp.type === 'moto' ? '按 <b>空白鍵</b> 騎上去'
                       : '按 <b>空白鍵</b> 撿起來';
+    hintEl.classList.add('on');
+  } else if(ridingMoto && !dlg.on){
+    hintEl.innerHTML = '按 <b>空白鍵</b> 下車';
     hintEl.classList.add('on');
   } else if(MODE === 'city') hintEl.classList.remove('on');
 }
@@ -1017,7 +1119,26 @@ const PLAY_LINES = [
    去」跟「東西消失/指標變動」在時間上才對得上。playOnce() 找不到動畫檔案
    時會直接同步呼叫 callback(見那邊的註解),所以這裡不用另外判斷動畫載了
    沒,即使還沒有動畫可放,行為也跟改動前一樣。 */
+/* 上車不用 hero.playOnce() 那套彎腰動畫——沒有騎乘姿勢的模型,先試「角色
+   站在車上跟著走」(不是藏起來,kc 玩起來說角色整個消失像鬼在騎車,2026-08-14
+   當場改掉)。角色本體位置本來就是 pos == hero.group.position,跟騎乘移動
+   共用同一個座標,不用另外同步——只是站相,不是坐姿,kc 覺得站姿穿模/太怪
+   再回頭調高度或找騎乘動畫。上車瞬間不 busy=true(跟摸貓狗/撿垃圾不一樣),
+   因為不需要等動畫播完才能動,按下去立刻就能騎走。 */
+function mountMoto(m){
+  ridingMoto = m; m.ridden = true;
+  hintEl.classList.remove('on');
+  toast('騎上機車。', 1600);
+}
+function dismountMoto(){
+  const m = ridingMoto; if(!m) return;
+  const pos = hero.group.position;
+  m.x = pos.x; m.z = pos.z;                     // 車停在下車當下的位置,不是彈回原地
+  m.ridden = false; ridingMoto = null;
+  toast('把車停好,下車走路。', 1600);
+}
 function interactProp(prop){
+  if(prop.type === 'moto'){ mountMoto(prop.ref); return; }
   if(prop.type === 'pet'){
     busy = true;
     /* 貓/狗共用摸的動作會摸空——貓矮,狗那份「Petting Animal」動畫伸手的
