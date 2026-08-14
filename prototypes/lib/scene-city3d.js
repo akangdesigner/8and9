@@ -169,6 +169,10 @@ export function buildCity(THREE, scene){
        還貼在路緣石、屋脊/門楣上,直接貼圖會連累不相干的地方。 */
     incenseStone:std({color:0x8a857a,roughness:.9}),
     altarTable:std({color:0x7a4a2a,roughness:.6}),
+    /* 夜市攤位、巷子雜物,同一批新增(2026-08-14) */
+    stallTop:std({color:0xd8cdb4,roughness:.8}),
+    utilityBox:std({color:0x3f444b,roughness:.9}),
+    wire:std({color:0x17171a,roughness:.85}),
     /* 店面凹進去的洞:側面看到的材質,故意深色,靠方向光自己暗下去做出深度,
        不用另外做假陰影的面板。 */
     recess:std({color:0x121417,roughness:.97}),
@@ -194,7 +198,18 @@ export function buildCity(THREE, scene){
     { mats:[M.templeDoor], file:'temple-door.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.incenseStone], file:'incense-stone.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.altarTable], file:'altar-table.png', rep:[1,1], mirror:true, lift:.1 },
-    { mats:[M.roof], file:'temple-roof.png', rep:[2,1], mirror:true, lift:.12 }
+    { mats:[M.roof], file:'temple-roof.png', rep:[2,1], mirror:true, lift:.12 },
+    /* red/redD 之前只有 makeTextures() 程序生成的噪點,沒有真照片(2026-08-14
+       kc 抓到,以為這批廟口貼圖已經包含牆面,其實沒有)——補上。 */
+    { mats:[M.red, M.redD], file:'temple-wall.png', rep:[2,1], mirror:true, lift:.14 },
+    { mats:[M.gold], file:'temple-gold.png', rep:[1,1], mirror:true, lift:.1 },
+    { mats:[M.curb], file:'curb.png', rep:[6,1], mirror:true, lift:.1 },
+    { mats:[M.tarp], file:'tarp-red.png', rep:[1,1], mirror:true, lift:.12 },
+    { mats:[M.tarpB], file:'tarp-blue.png', rep:[1,1], mirror:true, lift:.12 },
+    { mats:[M.plastic], file:'plastic-red.png', rep:[1,1], mirror:true, lift:.1 },
+    { mats:[M.metal], file:'metal-frame.png', rep:[1,1], mirror:true, lift:.08 },
+    { mats:[M.stallTop], file:'stall-top.png', rep:[1,1], mirror:true, lift:.1 },
+    { mats:[M.utilityBox], file:'utility-box.png', rep:[1,1], mirror:true, lift:.1 }
   ].forEach(o => {
     loader.load(TEX_DIR + o.file, img => {
       const t = new THREE.CanvasTexture(prep(img, o));
@@ -432,8 +447,17 @@ export function buildCity(THREE, scene){
     const cx = V_ROADS[0].x, cz = H_ROADS[1].z, R = 5.0;
     add(new THREE.Mesh(new THREE.CylinderGeometry(R+.3,R+.3,.17,28), M.curb),
         cx, .085, cz, false, true);
+    const roundGrass = std({ color:0x5a6b42, roughness:.96 });
     add(new THREE.Mesh(new THREE.CylinderGeometry(R,R,.3,28),
-        std({ color:0x5a6b42, roughness:.96 })), cx, .17+.15, cz, false, true);
+        roundGrass), cx, .17+.15, cz, false, true);
+    /* 跟公園草地共用同一張 grass.png(已經有圖),不用另外生——這裡沒沿用
+       公園那份 grassMat,是因為它是 buildPark() 內部局部變數,拿不到。 */
+    loader.load(TEX_DIR + 'grass.png', img => {
+      const t = new THREE.CanvasTexture(prep(img, { mirror:true, lift:.12 }));
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3,3);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      roundGrass.map = t; roundGrass.color.setHex(0x9fb583); roundGrass.needsUpdate = true;
+    }, undefined, () => {});
     buildTree(cx, cz, 1, 1);
     solid(cx, cz, R*.72, R*.72);
     lampSpots.push({ x:cx, y:4.5, z:cz, c:0xffd9a0, i:26, r:24 });
@@ -845,7 +869,7 @@ export function buildCity(THREE, scene){
     for(let i=0;i<5;i++){
       const zz = z0 + (i+.5)*(z1-z0)/5;
       add(box(1.6,1.1,1.2, M.tin), x + (i%2?1:-1)*(HW-.3), 4.4+((i*3)%3), zz, true, false);
-      if(i%2) add(box(1.2,1.1,1.2, std({color:0x3f444b,roughness:.9})), x - (HW-1), .6, zz);
+      if(i%2) add(box(1.2,1.1,1.2, M.utilityBox), x - (HW-1), .6, zz);
     }
     [0, .32].forEach(f => {
       const lz = cz + (z1-z0)*f;
@@ -923,10 +947,26 @@ export function buildCity(THREE, scene){
     [-13,-5,5,13].forEach(x => { add(box(1.7,8.5,1.7, M.redD), x, 4.25, z+5.2); solid(x, z+5.2, .85,.85); });
     [[-9,3.4],[0,4.4],[9,3.4]].forEach(([x,w]) =>
       add(box(w,6,.4, M.templeDoor), x, 3, z+4.6, false, true));
+    /* 燈籠:2026-08-14 kc 抓到「發光箱體很假」——原本是一顆會發光的純色箱子,
+       換成 Poly Pizza 的免費燈籠模型(red lantern,Sophie Kim,CC-BY,授權見
+       assets/models/CREDITS.md),跟遊具/垃圾/寵物同一套 propModel() 縮放置底
+       邏輯,只是這裡是「掛著」不是「站在地上」——bottomY 往回推,讓模型
+       中心對到原本箱體中心的高度,不是貼地。沒載到模型前先用原本的發光箱體
+       佔位,不會空著。lampSpots 保留,模型本身不發光,還是要靠這個補光。 */
+    function placeLantern(x, y, z){
+      const size = 1.5, bottomY = y - size/2;
+      const fallback = box(size, size, size, glow(0xe8442e,1.35));
+      const holder = add(fallback, x, y, z, false, false);
+      loadModel('lantern.glb').then(gltf => {
+        scene.remove(holder);
+        add(propModel(THREE, gltf, size, 'y', 0), x, bottomY, z, false, false);
+      }).catch(() => {});
+      lampSpots.push({ x, y, z, c:0xff8a5a, i:14, r:12 });
+    }
     for(let k=0;k<8;k++){
       const x = -14.5 + k*4.15;
       add(box(.16,1.1,.16, M.metal), x, 9.4, z+5.3, false, false);
-      add(box(1.5,1.9,1.5, glow(0xe8442e,1.35)), x, 8, z+5.3, false, false);
+      placeLantern(x, 8, z+5.3);
     }
     lampSpots.push({ x:0, y:8, z:z+11, c:0xff8a5a, i:50, r:44 });
     const wash = new THREE.SpotLight(0xffd0a0, 90, 44, .72, .55, 1.4);
@@ -935,21 +975,75 @@ export function buildCity(THREE, scene){
     [-15.5,15.5].forEach(x => { add(box(2,1,2.6, M.incenseStone), x, .8, z+7.4);
       add(box(1.4,1.8,1.6, M.incenseStone), x, 2.1, z+7); solid(x, z+7.2, 1.1, 1.4); });
     doors.push({ id:'temple', name:'宮廟', x:0, z:z+10 });
-    add(box(5,2.4,3.4, M.altarTable), 0, 1.5, z+22);
-    add(box(6,.5,4.2, M.altarTable), 0, 2.9, z+22, false, false);
+    /* 供桌:2026-08-14 kc 截圖抓到「一塊實心方塊」——原本是兩層疊死的箱體,
+       完全不透光,不管貼什麼圖上去,輪廓都只會讀成一塊磚。拆成四支腳+裙板+
+       薄桌面,腳跟腳之間留空隙透光,才讀得出「桌子」而不是「箱子」
+       (跟 stall() 那次「幾何問題不是貼圖問題」是同一個教訓)。 */
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) =>
+      add(box(.4,2.2,.4, M.altarTable), a*2.1, 1.1, z+22+b*1.5));
+    [ [4.6,.5,.3, 0,1.5], [4.6,.5,.3, 0,-1.5],
+      [.3,.5,3.2, 2.1,0], [.3,.5,3.2, -2.1,0]
+    ].forEach(([w,h,d,ax,az]) => add(box(w,h,d, M.altarTable), ax, 1.95, z+22+az));
+    add(box(6,.35,4.4, M.altarTable), 0, 2.35, z+22, false, false);
     solid(0, z+22, 2.6, 1.8);
     lampSpots.push({ x:0, y:4, z:z+22, c:0xffb066, i:24, r:22 });
+    /* 供桌桌面上的擺設:2026-08-14 kc 截圖抓到「桌面空的,還是看不出來是幹嘛
+       的」——形狀對了,但一張沒放任何東西的桌子讀不出「拜拜的供桌」,要靠
+       上面擺的東西(燭台、香爐)才認得出用途,不是靠桌子本身的造型。
+       跟 lantern 同一套:抓 Poly Pizza 免費模型,CC-BY/CC0,授權見
+       assets/models/CREDITS.md。placeAltarProp() 沒有 solid()——這兩個小物
+       站在桌面上,不擋角色走路。 */
+    const tableTopY = 2.525;
+    /* lockAxis 選哪個軸很關鍵(這個檔案的 propModel() 註解已經講過同一個教訓,
+       這裡又踩了一次):2026-08-14 kc 抓到「香爐很怪、疊在一起」——量了實際
+       bounding box 才發現 incense-bowl.glb 是矮胖的扁盤(x/z=0.95, y 只有
+       0.3),鎖 y 高度去撐 targetSize 會把它整個放大到 1.9×1.9,蓋過半張桌子。
+       候台(candelabra.glb)是瘦高的(y=0.495 最大),鎖 y 是對的。 */
+    function placeAltarProp(file, targetSize, lockAxis, x, z){
+      const fallback = box(targetSize*.6, targetSize*.5, targetSize*.6, std({ color:0xb8b0a0, roughness:.8 }));
+      const holder = add(fallback, x, tableTopY + targetSize*.25, z, false, false);
+      loadModel(file).then(gltf => {
+        scene.remove(holder);
+        add(propModel(THREE, gltf, targetSize, lockAxis, 0), x, tableTopY, z, false, false);
+      }).catch(() => {});
+    }
+    /* 2026-08-14 kc 再抓兩個問題:香爐太小、裡面空的插不出香插進去的樣子;
+       燭台原本擺供桌正中間後面,改成左右分列(香爐居中——跟現實供桌「香爐
+       中間、燭台兩側」的擺法一樣)。 */
+    placeAltarProp('candelabra.glb', .8, 'y', -1.5, z+22);
+    placeAltarProp('candelabra.glb', .8, 'y', 1.5, z+22);
+    placeAltarProp('incense-bowl.glb', .85, 'x', 0, z+22);
+    /* 香爐本身只是個素面碗,不管貼多真的圖或抓多細的模型,單一個碗形狀
+       都讀不出「香爐」——真正讓人一眼認出來的是插著香的輪廓(細長桿+
+       頂端一點紅光),不是碗,而且香要插在「裡面裝的東西」上,不能整支
+       浮空穿過碗底——加一層土色的香灰/沙填料,填到接近碗口高度,香從
+       這層填料裡插出來,不是從碗裡憑空冒出來。 */
+    const incenseZ = z+22, ashY = tableTopY + .2;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.33,.35,.1,16),
+        std({ color:0x9a8060, roughness:.95 })), 0, ashY, incenseZ, false, false);
+    [[-.12,.86],[.1,.94],[-.02,.78]].forEach(([dx,h]) => {
+      add(box(.03,h,.03, std({ color:0x8a6a42, roughness:.8 })), dx, ashY+h/2, incenseZ, false, false);
+      add(box(.06,.08,.06, glow(0xff6a3a,1.6)), dx, ashY+h, incenseZ, false, false);
+    });
     add(box(4.4,7,4.4, M.red), 24, 3.6, z+20); solid(24, z+20, 2.2, 2.2);
     add(box(5,1,5, M.roof), 24, 7.4, z+20);
   })();
 
-  /* 攤子 + 塑膠桌椅 */
+  /* 攤子 + 塑膠桌椅
+     2026-08-14 kc 截圖抓到「一堆方塊看不出來是幹嘛的」——支架原本 .2 粗,貼了
+     金屬材質之後在正常鏡頭距離幾乎看不見,屋頂板跟桌面板中間空了快 1.1 個單位
+     的空氣,兩塊板子讀起來像各自飄著,不是同一個攤子。改法兩條:支架加粗到
+     看得見;屋頂邊緣加一圈帆布垂簾(跟現實攤子的遮雨布垂邊同一個道理),
+     把屋頂到桌面那段空氣用同一塊布視覺上接起來,不是真的加高攤體。 */
   function stall(x, z, c){
     add(box(6.4,.4,3.6, c), x, 3.5, z, true, false);
     [[-2.9,1.5],[2.9,1.5],[-2.9,-1.5],[2.9,-1.5]].forEach(([a,b]) =>
-      add(box(.2,3.4,.2, M.metal), x+a, 1.7, z+b));
+      add(box(.32,3.4,.32, M.metal), x+a, 1.7, z+b));
+    [ [6.4,.5,.12, 0,1.74], [6.4,.5,.12, 0,-1.74],
+      [.12,.5,3.4, 3.14,0], [.12,.5,3.4, -3.14,0]
+    ].forEach(([w,h,d,ax,az]) => add(box(w,h,d, c), x+ax, 3.05, z+az, false, false));
     add(box(5.6,1.7,2.4, M.metal), x, 1.1, z);
-    add(box(5.8,.25,2.6, std({color:0xd8cdb4,roughness:.8})), x, 2.05, z, false, true);
+    add(box(5.8,.25,2.6, M.stallTop), x, 2.05, z, false, true);
     add(box(.5,.24,.5, glow(0xfff0cc,1.4)), x, 3.15, z, false, false);
     lampSpots.push({ x, y:3.05, z, c:0xffd79a, i:18, r:16 });
     solid(x, z, 3, 1.8);
@@ -1065,14 +1159,9 @@ export function buildCity(THREE, scene){
   };
   const litter = [];
   [
-    /* 2026-08-13 kc 要在出生點附近一次看五種樣式,方便比對——先放著,
-       kc 看完如果不想在出生點旁邊常駐這排垃圾,之後這五行整段刪掉或挪開
-       都行,不影響下面原本分散在地圖上的 10 個。 */
-    [-12,-13,'bottle',0xdce8e0],
-    [-6, -13,'lunchbox',0xc9c2a8],
-    [0,  -13,'cig',0x5a5650],
-    [6,  -13,'flyer',0xd8d2c0],
-    [12, -13,'cup',0xc2a0d0],
+    /* 出生點旁那排「五種樣式一次比對」的臨時陳列(2026-08-13 加、
+       2026-08-14 比完拿掉)——垃圾模型都換成看得出是垃圾的版本後比對
+       階段結束,回到原本分散在地圖上的 10 個定位,不在出生點常駐。 */
     [-40,-16.5,'bottle',0xdce8e0],
     [-5, 16.7,'lunchbox',0xc9c2a8],
     [15,-16.5,'cig',0x5a5650],
@@ -1115,9 +1204,40 @@ export function buildCity(THREE, scene){
   addProp('hydrant', -52, -16.5, .9, 1.2, 0xa0402c);
   addProp('utilitybox', -30, -16.5, 1.1, 1.4, 0x4a5a42);
 
-  /* 機車 2026-08-04 拿掉:方塊拼出來的機車太假(kc)。相機壓低之後它們就在
-     畫面正中間,一整排黑團塊,比沒有還糟。要放回來就得是真的模型或 sprite。
-     舊的方塊版在 git 裡:git show cf8cb7a:prototypes/lib/scene-city3d.js */
+  /* 機車 2026-08-04 拿掉(方塊拼裝太假),2026-08-14 用真的低模模型補回來——
+     Vespa,Jasmine Roberts,CC-BY,授權見 assets/models/CREDITS.md,跟垃圾/
+     貓狗同一個 poly.pizza 資源家族。原始模型量出來 x:1.65 y:3.20 z:4.38
+     (任意單位),z 是車長那個軸,lockAxis 用它撐 targetSize。1 單位≈0.42米
+     (見下面 PLAYER 那條註解),真 Vespa 車長約 1.8 米→4.3 單位,回推車高
+     約 3.14 單位(~1.3 米,含照後鏡,比例合理)。ry=0 就是「車頭朝建築物」
+     的沿街停法(model 預設 forward 就是 z 軸,不用轉),鏡頭壓低之後這樣
+     排比車頭朝路中央更像真的停車格。
+     先只停在兩間機車行(宏吉機車行/中華路 shop 中心實測 x=0、後火車站那間
+     同名店實測 x=-12,兩個數字是照 city.doors 的 store 門口反推校正過的,
+     不是原本假設的「格子中心 = from+i*UNIT+UNIT/2」那條公式——那條漏算了
+     半格,2026-08-14 拿 store 門口實際座標(-12,-13.6)驗出來的)門口各兩台,
+     不是整條街鋪滿——鋪滿之前想先讓 kc 看一眼這個模型觀感,跟遊具/垃圾
+     同一套「不確定先小規模上」的做法。z 座標沿用上面已經驗證過站得到、
+     看得到的人行道深度(-13/59,同一條算式:路中心 z ± 13)。
+     2026-08-14 第二輪:機車可以騎了(kc 要的),於是拿掉 solid()——騎走
+     之後車會跟著玩家移動,原地留一顆固定的碰撞箱會變成路中間卡一個
+     「看不見的牆」,比不擋路更糟。停在路邊被穿過去這點瑕疵先接受。
+     entry 進 motos 陣列給 game.html 判斷「站得夠近可以按空白鍵騎上去」+
+     騎乘時把這個 group 的 position 每幀同步成玩家位置(不是另外複製一顆
+     機車模型),下車時把 x/z 更新成當下位置——同一台車換位置停,不是憑空
+     多一台。ridden 這個旗標擋掉「同一台車被騎走的時候還能被第二次選到」。 */
+  const motos = [];
+  function parkMoto(x, z){
+    const fallback = box(1.6, 3.1, 4.3, std({ color:0x555b60, roughness:.7 }));
+    const holder = add(fallback, x, 1.55, z, true, false);
+    const entry = { x, z, group:holder, ridden:false };
+    motos.push(entry);
+    loadModel('moto-vespa.glb').then(gltf => {
+      scene.remove(holder);
+      entry.group = add(propModel(THREE, gltf, 4.3, 'z'), x, 0, z, false, false);
+    }).catch(() => {});
+  }
+  [[3,-13],[9,-13],[-9,59],[-3,59]].forEach(([x,z]) => parkMoto(x,z));
 
   /* 電線杆 + 路燈 */
   H_ROADS.forEach(r => {
@@ -1126,6 +1246,31 @@ export function buildCity(THREE, scene){
       add(box(2.8,.22,.22, M.pillar), x, 13.2, r.z-ROAD_HW-.8);
       add(box(1.2,.32,.8, glow(0xffd9a0,2.4)), x+1.5, 12, r.z-ROAD_HW+.2, false, false);
       lampSpots.push({ x:x+1.5, y:12, z:r.z-ROAD_HW+.2, c:0xffd9a0, i:40, r:46 });
+    }
+  });
+
+  /* 電線亂牽(2026-08-14,豐富街道第一輪,見對話紀錄不重複寫在 DESIGN_NOTES——
+     這條純視覺、參數不用回頭問 kc)。台灣街上電線杆之間牽好幾條下垂電纜是
+     一眼認得出的元素,兩條粗細/垂度錯開的纜線一起牽比單一條更像電纜束。
+     只沿同一條 H_ROADS 串接相鄰電線杆,V_ROADS 沒有電線杆(上面那段迴圈
+     只跑在 H_ROADS 底下),路口之間(廟口路/中華路/後火車站)不互牽,不然
+     線會纏成一團。純裝飾,沒有碰撞、沒有陰影(細長 tube 陰影意義不大,
+     省效能)。 */
+  H_ROADS.forEach(r => {
+    const z = r.z-ROAD_HW-.8, y = 13.15;
+    const xs = []; for(let x=-90;x<=96;x+=32) xs.push(x);
+    for(let i=1;i<xs.length;i++){
+      [[.06,.55],[-.09,.9]].forEach(([dz,sag]) => {
+        const p0 = new THREE.Vector3(xs[i-1], y, z+dz);
+        const p1 = new THREE.Vector3(xs[i],   y, z+dz);
+        const mid = new THREE.Vector3((xs[i-1]+xs[i])/2, y-sag, z+dz);
+        const wire = new THREE.Mesh(
+          new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(p0, mid, p1), 10, .035, 4, false),
+          M.wire
+        );
+        wire.castShadow = false; wire.receiveShadow = false;
+        scene.add(wire);
+      });
     }
   });
 
@@ -1158,7 +1303,7 @@ export function buildCity(THREE, scene){
     return false;
   }
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, lampSpots, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
 }
 
 /* ---------------- 角色 ----------------
@@ -1319,6 +1464,11 @@ const MODELS = {
           存一份專門給貓用,不要跟 pet 共用同一個檔案——見 game.html 的
           interactProp() 依 pet.label 選要放哪一個。 */
        once: { pickup:'base-human-pickup.glb', pet:'base-human-pet.glb', pet_low:'base-human-pet-low.glb' },
+       /* sit 不放進 once——騎機車一次可能持續很久,不是「播一次就回 idle」
+          那種手勢,是要一直撐著的姿勢,所以跟 idle/walk/run 同一套處理
+          (見 buildPlayer 的 sitAction),animate() 多一個 riding 參數決定
+          要不要蓋掉 idle/walk/run 選擇。 */
+       sit:'base-human-sit.glb',
        parts: { Body:'skin', Tops:'hood', Bottoms:'pants', Shoes:'shoe',
                  Hair:'hair', Eyes:'eyes', Eyelashes:'eyes' } },
   f: { idle:'base-human-f-idle.glb', walk:'base-human-f-walk.glb',
@@ -1473,7 +1623,7 @@ export function buildPlayer(THREE, scene){
   const M = buildCharacterMaterials(THREE);
   const primitive = buildPrimitiveRig(THREE, g, M);
   let mode = 'primitive';
-  let mixer = null, idleAction = null, walkAction = null, runAction = null, activeAction = null, model = null;
+  let mixer = null, idleAction = null, walkAction = null, runAction = null, sitAction = null, activeAction = null, model = null;
   let runPhase = 0;                                   // 只在「跑步動畫還沒載到」的過渡期用,見下面
   const onceActions = {};                             // name -> clipAction 快取,見 playOnce()
   let playingOnce = false;                            // true 時 animate() 的 idle/walk/run 切換整段跳過
@@ -1505,6 +1655,15 @@ export function buildPlayer(THREE, scene){
        處理。在這之前(下面 fallback)是把走路動畫加速播放頂著用。 */
     if(rig.run) loadModel(rig.run).then(runGltf => {
       if(runGltf.animations[0]) runAction = mixer.clipAction(runGltf.animations[0]);
+    }).catch(() => {});
+    /* 騎機車坐姿(2026-08-14)——原本試過角色整個藏起來/站著跟車走,kc 玩起來
+       都說不像騎車,改成真的坐姿。Mixamo 抓來的是「坐椅子」那種動作(膝蓋
+       90 度、雙腳併攏),不是專門的騎車姿勢,兩腿沒有跨開——這個遊戲的視角
+       離得夠遠、風格夠簡化,先頂著用,kc 覺得穿模明顯再考慮找專門的騎車
+       動畫或抓 IK 分開兩腿。LoopRepeat(預設)撐著,不用 LoopOnce——riding
+       可能持續很久,不是放一次就要停的手勢。 */
+    if(rig.sit) loadModel(rig.sit).then(sitGltf => {
+      if(sitGltf.animations[0]) sitAction = mixer.clipAction(sitGltf.animations[0]);
     }).catch(() => {});
   }).catch(() => {});
 
@@ -1555,14 +1714,24 @@ export function buildPlayer(THREE, scene){
     }).catch(() => { onDone && onDone(); });
   }
 
-  function animate(dt, moving, run){
+  /* riding(第 4 參數,2026-08-14 補):騎機車中——true 就整段蓋掉 idle/
+   * walk/run 的判斷,直接撐坐姿(sitAction 還沒載到就先退回原本的 idle/
+   * walk/run,不會空白,跟其他動畫「缺檔案不會壞」的慣例一致)。跑步的
+   * 前傾/彈跳疊加(runPhase 那段)只在真的用走路動畫頂跑步的過渡期有意義,
+   * 騎車時不管有沒有 useRun 都不該疊,所以額外用 !riding 擋掉。 */
+  function animate(dt, moving, run, riding){
     if(mode === 'primitive'){ primitive.animate(dt, moving, run); return; }
     if(!mixer) return;
-    if(!playingOnce && walkAction && idleAction){
-      const useRun = moving && run > 1 && runAction;
-      if(!useRun) walkAction.timeScale = run;         // 還沒載到跑步動畫時,退回舊做法頂著
-      if(runAction) runAction.timeScale = 1;          // 跑步動畫節奏本身就對,不用再乘 run
-      const next = useRun ? runAction : (moving ? walkAction : idleAction);
+    if(!playingOnce){
+      let next = activeAction, useRun = false;
+      if(riding && sitAction){
+        next = sitAction;
+      } else if(walkAction && idleAction){
+        useRun = moving && run > 1 && !!runAction;
+        if(!useRun) walkAction.timeScale = run;       // 還沒載到跑步動畫時,退回舊做法頂著
+        if(runAction) runAction.timeScale = 1;        // 跑步動畫節奏本身就對,不用再乘 run
+        next = useRun ? runAction : (moving ? walkAction : idleAction);
+      }
       if(next !== activeAction){                      // 狀態切換才 crossfade,不是每幀都呼叫
         activeAction.fadeOut(.15);
         next.reset().fadeIn(.15).play();
@@ -1572,7 +1741,7 @@ export function buildPlayer(THREE, scene){
          自己就有正確的前傾跟手臂擺動,再疊會變成兩層前傾一起加乘,反而怪。
          這段只是 runAction 還沒載到那幾秒的過渡效果,見上面 fallback。 */
       if(model){
-        if(!useRun && moving && run > 1){
+        if(!riding && !useRun && moving && run > 1){
           runPhase += dt*.011*run;
           model.rotation.x = .12;
           model.position.y = Math.abs(Math.sin(runPhase))*.05;
@@ -1634,10 +1803,20 @@ export function buildNPC(THREE, scene, opts){
     });
   }
 
+  /* 小步待機(2026-08-14):完全站定不動看起來像雕像,加一層極小幅度的
+   * 「活著」細節——不接 walk 骨架、不真的移動座標(那是「大步」的範圍,見
+   * 對話紀錄,還沒做),只在 idle 姿勢上疊偶爾轉向玩家 + 原地重心晃動。
+   * 沒有獨立頭骨,轉向是整顆模型小角度旋轉,幅度鎖在 ±.6 弧度內(約 34°),
+   * 不會整個人轉過去、看起來還是「站在原地瞄一眼」。animate() 第二參數
+   * playerPos 沒給(例如超商店員 clerkTick())就完全不會觸發,退回純 idle。 */
+  const baseRotationY = opts.rotationY || 0;
+  let model = null, glancing = false, glanceT = 0, glanceTimer = 1200 + Math.random()*2400;
+  let swayPhase = Math.random()*Math.PI*2;
+
   let mixer = null;
   loadModel(rig.idle).then(idleGltf => {
-    const model = riggedCharacter(THREE, idleGltf, M, opts.height || PLAYER.height, rig.parts);
-    model.rotation.y = opts.rotationY || 0;
+    model = riggedCharacter(THREE, idleGltf, M, opts.height || PLAYER.height, rig.parts);
+    model.rotation.y = baseRotationY;
     g.add(model);
 
     mixer = new THREE.AnimationMixer(model);
@@ -1669,6 +1848,31 @@ export function buildNPC(THREE, scene, opts){
     }
   }).catch(() => {});
 
-  function animate(dt){ if(mixer) mixer.update(dt/1000); }
+  function animate(dt, playerPos){
+    if(mixer) mixer.update(dt/1000);
+    if(!model) return;
+
+    glanceTimer -= dt;
+    if(glanceTimer <= 0){
+      const dist = playerPos ? Math.hypot(playerPos.x-g.position.x, playerPos.z-g.position.z) : Infinity;
+      glancing = dist < 9 && Math.random() < .65;
+      glanceTimer = glancing ? 1500 + Math.random()*1500 : 2200 + Math.random()*3200;
+    }
+    const targetT = glancing ? 1 : 0;
+    glanceT += (targetT - glanceT) * Math.min(1, dt*.004);
+
+    let targetY = baseRotationY;
+    if(glanceT > .01 && playerPos){
+      const dx = playerPos.x - g.position.x, dz = playerPos.z - g.position.z;
+      const faceAngle = Math.atan2(dx, dz);
+      let diff = Math.atan2(Math.sin(faceAngle-baseRotationY), Math.cos(faceAngle-baseRotationY));
+      diff = Math.max(-.6, Math.min(.6, diff));
+      targetY = baseRotationY + diff*glanceT;
+    }
+    model.rotation.y = targetY;
+
+    swayPhase += dt*.0009;
+    model.position.y = Math.sin(swayPhase)*.012;     // 重心換腳的極小幅度浮動,不是走路
+  }
   return { group:g, animate };
 }

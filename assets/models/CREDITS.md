@@ -15,6 +15,10 @@
 | `litter-cup.glb`      | Rubbish          | Poly by Google | CC-BY 3.0     | https://poly.pizza/m/fxU6_KtzTiX |
 | `dog.glb` | Dog | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/eDmSVe4TKwF |
 | `cat.glb` | Cat | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/6dM1J6f6pm9 |
+| `moto-vespa.glb` | Vespa | Jasmine Roberts | CC-BY | https://poly.pizza/m/blGLclvvdEM |
+| `lantern.glb` | red lantern | Sophie Kim | CC-BY | https://poly.pizza/m/7PZhxLFiGc2 |
+| `candelabra.glb` | Simple Candelabra | Don Carson | CC-BY | https://poly.pizza/m/b07YM_KsRhb |
+| `incense-bowl.glb` | Bowl Dirty | Kay Lousberg | Public Domain (CC0) | https://poly.pizza/m/ASUKhSq7pS |
 
 CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時記得帶著這份清單
 (或至少「遊具模型來自 Poly by Google,CC-BY 3.0」這句話),不要漏掉。
