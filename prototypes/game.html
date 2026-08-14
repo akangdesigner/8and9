@@ -393,8 +393,12 @@ const c2df = document.getElementById('c2df'), g2f = c2df.getContext('2d');
 const LW = 640, LH = 360, SC = 2;
 const STORE = {
   bgSrc:'../assets/bg/store-front.png', walkN:190, walkS:345,
-  /* cut 是在整合圖(1652×952)上直接量出來的鮮食櫃裁切框,不是從舊圖換算比例。 */
-  hot:{ x:230, y:290, w:208, h:100, cut:{ sx:578, sy:498, sw:514, sh:294 } },
+  /* cut 是在整合圖(1652×952)上直接量出來的鮮食櫃裁切框,不是從舊圖換算比例。
+     x/y/w/h(畫面矩形)也是從同一個 cut 换算過來的——1652×952 縮放貼滿
+     1280×720 canvas 的比例算出鮮食櫃在畫面上的「自然」位置,不是沿用舊照
+     片時代手貼的數字。2026-08-14 kc 截圖抓到「鮮食櫃分身」:沿用舊數字時
+     跟 paintStoreBackdrop() 已經畫好的鮮食櫃對不齊,疊上去變成雙重影像。 */
+  hot:{ x:224, y:300, w:199, h:111, cut:{ sx:578, sy:498, sw:514, sh:294 } },
   spots:[
     { id:'door',    name:'門口',   x:6,   w:120, y0:190, y1:345 },
     { id:'fridge',  name:'飲料櫃', x:140, w:158, y0:190, y1:238 },
@@ -617,12 +621,14 @@ function updateIndoor(dt){
 }
 
 /* c2df 疊最上層:玩家站到鮮食櫃「後面」(IN.py < STORE.hot.y,離鏡頭比較
-   遠)時,把整合圖裡鮮食櫃那塊(STORE.hot.cut)裁下來蓋在玩家身上,做出
-   前後遮擋——玩家畫在 c3d,比 c2df 低一層,蓋上去就會被擋住。顆粒雜訊疊
-   在最上面。 */
+   遠)**而且**左右也在鮮食櫃範圍內時,把整合圖裡鮮食櫃那塊(STORE.hot.cut)
+   裁下來蓋在玩家身上,做出前後遮擋——玩家畫在 c3d,比 c2df 低一層,蓋上去
+   就會被擋住。顆粒雜訊疊在最上面。2026-08-14 kc 抓到「鮮食櫃分身」:原本
+   只判斷 IN.py,沒判斷 IN.px,玩家站在飲料櫃、貨架這些跟鮮食櫃完全無關的
+   地方也會觸發疊繪,跟背景裡已經畫好的鮮食櫃疊成雙重影像。 */
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
-  if(IN.py < STORE.hot.y){
+  if(IN.py < STORE.hot.y && IN.px > STORE.hot.x && IN.px < STORE.hot.x + STORE.hot.w){
     g2f.imageSmoothingEnabled = true;
     const c = STORE.hot.cut;
     g2f.drawImage(storeImg, c.sx,c.sy,c.sw,c.sh,
