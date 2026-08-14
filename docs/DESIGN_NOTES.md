@@ -1148,7 +1148,7 @@ kc 的結論:**牆/飲料櫃/貨架/櫃台全部收回同一張 2D 背景圖,店
 拿掉之後直接改用 `STORE.spots` 裡本來就有的 `counter` 那組 px 座標,少繞
 一圈換算。
 
-#### 🔖 待辦:換成單張整合照片,鮮食櫃退回 Y-sort 裁切(還沒做)
+#### ✅ 換成單張整合照片,鮮食櫃退回 Y-sort 裁切(2026-08-14 做完)
 
 kc 生了一張新的整間店照片(門/飲料櫃/貨架/櫃台+收銀機/鮮食櫃/地板全部
 在同一張裡,連透視都是對的),丟了截圖過來說「用一張圖片而已 是2d的」
@@ -1159,23 +1159,27 @@ Y-sort 裁切重繪**(玩家 `py` 比鮮食櫃的 `y` 小就把鮮食櫃那塊�
 圖裁下來蓋回玩家身上,`STORE.hot.cut` 那組座標舊版就有,直接可用)——
 這張圖本身就畫了鮮食櫃,3D 箱體反而變成畫蛇添足。
 
-檔案已經放好:`assets/bg/store-front.png`(這次覆蓋掉舊的、沒人在用的
-同名檔)。**程式還沒改**——現在跑的還是上面那版「wall+counter 兩張圖拼
-+ store-floor.png 湊地板」,不是這張新圖。下一輪要做的事:
-1. `STORE.bgSrc` 指到新的 `store-front.png`,`paintStoreBackdrop()` 整段
-   換成單張 `drawImage(img,0,0,1280,720)`,拆掉 wall/counter/floor 三張圖
-   拼接跟地板平鋪那段。
-2. 拿掉 3D 鮮食櫃箱體(`buildHotCabinet`/`HOT_*` 材質/`hotCabinet` 實例),
-   `FIXTURE_COLLIDERS` 的鮮食櫃那條改用 `STORE.hot` 的 px 座標直接算
-   (跟櫃台那條現在的做法一樣,不用再繞 3D 世界座標)。
-3. 在 `renderIndoorForeground()`(現在只畫顆粒雜訊那層)補上鮮食櫃的
-   裁切重繪:`IN.py < STORE.hot.y` 時把 `STORE.hot.cut` 那塊從新背景圖
-   裁下來畫到 `STORE.hot` 的畫面位置,蓋在玩家(畫在 `c3d`,比 `c2df`
-   低一層)上面,做出「玩家站鮮食櫃後面會被擋住」的效果。`STORE.hot.cut`
-   是照舊圖(1672×941)量的,新圖是 1652×952,建議換算成比例
-   (sx/1672、sy/941 這樣的分數)再乘新圖實際尺寸,不要照抄原始像素值。
-4. `store-wall.png`/`store-counter.png`/`store-floor.png` 三個檔案留著
-   不用刪,先確認新版跑起來沒問題再考慮清掉。
+照上一輪列的四步做完了:
+
+1. `STORE.bgSrc` 指到 `store-front.png`,`paintStoreBackdrop()` 改成單張
+   `drawImage(storeImg,0,0,1280,720)`,拆掉 wall/counter/floor 三張圖拼接
+   跟地板平鋪那段。
+2. 拿掉 3D 鮮食櫃箱體(`buildHotCabinet`/`HOT_*` 材質/`hotCabinet` 實例,
+   連帶只被它用到的 `pyForNz` 一起刪),`FIXTURE_COLLIDERS` 的鮮食櫃那條
+   改用 `STORE.hot` 的 px 座標直接算(跟櫃台那條同一招)。
+3. `renderIndoorForeground()` 補上鮮食櫃裁切重繪:`IN.py < STORE.hot.y`
+   時把 `STORE.hot.cut` 裁下來畫到 `STORE.hot` 的畫面位置,蓋在玩家(畫在
+   `c3d`,比 `c2df` 低一層)上面。`STORE.hot.cut` **沒有照舊圖比例換算**,
+   是直接在新圖(1652×952)上用 PIL 拉網格線量出來的乾淨裁切框
+   `{sx:578,sy:498,sw:514,sh:294}`——換算比例只是猜,直接在新圖上量才準。
+4. `store-wall.png`/`store-counter.png`/`store-floor.png` 三個檔案還留著
+   沒刪,程式已經不引用。
+
+**瀏覽器驗證(2026-08-14)**:`python -m http.server 8000` + `__dbg.setIndoor()`
++ `__dbg.tick()` 直接擺位置截圖(rAF 在背景分頁會被瀏覽器暫停,不能用
+`__dbg.enter()` 等它自己走過去)。站在鮮食櫃前面(`py>290`)背景圖本身
+就完整畫出鮮食櫃;站到後面(`py<290`,例如 `setIndoor(334,260,'B')`)裁切
+準確蓋住下半身,只露頭肩,跟裁切前的箱體版本效果一致,邊緣看不出接縫。
 
 ### 表情:3D 模型做不到,交給 2D 立繪(2026-08-12 定案)⚠️
 

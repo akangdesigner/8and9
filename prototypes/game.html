@@ -392,8 +392,9 @@ const NPCS = [
 const c2df = document.getElementById('c2df'), g2f = c2df.getContext('2d');
 const LW = 640, LH = 360, SC = 2;
 const STORE = {
-  bgSrc:'../assets/bg/store-wall.png', walkN:190, walkS:345,
-  hot:{ x:230, y:290, w:208, h:100, cut:{ sx:600, sy:495, sw:545, sh:260 } },
+  bgSrc:'../assets/bg/store-front.png', walkN:190, walkS:345,
+  /* cut 是在整合圖(1652×952)上直接量出來的鮮食櫃裁切框,不是從舊圖換算比例。 */
+  hot:{ x:230, y:290, w:208, h:100, cut:{ sx:578, sy:498, sw:514, sh:294 } },
   spots:[
     { id:'door',    name:'門口',   x:6,   w:120, y0:190, y1:345 },
     { id:'fridge',  name:'飲料櫃', x:140, w:158, y0:190, y1:238 },
@@ -404,18 +405,17 @@ const STORE = {
 };
 
 /* ===================================================================
-   室內超商:2026-08-13 晚間第二次改版,見 docs/DESIGN_NOTES.md「整體改回
-   2D 背景」。「真的長方體房間」(地板+天花板+北牆都是有真實尺寸的 3D 幾何)
-   這個做法本身就是問題:場景在鏡頭裡只佔一小塊,四面撐開的地板/天花板看
-   起來像浮在空曠展場裡的模型,店員也套 3D 骨架後跟其他照片級貼圖的材質
-   等級差太多,活像人形立牌。kc 決定改回**扁平 2D 背景**——牆/飲料櫃/貨架
-   /櫃台全部收進同一張畫面(`c2dbg`,純 Canvas 2D drawImage,見下面
-   `paintStoreBackdrop()`),不再是活在 3D 空間裡、需要校正的物件。
-   **只有鮮食櫃留 3D 箱體**(`buildHotCabinet`,原封不動)——這是唯一玩家
-   會走近、需要正確前後遮擋的互動點,黃標/正價便當的核心抉擇發生在這裡,
-   值得多花這個成本。店員(2D,畫進櫃台圖裡)由 kc 之後自己做,這次先不接。
-   `c3d`(WebGL)改成透明背景,只畫玩家跟鮮食櫃,疊在 `c2dbg` 這張平面
-   背景之上,回到 DESIGN_NOTES 提過的「PS1《惡靈古堡》疊圖」那套。 */
+   室內超商:2026-08-13 第三版,見 docs/DESIGN_NOTES.md「換成單張整合照片」。
+   kc 生了一張整間店(門/飲料櫃/貨架/櫃台+收銀機/鮮食櫃/地板,含正確透視)
+   都在同一張照片裡的 `store-front.png`,不用再拼 wall+counter 兩張圖、
+   也不用另外湊地板。**鮮食櫃退回 Y-sort 裁切**(`renderIndoorForeground()`
+   裡按 `IN.py` 跟 `STORE.hot.y` 比大小,決定要不要把裁切出來的那塊鮮食櫃
+   畫面蓋在玩家上面),不再是獨立的 3D 箱體——3D 那條路線在上一版已經被
+   kc 判定「浮在空曠展場」打掉,這次乾脆連鮮食櫃也一起收回 2D,回到
+   `9cd6f01^` 之前(3D 化以前)`renderIndoor()` 的做法,靠同一張整合圖 +
+   裁切重繪做前後遮擋,精確度跟 `scene-home.js` 那套 2D 場景同等級。
+   `c3d`(WebGL)只剩畫玩家,`c2dbg` 是底圖,`c2df` 疊最上層畫鮮食櫃裁切
+   跟顆粒雜訊。 */
 const c3d = document.getElementById('c3d');
 const indoorScene = new THREE.Scene();
 /* 參考照片是日光燈打得很均勻的亮空間,原本 groundColor 太暗(0x2a2a30)
@@ -468,85 +468,40 @@ function nzForPy(py){
   const t = (py - STORE.walkN) / (STORE.walkS - STORE.walkN);
   return NZ_FAR + t * (NZ_NEAR - NZ_FAR);
 }
-/* nzForPy 的反函式——把「箱體正面深度」換算回 py,拿去當碰撞邊界。
-   2026-08-13:碰撞從這裡反推,不再手打第二份座標,見 DESIGN_NOTES。 */
-function pyForNz(nz){
-  const t = (nz - NZ_FAR) / (NZ_NEAR - NZ_FAR);
-  return STORE.walkN + t * (STORE.walkS - STORE.walkN);
-}
 
-/* 玩家/鮮食櫃座標換算(px↔world)還是要用——這兩個是唯二活在 3D 空間裡的
-   東西,跟這個換算比例無關的房間幾何(地板/天花板/牆)都拿掉了。數值沿用
+/* 玩家座標換算(px→world)還是要用——鮮食櫃退回 2D 裁切之後,玩家是唯一
+   還活在 3D 空間裡的東西,跟這個換算比例無關的房間幾何(地板/天花板/牆)
+   都拿掉了。數值沿用
    原本校正過的,不要動。 */
 const ROOM_HALF_WIDTH = 6;
 const WORLD_PER_PX = ROOM_HALF_WIDTH / 320;
 function worldXForPx(px){ return (px - 320) * WORLD_PER_PX; }
 function pxForWorldX(x){ return x / WORLD_PER_PX + 320; }
 
-/* 平面背景:牆(store-wall.png)+ 櫃台(store-counter.png)畫進同一張
-   Canvas 2D(`c2dbg`),疊在 c3d 底下——不用相機投影校正,兩張圖擺在畫面
-   上「看起來對」就好,跟 scene-home.js 那套 2D 場景同等級的精確度。地板
-   店家沒有專門拍floor 段的照片(store-wall.png 幾乎拍到牆跟磁磚交界就切
-   了,沒有留前景地板),先用 store-floor.png 這張可平鋪磁磚貼圖用純
-   2D flat 貼滿下半部頂著,不做透視——跟像素風時代 scene-store-front.js
-   的地板畫法(純色棋盤格,也沒做透視)同一個精神,先求「看起來是地板」,
-   不是照片級。這幾個版位數字都是這次先湊出來的,kc 覺得比例不對再調。 */
+/* 平面背景:單張整合照片(store-front.png,門/飲料櫃/貨架/櫃台/鮮食櫃/
+   地板都在同一張裡,含正確透視)直接貼滿,畫進 `c2dbg`,疊在 c3d 底下。
+   不用再拼牆+櫃台兩張圖、也不用另外湊地板貼圖——這正是這版比上一版簡單
+   的地方。 */
 const c2dbg = document.getElementById('c2dbg'), gbg = c2dbg.getContext('2d');
-const WALL_ZONE_H = 400;      // 背景圖(牆)畫到這個高度為止,以下是地板
 function paintStoreBackdrop(){
   gbg.clearRect(0,0,1280,720);
   gbg.imageSmoothingEnabled = true;
-  // 地板:store-floor.png 本身已經是 3×3 磁磚,拉滿整塊地板一次畫完就好
-  // ——再迴圈平鋪等於同一個 3×3 網格疊乘,格線會密到變成一片小碎格。
-  if(floorImg.complete) gbg.drawImage(floorImg, 0,WALL_ZONE_H,1280,720-WALL_ZONE_H);
-  else { gbg.fillStyle = '#c9c6bc'; gbg.fillRect(0,WALL_ZONE_H,1280,720-WALL_ZONE_H); }
-  // 牆(門/飲料櫃/貨架):壓縮塞進上面那塊高度,不要拉伸變形太嚴重就好
-  if(wallImg.complete) gbg.drawImage(wallImg, 0,0,1280,WALL_ZONE_H);
-  // 櫃台:貼在牆面圖右側原本留白(kc 生圖時特意留的空牆)那一塊
-  if(counterImg.complete) gbg.drawImage(counterImg, 918,260,362,190);
+  if(storeImg.complete) gbg.drawImage(storeImg, 0,0,1280,720);
 }
-const wallImg = new Image(); wallImg.onload = paintStoreBackdrop; wallImg.src = STORE.bgSrc;
-const floorImg = new Image(); floorImg.onload = paintStoreBackdrop; floorImg.src = '../assets/bg/store-floor.png';
-const counterImg = new Image(); counterImg.onload = paintStoreBackdrop; counterImg.src = '../assets/bg/store-counter.png';
+const storeImg = new Image(); storeImg.onload = paintStoreBackdrop; storeImg.src = STORE.bgSrc;
 
-/* 鮮食櫃:唯一維持真的 3D 箱體的家具(見上面「整體改回 2D 背景」)——
-   給真實世界尺寸,正面貼 store-hot-cabinet.png,不從照片反推深度。位置
-   沿用 STORE.hot 這組既有的邏輯座標,互動熱區共用同一組數字,不用兩份。 */
-const hotTex = new THREE.TextureLoader().load('../assets/bg/store-hot-cabinet.png');
-hotTex.colorSpace = THREE.SRGBColorSpace;
-const HOT_WORLD_WIDTH = 2.6, HOT_WORLD_HEIGHT = 2.1, HOT_WORLD_DEPTH = 1.0;
-const HOT_BODY_SIDE_MAT = new THREE.MeshStandardMaterial({ color:0x9c8e78, roughness:.9 });
-const HOT_BODY_FACE_MAT = new THREE.MeshStandardMaterial({ map:hotTex, roughness:.9 });
-const HOT_TOP_MAT = new THREE.MeshStandardMaterial({ color:0xb8b8b8, roughness:.6, metalness:.2 });
-function buildHotCabinet(nz, pxCenter){
-  const g = new THREE.Group();
-  const cx = worldXForPx(pxCenter);
-  const cz = nz - HOT_WORLD_DEPTH/2;
-  g.position.set(cx, 0, cz);
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(HOT_WORLD_WIDTH, HOT_WORLD_HEIGHT, HOT_WORLD_DEPTH),
-    [HOT_BODY_SIDE_MAT, HOT_BODY_SIDE_MAT, HOT_BODY_SIDE_MAT, HOT_BODY_SIDE_MAT,
-     HOT_BODY_FACE_MAT, HOT_BODY_SIDE_MAT]);
-  body.position.y = HOT_WORLD_HEIGHT/2;
-  g.add(body);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(HOT_WORLD_WIDTH+.1, .06, HOT_WORLD_DEPTH+.1), HOT_TOP_MAT);
-  top.position.y = HOT_WORLD_HEIGHT + .03;
-  g.add(top);
-  indoorScene.add(g);
-  return { group:g, halfWidth: HOT_WORLD_WIDTH/2, centerX: cx, frontZ: nz, backZ: nz - HOT_WORLD_DEPTH };
-}
-const hotCabinet = buildHotCabinet(nzForPy(STORE.hot.y), STORE.hot.x + STORE.hot.w/2);
-
-/* 櫃台不再是 3D 物件(見上面「整體改回 2D 背景」),已經畫進
-   `paintStoreBackdrop()` 那張平面背景圖裡,不需要幾何/材質,也不需要另外
-   校正深度。碰撞維持「玩家不能太靠近」這個站立距離(遊戲設計取捨,跟
-   鮮食櫃那種從箱體深度算不一樣),邊界直接用 STORE.spots 裡本來就有的
-   `counter` 那組 px 座標,不用再繞去世界座標换算一圈。 */
+/* 櫃台跟鮮食櫃都已經畫進 `store-front.png` 這張整合背景圖裡,不再是 3D
+   物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,不用繞去世界
+   座標換算一圈:
+   - 櫃台維持「玩家不能太靠近」這個站立距離(遊戲設計取捨,不是量出來的
+     真實家具寬度),用 STORE.spots 的 `counter` 那組座標。
+   - 鮮食櫃直接用 STORE.hot 這個既有的畫面矩形——跟 renderIndoorForeground()
+     裡拿來遮擋玩家的是同一組數字,兩者不會脫鉤。 */
 const COUNTER_STAND_PY = 230;
 const counterSpot = STORE.spots.find(s => s.id === 'counter');
 const FIXTURE_COLLIDERS = [
   { x0: STORE.hot.x, x1: STORE.hot.x + STORE.hot.w,
-    pyBack: pyForNz(hotCabinet.backZ), pyFront: pyForNz(hotCabinet.frontZ) },
+    pyBack: STORE.hot.y - STORE.hot.h, pyFront: STORE.hot.y },
   { x0: counterSpot.x, x1: counterSpot.x + counterSpot.w,
     pyBack: STORE.walkN, pyFront: COUNTER_STAND_PY }
 ];
@@ -698,10 +653,18 @@ function updateIndoor(dt){
   } else hintEl.classList.remove('on');
 }
 
-/* c2df 只剩顆粒雜訊這層,疊在最上層;c2dbg(平面背景)在最底、c3d(玩家/
-   鮮食櫃)在中間——見上面「整體改回 2D 背景」。 */
+/* c2df 疊最上層:玩家站到鮮食櫃「後面」(IN.py < STORE.hot.y,離鏡頭比較
+   遠)時,把整合圖裡鮮食櫃那塊(STORE.hot.cut)裁下來蓋在玩家身上,做出
+   前後遮擋——玩家畫在 c3d,比 c2df 低一層,蓋上去就會被擋住。顆粒雜訊疊
+   在最上面。 */
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
+  if(IN.py < STORE.hot.y){
+    g2f.imageSmoothingEnabled = true;
+    const c = STORE.hot.cut;
+    g2f.drawImage(storeImg, c.sx,c.sy,c.sw,c.sh,
+      STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC);
+  }
   g2f.imageSmoothingEnabled = false;
   g2f.globalAlpha = .5;
   g2f.drawImage(grain, 0,0,LW,LH, 0,0,c2df.width,c2df.height);
