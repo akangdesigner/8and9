@@ -392,13 +392,14 @@ const NPCS = [
 const c2df = document.getElementById('c2df'), g2f = c2df.getContext('2d');
 const LW = 640, LH = 360, SC = 2;
 const STORE = {
-  bgSrc:'../assets/bg/store-front.png', walkN:190, walkS:345,
-  /* cut 是在整合圖(1652×952)上直接量出來的鮮食櫃裁切框,不是從舊圖換算比例。
-     x/y/w/h(畫面矩形)也是從同一個 cut 换算過來的——1652×952 縮放貼滿
-     1280×720 canvas 的比例算出鮮食櫃在畫面上的「自然」位置,不是沿用舊照
-     片時代手貼的數字。2026-08-14 kc 截圖抓到「鮮食櫃分身」:沿用舊數字時
-     跟 paintStoreBackdrop() 已經畫好的鮮食櫃對不齊,疊上去變成雙重影像。 */
-  hot:{ x:224, y:300, w:199, h:111, cut:{ sx:578, sy:498, sw:514, sh:294 } },
+  bgSrc:'../assets/bg/store-wall.png', walkN:190, walkS:345,
+  /* x/y/w/h 是鮮食櫃在畫面上的矩形(y 是底邊、h 是高),從
+     store-wall.png(1668×943)縮放貼滿 1280×720 canvas 的比例反推「鮮食櫃
+     應該站在哪裡」量出來的——跟舊的整合單張照片版本量出來的數字幾乎一樣
+     (兩張圖構圖高度一致,只差有沒有畫鮮食櫃),不是巧合,是同一次拍攝。
+     這組矩形同時餵給 paintStoreBackdrop() 貼鮮食櫃、renderIndoorForeground()
+     的遮擋裁切、跟 FIXTURE_COLLIDERS 的碰撞,三處共用同一份數字。 */
+  hot:{ x:224, y:300, w:199, h:111 },
   spots:[
     { id:'door',    name:'門口',   x:6,   w:120, y0:190, y1:345 },
     { id:'fridge',  name:'飲料櫃', x:140, w:158, y0:190, y1:238 },
@@ -409,17 +410,17 @@ const STORE = {
 };
 
 /* ===================================================================
-   室內超商:2026-08-13 第三版,見 docs/DESIGN_NOTES.md「換成單張整合照片」。
-   kc 生了一張整間店(門/飲料櫃/貨架/櫃台+收銀機/鮮食櫃/地板,含正確透視)
-   都在同一張照片裡的 `store-front.png`,不用再拼 wall+counter 兩張圖、
-   也不用另外湊地板。**鮮食櫃退回 Y-sort 裁切**(`renderIndoorForeground()`
-   裡按 `IN.py` 跟 `STORE.hot.y` 比大小,決定要不要把裁切出來的那塊鮮食櫃
-   畫面蓋在玩家上面),不再是獨立的 3D 箱體——3D 那條路線在上一版已經被
-   kc 判定「浮在空曠展場」打掉,這次乾脆連鮮食櫃也一起收回 2D,回到
-   `9cd6f01^` 之前(3D 化以前)`renderIndoor()` 的做法,靠同一張整合圖 +
-   裁切重繪做前後遮擋,精確度跟 `scene-home.js` 那套 2D 場景同等級。
-   `c3d`(WebGL)只剩畫玩家,`c2dbg` 是底圖,`c2df` 疊最上層畫鮮食櫃裁切
-   跟顆粒雜訊。 */
+   室內超商:2026-08-14 第四版,見 docs/DESIGN_NOTES.md「鮮食櫃改回獨立圖片」。
+   上一版是「整間店(含鮮食櫃)畫在同一張照片裡」,這版 kc 把鮮食櫃換回
+   **獨立的一張圖**(`store-hot-cabinet.png`,本來就在 assets/bg/,拿掉
+   3D 箱體那輪就留著沒刪)疊上去——背景照片(`store-wall.png`)只剩門/
+   飲料櫃/貨架/櫃台/地板,不含鮮食櫃,鮮食櫃在 `paintStoreBackdrop()`
+   裡另外貼一次。這樣鮮食櫃以後要換菜色、換季節限定,只要換那張獨立圖,
+   不用重生整間店的照片。**鮮食櫃仍然是 Y-sort 裁切**(`renderIndoorForeground()`
+   裡按 `IN.py` 跟 `STORE.hot.y` 比大小決定要不要把它蓋在玩家上面)——
+   跟上一版差別只在來源圖從「裁一塊整合照片」變成「直接畫整張獨立圖」,
+   遮擋邏輯本身沒變。`c3d`(WebGL)只剩畫玩家,`c2dbg` 是底圖,`c2df`
+   疊最上層畫鮮食櫃遮擋跟顆粒雜訊。 */
 const c3d = document.getElementById('c3d');
 const indoorScene = new THREE.Scene();
 /* 參考照片是日光燈打得很均勻的亮空間,原本 groundColor 太暗(0x2a2a30)
@@ -455,33 +456,37 @@ renderer3d.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer3d.outputColorSpace = THREE.SRGBColorSpace;
 renderer3d.setClearColor(0x000000, 0);
 
-/* 平面背景:單張整合照片(store-front.png,門/飲料櫃/貨架/櫃台/鮮食櫃/
-   地板都在同一張裡,含正確透視)直接貼滿,畫進 `c2dbg`,疊在 c3d 底下。
-   不用再拼牆+櫃台兩張圖、也不用另外湊地板貼圖——這正是這版比上一版簡單
-   的地方。 */
+/* 平面背景:牆面照片(store-wall.png,門/飲料櫃/貨架/櫃台/地板,不含
+   鮮食櫃)貼滿,再把鮮食櫃獨立圖(store-hot-cabinet.png,原本是給 3D 箱體
+   當正面貼圖用的那張,拿掉箱體那輪留著沒刪)縮放貼到 STORE.hot 那個矩形
+   ——兩張圖畫進同一張 `c2dbg`,疊在 c3d 底下。鮮食櫃圖是近距離特寫拍的,
+   跟牆面照片的鏡頭距離不同,貼上去比例會跟原生寬高比有點落差,肉眼測過
+   可以接受(跟這專案一貫「看起來對就好」的標準一樣),不用另外校正。 */
 const c2dbg = document.getElementById('c2dbg'), gbg = c2dbg.getContext('2d');
 function paintStoreBackdrop(){
   gbg.clearRect(0,0,1280,720);
   gbg.imageSmoothingEnabled = true;
-  if(storeImg.complete) gbg.drawImage(storeImg, 0,0,1280,720);
+  if(wallImg.complete) gbg.drawImage(wallImg, 0,0,1280,720);
+  if(hotImg.complete) gbg.drawImage(hotImg, 0,0,hotImg.width,hotImg.height,
+    STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC);
 }
-/* 鮮食櫃遮擋用的裁切圖,離線先做成一塊「頂部 20px 漸層淡出」的貼圖,不要
+/* 鮮食櫃遮擋用的裁切圖,離線先做成一塊「頂部 40px 漸層淡出」的貼圖,不要
    每幀重新裁。2026-08-14 kc 截圖抓到「上面有個怪的透明板子」:裁切矩形的
-   上緣是鮮食櫃頂罩的金屬色,不管角色站哪個深度,這條硬邊都會剛好切在
-   角色身上的某個高度(肚子、胸口不一定)——因為角色不會隨深度縮放,身體
-   比例跟這個固定矩形對不上,才會在軀幹中間看到一條突兀的分界線。漸層淡出
-   不能解決「切的位置不對」這件事(那是這套簡化 2D 系統的本質限制,鮮食櫃
-   後面這條走道本來就不是核心互動,先不为了它加真的透視),但可以讓那條線
-   從「一刀切」變成柔和過渡,肉眼不會再讀成一塊突兀的色塊。 */
+   上緣不管角色站哪個深度,都會剛好切在螢幕上同一條高度——因為角色螢幕
+   身高是固定常數(不隨深度縮放),身體比例跟這個固定矩形對不上,才會在
+   軀幹中間看到一條突兀的分界線。漸層淡出不能解決「切的位置不對」這件事
+   (那是這套簡化 2D 系統的本質限制,鮮食櫃後面這條走道本來就不是核心
+   互動,先不為了它加真的透視),但可以讓那條線從「一刀切」變成柔和過渡,
+   肉眼不會再讀成一塊突兀的色塊。**改成獨立圖(hotImg)之後這段邏輯原封
+   不動**,只是遮罩來源從「裁一塊整合照片」換成「畫整張獨立圖」。 */
 const HOT_CUT_FADE_PX = 40;
 const hotCutBuf = document.createElement('canvas');
 hotCutBuf.width = STORE.hot.w*SC; hotCutBuf.height = STORE.hot.h*SC;
 const hotCutCtx = hotCutBuf.getContext('2d');
 function buildHotCutMask(){
-  const c = STORE.hot.cut;
   hotCutCtx.clearRect(0,0,hotCutBuf.width,hotCutBuf.height);
   hotCutCtx.imageSmoothingEnabled = true;
-  hotCutCtx.drawImage(storeImg, c.sx,c.sy,c.sw,c.sh, 0,0,hotCutBuf.width,hotCutBuf.height);
+  hotCutCtx.drawImage(hotImg, 0,0,hotImg.width,hotImg.height, 0,0,hotCutBuf.width,hotCutBuf.height);
   hotCutCtx.globalCompositeOperation = 'destination-in';
   const grad = hotCutCtx.createLinearGradient(0,0,0,HOT_CUT_FADE_PX);
   grad.addColorStop(0,'rgba(0,0,0,0)'); grad.addColorStop(1,'rgba(0,0,0,1)');
@@ -491,9 +496,10 @@ function buildHotCutMask(){
   hotCutCtx.fillRect(0,HOT_CUT_FADE_PX,hotCutBuf.width,hotCutBuf.height-HOT_CUT_FADE_PX);
   hotCutCtx.globalCompositeOperation = 'source-over';
 }
-const storeImg = new Image();
-storeImg.onload = () => { paintStoreBackdrop(); buildHotCutMask(); };
-storeImg.src = STORE.bgSrc;
+const wallImg = new Image(); wallImg.onload = paintStoreBackdrop; wallImg.src = STORE.bgSrc;
+const hotImg = new Image();
+hotImg.onload = () => { paintStoreBackdrop(); buildHotCutMask(); };
+hotImg.src = '../assets/bg/store-hot-cabinet.png';
 
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
    裡,不再是 3D 物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,
@@ -658,11 +664,14 @@ function updateIndoor(dt){
 }
 
 /* c2df 疊最上層:玩家站到鮮食櫃「後面」(IN.py < STORE.hot.y,離鏡頭比較
-   遠)**而且**左右也在鮮食櫃範圍內時,把整合圖裡鮮食櫃那塊(STORE.hot.cut)
-   裁下來蓋在玩家身上,做出前後遮擋——玩家畫在 c3d,比 c2df 低一層,蓋上去
-   就會被擋住。顆粒雜訊疊在最上面。2026-08-14 kc 抓到「鮮食櫃分身」:原本
-   只判斷 IN.py,沒判斷 IN.px,玩家站在飲料櫃、貨架這些跟鮮食櫃完全無關的
-   地方也會觸發疊繪,跟背景裡已經畫好的鮮食櫃疊成雙重影像。 */
+   遠)**而且**左右也在鮮食櫃範圍內時,把 `hotCutBuf`(上緣漸層淡出過的
+   鮮食櫃裁切圖,見上面 `buildHotCutMask()`)蓋在玩家身上,做出前後遮擋
+   ——玩家畫在 c3d,比 c2df 低一層,蓋上去就會被擋住。顆粒雜訊疊在最上面。
+   2026-08-14 kc 抓到「鮮食櫃分身」:原本只判斷 IN.py,沒判斷 IN.px,玩家
+   站在飲料櫃、貨架這些跟鮮食櫃完全無關的地方也會觸發疊繪,跟背景裡已經
+   畫好的鮮食櫃疊成雙重影像——這裡沿用同一個 x/y 判斷,換成獨立圖之後
+   這個坑不會重踩(畫的是同一張圖、同一個矩形,跟 paintStoreBackdrop()
+   貼的位置不會脫鉤)。 */
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
   if(IN.py < STORE.hot.y && IN.px > STORE.hot.x && IN.px < STORE.hot.x + STORE.hot.w){
