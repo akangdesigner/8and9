@@ -425,23 +425,22 @@ const indoorKey = new THREE.DirectionalLight(0xfff2d8, 1.1);
 indoorKey.position.set(-2, 5, 6);
 indoorScene.add(indoorKey);
 
-/* FOV 從 32 調到 50(2026-08-13,真房間上線時發現的必要調整,不是喜好
-   問題):地板/牆面改用真實世界座標後,玩家可以走到離鏡頭最近的地方(NZ_NEAR=5,
-   離鏡頭 7 個單位),原本 32° 的窄鏡頭在那個距離只看得到中間約 7 個單位寬
-   的範圍,玩家往左走去開門(門在畫面最左邊)會直接走出鏡頭外——這在舊版
-   「螢幕座標反推世界座標」的假房間裡不會發生(那套做法保證怎麼走都在
-   畫面內,代價就是 kc 這次抓到的透視不一致)。50° 是抓「房間整個寬度在
-   NZ_NEAR 那個距離仍然完整入鏡」反推出來的下限再留一點餘裕,角色的螢幕
-   身高有 heroScaleFor() 自動補償,不受 FOV 變寬影響;鮮食櫃/櫃台在畫面上
-   會因此看起來略小一點,kc 覺得不對可以再調這個數字。 */
-const indoorCamera = new THREE.PerspectiveCamera(50, LW/LH, 0.1, 60);
-/* 平視,不要斜俯視——跟 2D 那套「臉與視線」的構圖原則一致。 */
-indoorCamera.position.set(0, 1.7, 12);
-indoorCamera.lookAt(0, 1.35, 0);
-/* camera.matrixWorldInverse 預設是單位矩陣,要 updateMatrixWorld() 跑過
- * 一次才會真的反映上面 position/lookAt 設的值——screenY()(下面,
- * heroScaleFor() 靠這個反推畫面身高)沒有這行會拿錯的鏡頭去算,卻不會
- * 報錯,非常難查(2026-08-12 踩了整個下午)。 */
+/* 2026-08-14 kc 截圖抓到:角色站到鮮食櫃前緣時,腳浮在鮮食櫃中段,不是
+   貼在照片畫的地板上。根因是這台鏡頭原本是為了「真的長方體房間」(已被
+   推翻,見上面「整體改回 2D 背景」)校準的透視鏡頭(PerspectiveCamera)——
+   房間退回單張平面照片之後,已經沒有真的 3D 幾何可以拿來校準這台鏡頭的
+   透視,角色的深度模型(nzForPy/heroScaleFor)跟照片本身的透視完全脫鉤,
+   只是巧合對得上或對不上。跟 kc 討論後決定:**角色定位退回舊的 2D 系統
+   那套簡單直接公式**(這正是 kc 記得「以前 2D 像素人不會有這個穿模問題」
+   的原因)——改用 OrthographicCamera,世界 XY 座標跟畫面 px 1:1 對應,
+   IN.px/IN.py 直接乘 SC 就是世界座標,不用再繞 nzForPy()/screenY() 反推。
+   角色 model 還是真的 3D 骨架(視覺不退步),只是不再套一台會跟平面背景
+   兜不攏的透視鏡頭。frustum 用 ±640/±360(對半張 1280×720 畫面),camera
+   放在 (640,360,50) 看向 (640,360,0),world Y 越大要對到螢幕越上面
+   (跟 3D 慣例一致),下面 renderIndoor3D() 用 `720 - IN.py*SC` 換算。 */
+const indoorCamera = new THREE.OrthographicCamera(-640, 640, 360, -360, -100, 100);
+indoorCamera.position.set(640, 360, 50);
+indoorCamera.lookAt(640, 360, 0);
 indoorCamera.updateMatrixWorld(true);
 
 /* alpha:true——c3d 現在疊在 c2dbg(平面背景)上面,只畫玩家跟鮮食櫃,
@@ -451,32 +450,6 @@ renderer3d.setSize(1280, 720, false);
 renderer3d.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer3d.outputColorSpace = THREE.SRGBColorSpace;
 renderer3d.setClearColor(0x000000, 0);
-
-/* 螢幕高度反推——現在只有 heroScaleFor()(把角色的畫面身高鎖定成固定值,
-   不管站多遠)還需要,靠 THREE.Vector3.project() 反推,不是憑眼睛湊。
-   房間跟家具的位置現在都是直接給真實世界座標,不用再靠這個對齊。 */
-function screenY(nz, y){
-  const v = new THREE.Vector3(0, y, nz).project(indoorCamera);
-  return (1 - v.y) / 2 * 720;
-}
-
-/* 深度:門口(遠)到最近牆(近)的世界深度範圍。2026-08-12 kc 反應「走到底
-   感覺沒有真的很靠近貨架」,把 NZ_FAR 推到 -14 之後又反應「穿牆」——退回
-   一個沒那麼極端的距離,沿用至今。 */
-const NZ_FAR = -8, NZ_NEAR = 5;
-function nzForPy(py){
-  const t = (py - STORE.walkN) / (STORE.walkS - STORE.walkN);
-  return NZ_FAR + t * (NZ_NEAR - NZ_FAR);
-}
-
-/* 玩家座標換算(px→world)還是要用——鮮食櫃退回 2D 裁切之後,玩家是唯一
-   還活在 3D 空間裡的東西,跟這個換算比例無關的房間幾何(地板/天花板/牆)
-   都拿掉了。數值沿用
-   原本校正過的,不要動。 */
-const ROOM_HALF_WIDTH = 6;
-const WORLD_PER_PX = ROOM_HALF_WIDTH / 320;
-function worldXForPx(px){ return (px - 320) * WORLD_PER_PX; }
-function pxForWorldX(x){ return x / WORLD_PER_PX + 320; }
 
 /* 平面背景:單張整合照片(store-front.png,門/飲料櫃/貨架/櫃台/鮮食櫃/
    地板都在同一張裡,含正確透視)直接貼滿,畫進 `c2dbg`,疊在 c3d 底下。
@@ -507,19 +480,11 @@ const FIXTURE_COLLIDERS = [
 ];
 const COLLIDE_PAD = 6;
 
-/* 身高:2026-08-12 先讓角色照真的透視縮放,kc 反應「變小的幅度好誇張」→
-   改成只留一點暗示的縮放範圍 → kc 反應「乾脆不要調小」→ 改成固定世界身高
-   (不再每幀調 scale),但**世界身高固定,鏡頭一樣會把比較遠的東西畫小,
-   螢幕上還是看得出縮小**——kc 才指出「還是會透視縮小」,這才是真正要的
-   結果:**畫面上的身高固定,不管站多遠**。這就不能只固定世界身高了,
-   要反過來每幀用 screenY() 反推「這個深度要多高的世界身高,才會在螢幕上
-   量出目標身高」,主動抵銷鏡頭的透視縮放——跟前面幾版邏輯類似,只是目標
-   身高範圍從「有一點暗示」收斂成「完全固定的一個數字」。 */
+/* 身高:畫面固定,不管站多遠(kc 2026-08-12 定案,見 DESIGN_NOTES)。
+   正交鏡頭下世界單位跟畫面 px 是固定的 1:1,不用再像透視鏡頭那樣每幀用
+   screenY() 反推——直接是一個常數。 */
 const INDOOR_HERO_TARGET_PX = 106 * 1.3 * SC;
-function heroScaleFor(nz){
-  const pxPerUnit = screenY(nz,0) - screenY(nz,1);
-  return (INDOOR_HERO_TARGET_PX / pxPerUnit) / PLAYER.height;
-}
+const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
 
 const heroIndoor = buildPlayer(THREE, indoorScene);
 
@@ -527,15 +492,13 @@ const heroIndoor = buildPlayer(THREE, indoorScene);
    照片級背景擺在一起像人形立牌,質感差太多。kc 說他之後自己做 2D 版畫進
    `paintStoreBackdrop()` 的櫃台圖裡,這次先不接、櫃台後面暫時沒有人。 */
 
-/* IN.px/IN.py(2D 640×360 邏輯座標)換算成這個獨立場景的世界座標:
-   py 對到「離鏡頭遠近」(world Z),用上面 nzForPy();px 對到左右(world X),
-   用 worldXForPx()——現在房間是真的長方體,1 世界 X 單位對應的畫面寬度
-   不再隨深度變(不像舊版那套假透視卡片),所以是固定比例,不用每幀重算。 */
+/* IN.px/IN.py(2D 640×360 邏輯座標)*SC 直接就是正交鏡頭的世界座標——
+   world X 跟畫面 px 同向,world Y 要反過來(世界 Y 越大對到畫面越上面,
+   見上面鏡頭設定的註解),Z 沒有意義,固定 0 就好。跟 STORE.hot 那些既有
+   的 px 判斷式(碰撞、Y-sort 遮擋)天生共用同一套數字,不會再脫鉤。 */
 function renderIndoor3D(dt){
-  const nz = nzForPy(IN.py);
-  const nx = worldXForPx(IN.px);
-  heroIndoor.group.position.set(nx, 0, nz);
-  heroIndoor.group.scale.setScalar(heroScaleFor(nz));
+  heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
+  heroIndoor.group.scale.setScalar(INDOOR_HERO_SCALE);
   heroIndoor.group.rotation.y =
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
@@ -947,13 +910,12 @@ window.__dbg = {
   tick(dt){ renderIndoor3D(dt||16); renderIndoorForeground(); },   // 手動推進一幀,不用等 rAF,方便測室內位置
   heroIndoor, indoorScene, renderer3d,
   indoorCalib(){
-    const z = heroIndoor.group.position.z, s = heroIndoor.group.scale.x;
-    return { NZ_FAR, NZ_NEAR, ROOM_HALF_WIDTH, FIXTURE_COLLIDERS,
-      heroPos: heroIndoor.group.position.toArray(), heroScale: s,
-      footScreenY: screenY(z, 0), headScreenY: screenY(z, s*PLAYER.height) };
+    const s = heroIndoor.group.scale.x;
+    return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
+      footScreenY: heroIndoor.group.position.y, headScreenY: heroIndoor.group.position.y - s*PLAYER.height };
   },
   mode: () => MODE,
-  screenY, cam: indoorCamera,
+  cam: indoorCamera,
   state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
                   pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] })
 };
