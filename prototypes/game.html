@@ -470,18 +470,24 @@ const storeImg = new Image(); storeImg.onload = paintStoreBackdrop; storeImg.src
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
    裡,不再是 3D 物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,
    不用繞去世界座標换算一圈:
-   - 鮮食櫃是店中央的獨立家具,用 STORE.hot 這個既有的畫面矩形——跟
-     renderIndoorForeground() 裡拿來遮擋玩家的是同一組數字,兩者不會脫鉤。
+   - 鮮食櫃是店中央的獨立家具,x 範圍、前緣(pyFront)都用 STORE.hot 這個
+     既有的畫面矩形——跟 renderIndoorForeground() 裡拿來遮擋玩家的是同一組
+     數字,兩者不會脫鉤。**碰撞深度不能直接拿 `STORE.hot.h`**(2026-08-14
+     kc 抓到「鮮食櫃跟貨架中間走道被卡住」才發現:`h` 是它畫面上的高度,
+     拿來當它往店內延伸的深度用,深到幾乎貼到後牆,把該有的走道吃光了。
+     深度另外給一個淺很多的 `HOT_FOOTPRINT_DEPTH`,只夠擋住「不能直接穿過
+     鮮食櫃本體」,後面留出走道可以繞到貨架前。
    - 2026-08-14 kc 截圖抓到:飲料櫃跟貨架原本完全沒有碰撞(只有櫃台有),
      玩家可以一路走進貨架、腳陷進商品裡。照片裡這一整排(飲料櫃/貨架/
      櫃台)其實是同一面牆,中間沒有真的走道——改成一個貫穿整面牆的碰撞
      (只在門口那段留空隙),不用再每個家具各自兜一個框。 */
 const BACK_WALL_STAND_PY = 230;
+const HOT_FOOTPRINT_DEPTH = 46;
 const doorSpot = STORE.spots.find(s => s.id === 'door');
 const counterSpot = STORE.spots.find(s => s.id === 'counter');
 const FIXTURE_COLLIDERS = [
   { x0: STORE.hot.x, x1: STORE.hot.x + STORE.hot.w,
-    pyBack: STORE.hot.y - STORE.hot.h, pyFront: STORE.hot.y },
+    pyBack: STORE.hot.y - HOT_FOOTPRINT_DEPTH, pyFront: STORE.hot.y },
   { x0: doorSpot.x + doorSpot.w, x1: counterSpot.x + counterSpot.w,
     pyBack: STORE.walkN, pyFront: BACK_WALL_STAND_PY }
 ];
