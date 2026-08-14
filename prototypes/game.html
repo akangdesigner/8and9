@@ -296,21 +296,21 @@ const WHO = {
   pc:    { name:'你',   opt:{ face:'F', skin:P2.pcSkin, hair:P2.pcHair, top:P2.pcHood, topD:P2.pcHoodD, pants:P2.pcPants, shoe:P2.pcShoe, hood:true } },
   clerk: { name:'店員', opt:{ face:'F', skin:P2.clSkin, hair:P2.clHair, top:P2.clVest, topD:P2.clShirt, pants:'#2c3340' } }
 };
-/* 店員大頭貼直接裁 clerkFrontImg 的臉部(跟他站在櫃台裡是同一張圖,
-   2026-08-14 起有這張真人截圖之後就不用再靠 SF.person() 那套像素小人放大
-   湊——DESIGN_NOTES「UI:對話框」那節原本設想的「人物換成正式素材頭像
-   會自動變好」在這裡才真的兌現。裁切框 (34,0,164,130) 是在 clerk-front.png
-   上肉眼量的,含頭髮頂到一點毛衣領口,方形好縮進 100×100 的大頭貼畫布。
-   其他角色(玩家 pc、之後可能的 NPC)還沒有這種真人截圖,維持原本
+/* 店員大頭貼:2026-08-14 第一版是直接裁 clerkFrontImg(店員站櫃台那張
+   遠景)的臉部,結果放大到 100×100 才發現 3D 模型近距離撐不住——沒有
+   虹膜/高光對比,看起來無神。kc 覺得這個問題該換掉來源,不是硬摳 3D
+   渲染:改成另外生一張 GPT 頭像特寫(`clerk-portrait.png`,同一套膚色/
+   髮色/紫色制服,但是真的照片級人臉,近看有真的眼神)專門給對話框用,
+   跟站在櫃台裡那張(遠景、3D 渲染)是兩張不同用途的圖,不用互相遷就。
+   其他角色(玩家 pc、之後可能的 NPC)還沒有這種真人頭像,維持原本
    SF.person() 那套像素小人放大畫法,不要因為店員換了就跟著硬套。 */
-const CLERK_PORTRAIT_CUT = [34,0,164,130];
+const clerkPortraitImg = new Image(); clerkPortraitImg.src = '../assets/bg/clerk-portrait.png';
 function drawPortrait(who){
   const w = WHO[who] || WHO.pc, S = portC.canvas.width;
   portC.clearRect(0,0,S,S); portC.fillStyle = '#1b202b'; portC.fillRect(0,0,S,S);
-  if(who === 'clerk' && clerkFrontImg.complete){
-    const [sx,sy,sx1,sy1] = CLERK_PORTRAIT_CUT;
+  if(who === 'clerk' && clerkPortraitImg.complete){
     portC.imageSmoothingEnabled = true;
-    portC.drawImage(clerkFrontImg, sx,sy,sx1-sx,sy1-sy, 0,0,S,S);
+    portC.drawImage(clerkPortraitImg, 0,0,clerkPortraitImg.width,clerkPortraitImg.height, 0,0,S,S);
   } else {
     portC.save(); portC.imageSmoothingEnabled = false;
     const k = S/33; portC.scale(k,k);
@@ -567,9 +567,9 @@ hotImg.src = '../assets/bg/store-hot-cabinet.png';
    看不到修好的版本(這個 session 已經在鮮食櫃圖上踩過同一個坑)——之後這兩張
    圖只要換內容,記得把 N 往上加一,不要以為存檔就會自動生效。 */
 const clerkFrontImg = new Image(); clerkFrontImg.onload = paintStoreBackdrop;
-clerkFrontImg.src = '../assets/bg/clerk-front.png?v=6';
+clerkFrontImg.src = '../assets/bg/clerk-front.png?v=7';
 const clerkBackImg = new Image(); clerkBackImg.onload = paintStoreBackdrop;
-clerkBackImg.src = '../assets/bg/clerk-back.png?v=3';
+clerkBackImg.src = '../assets/bg/clerk-back.png?v=4';
 
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
    裡,不再是 3D 物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,
@@ -1119,7 +1119,8 @@ window.__dbg = {
     if(this._clerk) indoorScene.remove(this._clerk.group);
     this._clerk = buildNPC(THREE, indoorScene, {
       rig: rig||'m2', rotationY: rotY||0,
-      skin:'#cfa279', hair:'#201b17', hood:'#4a09b6', pants:'#2c3340', shoe:'#1a1a1a'
+      skin:'#cfa279', hair:'#201b17', hood:'#4a09b6', pants:'#2c3340', shoe:'#1a1a1a',
+      tex:{ hood:'clerk-uniform.png' }   // 2026-08-14 kc 生的制服布料,跟 char-yuan-shirt.png 同一套 UV 鏡射貼法
     });
     this._clerk.group.position.set(640, 200, 0);
     this._clerk.group.scale.setScalar(INDOOR_HERO_SCALE);   // 跟 heroIndoor 同一招,見上面「畫面固定身高」
