@@ -304,7 +304,7 @@ const WHO = {
    跟站在櫃台裡那張(遠景、3D 渲染)是兩張不同用途的圖,不用互相遷就。
    其他角色(玩家 pc、之後可能的 NPC)還沒有這種真人頭像,維持原本
    SF.person() 那套像素小人放大畫法,不要因為店員換了就跟著硬套。 */
-const clerkPortraitImg = new Image(); clerkPortraitImg.src = '../assets/bg/clerk-portrait.png';
+const clerkPortraitImg = new Image(); clerkPortraitImg.src = '../assets/bg/clerk-portrait.png?v=2';
 function drawPortrait(who){
   const w = WHO[who] || WHO.pc, S = portC.canvas.width;
   portC.clearRect(0,0,S,S); portC.fillStyle = '#1b202b'; portC.fillRect(0,0,S,S);
