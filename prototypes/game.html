@@ -465,7 +465,35 @@ function paintStoreBackdrop(){
   gbg.imageSmoothingEnabled = true;
   if(storeImg.complete) gbg.drawImage(storeImg, 0,0,1280,720);
 }
-const storeImg = new Image(); storeImg.onload = paintStoreBackdrop; storeImg.src = STORE.bgSrc;
+/* 鮮食櫃遮擋用的裁切圖,離線先做成一塊「頂部 20px 漸層淡出」的貼圖,不要
+   每幀重新裁。2026-08-14 kc 截圖抓到「上面有個怪的透明板子」:裁切矩形的
+   上緣是鮮食櫃頂罩的金屬色,不管角色站哪個深度,這條硬邊都會剛好切在
+   角色身上的某個高度(肚子、胸口不一定)——因為角色不會隨深度縮放,身體
+   比例跟這個固定矩形對不上,才會在軀幹中間看到一條突兀的分界線。漸層淡出
+   不能解決「切的位置不對」這件事(那是這套簡化 2D 系統的本質限制,鮮食櫃
+   後面這條走道本來就不是核心互動,先不为了它加真的透視),但可以讓那條線
+   從「一刀切」變成柔和過渡,肉眼不會再讀成一塊突兀的色塊。 */
+const HOT_CUT_FADE_PX = 40;
+const hotCutBuf = document.createElement('canvas');
+hotCutBuf.width = STORE.hot.w*SC; hotCutBuf.height = STORE.hot.h*SC;
+const hotCutCtx = hotCutBuf.getContext('2d');
+function buildHotCutMask(){
+  const c = STORE.hot.cut;
+  hotCutCtx.clearRect(0,0,hotCutBuf.width,hotCutBuf.height);
+  hotCutCtx.imageSmoothingEnabled = true;
+  hotCutCtx.drawImage(storeImg, c.sx,c.sy,c.sw,c.sh, 0,0,hotCutBuf.width,hotCutBuf.height);
+  hotCutCtx.globalCompositeOperation = 'destination-in';
+  const grad = hotCutCtx.createLinearGradient(0,0,0,HOT_CUT_FADE_PX);
+  grad.addColorStop(0,'rgba(0,0,0,0)'); grad.addColorStop(1,'rgba(0,0,0,1)');
+  hotCutCtx.fillStyle = grad;
+  hotCutCtx.fillRect(0,0,hotCutBuf.width,HOT_CUT_FADE_PX);
+  hotCutCtx.fillStyle = '#000';
+  hotCutCtx.fillRect(0,HOT_CUT_FADE_PX,hotCutBuf.width,hotCutBuf.height-HOT_CUT_FADE_PX);
+  hotCutCtx.globalCompositeOperation = 'source-over';
+}
+const storeImg = new Image();
+storeImg.onload = () => { paintStoreBackdrop(); buildHotCutMask(); };
+storeImg.src = STORE.bgSrc;
 
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
    裡,不再是 3D 物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,
@@ -639,9 +667,7 @@ function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
   if(IN.py < STORE.hot.y && IN.px > STORE.hot.x && IN.px < STORE.hot.x + STORE.hot.w){
     g2f.imageSmoothingEnabled = true;
-    const c = STORE.hot.cut;
-    g2f.drawImage(storeImg, c.sx,c.sy,c.sw,c.sh,
-      STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC);
+    g2f.drawImage(hotCutBuf, STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC);
   }
   g2f.imageSmoothingEnabled = false;
   g2f.globalAlpha = .5;
