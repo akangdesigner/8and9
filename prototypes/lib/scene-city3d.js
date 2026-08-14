@@ -164,6 +164,11 @@ export function buildCity(THREE, scene){
     tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
     plastic:std({color:0xc0473a,roughness:.75}),
     tin:std({color:0x6a6f6a,roughness:.7,metalness:.4}),
+    templeDoor:std({color:0x6e1c14,roughness:.8}),
+    /* 香爐座、供桌各自開專屬材質,不要沿用 M.curb/M.gold——那兩個共用材質
+       還貼在路緣石、屋脊/門楣上,直接貼圖會連累不相干的地方。 */
+    incenseStone:std({color:0x8a857a,roughness:.9}),
+    altarTable:std({color:0x7a4a2a,roughness:.6}),
     /* 店面凹進去的洞:側面看到的材質,故意深色,靠方向光自己暗下去做出深度,
        不用另外做假陰影的面板。 */
     recess:std({color:0x121417,roughness:.97}),
@@ -184,7 +189,12 @@ export function buildCity(THREE, scene){
     { mats:[M.shutter], file:'shutter.png', rep:[1,1], tint:0xa8b0ac },
     { mats:[M.road],  file:'road.png',  rep:[5,5], mirror:true, tint:0x6a7178 },
     { mats:[M.walk],  file:'walk.png',  rep:[3,3], mirror:true, tint:0xc2beb4 },
-    { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, tint:0xcfcabc }
+    { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, tint:0xcfcabc },
+    { mats:[M.tin], file:'ac-unit.png', rep:[1,1], mirror:true, lift:.1 },
+    { mats:[M.templeDoor], file:'temple-door.png', rep:[1,1], mirror:true, lift:.1 },
+    { mats:[M.incenseStone], file:'incense-stone.png', rep:[1,1], mirror:true, lift:.1 },
+    { mats:[M.altarTable], file:'altar-table.png', rep:[1,1], mirror:true, lift:.1 },
+    { mats:[M.roof], file:'temple-roof.png', rep:[2,1], mirror:true, lift:.12 }
   ].forEach(o => {
     loader.load(TEX_DIR + o.file, img => {
       const t = new THREE.CanvasTexture(prep(img, o));
@@ -485,31 +495,17 @@ export function buildCity(THREE, scene){
     bushLine(x0, z1, x0+sideW, z1);                                 // 入口左半
     bushLine(x1-sideW, z1, x1, z1);                                 // 入口右半
 
-    /* 長椅 x2,跟 tableSet() 的塑膠桌椅同一種灰模語彙,換成木頭色。
-       2026-08-13 kc 說公園比例好怪——上一版座面是 .5 厚的方塊、座高只有 .5,
-       跟角色一比像個箱子不像長椅。這個場景 1 單位 ≈ .42 米(見 PLAYER 那節
-       身高換算),照現實長椅尺寸(座高 ~.45m、椅背頂 ~.85m)重新推:
-       座高 1.0、椅背頂 ~2.1、座板變薄成 .14。 */
-    const woodM = std({ color:0x8a6a42, roughness:.85 });
-    function bench(x, z, ry){
-      const g = new THREE.Group();
-      const seat = box(3.0,.14,.8, woodM); seat.position.y = 1.0; g.add(seat);
-      [[-1.3,-.28],[1.3,-.28],[-1.3,.28],[1.3,.28]].forEach(([bx,bz]) => {
-        const leg = box(.16,1.0,.16, M.metal); leg.position.set(bx,.5,bz); g.add(leg);
-      });
-      const back = box(3.0,1.1,.14, woodM); back.position.set(0,1.62,-.35); g.add(back);
-      g.rotation.y = ry || 0;
-      g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-      add(g, x, 0, z, false, false);
-      solid(x, z, 1.7, .6);
-    }
+    /* 長椅:2026-08-14 從純色箱體組的 3D 長椅換成跟 planter/hydrant 同一套的
+       照片卡片(prop-bench.png 早就生好放著,只是沒接程式——見 addProp()
+       上面的說明,3/4 角度照片包不進箱體六個面,做成立起來的卡片)。
+       w/h 比例照實拍長椅的內容比例配(約 1.44:1),沒圖之前退回素色卡片。 */
     /* 長椅挪到入口兩側,不要跟鞦韆同一條 z 排排站——鞦韆的碰撞箱本來就要
        撐到快 3 個單位寬,兩邊都塞東西一定會卡到入口(kc 抓到「走不進去」
        的問題)。2026-08-13 換成真 3D 遊具後,鞦韆/滑梯/翹翹板改用實際佔地
        長度反推位置(見上面 placeGltfProp() 那段),長椅位置跟著重算一次,
        每邊留至少 0.3~0.5 個單位淨空,不要憑感覺挪。 */
-    bench(cx-8, cz+3, 0);
-    bench(x1-2.5, cz+3, Math.PI);
+    addProp('bench', cx-8, cz+3, 2.6, 1.8, 0x8a6a42, 0);
+    addProp('bench', x1-2.5, cz+3, 2.6, 1.8, 0x8a6a42, Math.PI);
 
     /* 入口兩側各放一個盆栽,呼應現實公園入口常見的做法 */
     addProp('planter', cx-gateW/2-1, z1+.5, 1.0, 1.1, 0x6a7a5a);
@@ -716,12 +712,23 @@ export function buildCity(THREE, scene){
           drug:   { along: alongW-6.5, vertH:2.7,  y:8.0,  emissiveK:1.1 },
           tattoo: { along: alongW-5.9, vertH:2.8,  y:8.0,  emissiveK:1.15 }
         }[s.kind];
+        /* food-5(豆漿)是 kc 故意生的直式招牌(sign-food-5.png,1024×1536),
+           跟其他招牌共用的三款橫式輪替(style 0~2,見下面 else 分支)硬套會被
+           signImage() 的置中裁切吃掉大半直式文字。這裡照圖片實際比例
+           (1024/1536≈0.667)另外開一個窄高的箱體,不吃 style 輪替。 */
+        const SIGN_OVERRIDE = { 'food-5': { along:2.0, vertH:3.0, y:8.0, emissiveK:1 } }[s.signKey];
         let along, vertH, y, emissiveK, alongOff = 0;
-        if(ART){ ({along,vertH,y,emissiveK} = ART); }
+        if(SIGN_OVERRIDE){ ({along,vertH,y,emissiveK} = SIGN_OVERRIDE); }
+        else if(ART){ ({along,vertH,y,emissiveK} = ART); }
         else {
           const style = (i*7 + txt.length) % 3;
           along = [alongW-7.4, alongW-5.2, alongW-6.4][style];
-          vertH = [2.75, 4.2, 3.4][style];
+          /* 2026-08-14 kc 抓到:這三款 vertH 是 along/vertH≈1.53 的舊設定,沒拿
+             真的招牌圖驗證過。實際生出來的食物攤招牌(sign-food-*.png)是滿版無黑邊、
+             實測 along/vertH≈2.0(見上面 store/drug 那段「量測非黑色範圍」的同一套
+             方法),差了快 25%,裁切會吃掉左右快一成二的字。縮小 vertH 貼近 2.0,
+             along(店面寬度 footprint)不動。 */
+          vertH = [2.1, 3.2, 2.6][style];
           alongOff = style===2 ? (i%2?1:-1)*(alongW-along)/2*.7 : 0;
           y = 8.0 + ((i*5)%5)*.4 - (style===0?.2:0);
           emissiveK = 1;
@@ -788,6 +795,8 @@ export function buildCity(THREE, scene){
      整條街才不會像同一間開了八家。 */
   const FOOD = ['魯肉飯','切仔麵','鹹酥雞','自助餐','熱炒','豆漿'];
   const BETEL = ['檳榔','阿美檳榔','雙葉檳榔'];
+  /* 網咖、遊藝場(2026-08-14 kc 定案)都只留 1 間,不比照 FOOD/BETEL 開陣列——
+     街上 slot 數本來就只有 1 個,不需要備用店名。 */
   let nFood = 0, nBetel = 0;
   const S = {
     sh:{kind:'shutter'}, gap:{kind:'gap'},
@@ -812,13 +821,16 @@ export function buildCity(THREE, scene){
     S.sh, S.sh, S.food(0xe8b52c), S.sh ]});
   /* 廟口路 */
   row({ axis:'x', at:-78+B_LINE, face:-1, from:-60, shops:[
-    S.sh, S.food(), S.betel(), S.gap, S.food(0xe8b52c), S.sh, S.drug(), S.sh, S.net(), S.sh ]});
+    S.sh, S.food(), S.betel(), S.gap, S.food(0xe8b52c), S.sh, S.drug(), S.sh, S.sh, S.sh ]});
   /* 後火車站:暗的那一條 */
   row({ axis:'x', at:72-B_LINE, face:1, from:-60, shops:[
     S.sh, S.sh, S.gap, S.sh, S.moto(), S.sh, S.sh, S.sh, S.sh, S.gap ]});
-  /* 縱街 */
-  row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.food(),S.sh,S.sh,S.betel(),S.sh,S.sh,S.sh ]});
-  row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.net(),S.sh,S.sh,S.food(),S.sh,S.sh ]});
+  /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
+     繞回 FOOD.length/BETEL.length 重複到前面已經出現過的店名(2026-08-14 kc
+     抓到「麵店」重複)。FOOD 6 種、BETEL 3 種都已經在前面的排用滿,這裡多出來
+     的 slot 換成拉鐵門的店面(S.sh,已有 shutter.png),不再喊 S.food()/S.betel()。 */
+  row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
+  row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
 
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 ===== */
   const alleys = [];
@@ -910,7 +922,7 @@ export function buildCity(THREE, scene){
     add(box(9,2.2,.5, M.gold), 0, 9.2, z+4.7, false, false);
     [-13,-5,5,13].forEach(x => { add(box(1.7,8.5,1.7, M.redD), x, 4.25, z+5.2); solid(x, z+5.2, .85,.85); });
     [[-9,3.4],[0,4.4],[9,3.4]].forEach(([x,w]) =>
-      add(box(w,6,.4, std({color:0x6e1c14,roughness:.8})), x, 3, z+4.6, false, true));
+      add(box(w,6,.4, M.templeDoor), x, 3, z+4.6, false, true));
     for(let k=0;k<8;k++){
       const x = -14.5 + k*4.15;
       add(box(.16,1.1,.16, M.metal), x, 9.4, z+5.3, false, false);
@@ -920,11 +932,11 @@ export function buildCity(THREE, scene){
     const wash = new THREE.SpotLight(0xffd0a0, 90, 44, .72, .55, 1.4);
     wash.position.set(0, 7, z+24); wash.target.position.set(0, 8, z+4);
     scene.add(wash, wash.target);
-    [-15.5,15.5].forEach(x => { add(box(2,1,2.6, M.curb), x, .8, z+7.4);
-      add(box(1.4,1.8,1.6, M.curb), x, 2.1, z+7); solid(x, z+7.2, 1.1, 1.4); });
+    [-15.5,15.5].forEach(x => { add(box(2,1,2.6, M.incenseStone), x, .8, z+7.4);
+      add(box(1.4,1.8,1.6, M.incenseStone), x, 2.1, z+7); solid(x, z+7.2, 1.1, 1.4); });
     doors.push({ id:'temple', name:'宮廟', x:0, z:z+10 });
-    add(box(5,2.4,3.4, M.gold), 0, 1.5, z+22);
-    add(box(6,.5,4.2, M.gold), 0, 2.9, z+22, false, false);
+    add(box(5,2.4,3.4, M.altarTable), 0, 1.5, z+22);
+    add(box(6,.5,4.2, M.altarTable), 0, 2.9, z+22, false, false);
     solid(0, z+22, 2.6, 1.8);
     lampSpots.push({ x:0, y:4, z:z+22, c:0xffb066, i:24, r:22 });
     add(box(4.4,7,4.4, M.red), 24, 3.6, z+20); solid(24, z+20, 2.2, 2.2);
@@ -953,41 +965,31 @@ export function buildCity(THREE, scene){
   }
   tableSet(-18,-86); tableSet(-9,-87); tableSet(16,-85);
 
-  /* ===== 小狗:街上第一個可以摸的互動物件(2026-08-13,kc 要的)=====
-   * 跟人物同一套「膠囊+球體」灰模語彙,不用另外找模型或動畫——這隻站著不動,
-   * 給人摸的時候用 pets 陣列讓 game.html 判斷距離、觸發獎勵(見那邊
-   * interactProp())。放在廟口攤販附近,呼應「小吃攤旁邊常有流浪狗」。 */
-  function buildDog(x, z){
-    const gcap = (w,h,d,m) => {
-      const r = Math.min(w,d)/2, len = Math.max(.001, h-r*2);
-      const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(r,len,4,8), m);
-      mesh.scale.set(w/(r*2), 1, d/(r*2));
-      return mesh;
-    };
-    const gd = new THREE.Group();
-    const fur = std({ color:0xa9793f, roughness:.95 });
-    const dark = std({ color:0x342519, roughness:.9 });
-    const body = gcap(.42,.66,.94, fur); body.rotation.z = Math.PI/2; body.position.set(0,.42,0);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(.24,10,8), fur); head.position.set(0,.5,.5);
-    const snout = gcap(.14,.28,.14, dark); snout.rotation.x = Math.PI/2; snout.position.set(0,.44,.66);
-    [[-.09,.68,.42],[.09,.68,.42]].forEach(([x2,y2,z2]) => {
-      const ear = new THREE.Mesh(new THREE.ConeGeometry(.08,.18,6), dark);
-      ear.position.set(x2,y2,z2); ear.rotation.x = -.35; gd.add(ear);
-    });
-    const tail = gcap(.08,.42,.08, fur); tail.rotation.x = -Math.PI/3; tail.position.set(0,.56,-.5);
-    gd.add(body, head, snout, tail);
-    [[-.16,-.32],[.16,-.32],[-.16,.28],[.16,.28]].forEach(([x2,z2]) => {
-      const leg = gcap(.1,.4,.1, dark); leg.position.set(x2,.2,z2); gd.add(leg);
-    });
-    gd.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-    add(gd, x, 0, z, false, false);
-    return gd;
-  }
+  /* ===== 小狗/貓:街上可以摸的互動物件 =====
+   * 2026-08-13 先用跟人物同一套「膠囊+球體」灰模湊了一隻不會動的狗當佔位。
+   * 2026-08-14 kc 問「貓狗在哪,你要不要去抓一個模型來」——換成 Poly Pizza
+   * 的免費低模動物(跟垃圾/遊具同一個來源家族,CC-BY,授權見
+   * assets/models/CREDITS.md),順便補了一隻貓。跟 placeGltfProp()(遊具那段)
+   * 同一套「沒圖先用灰色箱體佔位」慣例,但**不呼叫 solid()**——摸貓狗不用
+   * 擋路,跟垃圾那批同一個道理。lockAxis 用 'z':這兩個模型匯出時身體
+   * 長度(鼻子到尾巴)都落在 z 軸,撐這個方向的長度比撐站立高度更直覺。 */
   const pets = [];
-  [[28,-90,'小狗']].forEach(([x,z,label]) => {
-    buildDog(x, z);
+  /* groundY:2026-08-14 kc 截圖抓到「浮在半空中」——兩隻都放在廟埕主石板
+     (96×22,見上面 temple() 的第一個 add(),中心 y=.15、高 .3,頂面在
+     y=.3)上面,但座標一直用世界底線 y=0 放,腳整段埋進石板裡,露出來的只有
+     身體上半段,看起來像浮空。跟垃圾/家具同一個教訓:貼地物件的高度不能
+     憑空假設 0,要對到真正站的那塊地板頂面。 */
+  function placePet(file, x, z, label, targetSize, groundY, ry){
+    const fallback = box(.5, targetSize*.5, targetSize, std({ color:0x5a4a38, roughness:.9 }));
+    const holder = add(fallback, x, groundY + targetSize*.25, z, true, true);
+    loadModel(file).then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, targetSize, 'z', ry), x, groundY, z, false, false);
+    }).catch(() => {});
     pets.push({ x, z, label });
-  });
+  }
+  placePet('dog.glb', 28, -90, '小狗', 1.8, .3, 0);   // 2026-08-14 kc 說「狗狗要大隻一點」,1.3→1.8
+  placePet('cat.glb', -28, -90, '貓', 1.3, .3, 0);   // 2026-08-14 kc 說「貓太小隻了」,.9→1.3
 
   /* ===== 路上的垃圾:撿了 mood 扣一點、star 往好的方向動一點(善值,見
    * DESIGN_NOTES「風評」),寶特瓶額外給一點錢(2026-08-13,kc 要的)。
@@ -1008,24 +1010,59 @@ export function buildCity(THREE, scene){
     }, undefined, () => {});
     return m;
   }
-  /* TODO(2026-08-13,未完成):kc 拍板垃圾也要比照遊樂器材換成真的 3D 模型
-     (不要扁平貼圖)。已從 Poly Pizza 下載好 3 個 CC0/CC-BY glb,放在
-     assets/models/:litter-bottle.glb、litter-cig.glb、litter-lunchbox.glb。
-     還缺 flyer(選好是 Quaternius 的 Debris Papers,CC0,頁面
-     https://poly.pizza/m/CCRSdAJxsD,下載卡在授權彈窗沒點完)跟 cup(選好是
-     Poly by Google 的 Coffee cup,CC BY 3.0,頁面
-     https://poly.pizza/m/fIuM_PW5prV,還沒下載)。下面這整段目前還是用
-     PlaneGeometry+照片貼圖那套(litterMaterial()),還沒接上 propModel()/
-     placeGltfProp()(滑梯/鞦韆/翹翹板已經在用的那套 GLTF 載入邏輯,直接照抄
-     即可)。記得把已下載的三個 glb 也補進 assets/models/CREDITS.md(目前只記
-     了遊樂器材那三個)。
-     kc 玩起來說看不到垃圾在哪(2026-08-13)。試過在垃圾本身的材質上加
-     emissive、疊一圈暖色光暈(additive blending)、把光暈掛進 lampSpots 系統
-     讓它像路燈一樣真的在地上投光——三次調整下來 kc 最後說「我不要光圈」,
-     直接不要這個方向,不是再調淡一點的問題。整段光暈/點光源拿掉,垃圾能不能
-     被看到回歸貼圖本身+墊高到人行道上面(見下面 y=.34 那條真正的結構性修正,
-     這個沒有問題、保留)。如果之後還是找不到,再想別的辦法(貼圖本身放大、
-     加陰影),不要再回頭加光暈。 */
+  /* 垃圾從貼圖平面換真 3D 模型(2026-08-13 起,現況 2026-08-14 定案)——
+     跟遊樂器材同一套 propModel()/loadModel(),差別是**不呼叫 solid()**:
+     垃圾放在地上讓人踩過去,不該擋路,遊具那邊 placeGltfProp() 的碰撞行為
+     不能直接照搬。litterMaterial()/PlaneGeometry 那段 fallback 邏輯還留著,
+     只在模型非同步載入完成前的那半秒頂著,不是永久狀態。
+
+     五個 kind 選模型的唯一標準,是實機玩過反覆修出來的一條線:
+     **「這個東西站在馬路邊,一眼看得出是被丟掉的,不是剛擺上去的商品」**。
+     bottle/lunchbox 第一版選了「乾淨完整的產品模型」(寶特瓶噴頭瓶身完整、
+     保麗龍便當盒潔白無瑕),kc 反應「很不像垃圾」;bottle 第二版換成壓扁
+     鋁罐,kc 玩起來還是說「這個鋁罐很不像」——圓滾滾的東西在這個鏡頭距離
+     容易被讀成球或裝飾品,不是罐子本身錯,是「站起來的圓形物」這種輪廓
+     天生不夠一眼識別。**現在的判準是輪廓,不是材質乾不乾淨**:黑色垃圾袋
+     鼓起來的形狀、攤開的紙屑、混雜的小垃圾堆,不管多遠多小都認得出來,
+     這才是選型時真正要看的東西。
+
+     五個現行模型跟來源(CREDITS.md 有完整表):
+     - bottle → **黑色垃圾袋**(Quaternius「Trash Bag」,CC0)。是立著放的
+       東西,LITTER_SIZE 的 lockAxis 用 'y'(撐高度),跟其他幾種撐水平長度
+       不一樣,不要照抄。
+     - lunchbox → 一小撮**散落紙屑**(J-Toastie「Floor Trash」,CC-BY,作者
+       簡介就寫「Reminder to not litter」)。
+     - cig → **壓扁菸蒂**(Poly by Google「Cigar butt」,CC-BY 3.0)。
+     - flyer → 一小撮**攤開碎紙片**(Quaternius「Debris Papers」,CC0,
+       tag 直接寫 #Trash)。跟 lunchbox 都是紙屑概念但模型不同,顯示名稱
+       維持「傳單」(可以唸成被撕爛的傳單),跟 lunchbox 的「紙屑」分開。
+     - cup → **混雜垃圾堆**(Poly by Google「Rubbish」,CC-BY 3.0——黑色
+       小袋+散落雜物)。已經完全不是杯子形狀,`LITTER_KIND_NAME`
+       (game.html)裡的顯示名稱改成「垃圾堆」,不要再叫「手搖杯」。
+     flyer/cup 中間一度整個從地圖上拿掉過(kc 說「平面的都丟掉,完全用不到」
+     ——那時候還沒找到合適的 3D 模型),這次補回來的不是原本設想的「傳單/
+     咖啡杯」那兩個模型,是照上面的判準另外挑的。
+
+     LITTER_SIZE 每種的目標尺寸/撐滿軸是這次先湊的數字,還沒逐一在實機
+     反覆校正比例,kc 玩起來覺得太大/太小可以再調,不用回來問。
+     垃圾能不能被看到:kc 玩起來說看不到垃圾在哪(2026-08-13)。試過在垃圾
+     本身的材質上加 emissive、疊一圈暖色光暈(additive blending)、把光暈掛進
+     lampSpots 系統讓它像路燈一樣真的在地上投光——三次調整下來 kc 最後說
+     「我不要光圈」,直接不要這個方向,不是再調淡一點的問題。整段光暈/點光源
+     拿掉,垃圾能不能被看到回歸貼圖本身+墊高到人行道上面(見下面 y=.34 那條
+     真正的結構性修正,這個沒有問題、保留)+真 3D 模型撐開的體積感+2026-08-14
+     這輪改成輪廓更好認的模型。不要回頭加光暈。 */
+  const LITTER_MODELS = {
+    bottle:'litter-bottle.glb', cig:'litter-cig.glb', lunchbox:'litter-lunchbox.glb',
+    flyer:'litter-flyer.glb', cup:'litter-cup.glb'
+  };
+  /* [lockAxis, targetSize]——lockAxis 撐的是模型「該撐滿的那個方向」:大部分
+     垃圾躺在地上,撐水平最長的軸('x');bottle 是垃圾袋,立著放,撐的是
+     高度('y'),不要照抄其他幾種。 */
+  const LITTER_SIZE = {
+    bottle:['y', .9], cig:['x', .4], lunchbox:['x', 1.1],
+    flyer:['x', .7], cup:['x', 1.2]
+  };
   const litter = [];
   [
     /* 2026-08-13 kc 要在出生點附近一次看五種樣式,方便比對——先放著,
@@ -1056,7 +1093,20 @@ export function buildCity(THREE, scene){
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4), litterMaterial(kind,tint));
     mesh.rotation.x = -Math.PI/2;
     add(mesh, x, .34, z, false, false);
-    litter.push({ x, z, kind, mesh });
+    /* entry 是同一個物件被 litter 陣列跟 game.html 的互動判定共用參照,
+       模型載入完成後直接改 entry.mesh,不用把 entry 整個換掉——撿垃圾時
+       game.html 呼叫 scene.remove(l.mesh),不管當下是貼圖平面還是真模型都要
+       撿得到、移得掉。 */
+    const entry = { x, z, kind, mesh };
+    litter.push(entry);
+    const modelFile = LITTER_MODELS[kind];
+    if(modelFile){
+      const [lockAxis, targetSize] = LITTER_SIZE[kind];
+      loadModel(modelFile).then(gltf => {
+        scene.remove(entry.mesh);
+        entry.mesh = add(propModel(THREE, gltf, targetSize, lockAxis), x, .34, z, false, false);
+      }).catch(() => {});
+    }
   });
 
   /* 街道小物點綴(2026-08-13):消防栓、電箱,純裝飾、不能互動,單純讓街上
@@ -1258,6 +1308,17 @@ function buildPrimitiveRig(THREE, parent, M){
  * OBJECT 名字/glTF node 名字,兩個是不同的東西,2026-08-12 踩過)。 */
 const MODELS = {
   m: { idle:'base-human-idle.glb',   walk:'base-human-walk.glb', run:'base-human-run.glb',
+       /* 2026-08-14 補的單次動作(不是走路/待機那種循環動畫,見 buildPlayer()
+          的 playOnce()):pickup 撿垃圾彎腰、pet 摸(狗)蹲下。從 Mixamo 抓,
+          流程跟 idle/walk/run 同一套(README.md「轉檔」那節),anim-only 模式
+          轉檔,只有骨架+動畫沒有 mesh。
+          ⚠️ pet_low:kc 反應「貓還是完全沒摸到,貓要摸得更低」——貓/狗共用
+          同一顆「Petting Animal」動畫,原本的 Animal Size 是照狗的高度調的,
+          貓比較矮,手伸出去的位置對不到貓身上,不是貓的模型放錯,是動作本身
+          沒對到。Mixamo 那顆動畫的 Animal Size 拉到 0 會整個蹲到地上,另外
+          存一份專門給貓用,不要跟 pet 共用同一個檔案——見 game.html 的
+          interactProp() 依 pet.label 選要放哪一個。 */
+       once: { pickup:'base-human-pickup.glb', pet:'base-human-pet.glb', pet_low:'base-human-pet-low.glb' },
        parts: { Body:'skin', Tops:'hood', Bottoms:'pants', Shoes:'shoe',
                  Hair:'hair', Eyes:'eyes', Eyelashes:'eyes' } },
   f: { idle:'base-human-f-idle.glb', walk:'base-human-f-walk.glb',
@@ -1400,6 +1461,11 @@ function tattooTexture(THREE, img){
   return t;
 }
 
+/* playOnce() 單次動作的播放速度倍率,見下面 playOnce() 裡的說明——原始
+   Mixamo 動作播完整段太拖,不同動作拖的幅度不同,用一個表分開調,不要都套
+   同一個倍率。沒列進來的 name 用 1.8 當預設。 */
+const ONCE_SPEED = { pickup: 2.8, pet: 1.6, pet_low: 1.6 };
+
 export function buildPlayer(THREE, scene){
   const g = new THREE.Group();
   scene.add(g);
@@ -1409,6 +1475,8 @@ export function buildPlayer(THREE, scene){
   let mode = 'primitive';
   let mixer = null, idleAction = null, walkAction = null, runAction = null, activeAction = null, model = null;
   let runPhase = 0;                                   // 只在「跑步動畫還沒載到」的過渡期用,見下面
+  const onceActions = {};                             // name -> clipAction 快取,見 playOnce()
+  let playingOnce = false;                            // true 時 animate() 的 idle/walk/run 切換整段跳過
 
   const rig = MODELS.m;                               // 主角固定用 Remy(男性)這副骨架
   loadModel(rig.idle).then(idleGltf => {
@@ -1440,10 +1508,57 @@ export function buildPlayer(THREE, scene){
     }).catch(() => {});
   }).catch(() => {});
 
+  /* 單次動作(撿垃圾彎腰、摸貓狗蹲下這種,不是循環播放的 idle/walk/run)。
+     name 對到 rig.once 的 key,找不到檔案或骨架還沒載好就直接呼叫 onDone,
+     跟這個專案「缺檔案不會壞」的慣例一致——呼叫端(game.html)不用另外判斷
+     動畫載了沒,永遠會拿到 onDone 被呼叫。播放期間 animate() 的 idle/walk/run
+     切換整段跳過(見 playingOnce 那個 flag),放開之後自動 crossfade 回 idle,
+     不用呼叫端自己處理「播完要切什麼」。 */
+  function playOnce(name, onDone){
+    if(mode !== 'gltf' || !mixer || !idleAction || !rig.once || !rig.once[name]){
+      onDone && onDone();
+      return;
+    }
+    const useAction = clip => {
+      playingOnce = true;
+      activeAction.fadeOut(.2);
+      clip.reset().fadeIn(.2).play();
+      activeAction = clip;
+      const onFinished = e => {
+        if(e.action !== clip) return;
+        mixer.removeEventListener('finished', onFinished);
+        playingOnce = false;
+        activeAction.fadeOut(.2);
+        idleAction.reset().fadeIn(.2).play();
+        activeAction = idleAction;
+        onDone && onDone();
+      };
+      mixer.addEventListener('finished', onFinished);
+    };
+    if(onceActions[name]){ useAction(onceActions[name]); return; }
+    loadModel(rig.once[name]).then(gltf => {
+      if(!gltf.animations[0]){ onDone && onDone(); return; }
+      const clip = mixer.clipAction(gltf.animations[0]);
+      clip.setLoop(THREE.LoopOnce);
+      clip.clampWhenFinished = true;
+      /* Mixamo 原始動作(pickup ~4s)播完整段太拖——kc 反應「撿東西速度太慢
+         了,應該是彎腰撿」,一段慢動作看起來不像乾脆的彎腰動作,反而模糊。
+         直接加快播放速度(timeScale),不是剪片段——AnimationAction 允許
+         >1 的 timeScale,幅度不變、只是播快一點,彎腰撿的動作意圖才讀得出來。
+         2026-08-14:pickup 來源後來又換過一次——「Picking Up Object」
+         (Object Height=5)腰彎得不夠深,kc 說「根本沒有蹲到地上」,換成
+         「Gathering Objects」(180 幀,全蹲式,手真的碰到地面)。
+         timeScale 先調到 3.5 抵消新素材變長,kc 看完覺得太快又調慢回 2.8。 */
+      clip.timeScale = ONCE_SPEED[name] || 1.8;
+      onceActions[name] = clip;
+      useAction(clip);
+    }).catch(() => { onDone && onDone(); });
+  }
+
   function animate(dt, moving, run){
     if(mode === 'primitive'){ primitive.animate(dt, moving, run); return; }
     if(!mixer) return;
-    if(walkAction && idleAction){
+    if(!playingOnce && walkAction && idleAction){
       const useRun = moving && run > 1 && runAction;
       if(!useRun) walkAction.timeScale = run;         // 還沒載到跑步動畫時,退回舊做法頂著
       if(runAction) runAction.timeScale = 1;          // 跑步動畫節奏本身就對,不用再乘 run
@@ -1470,7 +1585,7 @@ export function buildPlayer(THREE, scene){
     }
     mixer.update(dt/1000);                            // dt 這個檔案裡是毫秒,AnimationMixer 吃秒數
   }
-  return { group:g, animate, eyeY:PLAYER.eyeY, height:PLAYER.height };
+  return { group:g, animate, playOnce, eyeY:PLAYER.eyeY, height:PLAYER.height };
 }
 
 /* NPC:一顆骨架、換一套材質顏色站著不動(idle 動畫,不接 walk——現有的廟口

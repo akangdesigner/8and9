@@ -32,8 +32,16 @@
   .pod.cool i { background:linear-gradient(90deg,#8a4fa8,#d05fa0); }
   .pod.mood i { background:linear-gradient(90deg,#c98a3f,#f2b25c); }
   .pod.stamina i { background:linear-gradient(90deg,#4a8a5c,#6fc98a); }
-  .pod .stars { margin-top:3px; font-size:14px; letter-spacing:.12em; color:#333a45; line-height:1; }
-  .pod .stars b { color:#e0483a; font-weight:400; text-shadow:0 0 9px rgba(224,72,58,.65); }
+  /* 風評(舊「通緝」)2026-08-14 從 0~5 星改成雙向 -100~+100,見
+     docs/DESIGN_NOTES.md「通緝改名風評」——track 中間畫一條分界線,填色從
+     中線往左(壞事,紅)或往右(好事,綠)長,不是從左邊固定長到右邊。 */
+  .pod.star .track { position:relative; overflow:visible; }
+  .pod.star .track::before { content:''; position:absolute; left:50%; top:-2px; bottom:-2px;
+    width:1px; background:rgba(255,255,255,.25); }
+  .pod.star .track i { position:absolute; top:0; height:100%; width:0;
+    transition:width .45s cubic-bezier(.3,.9,.3,1), left .45s cubic-bezier(.3,.9,.3,1); }
+  .pod.star .track i.good { background:linear-gradient(90deg,#4a8a5c,#6fc98a); }
+  .pod.star .track i.bad  { background:linear-gradient(90deg,#e0552f,#e0483a); }
   .pod.bump { animation:bump .5s; }
   @keyframes bump { 30% { border-color:rgba(216,178,74,.8); transform:translateY(-3px); } }
 
@@ -136,7 +144,7 @@
   <div class="pod calm"  id="pCalm"><div class="lb">歸屬感</div><div class="nm">55</div><div class="track"><i></i></div></div>
   <div class="pod cool"  id="pCool"><div class="lb">帥潮</div><div class="nm">8</div><div class="track"><i></i></div></div>
   <div class="pod mood"  id="pMood"><div class="lb">情緒</div><div class="nm">60</div><div class="track"><i></i></div></div>
-  <div class="pod star"  id="pStar"><div class="lb">通緝</div><div class="stars"></div></div>
+  <div class="pod star"  id="pStar"><div class="lb">風評</div><div class="nm">0</div><div class="track"><i></i></div></div>
 </div>
 <div id="tags"></div>
 <div id="where">中華路</div>
@@ -226,8 +234,12 @@ function syncHUD(){
   set('pCool', ST.cool, ST.cool);
   set('pMood', ST.mood, ST.mood);
   document.getElementById('pFull').classList.toggle('low', ST.full <= 25);
-  document.querySelector('#pStar .stars').innerHTML =
-    '<b>' + '★'.repeat(ST.star) + '</b>' + '★'.repeat(5-ST.star);
+  set('pStar', (ST.star > 0 ? '+' : '') + ST.star, null);
+  const starI = document.querySelector('#pStar .track i');
+  const starHalf = Math.abs(ST.star) / 2;                // -100~100 對應 track 半邊 0~50%
+  starI.className = ST.star >= 0 ? 'good' : 'bad';
+  starI.style.width = starHalf + '%';
+  starI.style.left = (ST.star >= 0 ? 50 : 50 - starHalf) + '%';
   document.querySelector('#clock .t').textContent = fmtTime(minute);
   document.querySelector('#clock .d').textContent = '週' + DAYS[day%7];
   function set(id, txt, pct){
@@ -236,17 +248,24 @@ function syncHUD(){
     if(pct != null) pod.querySelector('.track i').style.width = Math.max(0,Math.min(100,pct)) + '%';
   }
 }
-const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', mood:'#f2b25c', stamina:'#6fc98a', star:'#e0483a' };
-const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', mood:'情緒', stamina:'體力', star:'通緝' };
+const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', mood:'#f2b25c', stamina:'#6fc98a' };
+const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', mood:'情緒', stamina:'體力', star:'風評' };
 function chg(k, d){
   if(!d) return;
   ST[k] += d;
-  if(k !== 'money') ST[k] = Math.max(0, Math.min(k==='star'?5:100, ST[k]));
+  /* 風評(star)2026-08-14 從 0~5(通緝星星)改成雙向 -100~+100,見
+     docs/DESIGN_NOTES.md「通緝改名風評」——中間 0,左邊壞事、右邊好事,
+     不再只往一個方向長。其餘指標維持原本 0~100。 */
+  if(k === 'star') ST[k] = Math.max(-100, Math.min(100, ST[k]));
+  else if(k !== 'money') ST[k] = Math.max(0, Math.min(100, ST[k]));
   syncHUD();
   const el = document.getElementById({money:'pMoney',full:'pFull',calm:'pCalm',cool:'pCool',mood:'pMood',stamina:'pStamina',star:'pStar'}[k]);
   el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
   const f = document.createElement('div');
-  f.className = 'fl'; f.style.color = COLOR[k];
+  f.className = 'fl';
+  /* 風評雙向,飄字顏色跟著這次變動的方向走(綠=好事、紅=壞事),不是固定
+     一個顏色——固定紅色會讓「+風評」看起來也像壞事。其餘指標維持單一顏色。 */
+  f.style.color = k === 'star' ? (d > 0 ? '#6fc98a' : '#e0483a') : COLOR[k];
   f.style.left = (el.offsetLeft+8)+'px'; f.style.top = (el.offsetTop+el.offsetHeight+4)+'px';
   f.textContent = (NAMES[k] + ' ' + (d>0?'+':'') + (k==='money'?'$'+d:d)).trim();
   document.getElementById('float').appendChild(f);
@@ -463,10 +482,20 @@ renderer3d.setClearColor(0x000000, 0);
    跟牆面照片的鏡頭距離不同,貼上去比例會跟原生寬高比有點落差,肉眼測過
    可以接受(跟這專案一貫「看起來對就好」的標準一樣),不用另外校正。 */
 const c2dbg = document.getElementById('c2dbg'), gbg = c2dbg.getContext('2d');
+/* 店員:2026-08-14 kc 提的——店員站定不動只會前後轉身,不用即時 3D 渲染
+   (上一輪拿掉 3D 骨架就是因為跟照片級背景質感差太多),改成拍他本人
+   (`__dbg.spawnClerk()` 那套,跟玩家/廟口 NPC 共用同一顆骨架換膚,rig
+   'm2',顏色沿用 scene-store-front.js 的 P2 既有色票)正面、背面各一張
+   透明底截圖,當成靜態貼圖疊進背景合成,跟鮮食櫃同一招。位置卡在櫃台
+   後面(肉眼在 store-wall.png 上量的,櫃台前緣約 y=270,他站在收銀機
+   旁邊,腰部藏在櫃台後面)。*/
+const CLERK_W = 94, CLERK_H = 276, CLERK_X = 1073, CLERK_Y = 140;
 function paintStoreBackdrop(){
   gbg.clearRect(0,0,1280,720);
   gbg.imageSmoothingEnabled = true;
   if(wallImg.complete) gbg.drawImage(wallImg, 0,0,1280,720);
+  if(clerkFrontImg.complete) gbg.drawImage(clerkFrontImg, 0,0,clerkFrontImg.width,clerkFrontImg.height,
+    CLERK_X, CLERK_Y, CLERK_W, CLERK_H);
   if(hotImg.complete) gbg.drawImage(hotImg, 0,0,hotImg.width,hotImg.height,
     STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC);
 }
@@ -477,20 +506,16 @@ function paintStoreBackdrop(){
    讓「載入當下」這個時間點跟「c2dbg 真的畫完兩張圖」的時間點對不齊,而且
    很難每次重現)——**改成每次要用才當場裁,徹底不用管載入時序**,反正只有
    玩家站在鮮食櫃附近才會呼叫,不是每幀都跑,效能上沒有差別。
-   頂部漸層淡出:2026-08-14 kc 截圖抓到「上面有個怪的透明板子」——裁切
-   矩形的上緣不管角色站哪個深度,都會剛好切在螢幕上同一條高度(角色螢幕
-   身高是固定常數,不隨深度縮放,身體比例跟這個固定矩形對不上),漸層
-   淡出讓那條線從一刀切變柔和過渡,肉眼不會再讀成一塊突兀的色塊。
-   **淡出寬度原本是 40px,kc 站在走道上截圖抓到雙手整隻手掌剛好落在淡出
-   帶裡,變成一截透明的鬼手**——縮到 15px 之後,同樣寬度的手掌/手臂不會
-   整段都被淡出帶蓋住,鬼手感消失,同時上緣的柔和過渡還留著,沒有整個
-   退回硬邊。這個值是站在走道上(`py≈260~296`)肉眼測出來的,不是算出來的
-   ——鮮食櫃/牆面家具都比照這個系統「先求看起來對」,不用再往下細算。
    裁切來源是 c2dbg(已經畫好的背景+鮮食櫃合成結果),不是 hotImg 本身——
    新鮮食櫃圖的玻璃窗格是真的半透明(透出背後貨架),直接拿 hotImg 當遮擋
    貼圖的話,玩家站在後面時身體會從玻璃窗格的透空處「穿幫」冒出來。從
-   c2dbg 裁,裁到的永遠是實心一塊,不會穿幫。 */
-const HOT_CUT_FADE_PX = 15;
+   c2dbg 裁,裁到的永遠是實心一塊,不會穿幫。
+   **不做頂部漸層淡出**(2026-08-14 kc 直接說不用)——中間試過用漸層軟化
+   上緣硬邊,結果連續踩了兩個坑(destination-in 誤用導致整片全透明、寬度
+   40px 讓整隻手掌落進淡出帶變成鬼手),縮窄到 15px 修完鬼手之後,kc
+   截圖抓到金屬檯面上還是有一條肉眼看得出的柔化痕跡,判斷不值得為了軟化
+   一條邊界再繼續調——直接拿掉,退回硬邊裁切,乾淨、可預期,不再有這條
+   線本身的問題要修。 */
 const hotCutBuf = document.createElement('canvas');
 hotCutBuf.width = STORE.hot.w*SC; hotCutBuf.height = STORE.hot.h*SC;
 const hotCutCtx = hotCutBuf.getContext('2d');
@@ -499,28 +524,16 @@ function buildHotCutMask(){
   hotCutCtx.imageSmoothingEnabled = true;
   hotCutCtx.drawImage(c2dbg, STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC,
     0,0,hotCutBuf.width,hotCutBuf.height);
-  /* 2026-08-14 抓到真正的根因:destination-in 不是「只在畫到的形狀裡調整
-     alpha」,是「整張畫布只要不在這次畫的形狀範圍內,alpha 直接歸零」——
-     之前分兩次 fillRect(先畫上面 40px 的漸層,再畫下面剩餘部分的實心黑)
-     時,第一刀畫上面 40px 那次,就已經把下面全部清成透明;第二刀畫下面
-     時,上面又被清成透明。兩刀互相清掉對方,結果永遠是整張全透明,只是
-     肉眼在別的測試位置剛好被角色本來就沒站到那個矩形擋住,才一直沒抓到。
-     改成**一次 fillRect 蓋滿整張畫布**,漸層本身有三個色標(0→透明,
-     淡出終點→不透明,1→維持不透明)做出同樣的「頂部淡出、其餘不透明」
-     效果,不會有「形狀外先清空」這個副作用。 */
-  hotCutCtx.globalCompositeOperation = 'destination-in';
-  const grad = hotCutCtx.createLinearGradient(0,0,0,hotCutBuf.height);
-  const fadeStop = HOT_CUT_FADE_PX / hotCutBuf.height;
-  grad.addColorStop(0,'rgba(0,0,0,0)');
-  grad.addColorStop(fadeStop,'rgba(0,0,0,1)');
-  grad.addColorStop(1,'rgba(0,0,0,1)');
-  hotCutCtx.fillStyle = grad;
-  hotCutCtx.fillRect(0,0,hotCutBuf.width,hotCutBuf.height);
-  hotCutCtx.globalCompositeOperation = 'source-over';
 }
 const wallImg = new Image(); wallImg.onload = paintStoreBackdrop; wallImg.src = STORE.bgSrc;
 const hotImg = new Image(); hotImg.onload = paintStoreBackdrop;
 hotImg.src = '../assets/bg/store-hot-cabinet.png';
+/* ?v=N 是手動的快取破壞:這兩張圖這輪反覆重截,kc 那邊瀏覽器一直吃到舊快取
+   看不到修好的版本(這個 session 已經在鮮食櫃圖上踩過同一個坑)——之後這兩張
+   圖只要換內容,記得把 N 往上加一,不要以為存檔就會自動生效。 */
+const clerkFrontImg = new Image(); clerkFrontImg.onload = paintStoreBackdrop;
+clerkFrontImg.src = '../assets/bg/clerk-front.png?v=2';
+const clerkBackImg = new Image(); clerkBackImg.src = '../assets/bg/clerk-back.png?v=2';
 
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
    裡,不再是 3D 物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,
@@ -604,7 +617,7 @@ function buy(price, feed, line){
 /* 偷:判定的是「按下去那一刻店員朝哪邊」,不是骰子 */
 function steal(feed){
   if(IN.clerkFace !== 'B'){
-    chg('star',1); chg('calm',-16);
+    chg('star',-1); chg('calm',-16);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
     say('clerk', '「同學。」\n\n他沒有把話講完。\n他只是看著你，等你自己把東西放回去。',
         () => toast('這家店的人以後看到你會多看一眼。'));
   } else {
@@ -900,12 +913,29 @@ function updateCity(dt){
   } else if(MODE === 'city') hintEl.classList.remove('on');
 }
 
-const PET_LINES = [
-  '牠讓你摸了好一會,尾巴搖得很兇。',
-  '牠靠著你的腳,好像沒有很想理你以外的人。',
-  '摸起來有點髒,但牠好像很開心。'
-];
-const LITTER_KIND_NAME = { bottle:'寶特瓶', lunchbox:'保麗龍便當盒', cig:'菸蒂', flyer:'傳單', cup:'手搖杯' };
+/* 2026-08-14 街上補了一隻貓(scene-city3d.js 的 placePet())——原本三句台詞
+   是照狗寫的(「尾巴搖得很兇」對貓來說是不爽,不是開心),照 pet.label 分開
+   兩組,不要共用同一份文案硬套在不同動物身上。 */
+const PET_LINES = {
+  '小狗': [
+    '牠讓你摸了好一會,尾巴搖得很兇。',
+    '牠靠著你的腳,好像沒有很想理你以外的人。',
+    '摸起來有點髒,但牠好像很開心。'
+  ],
+  '貓': [
+    '牠瞇著眼讓你摸了幾下,然後就走開了。',
+    '牠用頭蹭了蹭你的手,但只有一下。',
+    '摸到一半牠忽然翻過身,不知道是要你摸肚子還是想咬你。'
+  ]
+};
+/* 五種垃圾的模型 2026-08-14 陸續換過(見 scene-city3d.js 的 LITTER_MODELS
+   那段註解——判準是「一眼看得出是被丟掉的東西」,不是乾淨的產品模型),
+   這裡的顯示文字要跟著模型長相走,不然撿起來的 toast 文案會跟畫面對不上:
+   bottle 現在是黑色垃圾袋、lunchbox 是散落紙屑、flyer 是攤開的碎紙片、
+   cup 是混雜垃圾堆(已經不是杯子形狀)。 */
+/* 每種各自帶量詞,不是套固定的「一個」——cup 是混雜垃圾堆,套「一個垃圾堆」
+   讀起來很怪(kc,2026-08-14),改用「一包垃圾」;其他四種維持「一個」。 */
+const LITTER_KIND_NAME = { bottle:'一個垃圾袋', lunchbox:'一個紙屑', cig:'一個菸蒂', flyer:'一張傳單', cup:'一包垃圾' };
 const PLAY_LINES = [
   '玩了一下,喘得比想像中快。',
   '好像有點久沒這樣玩了。',
@@ -914,28 +944,54 @@ const PLAY_LINES = [
 /* 2026-08-13 kc 加的體力值:摸狗、撿垃圾、玩遊樂器材都要扣一點,見 DESIGN_NOTES
    「stamina」那節——範圍先只接這三種街上互動,沒有動到打工/上課/劇情那些
    既有系統。 */
+/* 摸貓狗／撿垃圾 2026-08-14 補了彎腰動作(hero.playOnce(),見 scene-city3d.js
+   的 rig.once)——玩家在動畫播完前不能再動、不能重複觸發,所以用 busy 卡住,
+   跟開選單/走進門那些既有的 busy 用法一致。獎勵(改指標、丟 toast、移除
+   垃圾)延到動畫播完的 callback 才做,不是按下空白鍵那一刻就做——這樣「蹲下
+   去」跟「東西消失/指標變動」在時間上才對得上。playOnce() 找不到動畫檔案
+   時會直接同步呼叫 callback(見那邊的註解),所以這裡不用另外判斷動畫載了
+   沒,即使還沒有動畫可放,行為也跟改動前一樣。 */
 function interactProp(prop){
   if(prop.type === 'pet'){
-    chg('mood', 4);
-    chg('stamina', -3);
-    toast(PET_LINES[Math.random()*PET_LINES.length|0], 2400);
+    busy = true;
+    /* 貓/狗共用摸的動作會摸空——貓矮,狗那份「Petting Animal」動畫伸手的
+       高度對不到貓身上(kc:「貓還是完全沒摸到,貓要摸得更低」)。貓走
+       pet_low(蹲到底那份,見 scene-city3d.js 的 rig.once 註解),其餘(狗)
+       維持原本的 pet。 */
+    const anim = prop.ref.label === '貓' ? 'pet_low' : 'pet';
+    hero.playOnce(anim, () => {
+      busy = false;
+      chg('mood', 4);
+      chg('stamina', -3);
+      const lines = PET_LINES[prop.ref.label] || PET_LINES['小狗'];
+      toast(lines[Math.random()*lines.length|0], 2400);
+    });
   } else if(prop.type === 'play'){
     chg('mood', 3);
     chg('stamina', -5);
     toast(prop.ref.label + '。' + PLAY_LINES[Math.random()*PLAY_LINES.length|0], 2400);
   } else {
     const l = prop.ref;
-    chg('mood', -3);
-    chg('stamina', -2);
-    chg('star', -1);                                    // 善值:見 DESIGN_NOTES「風評」,好事讓它往好的方向動
-    if(l.kind === 'bottle') chg('money', 2);
-    toast('撿起一個' + (LITTER_KIND_NAME[l.kind] || '垃圾') + '丟進垃圾桶。'
-          + (l.kind === 'bottle' ? '（$2）' : ''), 2200);
-    scene.remove(l.mesh);
-    if(l.glow) scene.remove(l.glow);
-    city.litter.splice(city.litter.indexOf(l), 1);
-    nearProp = null;
-    hintEl.classList.remove('on');
+    busy = true;
+    hero.playOnce('pickup', () => {
+      busy = false;
+      chg('mood', -3);
+      chg('stamina', -2);
+      chg('star', 1);                                   // 好事,見 DESIGN_NOTES「風評」,2026-08-14 雙向化後好事要往正的走
+      if(l.kind === 'bottle') chg('money', 2);
+      toast('你撿起了' + (LITTER_KIND_NAME[l.kind] || '一個垃圾') + '。'
+            + (l.kind === 'bottle' ? '（$2）' : ''), 2200);
+      scene.remove(l.mesh);
+      if(l.glow) scene.remove(l.glow);
+      /* indexOf 可能是 -1(這個 litter 物件已經被移除過一次)——splice(-1,1)
+         會誤刪陣列最後一個元素,測動畫版撿垃圾時手動連續呼叫兩次踩過這個
+         (2026-08-14)。正常操作(空白鍵,keydown 那邊有 !busy 擋)不會重複
+         觸發,但陣列操作本來就該防這一步,不要假設呼叫端一定乾淨。 */
+      const li = city.litter.indexOf(l);
+      if(li !== -1) city.litter.splice(li, 1);
+      nearProp = null;
+      hintEl.classList.remove('on');
+    });
   }
 }
 
@@ -988,6 +1044,22 @@ window.__dbg = {
   },
   mode: () => MODE,
   cam: indoorCamera,
+  chg,
+  /* 暫時性:只是要把店員的 3D 骨架轉成正面/背面兩張透明底 PNG 貼圖用,
+     截完圖就會把這段刪掉,不是要留店員在場景裡即時渲染(那正是上一輪
+     「跟照片級背景質感差太多」被拿掉的原因,見 DESIGN_NOTES)。 */
+  spawnClerk(rotY){
+    if(this._clerk) indoorScene.remove(this._clerk.group);
+    this._clerk = buildNPC(THREE, indoorScene, {
+      rig:'m2', rotationY: rotY||0,
+      skin:'#cfa279', hair:'#201b17', hood:'#4a09b6', pants:'#2c3340', shoe:'#1a1a1a'
+    });
+    this._clerk.group.position.set(640, 200, 0);
+    this._clerk.group.scale.setScalar(INDOOR_HERO_SCALE);   // 跟 heroIndoor 同一招,見上面「畫面固定身高」
+    return 'spawned';
+  },
+  clerkTick(dt){ if(this._clerk) this._clerk.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
+  captureClerk(){ return c3d.toDataURL('image/png'); },
   state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
                   pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] })
 };
