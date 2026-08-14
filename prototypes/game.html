@@ -328,6 +328,12 @@ function advanceDialog(){
   return true;
 }
 let busy = false;
+/* 2026-08-14 kc:偷東西成功(當下店員背對)不是沒事——如果店員後來轉回正面
+   而玩家還沒走出超商,算被事後發現。pendingTheft 記著「還沒安全脫身」的
+   贓款總額(可能連續偷好幾次都沒被抓,店員一轉身一次全部算帳);
+   stealCaughtDay 記事後被抓那天的 day,steal() 用它擋當天不能再偷——用
+   day 比對,不用另外歸零,換一天 day 本身就變了。 */
+let pendingTheft = 0, stealCaughtDay = -1;
 function closeMenu(){ menuEl.classList.remove('on'); menuEl.innerHTML = ''; busy = false; }
 function openMenu(cap, items){
   busy = true;
@@ -489,13 +495,27 @@ const c2dbg = document.getElementById('c2dbg'), gbg = c2dbg.getContext('2d');
    透明底截圖,當成靜態貼圖疊進背景合成,跟鮮食櫃同一招。位置卡在櫃台
    後面(肉眼在 store-wall.png 上量的,櫃台前緣約 y=270,他站在收銀機
    旁邊,腰部藏在櫃台後面)。*/
-const CLERK_W = 94, CLERK_H = 276, CLERK_X = 1073, CLERK_Y = 140;
+/* 2026-08-14 kc 一開始以為店員頭頂太靠近貨架/天花板那條線是比例問題,縮小
+   了一輪(276→230)——後來查出來真正原因是截圖本身上緣切太緊,頭頂像素
+   從源頭就沒拍到,跟比例無關。**比例調回原本的 276**,不要沿用縮小版。
+   `CLERK_CLIP_Y`(≈274,肉眼在 store-wall.png 上量的櫃台桌面前緣)是新加
+   的——kc 截圖抓到店員下半身(毛衣下擺、手)會穿到櫃台桌面前緣外面,因為
+   店員貼圖是整張畫上去,沒有跟著櫃台的前緣裁掉。改成畫的時候用 clip()
+   卡住,矩形範圍以下(櫃台桌面延伸出去的地方)不畫,店員才會有「站在櫃台
+   裡面」的感覺,不是疊在櫃台桌面上面。 */
+const CLERK_W = 94, CLERK_H = 276, CLERK_X = 1073, CLERK_Y = 140, CLERK_CLIP_Y = 274;
 function paintStoreBackdrop(){
   gbg.clearRect(0,0,1280,720);
   gbg.imageSmoothingEnabled = true;
   if(wallImg.complete) gbg.drawImage(wallImg, 0,0,1280,720);
-  if(clerkFrontImg.complete) gbg.drawImage(clerkFrontImg, 0,0,clerkFrontImg.width,clerkFrontImg.height,
-    CLERK_X, CLERK_Y, CLERK_W, CLERK_H);
+  const clerkImg = IN.clerkFace === 'B' ? clerkBackImg : clerkFrontImg;
+  if(clerkImg.complete){
+    gbg.save();
+    gbg.beginPath(); gbg.rect(0,0,1280,CLERK_CLIP_Y); gbg.clip();
+    gbg.drawImage(clerkImg, 0,0,clerkImg.width,clerkImg.height,
+      CLERK_X, CLERK_Y, CLERK_W, CLERK_H);
+    gbg.restore();
+  }
   if(hotImg.complete) gbg.drawImage(hotImg, 0,0,hotImg.width,hotImg.height,
     STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC);
 }
@@ -532,8 +552,9 @@ hotImg.src = '../assets/bg/store-hot-cabinet.png';
    看不到修好的版本(這個 session 已經在鮮食櫃圖上踩過同一個坑)——之後這兩張
    圖只要換內容,記得把 N 往上加一,不要以為存檔就會自動生效。 */
 const clerkFrontImg = new Image(); clerkFrontImg.onload = paintStoreBackdrop;
-clerkFrontImg.src = '../assets/bg/clerk-front.png?v=2';
-const clerkBackImg = new Image(); clerkBackImg.src = '../assets/bg/clerk-back.png?v=2';
+clerkFrontImg.src = '../assets/bg/clerk-front.png?v=4';
+const clerkBackImg = new Image(); clerkBackImg.onload = paintStoreBackdrop;
+clerkBackImg.src = '../assets/bg/clerk-back.png?v=3';
 
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
    裡,不再是 3D 物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,
@@ -601,7 +622,8 @@ const grain = (() => {
 })();
 
 const IN = { px:150, py:320, face:'F', walkT:0, moving:false, near:null,
-             clerkT:0, clerkFace:'F', askedJob:false, holding:false };
+             clerkT:0, clerkFace:'F', clerkNextTurn: 3000+Math.random()*5000,
+             askedJob:false, holding:false };
 
 function inBlocked(x,y){
   return FIXTURE_COLLIDERS.some(c =>
@@ -614,14 +636,21 @@ function buy(price, feed, line){
   advanceTime(3); if(line) toast(line);
   return true;
 }
-/* 偷:判定的是「按下去那一刻店員朝哪邊」,不是骰子 */
+/* 偷:判定的是「按下去那一刻店員朝哪邊」,不是骰子。當下沒被抓不代表安全
+   ——見下面 updateIndoor() 店員轉身那段,轉回正面時如果玩家還在店內、
+   手上還有沒安全脫身的贓款(pendingTheft),事後會被抓一次算總帳。 */
 function steal(feed){
+  if(day === stealCaughtDay){
+    toast('店長剛剛才盯過你一次,今天別想了。', 2400);
+    return;
+  }
   if(IN.clerkFace !== 'B'){
     chg('star',-1); chg('calm',-16);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
     say('clerk', '「同學。」\n\n他沒有把話講完。\n他只是看著你，等你自己把東西放回去。',
         () => toast('這家店的人以後看到你會多看一眼。'));
   } else {
     chg('full', feed); chg('calm', -9);
+    pendingTheft += feed;
     toast('東西在你外套裡。你走出去之前，那段路特別長。', 3200);
   }
   advanceTime(2);
@@ -667,8 +696,29 @@ function openIndoorSpot(id){
 }
 
 function updateIndoor(dt){
+  /* 2026-08-14 kc:「店員背面跟隨機轉身」——不用固定週期(舊的 2D 像素人
+     時代是 `clerkT % 6600 < 2400` 那種固定循環,現在改成每次轉身後隨機
+     抽下一次轉身要等多久,3~8 秒之間,比固定節奏更像真人站著不耐煩偶爾
+     轉一下,不是機械化的來回擺頭。轉身當下才呼叫 paintStoreBackdrop()
+     重繪背景貼對應那張圖,不是每幀都重畫。 */
   IN.clerkT += dt;
-  IN.clerkFace = (IN.clerkT % 6600) < 2400 ? 'B' : 'F';
+  if(IN.clerkT >= IN.clerkNextTurn){
+    IN.clerkFace = IN.clerkFace === 'F' ? 'B' : 'F';
+    IN.clerkNextTurn = IN.clerkT + 3000 + Math.random()*5000;
+    paintStoreBackdrop();
+    /* 2026-08-14 kc:轉回正面那一刻,如果玩家手上還有沒安全脫身的贓款
+       (pendingTheft>0)——人還在店裡,算事後被抓一次總帳:扣風評、東西
+       退回去(chg('full',-pendingTheft) 把之前偷到的飽足感扣回來)、
+       今天不能再偷(stealCaughtDay=day,steal() 開頭會擋)。玩家已經走出
+       超商的話 MODE 不會是 'indoor',updateIndoor() 根本不會被呼叫到,
+       等於「走出去之前都算在店內」,跟 steal() 那句 toast 的說法一致。 */
+    if(IN.clerkFace === 'F' && pendingTheft > 0){
+      const amt = pendingTheft; pendingTheft = 0; stealCaughtDay = day;
+      chg('full', -amt); chg('star', -2); chg('calm', -20);
+      say('clerk', '「等一下。」\n\n他轉過身,先看你的外套,再看架上少的那格。\n沒有人說話。你把東西放回去。',
+          () => toast('這家店你今天別再想了。', 3200));
+    }
+  }
 
   let dx=0, dy=0;
   if(keys['a']||keys['arrowleft'])  dx -= 1;
@@ -772,6 +822,7 @@ function enterIndoor(door){
   }};
 }
 function leaveIndoor(){
+  pendingTheft = 0;   // 安全走出超商——見 steal() 那句「你走出去之前，那段路特別長」
   fade(city.whereAmI(returnTo.x, returnTo.z), () => {
     MODE = 'city';
     document.getElementById('indoor').classList.remove('on');
@@ -1036,7 +1087,7 @@ window.__dbg = {
   leave(){ leaveIndoor(); },
   setIndoor(px, py, face){ IN.px=px; IN.py=py; if(face) IN.face=face; },
   tick(dt){ renderIndoor3D(dt||16); renderIndoorForeground(); },   // 手動推進一幀,不用等 rAF,方便測室內位置
-  heroIndoor, indoorScene, renderer3d,
+  heroIndoor, indoorScene, renderer3d, IN, paintStoreBackdrop,
   indoorCalib(){
     const s = heroIndoor.group.scale.x;
     return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
@@ -1044,14 +1095,15 @@ window.__dbg = {
   },
   mode: () => MODE,
   cam: indoorCamera,
-  chg,
+  chg, steal, updateIndoor,
+  pendingTheft: () => pendingTheft,
   /* 暫時性:只是要把店員的 3D 骨架轉成正面/背面兩張透明底 PNG 貼圖用,
      截完圖就會把這段刪掉,不是要留店員在場景裡即時渲染(那正是上一輪
      「跟照片級背景質感差太多」被拿掉的原因,見 DESIGN_NOTES)。 */
-  spawnClerk(rotY){
+  spawnClerk(rotY, rig){
     if(this._clerk) indoorScene.remove(this._clerk.group);
     this._clerk = buildNPC(THREE, indoorScene, {
-      rig:'m2', rotationY: rotY||0,
+      rig: rig||'m2', rotationY: rotY||0,
       skin:'#cfa279', hair:'#201b17', hood:'#4a09b6', pants:'#2c3340', shoe:'#1a1a1a'
     });
     this._clerk.group.position.set(640, 200, 0);
