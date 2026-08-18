@@ -874,12 +874,12 @@ function paintHomeBackdrop(){
   }
   if(dadDrunkImg.complete && dadDrunkImg.naturalWidth){
     /* 坐姿(跟站立的 INDOOR_HERO_TARGET_PX≈276px 比,矮不少)——120px 寬是
-       肉眼比對客廳背景裡餐桌椅高度抓的,不是精算。x 座標(2026-08-18)從
-       900 推到 1080——kc 要求「再更右下角角落」,靠近餐桌/門那側的地板
-       空隙(照片裡椅子跟房間門之間那塊),比原本貼著電視櫃的位置更貼合
-       「角落」的感覺。 */
+       肉眼比對客廳背景裡餐桌椅高度抓的,不是精算。位置(2026-08-18 第二輪,
+       用 claude-in-chrome 開瀏覽器實測調的,不是憑印象猜):x 1080→1130、
+       底部 y 650→700,比上一輪(900→1080)更貼牆角、更靠近地板,離右邊
+       房間門更近,加深「攤在牆角」的感覺。 */
     const dw = 120, dh = dw * (dadCrop.h/dadCrop.w);
-    gbg.drawImage(dadDrunkImg, dadCrop.x,dadCrop.y,dadCrop.w,dadCrop.h, 1080, 650-dh, dw, dh);
+    gbg.drawImage(dadDrunkImg, dadCrop.x,dadCrop.y,dadCrop.w,dadCrop.h, 1130, 700-dh, dw, dh);
   }
 }
 function paintBedroomBackdrop(){

@@ -181,11 +181,17 @@ export function buildCity(THREE, scene){
     altarTable:std({color:0x7a4a2a,roughness:.6}),
     /* 夜市攤位、巷子雜物,同一批新增(2026-08-14) */
     stallTop:std({color:0xd8cdb4,roughness:.8}),
-    utilityBox:std({color:0x3f444b,roughness:.9}),
     wire:std({color:0x17171a,roughness:.85}),
     /* 店面凹進去的洞:側面看到的材質,故意深色,靠方向光自己暗下去做出深度,
        不用另外做假陰影的面板。 */
     recess:std({color:0x121417,roughness:.97}),
+    /* 巷子地板/積水(2026-08-18,回應 kc「地上也不知道是啥」):alleyFloor
+       跟 M.walk 是同一張 walk.png,只是換一顆更暗更髒的 tint(見下面 loader
+       那段獨立的一筆),讓巷子讀起來跟大街乾淨人行道不是同一塊地——單純
+       換色調,不用另外生圖。alleyWet 是地上積水漬,半透明深色平面貼在地板
+       上面,不用貼圖(反光感靠低 roughness 撐,不用等貼圖載入)。 */
+    alleyFloor:std({map:T.walk,roughness:.92}),
+    alleyWet:std({color:0x14171a,roughness:.2,transparent:true,opacity:.5,depthWrite:false}),
     threshold:std({color:0x24211c,roughness:.92}),
     glass:std({color:0xdbe6ea,transparent:true,opacity:.09,roughness:.12,metalness:.1,depthWrite:false}),
     /* 店面箱體側面(跟招牌箱體側面共用):暗灰鋁框感,吃一點反光就好,
@@ -203,6 +209,7 @@ export function buildCity(THREE, scene){
     { mats:[M.shutter], file:'shutter.png', rep:[1,1], tint:0xa8b0ac },
     { mats:[M.road],  file:'road.png',  rep:[5,5], mirror:true, tint:0x6a7178 },
     { mats:[M.walk],  file:'walk.png',  rep:[3,3], mirror:true, tint:0xc2beb4 },
+    { mats:[M.alleyFloor], file:'walk.png', rep:[3,3], mirror:true, tint:0x55504a },
     { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, tint:0xcfcabc },
     { mats:[M.tin], file:'ac-unit.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.templeDoor], file:'temple-door.png', rep:[1,1], mirror:true, lift:.1 },
@@ -218,8 +225,10 @@ export function buildCity(THREE, scene){
     { mats:[M.tarpB], file:'tarp-blue.png', rep:[1,1], mirror:true, lift:.12 },
     { mats:[M.plastic], file:'plastic-red.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.metal], file:'metal-frame.png', rep:[1,1], mirror:true, lift:.08 },
-    { mats:[M.stallTop], file:'stall-top.png', rep:[1,1], mirror:true, lift:.1 },
-    { mats:[M.utilityBox], file:'utility-box.png', rep:[1,1], mirror:true, lift:.1 }
+    { mats:[M.stallTop], file:'stall-top.png', rep:[1,1], mirror:true, lift:.1 }
+    /* 巷子配電箱不走這條(材質貼滿六面)管線,見下面 alley() 改用 addProp('utilitybox',...)——
+       2026-08-18 抓到 utility-box.png 這張其實是廟金雕花貼圖貼錯,已經有現成對的
+       prop-utilitybox.png(街上原本就在用的綠色鐵箱)可以借,直接改用卡片貼法。 */
   ].forEach(o => {
     loader.load(TEX_DIR + o.file, img => {
       const t = new THREE.CanvasTexture(prep(img, o));
@@ -870,21 +879,43 @@ export function buildCity(THREE, scene){
   row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
   row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
 
-  /* ===== 巷子:把兩條橫街接起來,走過去就是了 ===== */
+  /* ===== 巷子:把兩條橫街接起來,走過去就是了 =====
+   * 冷氣機箱體(2026-08-18):原本 M.tin 一張照片貼滿六面,側面/頂面被拉伸糊成一片,
+   * 從斜角看很假——改用材質陣列,只有面對走道的 ±x 兩面貼 ac-unit.png,其餘四面
+   * 貼 M.metal(已經有 metal-frame.png,深色刮痕鐵皮,當側板夠用,不用另外生圖)。 */
+  const acBoxMats = [M.tin, M.tin, M.metal, M.metal, M.metal, M.metal];
   const alleys = [];
   function alley(x, z0, z1){
     alleys.push({ x, z0, z1 });                        // 小地圖要畫,別在外面重算一次
     const HW = 3.2, len = Math.abs(z1-z0), cz = (z0+z1)/2;
-    add(box(HW*2+8, .28, len, M.walk), x, .14, cz, false, true);
+    add(box(HW*2+8, .28, len, M.alleyFloor), x, .14, cz, false, true);
     [-1,1].forEach(s => {
       add(box(6, 13, len, M.wallC), x + s*(HW+3), 6.5, cz);
       solid(x + s*(HW+3), cz, 3, len/2);
     });
+    /* 落地水管(2026-08-18,回應 kc「巷子裝飾很假」):貼牆細長金屬管,
+       跟牆面同一批 M.metal(已有 metal-frame.png 貼圖),兩側交錯各兩支,
+       純粹打斷整片平牆,不用另外做彎頭幾何。 */
+    for(let i=0;i<4;i++){
+      const zz = z0 + (i+.5)*(z1-z0)/4, s = i%2?1:-1;
+      add(box(.16,11.5,.16, M.metal), x + s*(HW+.12), 5.8, zz, false, false);
+    }
     for(let i=0;i<5;i++){
       const zz = z0 + (i+.5)*(z1-z0)/5;
-      add(box(1.6,1.1,1.2, M.tin), x + (i%2?1:-1)*(HW-.3), 4.4+((i*3)%3), zz, true, false);
-      if(i%2) add(box(1.2,1.1,1.2, M.utilityBox), x - (HW-1), .6, zz);
+      add(box(1.6,1.1,1.2, acBoxMats), x + (i%2?1:-1)*(HW-.3), 4.4+((i*3)%3), zz, true, false);
+      /* 配電箱(2026-08-18):M.utilityBox 那張貼圖其實是廟金雕花貼錯的,見上面
+         loader 那段註解——改借街上本來就在用的 prop-utilitybox.png 卡片,
+         面向走道中央(ry=90°,box 固定貼在 -x 側牆)。 */
+      if(i%2) addProp('utilitybox', x - (HW-1), zz, 1.1, 1.4, 0x4a5a42, Math.PI/2);
     }
+    /* 地上兩灘積水(同一輪):暗色半透明平面貼在地板頂面上方(y=.29,同一套
+       「墊在地板厚度之上、不要埋進去」規則,litter 那批已經踩過一次教訓)。 */
+    [[.24,2.6,1.6,-1],[.7,2.0,2.4,1]].forEach(([f,pw,pd,side]) => {
+      const pz = z0 + (z1-z0)*f;
+      const puddle = new THREE.Mesh(new THREE.PlaneGeometry(pw,pd), M.alleyWet);
+      puddle.rotation.x = -Math.PI/2;
+      add(puddle, x + side*.7, .29, pz, false, false);
+    });
     [0, .32].forEach(f => {
       const lz = cz + (z1-z0)*f;
       add(box(1.3,.32,.9, glow(0xffe6a8,2.0)), x, 6.4, lz, false, false);
@@ -910,7 +941,7 @@ export function buildCity(THREE, scene){
     const at = (along, side) => [cx + ux*along + nx*side, cz + uz*along + nz*side];
     const HW = 3.6;
 
-    const floor = box(HW*2+8, .28, len, M.walk);
+    const floor = box(HW*2+8, .28, len, M.alleyFloor);
     floor.rotation.y = ang;
     add(floor, cx, .14, cz, false, true);
 
@@ -921,12 +952,25 @@ export function buildCity(THREE, scene){
       add(wall, wx, 6.5, wz);
       solid(wx, wz, Math.abs(len/2*ux)+Math.abs(3*nx), Math.abs(len/2*uz)+Math.abs(3*nz));
     });
+    /* 落地水管,同一套跟 alley() 一致(2026-08-18) */
+    for(let i=0;i<4;i++){
+      const along = -len/2 + (i+.5)*len/4, s = i%2?1:-1;
+      const [px,pz] = at(along, s*(HW+.12));
+      add(box(.16,11.5,.16, M.metal), px, 5.8, pz, false, false);
+    }
     for(let i=0;i<6;i++){
       const along = -len/2 + (i+.5)*len/6;
       const [jx,jz] = at(along, (i%2?1:-1)*(HW-.3));
-      const junk = box(1.6,1.1,1.2, M.tin); junk.rotation.y = ang;
+      const junk = box(1.6,1.1,1.2, acBoxMats); junk.rotation.y = ang;
       add(junk, jx, 4.4+((i*3)%3), jz, true, false);
     }
+    /* 地上積水,同一套跟 alley() 一致(2026-08-18) */
+    [[.28,2.4,1.6],[.72,2.0,2.2]].forEach(([f,pw,pd]) => {
+      const [px,pz] = at(-len/2+len*f, 0);
+      const puddle = new THREE.Mesh(new THREE.PlaneGeometry(pw,pd), M.alleyWet);
+      puddle.rotation.x = -Math.PI/2;
+      add(puddle, px, .29, pz, false, false);
+    });
     [-.32,.32].forEach(f => {
       const [lx,lz] = at(len*f, 0);
       add(box(1.3,.32,.9, glow(0xffe6a8,2.0)), lx, 6.4, lz, false, false);
@@ -1187,7 +1231,14 @@ export function buildCity(THREE, scene){
     [60, 16.7,'lunchbox',0xc9c2a8],
     [-70,16.7,'cig',0x5a5650],
     [-40,-61.5,'flyer',0xd8d2c0],
-    [0,  55.5,'cup',0xc2a0d0]
+    [0,  55.5,'cup',0xc2a0d0],
+    /* 中華路⇄廟口路那條巷子(嫖妓互動,見 DESIGN_NOTES)牆角三件,2026-08-18
+       回應 kc「地上也不知道是啥」——x 貼著兩側牆內緣(alley(-24,-27,-51),
+       走道淨寬 -27.2~-20.8,見 alley() 內 solid() 那組數字),z 跟
+       ALLEY_WORKER(game.html,x:-22.3,z:-38)錯開,不疊到她的互動範圍。 */
+    [-26,-31,'bottle',0xdce8e0],   // 垃圾袋堆在牆角
+    [-22,-45,'cig',0x5a5650],
+    [-26,-47,'flyer',0xd8d2c0]
   ].forEach(([x,z,kind,tint]) => {
     /* 人行道那塊 box 是 .3 厚(見 H_ROADS.forEach 的 M.walk,中心 y=.15、頂面在
        y=.3),垃圾之前放在 y=.04/.05——整片埋在人行道厚度裡面,從上面根本
