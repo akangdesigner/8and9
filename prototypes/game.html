@@ -126,6 +126,20 @@
   #keys { position:fixed; left:16px; bottom:12px; z-index:6; font-size:11.5px; color:#6a727f; letter-spacing:.08em; }
   #keys b { color:#9aa3b0; }
   #fps { position:fixed; right:14px; bottom:12px; z-index:6; font-size:11px; color:#5c6470; }
+
+  /* 騎機車姿勢即時調整面板——暫時重新加回來給 kc 自己錄一段調整過程,
+     錄完會拔掉,不是要留著當正式功能。 */
+  #tune { position:fixed; right:14px; top:100px; z-index:6; width:220px;
+          background:rgba(9,12,17,.88); border:1px solid rgba(120,134,158,.3);
+          border-radius:5px; padding:10px 12px; backdrop-filter:blur(4px);
+          opacity:0; pointer-events:none; transition:opacity .2s; }
+  #tune.on { opacity:1; pointer-events:auto; }
+  #tune .cap { font-size:11px; letter-spacing:.14em; color:#8b94a3; margin-bottom:6px; }
+  #tune .row { margin-bottom:7px; }
+  #tune .row label { display:flex; justify-content:space-between; font-size:11.5px;
+                      color:#c8cfda; margin-bottom:2px; }
+  #tune .row label span.v { color:#f2d888; font-variant-numeric:tabular-nums; }
+  #tune .row input[type=range] { width:100%; }
 </style>
 </head>
 <body>
@@ -152,6 +166,21 @@
 
 <div id="hint"></div>
 <div id="toast"></div>
+<div id="tune">
+  <div class="cap">騎乘姿勢調整</div>
+  <div class="row"><label>座墊前後 <span class="v" id="tvOffset"></span></label>
+    <input type="range" id="tOffset" min="-2" max="2" step="0.05"></div>
+  <div class="row"><label>座墊高度 <span class="v" id="tvSeatY"></span></label>
+    <input type="range" id="tSeatY" min="0" max="2" step="0.05"></div>
+  <div class="row"><label>大腿張開 <span class="v" id="tvSplay"></span></label>
+    <input type="range" id="tSplay" min="0" max="1" step="0.05"></div>
+  <div class="row"><label>手臂 X <span class="v" id="tvArmX"></span></label>
+    <input type="range" id="tArmX" min="-1.5" max="1.5" step="0.05"></div>
+  <div class="row"><label>手臂 Z <span class="v" id="tvArmZ"></span></label>
+    <input type="range" id="tArmZ" min="-1.5" max="1.5" step="0.05"></div>
+  <div class="row"><label>手臂 Y <span class="v" id="tvArmY"></span></label>
+    <input type="range" id="tArmY" min="-1.5" max="1.5" step="0.05"></div>
+</div>
 <div id="float"></div>
 
 <div id="dialog">
@@ -170,6 +199,10 @@
 
 <script src="lib/character.js"></script>
 <script src="lib/scene-store-front.js"></script>
+<script src="lib/scene-home.js"></script>
+<script src="lib/scene-bedroom.js"></script>
+<script src="lib/story-bet.js"></script>
+<script src="lib/story-drink.js"></script>
 <script src="../src/tags.js"></script>
 <script type="importmap">
 { "imports": {
@@ -183,7 +216,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
-import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC } from './lib/scene-city3d.js';
+import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC, RIDE_POSE } from './lib/scene-city3d.js';
 
 /* ===================================================================
    共用狀態 —— 兩層都吃同一份。走進超商買東西，出來街上錢就少了。
@@ -332,10 +365,18 @@ const dlgEl = document.getElementById('dialog'), dTx = document.getElementById('
 const dName = document.getElementById('dName'), dCaret = document.getElementById('dCaret');
 const portC = document.getElementById('portrait').getContext('2d');
 const menuEl = document.getElementById('menu'), hintEl = document.getElementById('hint');
+const tuneEl = document.getElementById('tune');
 
+/* mom/dad:2026-08-17 接「家裡的拉扯」——沒有真人照片,沿用 pc 分支那套
+ * SF.person() 像素小人放大畫法,顏色直接借 scene-home.js 的 P 色票
+ * (momSkin/momHair/... 那組),客廳背景跟對話頭像才不會顏色對不上。 */
+const HP = SceneHome.P;
 const WHO = {
   pc:    { name:'你',   opt:{ face:'F', skin:P2.pcSkin, hair:P2.pcHair, top:P2.pcHood, topD:P2.pcHoodD, pants:P2.pcPants, shoe:P2.pcShoe, hood:true } },
-  clerk: { name:'店員', opt:{ face:'F', skin:P2.clSkin, hair:P2.clHair, top:P2.clVest, topD:P2.clShirt, pants:'#2c3340' } }
+  clerk: { name:'店員', opt:{ face:'F', skin:P2.clSkin, hair:P2.clHair, top:P2.clVest, topD:P2.clShirt, pants:'#2c3340' } },
+  mom:   { name:'媽',   opt:{ face:'F', skin:HP.momSkin, hair:HP.momHair, top:HP.momTop, topD:HP.momTopD, pants:HP.momPants } },
+  dad:   { name:'爸',   opt:{ face:'F', skin:HP.dadSkin, hair:HP.dadHair, top:HP.dadTop, topD:HP.dadTopD, pants:HP.dadPants } },
+  worker:{ name:'她',   opt:{ face:'F', skin:'#c9a077', hair:'#241f1c', top:'#7a2f45', topD:'#5c2436', pants:'#232323' } }
 };
 /* 店員大頭貼:2026-08-14 第一版是直接裁 clerkFrontImg(店員站櫃台那張
    遠景)的臉部,結果放大到 100×100 才發現 3D 模型近距離撐不住——沒有
@@ -343,15 +384,26 @@ const WHO = {
    渲染:改成另外生一張 GPT 頭像特寫(`clerk-portrait.png`,同一套膚色/
    髮色/紫色制服,但是真的照片級人臉,近看有真的眼神)專門給對話框用,
    跟站在櫃台裡那張(遠景、3D 渲染)是兩張不同用途的圖,不用互相遷就。
-   其他角色(玩家 pc、之後可能的 NPC)還沒有這種真人頭像,維持原本
-   SF.person() 那套像素小人放大畫法,不要因為店員換了就跟著硬套。 */
+   主角(pc)2026-08-17 也换成真人頭像了,見下面。mom/dad 跟之後可能的
+   NPC 還沒有,維持原本 SF.person() 那套像素小人放大畫法,不要因為
+   店員/主角換了就跟著硬套——沒有真人照片來源就先用這套頂著。 */
 const clerkPortraitImg = new Image(); clerkPortraitImg.src = '../assets/bg/clerk-portrait.png?v=2';
+/* 主角大頭貼:2026-08-17——跟店員同一招(真人照片取代 SF.person() 像素
+   小人),圖是綠幕截圖 + 潑漆上衣描述丟 GPT 生的特寫照。kc 原本想連髮型
+   也换成參考照片那種刀削瀏海+側邊漸層(「啊志頭」),但 3D 遊戲內建模
+   換不了髮型(見 DESIGN_NOTES「主角的對話大頭貼」),要整套換一顆來源
+   模型工程量太大——kc 拍板「不用了,換我給你的大頭貼就好」,所以這張是
+   髮型改動之前生的那版,不是配「啊志頭」的版本。 */
+const pcPortraitImg = new Image(); pcPortraitImg.src = '../assets/bg/pc-portrait.png?v=1';
 function drawPortrait(who){
   const w = WHO[who] || WHO.pc, S = portC.canvas.width;
   portC.clearRect(0,0,S,S); portC.fillStyle = '#1b202b'; portC.fillRect(0,0,S,S);
   if(who === 'clerk' && clerkPortraitImg.complete){
     portC.imageSmoothingEnabled = true;
     portC.drawImage(clerkPortraitImg, 0,0,clerkPortraitImg.width,clerkPortraitImg.height, 0,0,S,S);
+  } else if(who === 'pc' && pcPortraitImg.complete && pcPortraitImg.naturalWidth){
+    portC.imageSmoothingEnabled = true;
+    portC.drawImage(pcPortraitImg, 0,0,pcPortraitImg.width,pcPortraitImg.height, 0,0,S,S);
   } else {
     portC.save(); portC.imageSmoothingEnabled = false;
     const k = S/33; portC.scale(k,k);
@@ -480,6 +532,32 @@ const NPCS = [
     hood:'#2e4a3a', pants:'#26241f', shoe:'#4a4038'
   })
 ];
+
+/* 中華路⇄廟口路那條巷子(2026-08-17,kc 要求)——kc 原話「這裡是嫖妓專用
+   的巷子」。座標對齊 lib/scene-city3d.js 的 alley(-24, -27, -51)那條,
+   兩個人物都站在巷子寬度內(HW=3.2,見那邊定義)。態度照 CLAUDE.md 那條
+   基準線寫——是「社會怎麼看待這群人」不是「來看這群人多好笑」,對話沒有
+   寫成笑點,是把她當一個在特定處境裡的人寫,嫖客也只是背景存在感,不是
+   丑角。ALLEY_WORKER 是給 updateCity() 的 nearProp 判斷跟 interactProp()
+   的互動邏輯讀的資料,不只是視覺擺設,所以獨立出來,不是丟進上面純裝飾
+   的 NPCS 就算了(不過 animate() 還是要跟 NPCS 一樣接進 render loop,見
+   下面 push 那行)。 */
+const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false };
+const workerNPC = buildNPC(THREE, scene, {
+  x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:Math.PI*.4, rig:'f',
+  skin:'#c9a077', hair:'#241f1c',
+  hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
+});
+NPCS.push(workerNPC);
+/* 嫖客:單純站在旁邊撐場面(kc:「也有嫖客」),沒有互動,只是讓這條巷子
+   讀起來「正在發生」不是空的。跟主角同一副骨架用不同顏色區分就好,不用
+   另外設計。 */
+const clientNPC = buildNPC(THREE, scene, {
+  x:-25.6, z:-36.6, rotationY:-Math.PI*.55, rig:'m2',
+  skin:'#b98a63', hair:'#2c2620',
+  hood:'#33383f', pants:'#26241f', shoe:'#3a3430'
+});
+NPCS.push(clientNPC);
 
 /* ===================================================================
    2D 室內:超商(維持平視,因為這裡的內容是臉)
@@ -652,6 +730,170 @@ const FIXTURE_COLLIDERS = [
 ];
 const COLLIDE_PAD = 6;
 
+/* 家(客廳)＋房間:2026-08-17 接「家裡的拉扯」。跟超商共用同一套室內
+ * 引擎(IN、heroIndoor、indoorScene、renderIndoor3D、openMenu、say),差別
+ * 只在「現在人在哪個室內場景」——新增 `PLACE`('store'/'home'/'bedroom')
+ * 取代原本寫死 STORE 的地方(`updateIndoor`/`openIndoorSpot`/`inBlocked`/
+ * `renderIndoorForeground` 都要照 PLACE 分流,見下面各自的改法)。
+ * 客廳/房間背景是 `scene-home.js`/`scene-bedroom.js` 的純程序畫法(640×360,
+ * 跟 STORE 的照片背景不同來源但同一套座標系統——LW/LH 剛好也是 640×360,
+ * 不用另外換算),畫一次進 `c2dbg` 就好,不像超商店員要每次轉身重畫。
+ * 客廳的沙發/餐桌/曬衣架這次先不做「玩家可以走到後面」的深度遮擋(超商
+ * 鮮食櫃那套),直接用碰撞框擋住不能站上去——省掉一層遮擋合成,肉眼看
+ * 不出差別(這幾件家具本來就不是互動點,見下面「劇情自動觸發」)。 */
+let PLACE = 'store';
+/* 2026-08-17(第二輪):kc 玩過一輪後要求客廳/房間跟超商統一成照片級風格
+ * ——照抄超商繞了四版才收斂的做法(單張整合照片 + OrthographicCamera +
+ * px 矩形碰撞,不做 Y-sort,見 DESIGN_NOTES「家裡的拉扯」「實作接進
+ * game.html」節)。圖(`home-living.png`/`home-bedroom.png`)還沒生出來，
+ * 所以這裡是「FALLBACK 常數(舊的,從 SceneHome/SceneBedroom 程序座標推的)
+ * + PHOTO 常數(新的,量測完真的照片才會填入正確數字,現在先跟 FALLBACK
+ * 一樣佔位)+ 可重新指派的 let 綁定」——圖真的載入成功那一刻把 HOME/
+ * HOME_COLLIDERS 綁定換掉,`inBlocked()`/`updateIndoor()`/`enterIndoor()`/
+ * `enterBedroom()`/`leaveBedroom()` 這些既有讀取端完全不用跟著改。 */
+const HOME_FALLBACK = {
+  walkN: SceneHome.WALK_N, walkS: SceneHome.WALK_S,
+  spots: [
+    { id:'door',    name:'門口', x:0,   w:96, y0:SceneHome.WALK_N, y1:SceneHome.WALK_S },
+    { id:'bedroom', name:'房間', x:600, w:40, y0:SceneHome.WALK_N, y1:SceneHome.WALK_S }
+  ]
+};
+/* 曬衣架(RACK)故意不放進碰撞——它畫在 WALK_S(338)以南(RACK.y=352),
+   本來就在玩家走得到的範圍外,擋框反而會把它上面那段(door 附近)整條
+   走道堵死(2026-08-17 測試時真的卡住,人卡在門口動不了才抓到)。 */
+const HOME_COLLIDERS_FALLBACK = [
+  { x0: SceneHome.SOFA.x-10,   x1: SceneHome.SOFA.x+SceneHome.SOFA.w+10,
+    pyBack: SceneHome.SOFA.y-70, pyFront: SceneHome.SOFA.y+4 },
+  { x0: SceneHome.DINING.x-6,  x1: SceneHome.DINING.x+SceneHome.DINING.w+6,
+    pyBack: SceneHome.DINING.y-46, pyFront: SceneHome.DINING.y+4 }
+];
+const BEDROOM_FALLBACK = {
+  walkN: SceneBedroom.WALK_N, walkS: SceneBedroom.WALK_S,
+  spots: [
+    { id:'door', name:'房間門', x:0, w:80, y0:SceneBedroom.WALK_N, y1:SceneBedroom.WALK_S },
+    { id:'bed',  name:'床',     x:SceneBedroom.BED.x-16, w:SceneBedroom.BED.w+32,
+      y0:SceneBedroom.WALK_N, y1:SceneBedroom.BED.y }
+  ]
+};
+const BEDROOM_COLLIDERS_FALLBACK = [
+  { x0: SceneBedroom.DESK.x-6, x1: SceneBedroom.DESK.x+SceneBedroom.DESK.w+6,
+    pyBack: SceneBedroom.DESK.y-50, pyFront: SceneBedroom.DESK.y+4 }
+];
+/* PHOTO 版本:圖生出來、量測完之後才會把下面這幾組數字換成真的照片座標
+ * (肉眼在照片上量,換算成 640×360 邏輯座標,見 DESIGN_NOTES)。現在先跟
+ * FALLBACK 一樣,只是佔位——圖片不存在時 naturalWidth 是 0,根本不會被
+ * 指派進 HOME/BEDROOM 綁定,不會出錯。
+ *
+ * 2026-08-17:kc 生完 `home-living.png`/`home-bedroom.png`(1672×941)之後,
+ * 下面這幾組數字已經換成真的照片座標——肉眼在圖上拉網格線量的(跟超商
+ * 當初同一招,不是精算),換算公式 `logical = native * (1280/1672) / SC`
+ * (兩張圖的長寬比幾乎跟 1280×720 一樣,x/y 換算比例幾乎相同,直接乘
+ * 0.383 即可)。
+ *
+ * 客廳第二版(同一天,kc 玩過一輪覺得「房間擺設太複雜、太容易穿模」,
+ * 要求改成「水平走到房間」——玩家在客廳裡**只能左右移動,不能前後**,
+ * 固定站在同一條深度線上。連帶要求重生一張新的 `home-living.png`:
+ * 所有家具貼牆,中間留一條乾淨走道(舊版沙發/餐桌站在房間中央,會擋住
+ * 唯一的水平走道,新版全部靠牆排開)。**這版之後 `HOME_COLLIDERS_PHOTO`
+ * 直接清空**——沒有深度可以走,家具也不會擋到那條唯一的路,不需要碰撞框
+ * 了。水平鎖定的實際實作在 `updateIndoor()` 裡(`PLACE==='home'` 時 dy
+ * 強制歸零),`walkN`/`walkS` 這裡故意設成同一個值(268)當那條固定線,
+ * 不是量錯。 */
+const HOME_WALK_Y = 268;
+const HOME_PHOTO = {
+  walkN: HOME_WALK_Y, walkS: HOME_WALK_Y,
+  spots: [
+    { id:'door',    name:'門口', x:85,  w:72, y0:HOME_WALK_Y-20, y1:HOME_WALK_Y+20 },
+    { id:'bedroom', name:'房間', x:575, w:57, y0:HOME_WALK_Y-20, y1:HOME_WALK_Y+20 }
+  ]
+};
+const HOME_COLLIDERS_PHOTO = [];
+const BEDROOM_PHOTO = {
+  walkN: 185, walkS: 330,
+  spots: [
+    { id:'door', name:'房間門', x:0,  w:85,  y0:185, y1:330 },
+    { id:'bed',  name:'床',     x:55, w:315, y0:185, y1:315 }
+  ]
+};
+const BEDROOM_COLLIDERS_PHOTO = [
+  { x0:429, x1:598, pyBack:199, pyFront:299 }    // 書桌
+];
+let HOME = HOME_FALLBACK, HOME_COLLIDERS = HOME_COLLIDERS_FALLBACK;
+let BEDROOM = BEDROOM_FALLBACK, BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_FALLBACK;
+
+/* naturalWidth(不是 complete!)——圖片 404 時 complete 一樣會變 true,
+   naturalWidth 才分得出「真的載入成功」還是「找不到檔案」。跟超商
+   clerk-front.png?v=7 同一招手動快取破壞:這兩張圖以後換內容,記得把
+   ?v= 往上加,不要以為存檔就會自動生效。 */
+const homeLivingImg = new Image();
+homeLivingImg.onload = () => {
+  if(homeLivingImg.naturalWidth){ HOME = HOME_PHOTO; HOME_COLLIDERS = HOME_COLLIDERS_PHOTO; }
+  paintHomeBackdrop();
+};
+homeLivingImg.src = '../assets/bg/home-living.png?v=2';
+const homeBedroomImg = new Image();
+homeBedroomImg.onload = () => {
+  if(homeBedroomImg.naturalWidth){ BEDROOM = BEDROOM_PHOTO; BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_PHOTO; }
+  paintBedroomBackdrop();
+};
+homeBedroomImg.src = '../assets/bg/home-bedroom.png?v=1';
+
+/* 爸媽疊圖(2026-08-17起):跟店員(clerk-front/back.png)同一招——3D 骨架
+ * 模型(buildNPC,rig 'm',opts.pose:'sit' 借坐姿動畫)截綠幕背影,程式碼
+ * 裡去背後疊上客廳背景,不是動態渲染。第一版(dad-drunk.png v1)kc 一開始
+ * 用 GPT 生了張寫實照片版,套進場景才發現跟其他角色(3D 模型截圖/像素
+ * 小人)風格完全不搭——**跟場景其他人物用不同美術管線的素材不要混,回頭
+ * 全部走 3D 模型截圖這條路**(這條規則跟超商店員當初的決定一致,見「超商
+ * 店員」那節)。
+ * **已知限制,先頂著用**:Mixamo 只有「坐椅子」那顆通用坐姿動畫(跟騎機車
+ * 那顆共用同一套邏輯,見 `buildNPC` 的 `opts.pose==='sit'`),不是「醉倒
+ * 攤在地上」的姿勢——沒有靠牆歪一邊、單純坐正。要更貼近「醉」的感覺,得
+ * 找/做專門的動作或改用 IK,這輪先不做。
+ * **酒瓶(2026-08-18):3D 場景裡試過把幾何酒瓶掛在手骨上(仿 addTattoo()
+ * 那套「掛到骨骼、用 world scale 抵銷縮放」手法),遇到一個沒解開的坑——
+ * 坐姿動畫下手骨的 local 座標軸方向沒有像 addTattoo() 那則舊註解描述的
+ * T-pose 前臂那樣是「已知的」,肉眼調了幾輪 offset/rotation、把幾何放大
+ * 到全身高度 15% 都沒能在截圖裡看到酒瓶(很可能是被手/大腿的網格擋住,
+ * 或方向算錯到背後去了)。**放棄場景內 3D 掛件,改成直接在裁切好的截圖
+ * PNG 上用 PIL 畫一個色塊酒瓶**(`tools/`底下沒有留腳本,是這輪臨時在
+ * scratchpad 寫的一次性 script,合成邏輯很簡單:找到他右手的像素位置,
+ * 疊一個深綠色矩形瓶身+窄矩形瓶頸+瓶蓋)——效果比 3D 掛件直接可控、
+ * 而且馬上看得到結果,以後要加其他人物手持小物,這條路徑比 3D 掛件
+ * 好除錯,建議優先考慮。 */
+const dadDrunkImg = new Image(); dadDrunkImg.onload = paintHomeBackdrop; dadDrunkImg.src = '../assets/bg/dad-drunk.png?v=3';
+const dadCrop = { x:0, y:0, w:100, h:157 };
+function paintHomeBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  if(homeLivingImg.complete && homeLivingImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(homeLivingImg, 0,0,1280,720);
+  } else {
+    gbg.save(); gbg.scale(SC,SC);
+    SceneHome.renderBackground(gbg, { tvOn:true, godLamp:true, vignette:true, sofaFront:true });
+    gbg.restore();
+  }
+  if(dadDrunkImg.complete && dadDrunkImg.naturalWidth){
+    /* 坐姿(跟站立的 INDOOR_HERO_TARGET_PX≈276px 比,矮不少)——120px 寬是
+       肉眼比對客廳背景裡餐桌椅高度抓的,不是精算。x 座標(2026-08-18)從
+       900 推到 1080——kc 要求「再更右下角角落」,靠近餐桌/門那側的地板
+       空隙(照片裡椅子跟房間門之間那塊),比原本貼著電視櫃的位置更貼合
+       「角落」的感覺。 */
+    const dw = 120, dh = dw * (dadCrop.h/dadCrop.w);
+    gbg.drawImage(dadDrunkImg, dadCrop.x,dadCrop.y,dadCrop.w,dadCrop.h, 1080, 650-dh, dw, dh);
+  }
+}
+function paintBedroomBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  if(homeBedroomImg.complete && homeBedroomImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(homeBedroomImg, 0,0,1280,720);
+  } else {
+    gbg.save(); gbg.scale(SC,SC);
+    SceneBedroom.renderBackground(gbg, { vignette:true, bedFront:true });
+    gbg.restore();
+  }
+}
+
 /* 身高:畫面固定,不管站多遠(kc 2026-08-12 定案,見 DESIGN_NOTES)。
    正交鏡頭下世界單位跟畫面 px 是固定的 1:1,不用再像透視鏡頭那樣每幀用
    screenY() 反推——直接是一個常數。 */
@@ -696,13 +938,22 @@ const IN = { px:150, py:320, face:'F', walkT:0, moving:false, near:null,
              askedJob:false, holding:false };
 
 function inBlocked(x,y){
-  return FIXTURE_COLLIDERS.some(c =>
+  const colliders = PLACE==='store' ? FIXTURE_COLLIDERS
+    : PLACE==='home' ? HOME_COLLIDERS
+    : PLACE==='bedroom' ? BEDROOM_COLLIDERS : [];
+  return colliders.some(c =>
     x > c.x0-COLLIDE_PAD && x < c.x1+COLLIDE_PAD &&
     y > c.pyBack-COLLIDE_PAD && y < c.pyFront+COLLIDE_PAD);
 }
-function buy(price, feed, line){
+/* mood(第 3 參數):2026-08-17 kc 說「買好吃的東西會開心」,情緒的來源正式
+ * 擴大成三種(原本只有街上環境小互動,見 DESIGN_NOTES「第六條:情緒」)
+ * ——這裡吃的是「花錢犒賞自己」那個當下的爽感,不是食物本身的社會觀感
+ * (黃標便當丟不丟臉是另一條 calm/歸屬感 在管,見 `cheapmeal` tag),所以
+ * 便宜的選項不會給負的情緒,只是加得比較少。偷東西不算「買」,steal()
+ * 不動這條。 */
+function buy(price, feed, mood, line){
   if(ST.money < price){ say('pc', price + ' 塊。\n你身上有 ' + ST.money + '。'); return false; }
-  chg('money', -price); if(feed) chg('full', feed);
+  chg('money', -price); if(feed) chg('full', feed); if(mood) chg('mood', mood);
   advanceTime(3); if(line) toast(line);
   return true;
 }
@@ -727,25 +978,55 @@ function steal(feed){
 }
 function openIndoorSpot(id){
   if(busy || dlg.on) return;
+  if(PLACE === 'home'){
+    if(id === 'door') openMenu('門口', [
+      { label:'走出去', cost:'回到街上', run:() => leaveIndoor() },
+      { label:'再待一下', cls:'back', run(){} }
+    ]);
+    else if(id === 'bedroom') openMenu('房間', [
+      { label:'走進去', cost:'', run:() => enterBedroom() },
+      { label:'再待一下', cls:'back', run(){} }
+    ]);
+    return;
+  }
+  if(PLACE === 'bedroom'){
+    if(id === 'door') openMenu('房間門', [
+      { label:'回客廳', cost:'', run:() => leaveBedroom() },
+      { label:'再待一下', cls:'back', run(){} }
+    ]);
+    else if(id === 'bed') openMenu('床', [
+      { label:'睡覺', cost:'體力補滿,跳到明天早上', run:() => sleep() },
+      { label:'不睏', cls:'back', run(){} }
+    ]);
+    return;
+  }
   if(id === 'door') openMenu('門口', [
     { label:'走出去', cost:'回到街上', run:() => leaveIndoor() },
     { label:'再待一下', cls:'back', run(){} }
   ]);
   else if(id === 'hot') openMenu('鮮食櫃', [
-    { label:'拿黃標便當', cost:'$58　飽足 +45',
-      run:() => { if(buy(58,45,'貼黃標的那格空了一個。')){ IN.holding = true; addTag('cheapmeal'); } } },
-    { label:'拿正價便當', cost:'$89　飽足 +48', cls: ST.money<89?'bad':'',
-      run:() => { if(buy(89,48,'')) IN.holding = true; } },
+    { label:'拿i珍食便當', cost:'$58　飽足 +45　情緒 −3',
+      run:() => { if(buy(58,45,-3,'即期折扣的那格空了一個。')){ IN.holding = true; addTag('cheapmeal'); } } },
+    { label:'排骨便當', cost:'$89　飽足 +48　情緒 +6', cls: ST.money<89?'bad':'',
+      run:() => { if(buy(89,48,6,'')) IN.holding = true; } },
+    { label:'蔬菜便當', cost:'$75　飽足 +38　情緒 +5', cls: ST.money<75?'bad':'',
+      run:() => { if(buy(75,38,5,'')) IN.holding = true; } },
+    { label:'茶葉蛋', cost:'$15　飽足 +10　情緒 +1', run:() => buy(15,10,1,'') },
+    { label:'雞排', cost:'$65　飽足 +30　情緒 +8', cls: ST.money<65?'bad':'', run:() => buy(65,30,8,'') },
     { label:'塞進外套', cost:'看店員', cls:'risk', run:() => steal(45) },
     { label:'不拿了', cls:'back', run(){} }
   ]);
   else if(id === 'shelf') openMenu('貨架', [
-    { label:'買泡麵', cost:'$25　飽足 +20', run:() => buy(25,20,'') },
+    { label:'買泡麵', cost:'$25　飽足 +20　情緒 +1', run:() => buy(25,20,1,'') },
+    { label:'買洋芋片', cost:'$40　飽足 +15　情緒 +6', run:() => buy(40,15,6,'') },
     { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(20) },
     { label:'離開', cls:'back', run(){} }
   ]);
   else if(id === 'fridge') openMenu('飲料櫃', [
-    { label:'買飲料', cost:'$25　飽足 +8', run:() => buy(25,8,'') },
+    { label:'買礦泉水', cost:'$15　飽足 +3', run:() => buy(15,3,0,'') },
+    { label:'買豆漿', cost:'$20　飽足 +12　情緒 +3', run:() => buy(20,12,3,'') },
+    { label:'買運動飲料', cost:'$30　飽足 +6　情緒 +5', run:() => buy(30,6,5,'') },
+    { label:'買奶茶', cost:'$35　飽足 +8　情緒 +7', run:() => buy(35,8,7,'') },
     { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(8) },
     { label:'離開', cls:'back', run(){} }
   ]);
@@ -766,40 +1047,50 @@ function openIndoorSpot(id){
 }
 
 function updateIndoor(dt){
-  /* 2026-08-14 kc:「店員背面跟隨機轉身」——不用固定週期(舊的 2D 像素人
-     時代是 `clerkT % 6600 < 2400` 那種固定循環,現在改成每次轉身後隨機
-     抽下一次轉身要等多久,3~8 秒之間,比固定節奏更像真人站著不耐煩偶爾
-     轉一下,不是機械化的來回擺頭。轉身當下才呼叫 paintStoreBackdrop()
-     重繪背景貼對應那張圖,不是每幀都重畫。 */
-  IN.clerkT += dt;
-  if(IN.clerkT >= IN.clerkNextTurn){
-    IN.clerkFace = IN.clerkFace === 'F' ? 'B' : 'F';
-    IN.clerkNextTurn = IN.clerkT + 3000 + Math.random()*5000;
-    paintStoreBackdrop();
-    /* 2026-08-14 kc:轉回正面那一刻,如果玩家手上還有沒安全脫身的贓款
-       (pendingTheft>0)——人還在店裡,算事後被抓一次總帳:扣風評、東西
-       退回去(chg('full',-pendingTheft) 把之前偷到的飽足感扣回來)、
-       今天不能再偷(stealCaughtDay=day,steal() 開頭會擋)。玩家已經走出
-       超商的話 MODE 不會是 'indoor',updateIndoor() 根本不會被呼叫到,
-       等於「走出去之前都算在店內」,跟 steal() 那句 toast 的說法一致。 */
-    if(IN.clerkFace === 'F' && pendingTheft > 0){
-      const amt = pendingTheft; pendingTheft = 0; stealCaughtDay = day;
-      chg('full', -amt); chg('star', -2); chg('calm', -20);
-      say('clerk', '「等一下。」\n\n他轉過身,先看你的外套,再看架上少的那格。\n沒有人說話。你把東西放回去。',
-          () => toast('這家店你今天別再想了。', 3200));
+  /* 店員轉身/事後抓包只在超商發生,家裡/房間沒有店員,整段跳過。 */
+  if(PLACE === 'store'){
+    /* 2026-08-14 kc:「店員背面跟隨機轉身」——不用固定週期(舊的 2D 像素人
+       時代是 `clerkT % 6600 < 2400` 那種固定循環,現在改成每次轉身後隨機
+       抽下一次轉身要等多久,3~8 秒之間,比固定節奏更像真人站著不耐煩偶爾
+       轉一下,不是機械化的來回擺頭。轉身當下才呼叫 paintStoreBackdrop()
+       重繪背景貼對應那張圖,不是每幀都重畫。 */
+    IN.clerkT += dt;
+    if(IN.clerkT >= IN.clerkNextTurn){
+      IN.clerkFace = IN.clerkFace === 'F' ? 'B' : 'F';
+      IN.clerkNextTurn = IN.clerkT + 3000 + Math.random()*5000;
+      paintStoreBackdrop();
+      /* 2026-08-14 kc:轉回正面那一刻,如果玩家手上還有沒安全脫身的贓款
+         (pendingTheft>0)——人還在店裡,算事後被抓一次總帳:扣風評、東西
+         退回去(chg('full',-pendingTheft) 把之前偷到的飽足感扣回來)、
+         今天不能再偷(stealCaughtDay=day,steal() 開頭會擋)。玩家已經走出
+         超商的話 MODE 不會是 'indoor',updateIndoor() 根本不會被呼叫到,
+         等於「走出去之前都算在店內」,跟 steal() 那句 toast 的說法一致。 */
+      if(IN.clerkFace === 'F' && pendingTheft > 0){
+        const amt = pendingTheft; pendingTheft = 0; stealCaughtDay = day;
+        chg('full', -amt); chg('star', -2); chg('calm', -20);
+        say('clerk', '「等一下。」\n\n他轉過身,先看你的外套,再看架上少的那格。\n沒有人說話。你把東西放回去。',
+            () => toast('這家店你今天別再想了。', 3200));
+      }
     }
   }
+
+  const bounds = PLACE === 'store' ? STORE : PLACE === 'home' ? HOME : BEDROOM;
 
   let dx=0, dy=0;
   if(keys['a']||keys['arrowleft'])  dx -= 1;
   if(keys['d']||keys['arrowright']) dx += 1;
   if(keys['w']||keys['arrowup'])    dy -= 1;
   if(keys['s']||keys['arrowdown'])  dy += 1;
+  /* 客廳(2026-08-17 第二輪):kc 要求「水平走到房間」,只能左右走——
+     HOME_PHOTO.walkN/walkS 故意設成同一個值,下面 ny 的 clamp 本來就會把
+     它鎖死在那條線上,這裡額外把 dy 歸零只是為了不要讓 W/S 白白觸發走路
+     動畫、也不要讓角色轉向去面對鏡頭/背對鏡頭(dy 決定的 'B'/'F' 朝向)。 */
+  if(PLACE === 'home') dy = 0;
 
   if(!busy && !dlg.on && (dx||dy)){
     const sp = 1.35 * (dx&&dy ? .71 : 1);
     const nx = Math.max(20, Math.min(LW-20, IN.px + dx*sp));
-    const ny = Math.max(STORE.walkN, Math.min(STORE.walkS, IN.py + dy*sp*.62));
+    const ny = Math.max(bounds.walkN, Math.min(bounds.walkS, IN.py + dy*sp*.62));
     if(!inBlocked(nx, IN.py)) IN.px = nx;
     if(!inBlocked(IN.px, ny)) IN.py = ny;
     IN.moving = true; IN.walkT += dt;
@@ -808,11 +1099,11 @@ function updateIndoor(dt){
   } else IN.moving = false;
 
   IN.near = null;
-  for(const sp of STORE.spots)
+  for(const sp of bounds.spots)
     if(IN.px > sp.x-12 && IN.px < sp.x+sp.w+12 && IN.py >= sp.y0 && IN.py <= sp.y1){ IN.near = sp.id; break; }
   const show = IN.near && !busy && !dlg.on;
   if(show){
-    hintEl.innerHTML = STORE.spots.find(s=>s.id===IN.near).name + '　按 <b>空白鍵</b>';
+    hintEl.innerHTML = bounds.spots.find(s=>s.id===IN.near).name + '　按 <b>空白鍵</b>';
     hintEl.classList.add('on');
   } else hintEl.classList.remove('on');
 }
@@ -828,7 +1119,7 @@ function updateIndoor(dt){
    貼的位置不會脫鉤)。 */
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
-  if(IN.py < STORE.hot.y && IN.px > STORE.hot.x && IN.px < STORE.hot.x + STORE.hot.w){
+  if(PLACE === 'store' && IN.py < STORE.hot.y && IN.px > STORE.hot.x && IN.px < STORE.hot.x + STORE.hot.w){
     buildHotCutMask();
     g2f.imageSmoothingEnabled = true;
     g2f.drawImage(hotCutBuf, STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC);
@@ -856,37 +1147,54 @@ function fade(label, mid){
 /* 2026-08-12 kc:「3D 人物要走進去 2D 場景啊」——原本按空白鍵是站在門口原地
  * 淡出,像瞬間傳送。現在先讓角色真的用走路動畫走到門口座標(walkIn 那段,
  * 在 updateCity() 裡跑),走到才觸發 fade,銜接感才對得上。 */
-/* 回家還沒有真的室內場景——先做一個「按空白鍵直接睡一覺」的輕量版本
-   (2026-08-13,kc 要體力值,睡覺要能補滿),淡出畫面、體力補滿、時間跳到
-   隔天早上,不用真的走進一個家的場景。之後真的做「家」的室內場景要整個
-   換掉這段,現在只是先讓「回家睡覺回體力」這句話有東西可以按。 */
+/* 睡覺:2026-08-17 起是「站在房間床邊按空白鍵」才會觸發(見 BEDROOM 的
+ * `bed` spot),不再是按 home 門瞬間睡著那個輕量版——那版本被整套「客廳→
+ * 房間是另一個場景」換掉了(kc 明確要求「主角房間是另一個場景」,不是
+ * 客廳同一張背景裡的一扇門)。呼叫這個函式當下人已經在室內(PLACE==
+ * 'bedroom'),不用再走路過去,直接淡出、回城市那層 DOM/MODE,邏輯上等於
+ * 「離開室內」＋「跳一天」兩件事一起做。 */
 function sleep(){
-  const home = city.doors.find(d => d.id === 'home');
   busy = true;
-  walkIn = { x: home.x, z: home.z, done(){
-    fade('回家睡了一覺', () => {
-      chg('stamina', 100 - ST.stamina);
-      minute = 7*60; day++;
-      syncHUD();
-      toast('你回去睡了一覺,體力補滿了。', 3000);
-    });
-  }};
+  fade('回家睡了一覺', () => {
+    chg('stamina', 100 - ST.stamina);
+    minute = 7*60; day++;
+    MODE = 'city';
+    document.getElementById('indoor').classList.remove('on');
+    document.getElementById('city').style.display = '';
+    hero.group.position.set(returnTo.x, .3, returnTo.z);
+    syncHUD();
+    toast('你回去睡了一覺,體力補滿了。', 3000);
+  });
 }
 function enterIndoor(door){
-  if(door.id === 'home'){ sleep(); return; }
-  if(door.id !== 'store'){
+  if(door.id !== 'store' && door.id !== 'home'){
     toast(door.name + ' 的室內場景還沒做。（刺青店在 tattoo-room.html,還沒接進來）', 3600);
     return;
   }
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
   walkIn = { x: door.x, z: door.z, done(){
-    fade('超商', () => {
+    fade(door.id === 'store' ? '超商' : '家', () => {
       MODE = 'indoor';
+      PLACE = door.id === 'store' ? 'store' : 'home';
       document.getElementById('city').style.display = 'none';
       document.getElementById('indoor').classList.add('on');
-      IN.px = 150; IN.py = 320; IN.face = 'F';
-      document.getElementById('where').textContent = '超商';
+      if(PLACE === 'store'){
+        IN.px = 150; IN.py = 320; IN.face = 'F';
+        document.getElementById('where').textContent = '超商';
+        /* 2026-08-17 抓到的坑:c2dbg 這張畫布現在跟家/房間共用,超商原本
+           假設它「只要在頁面載入時畫過一次就永遠是超商」(wallImg.onload
+           那次),接了家/房間之後這個假設不成立——玩家進過家裡或房間,
+           c2dbg 會被換成別的背景,回超商卻沒人叫它重畫,變成頂著超商的
+           `where` 標籤卻顯示上一個場景的背景。這裡補回來,每次真的走進
+           超商都重畫一次,不能只靠頁面載入那一次。 */
+        paintStoreBackdrop();
+      } else {
+        IN.px = 90; IN.py = HOME.walkS; IN.face = 'F';
+        document.getElementById('where').textContent = '家';
+        paintHomeBackdrop();
+        maybeTriggerStoryNode();
+      }
       advanceTime(1);
     });
   }};
@@ -900,6 +1208,75 @@ function leaveIndoor(){
     hero.group.position.set(returnTo.x, .3, returnTo.z);
     advanceTime(1);
   });
+}
+/* 客廳 ⇄ 房間:兩個都算「室內」(MODE 全程維持 'indoor'),只是 PLACE 換,
+ * 不用像 enterIndoor/leaveIndoor 那樣牽動 3D 街景/`returnTo`。 */
+function enterBedroom(){
+  busy = true;
+  fade('房間', () => {
+    PLACE = 'bedroom';
+    IN.px = 60; IN.py = BEDROOM.walkS - 10; IN.face = 'F';
+    document.getElementById('where').textContent = '房間';
+    paintBedroomBackdrop();
+  });
+}
+function leaveBedroom(){
+  busy = true;
+  fade('客廳', () => {
+    PLACE = 'home';
+    IN.px = 560; IN.py = HOME.walkS; IN.face = 'L';
+    document.getElementById('where').textContent = '家';
+    paintHomeBackdrop();
+  });
+}
+
+/* ===================================================================
+   家裡的拉扯:母·賭 + 父·喝(唯一接進遊戲的一組,見 DESIGN_NOTES
+   「範圍:先只做一組父母」)。story-bet.js/story-drink.js 是純資料
+   (NODES 陣列,按第幾天觸發),這裡是唯一的「消費端」——直接餵給既有的
+   say()/openMenu()/chg()/toast(),不另外做一套對話系統。
+   =================================================================== */
+const seenStoryDays = new Set();      // 'bet-6'、'drink-15' 這種 key,防止同一天重複觸發
+const knownTruths = new Set();        // story-bet.js 的 TRUTHS 編號,目前沒有獨立 UI 顯示,先記著
+/* beats 是 [{who,text}] 或 [{toast,ms}] 的混合陣列,照順序一句一句播完再
+ * 呼叫 done——跟既有 say() 手動巢狀 callback 是同一招,只是資料量大了
+ * (最多到 6 句)用遞迴展開,不用每加一句就多縮排一層。 */
+function playBeats(beats, i, done){
+  if(!beats || i >= beats.length){ done && done(); return; }
+  const b = beats[i];
+  if('toast' in b){ toast(b.toast, b.ms); playBeats(beats, i+1, done); }
+  else say(b.who, b.text, () => playBeats(beats, i+1, done));
+}
+/* debt(欠更多錢)這次沒有另開一條指標——kc 原話「債務就是扣金錢啊」,
+ * 直接當 money 的負向變動處理。money 沒有下限(見 chg() 的 clamp 規則),
+ * 負數就是「在欠錢」的意思,不用另外畫一條進度條。 */
+function applyStoryChoice(item){
+  if(item.calm) chg('calm', item.calm);
+  if(item.money) chg('money', item.money);
+  if(item.moneyAll) chg('money', -ST.money);
+  if(item.debt) chg('money', -item.debt);
+  if(item.truth) knownTruths.add(item.truth);
+}
+/* 規則 1(DESIGN_NOTES「家裡的拉扯」):「他主動來找你,你躲不掉」——不是
+ * 走到沙發按空白鍵那種互動點,是一進客廳當天撞到節點就直接播,擋住(say/
+ * openMenu 本身就會靠 dlg.on/busy 擋住移動,不用額外加鎖)。兩條線目前
+ * 觸發天數沒有重疊(bet: 3/6/10/14/18/22,drink: 4/9/15/20/26),一天最多
+ * 只會撞到一個,所以先不處理「同一天兩條都要播」的排隊邏輯。 */
+function maybeTriggerStoryNode(){
+  const sources = [['bet', StoryBet], ['drink', StoryDrink]];
+  for(const [key, src] of sources){
+    const node = src.NODES.find(n => n.day === day);
+    if(node && !seenStoryDays.has(key+'-'+node.day)){
+      seenStoryDays.add(key+'-'+node.day);
+      playBeats(node.beats, 0, () => {
+        openMenu(node.title, node.menu.map(item => ({
+          label: item.label, cost: item.cost,
+          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => {}); }
+        })));
+      });
+      return;
+    }
+  }
 }
 
 /* ===================================================================
@@ -937,8 +1314,39 @@ const tmp = new THREE.Vector3();
    不夠快再調。 */
 let ridingMoto = null;
 const MOTO_MULT = 3.2;
-const MOTO_SEAT_OFFSET = 2.6;   // 見 updateCity 那段「座墊沒對準」的註解,先湊的數字
-const MOTO_SEAT_Y = 1.05;       // 同上,kc 抓到「屁股懸空在座墊上面」,2026-08-14 從 1.7 調低
+let MOTO_SEAT_OFFSET = 0.75;    // 2026-08-17 定案值(正值 = 往後輪方向)。暫時改回 let
+                                 // 給 #tune 面板拖,錄完會改回 const。
+let MOTO_SEAT_Y = 0.95;         // 同上,座墊高度。
+
+/* 騎乘姿勢調整面板 wiring——暫時的,見上面 #tune 那段 CSS 註解。 */
+let tunePanelSynced = false;
+const tuneInputs = {
+  Offset: document.getElementById('tOffset'), SeatY: document.getElementById('tSeatY'),
+  Splay:  document.getElementById('tSplay'),  ArmX:  document.getElementById('tArmX'),
+  ArmZ:   document.getElementById('tArmZ'),   ArmY:  document.getElementById('tArmY')
+};
+function syncTunePanel(){
+  tuneInputs.Offset.value = MOTO_SEAT_OFFSET;
+  tuneInputs.SeatY.value  = MOTO_SEAT_Y;
+  tuneInputs.Splay.value  = RIDE_POSE.thighSplay;
+  tuneInputs.ArmX.value   = RIDE_POSE.armX;
+  tuneInputs.ArmZ.value   = RIDE_POSE.armZ;
+  tuneInputs.ArmY.value   = RIDE_POSE.armY;
+  Object.keys(tuneInputs).forEach(k => tuneInputs[k].dispatchEvent(new Event('input')));
+}
+tuneInputs.Offset.addEventListener('input', e => { MOTO_SEAT_OFFSET = +e.target.value; document.getElementById('tvOffset').textContent = MOTO_SEAT_OFFSET.toFixed(2); });
+tuneInputs.SeatY .addEventListener('input', e => { MOTO_SEAT_Y      = +e.target.value; document.getElementById('tvSeatY').textContent  = MOTO_SEAT_Y.toFixed(2); });
+tuneInputs.Splay .addEventListener('input', e => { RIDE_POSE.thighSplay = +e.target.value; document.getElementById('tvSplay').textContent = RIDE_POSE.thighSplay.toFixed(2); });
+tuneInputs.ArmX  .addEventListener('input', e => { RIDE_POSE.armX   = +e.target.value; document.getElementById('tvArmX').textContent   = RIDE_POSE.armX.toFixed(2); });
+tuneInputs.ArmZ  .addEventListener('input', e => { RIDE_POSE.armZ   = +e.target.value; document.getElementById('tvArmZ').textContent   = RIDE_POSE.armZ.toFixed(2); });
+tuneInputs.ArmY  .addEventListener('input', e => { RIDE_POSE.armY   = +e.target.value; document.getElementById('tvArmY').textContent   = RIDE_POSE.armY.toFixed(2); });
+/* 買機車(2026-08-17,kc 要求「只有機車行能買,騎別人的扣風評」)——
+   MOTO_PRICE 是我先湊的數字,沒跟 kc 對過,價位刻意訂得比現在身上的錢
+   ($63)高一大截,呼應這遊戲「想翻身但每條路都關著」的基準線(見
+   docs/DESIGN_NOTES.md),不是隨口喊個數字湊功能而已——kc 不喜歡的話說
+   一聲就改。騎沒買的車扣風評的量比照 steal() 被當場抓到那組(-1),不是
+   偷完脫身被抓的重罰組(-2),見 mountMoto() 那段。 */
+const MOTO_PRICE = 1800;
 
 /* 相機防穿牆(kc 之前就遇過):建築/招牌都是 add() 直接掛在 scene 底下的
    Mesh,角色跟 NPC 是 Group,只抓 scene.children 裡 isMesh 的那層、不遞迴,
@@ -995,12 +1403,10 @@ function updateCity(dt){
      dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
      用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
      MOTO_SEAT_OFFSET:propModel() 把整台車的 bounding box 幾何中心對齊
-     local (0,0,0),但座墊實際位置偏車頭那端不是正中心(kc 抓到「人坐在
-     龍頭上,座墊空在後面」,2026-08-14)——車的 group 往「車頭方向」
-     (local +z,跟 hero.group.rotation.y 同一個 forward 慣例)推出去
-     MOTO_SEAT_OFFSET,等於把座墊那端拉回騎士(pos)所在的位置。只動車的
-     視覺位置,不動 pos 本身,碰撞/下車停車座標(m.x/m.z,見 dismountMoto())
-     不受影響。數字是先湊的,kc 玩起來覺得還是没對準再調。 */
+     local (0,0,0),但座墊實際位置不是正中心,車的 group 往騎士反方向
+     推出去 MOTO_SEAT_OFFSET,等於把座墊那端拉回騎士(pos)所在的位置。
+     只動車的視覺位置,不動 pos 本身,碰撞/下車停車座標(m.x/m.z,見
+     dismountMoto())不受影響。數字來源見上面 MOTO_SEAT_OFFSET 那行註解。 */
   if(ridingMoto && ridingMoto.group){
     const fx = Math.sin(hero.group.rotation.y), fz = Math.cos(hero.group.rotation.y);
     ridingMoto.group.position.set(pos.x + fx*MOTO_SEAT_OFFSET, 0, pos.z + fz*MOTO_SEAT_OFFSET);
@@ -1008,9 +1414,7 @@ function updateCity(dt){
   }
 
   if(ridingMoto){
-    /* 座墊高度先湊的數字(車身縮放後量出來的整體高度 3.14 個單位反推座墊
-       約 6 成高),沒有逐一在實機校正過,kc 玩起來覺得懸空/穿模再調——跟
-       LITTER_SIZE 那組數字同一個「先湊再校」的做法。 */
+    /* 座墊高度,數字來源見上面 MOTO_SEAT_Y 那行註解。 */
     pos.y += (MOTO_SEAT_Y - pos.y) * .3;
   } else {
     let onRoad = false;
@@ -1064,21 +1468,38 @@ function updateCity(dt){
       if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'play', ref:p }; break; }
     if(!nearProp) for(const m of city.motos)
       if(!m.ridden && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
+    if(!nearProp && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 3.2)
+      nearProp = { type:'worker', ref:ALLEY_WORKER };
+  }
+  /* 巷口先聽到聲音再看到人(kc:「會聽到聲音」)——距離比互動範圍(3.2)
+     寬一截,只飄一次(ALLEY_WORKER.heard 擋掉),不然每幀都跳字很吵。走過
+     一次之後這句就不會再出現,跟 doors/nearProp 那套「範圍內才顯示」不同,
+     這個是「路過聽到」的單次環境音,不是持續提示。 */
+  if(!ALLEY_WORKER.heard && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 9){
+    ALLEY_WORKER.heard = true;
+    toast('「小帥哥,要不要休息一下?」', 2600);
   }
 
   if(nearDoor && !busy && !dlg.on){
-    hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> ' + (nearDoor.id === 'home' ? '睡覺' : '進去');
+    hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> 進去';
     hintEl.classList.add('on');
   } else if(nearProp && !busy && !dlg.on){
     hintEl.innerHTML = nearProp.type === 'pet' ? nearProp.ref.label + '　按 <b>空白鍵</b> 摸摸看'
                       : nearProp.type === 'play' ? nearProp.ref.label + '　按 <b>空白鍵</b> 玩一下'
-                      : nearProp.type === 'moto' ? '按 <b>空白鍵</b> 騎上去'
+                      : nearProp.type === 'moto' ? (nearProp.ref.forSale && !nearProp.ref.owned
+                          ? '按 <b>空白鍵</b> 跟老闆談車'
+                          : '按 <b>空白鍵</b> 騎上去')
+                      : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
                       : '按 <b>空白鍵</b> 撿起來';
     hintEl.classList.add('on');
   } else if(ridingMoto && !dlg.on){
     hintEl.innerHTML = '按 <b>空白鍵</b> 下車';
     hintEl.classList.add('on');
   } else if(MODE === 'city') hintEl.classList.remove('on');
+
+  if(ridingMoto && !tunePanelSynced){ syncTunePanel(); tunePanelSynced = true; }
+  else if(!ridingMoto) tunePanelSynced = false;
+  tuneEl.classList.toggle('on', !!ridingMoto);
 }
 
 /* 2026-08-14 街上補了一隻貓(scene-city3d.js 的 placePet())——原本三句台詞
@@ -1125,10 +1546,19 @@ const PLAY_LINES = [
    共用同一個座標,不用另外同步——只是站相,不是坐姿,kc 覺得站姿穿模/太怪
    再回頭調高度或找騎乘動畫。上車瞬間不 busy=true(跟摸貓狗/撿垃圾不一樣),
    因為不需要等動畫播完才能動,按下去立刻就能騎走。 */
+/* 騎別人的車扣風評(2026-08-17,kc 要求)——只在「上車那一刻」扣一次,
+   不是騎乘中持續扣(kc 明確選過,跟 fullness 那種持續消耗不一樣)。量比照
+   steal() 當場被抓到那組(-1,不是脫身後被抓的重罰 -2),見上面 MOTO_PRICE
+   的說明。m.owned 的車(跟機車行買下的那台)騎不扣分。 */
 function mountMoto(m){
   ridingMoto = m; m.ridden = true;
   hintEl.classList.remove('on');
-  toast('騎上機車。', 1600);
+  if(m.owned){
+    toast('騎上自己的車。', 1600);
+  } else {
+    chg('star', -1);
+    toast('騎上別人的車——不是你的,先別想太多。', 2000);
+  }
 }
 function dismountMoto(){
   const m = ridingMoto; if(!m) return;
@@ -1137,8 +1567,57 @@ function dismountMoto(){
   m.ridden = false; ridingMoto = null;
   toast('把車停好,下車走路。', 1600);
 }
+/* 跟機車行買車(2026-08-17)——m.forSale 那台才會走這條,其餘車(包括這台
+   買下之前)按空白鍵直接是 mountMoto(),見下面 interactProp() 那段判斷。
+   付完錢當場 owned=true,之後騎這台不再扣風評(見 mountMoto())。 */
+function buyMoto(m){
+  openMenu('機車行', [
+    { label:'付錢買下這台', cost:'$'+MOTO_PRICE, cls: ST.money<MOTO_PRICE?'bad':'',
+      run(){
+        if(ST.money < MOTO_PRICE){ toast('錢不夠,老闆看了你一眼。', 2000); return; }
+        chg('money', -MOTO_PRICE); m.owned = true;
+        toast('這台現在是你的了。', 2000);
+        mountMoto(m);
+      } },
+    { label:'先騎騎看(不買)', cls:'risk', run: () => mountMoto(m) },
+    { label:'算了', cls:'back', run(){} }
+  ]);
+}
+/* 巷子那段互動(2026-08-17)——價位($500)先湊的數字,沒跟 kc 對過,比照
+   MOTO_PRICE 那個做法先訂再說。三個選項刻意不寫成「選了壞結局/好結局」
+   二分——「跟她走」不扣風評(這是私下的事,不是被抓到偷東西那種公開失格),
+   純粹金錢/時間的交換;「聊兩句」給的是她這個人的一句處境,不是搞笑台詞,
+   對照 CLAUDE.md 那條基準線。畫面上不演「跟她走」實際發生什麼,直接跳
+   toast 帶過,跟這遊戲寫「偷東西」的做法(steal() 也是不演犯案過程)是
+   同一個分寸。 */
+const WORKER_PRICE = 500;
+function talkToWorker(w){
+  say('worker', '「怎樣,要不要陪你走一段?」\n\n她看你一眼,沒有堆笑臉,就是在問。', () => {
+    openMenu('巷子裡', [
+      { label:'付錢,跟她走', cost:'$'+WORKER_PRICE, cls: ST.money<WORKER_PRICE?'bad':'',
+        run(){
+          if(ST.money < WORKER_PRICE){ toast('錢不夠。她聳聳肩,轉向別人。', 2000); return; }
+          chg('money', -WORKER_PRICE); chg('mood', 6); chg('stamina', -10);
+          advanceTime(25);
+          w.talked = true;
+          toast('半小時後,你一個人走回巷口。', 2600);
+        } },
+      { label:'就聊兩句,不談這個', cls:'',
+        run(){
+          w.talked = true;
+          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」');
+        } },
+      { label:'不說話,轉身走掉', cls:'back', run(){} }
+    ]);
+  });
+}
 function interactProp(prop){
-  if(prop.type === 'moto'){ mountMoto(prop.ref); return; }
+  if(prop.type === 'worker'){ talkToWorker(prop.ref); return; }
+  if(prop.type === 'moto'){
+    if(prop.ref.forSale && !prop.ref.owned) buyMoto(prop.ref);
+    else mountMoto(prop.ref);
+    return;
+  }
   if(prop.type === 'pet'){
     busy = true;
     /* 貓/狗共用摸的動作會摸空——貓矮,狗那份「Petting Animal」動畫伸手的
@@ -1249,8 +1728,40 @@ window.__dbg = {
   },
   clerkTick(dt){ if(this._clerk) this._clerk.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
   captureClerk(){ return c3d.toDataURL('image/png'); },
+  /* 2026-08-17:爸爸醉倒那張截圖用,跟 spawnClerk 同一招,差別是 pose:'sit'
+     (借用 buildNPC 剛加的 sit 支援,只有 rig 'm' 有 sit.glb)。截完就可以
+     刪,不是要留在場景裡即時渲染。 */
+  spawnDad(rotY){
+    if(this._dad) indoorScene.remove(this._dad.group);
+    this._dad = buildNPC(THREE, indoorScene, {
+      /* 2026-08-18:kc 說「爸爸不夠老」——rig 'm'(Remy)本身是年輕成人的
+         臉/體型,幾何換不了(見 DESIGN_NOTES「一顆骨架、多套皮膚」,髮型
+         都換不了造型只能換色了,更別說臉),能動的只有髮色——原本
+         HP.dadHair 是深棕黑(#26201c),這裡改成灰白撐老態,這是這條管線
+         能做到的極限,不是精準的老人建模。 */
+      rig:'m', rotationY: rotY||0, pose:'sit',
+      skin: HP.dadSkin, hair:'#8a8a82', hood: HP.dadTop, pants: HP.dadPants, shoe:'#1a1a1a'
+    });
+    this._dad.group.position.set(640, 200, 0);
+    this._dad.group.scale.setScalar(INDOOR_HERO_SCALE);
+    return 'spawned';
+  },
+  dadTick(dt){ if(this._dad) this._dad.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
   state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
-                  pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] })
+                  pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] }),
+  ridePose(patch){ if(patch) Object.assign(RIDE_POSE, patch); return { ...RIDE_POSE }; },
+  isRiding: () => !!ridingMoto,
+  boneWorldPos(){
+    const bones = hero.debugBones();
+    const out = {};
+    Object.entries(bones).forEach(([name, b]) => {
+      if(!b) { out[name] = null; return; }
+      b.updateWorldMatrix(true, false);
+      const e = b.matrixWorld.elements;
+      out[name] = [+e[12].toFixed(3), +e[13].toFixed(3), +e[14].toFixed(3)];
+    });
+    return out;
+  }
 };
 </script>
 </body>

@@ -117,6 +117,7 @@ DESIGN_NOTES「目前的原型」那張表是權威盤點,改動原型後要記�
 
 一個家庭故事線一份檔,固定節點結構(第幾天觸發、`TRUTHS` 真相陣列等)。
 現行只接了母・賭(`story-bet.js`)+ 父・喝(`story-drink.js`)這組合,
-其餘四條(`story-work.js`、`story-hit.js`、`story-gone.js`、`story-bf.js`)
-劇本寫好但冰存,`game.html` 也還沒有這組家庭資料——
-見 DESIGN_NOTES「家裡的拉扯 → 範圍:先只做一組父母」。
+**2026-08-17 已經接進 `game.html`**(客廳/房間場景 + 按天自動觸發的對話,
+見 DESIGN_NOTES「家裡的拉扯 → 實作接進 game.html」)。其餘四條
+(`story-work.js`、`story-hit.js`、`story-gone.js`、`story-bf.js`)劇本
+寫好但仍冰存,沒有家庭選擇分支——見 DESIGN_NOTES「範圍:先只做一組父母」。

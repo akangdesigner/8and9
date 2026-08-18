@@ -18,6 +18,16 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 const TEX_DIR = new URL('../../assets/tex/', import.meta.url).href;
 const MODEL_DIR = new URL('../../assets/models/', import.meta.url).href;
 
+/* 機車車色貼圖檔名(2026-08-17)——見 applyMotoSkin() 那段的說明。這裡先把
+   檔名列出來,圖還沒生出來之前 loadModel 抓不到檔案會直接跳過、維持原本
+   純色材質(跟專案其他地方「缺檔案不會壞」同一個慣例),kc 生完圖存到
+   assets/tex/ 底下同名檔案就會自動吃到,不用再改這段。 */
+const MOTO_SKINS = [
+  'moto-skin-white.png','moto-skin-red.png','moto-skin-navy.png','moto-skin-black.png',
+  'moto-skin-silver.png','moto-skin-yellow.png','moto-skin-orange.png','moto-skin-green.png',
+  'moto-skin-pink.png','moto-skin-cream.png','moto-skin-sticker.png','moto-skin-rust.png'
+];
+
 /* ---------------- 外部貼圖共用工具 ----------------
  * assets/tex/ 底下有對應的 png 就換上去,沒有就維持程序生成的灰模,不會壞。
  * 地面/牆/布料這種一張圖要鋪很多次的,AI 生的圖不會真的無縫,直接平鋪會有接縫,
@@ -233,7 +243,11 @@ export function buildCity(THREE, scene){
     const m = std(kind === 'store'
       ? { color:0xe4ead8, emissive:0xf4f6e8, emissiveIntensity:1.1, roughness:.35 }
       : { color:0x1c2731, roughness:.28, metalness:.45 });
-    loader.load(TEX_DIR + `shop-${kind}.png`, img => {
+    /* 2026-08-17:shop-home.png 這輪反覆重生了好幾版,瀏覽器一直吃到舊快取
+       看不到最新版(這個 session 已經在別的貼圖上踩過同一個坑)——只有這個
+       kind 加 ?v=,其他 kind 目前沒在改,不用跟著動。以後 home 這張圖
+       再換內容,把 v 往上加。 */
+    loader.load(TEX_DIR + `shop-${kind}.png` + (kind === 'home' ? '?v=2' : ''), img => {
       const t = new THREE.Texture(img);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
       const ia = img.width / img.height;
@@ -1227,17 +1241,42 @@ export function buildCity(THREE, scene){
      機車模型),下車時把 x/z 更新成當下位置——同一台車換位置停,不是憑空
      多一台。ridden 這個旗標擋掉「同一台車被騎走的時候還能被第二次選到」。 */
   const motos = [];
-  function parkMoto(x, z){
+  /* skinIdx:每台車停放時固定分配一種車色(見上面 MOTO_SKINS 清單),同一台
+     車換位置停(下車重新停放)不會跟著換色——applyMotoSkin() 只在這裡呼叫
+     一次,不是每次移動都重算。 */
+  function parkMoto(x, z, skinIdx, forSale){
     const fallback = box(1.6, 3.1, 4.3, std({ color:0x555b60, roughness:.7 }));
     const holder = add(fallback, x, 1.55, z, true, false);
-    const entry = { x, z, group:holder, ridden:false };
+    /* owned/forSale(2026-08-17,kc 要求)——forSale 標記「停在機車行門口、
+       可以花錢買下」的那台,owned 是買下之後的狀態。其餘沒標 forSale 的車
+       永遠是「別人的」,騎了都算借用(game.html 那邊扣風評)。這兩個欄位
+       只是資料,判斷跟扣分邏輯都在 game.html 的 mountMoto()/interactProp()。 */
+    const entry = { x, z, group:holder, ridden:false, forSale:!!forSale, owned:false };
     motos.push(entry);
     loadModel('moto-vespa.glb').then(gltf => {
       scene.remove(holder);
-      entry.group = add(propModel(THREE, gltf, 4.3, 'z'), x, 0, z, false, false);
+      const propGroup = propModel(THREE, gltf, 4.3, 'z');
+      entry.group = add(propGroup, x, 0, z, false, false);
+      applyMotoSkin(THREE, propGroup, MOTO_SKINS[skinIdx % MOTO_SKINS.length]);
     }).catch(() => {});
   }
-  [[3,-13],[9,-13],[-9,59],[-3,59]].forEach(([x,z]) => parkMoto(x,z));
+  /* 2026-08-17 從 4 台擴到 12 台,湊滿 MOTO_SKINS 的顏色數——沿用原本兩處
+     機車行門口的人行道深度(z=-13/59,見上面的驗證註解),往同一條街的
+     兩側/更遠處延伸,不是憑空挑座標:
+     - 中華路北側(z=-13)原本 2 台再加 2 台(x 往外延伸)
+     - 中華路南側(z=+13,對稱到馬路另一邊)加 2 台
+     - 後火車站那側(z=59)原本 2 台再加 2 台
+     - 後火車站對面(z=85,對稱到馬路另一邊)加 2 台
+     沒有一一肉眼核對每個點會不會卡到店面招牌/道具,kc 玩起來覺得哪台卡到
+     再回頭挪。 */
+  /* forSale:兩間機車行門口原本就停在那的第一台(中華路 x=3、後火車站
+     x=-9)標成「可以買」,其餘 10 台維持「別人的車」。 */
+  [
+    [3,-13],[9,-13],[21,-13],[27,-13],
+    [3,13],[9,13],
+    [-9,59],[-3,59],[-21,59],[-27,59],
+    [-9,85],[-3,85]
+  ].forEach(([x,z], i) => parkMoto(x, z, i, x === 3 && z === -13 || x === -9 && z === 59));
 
   /* 電線杆 + 路燈 */
   H_ROADS.forEach(r => {
@@ -1550,6 +1589,47 @@ function propModel(THREE, gltf, targetSize, lockAxis, ry){
   return g;
 }
 
+/* 機車車色貼圖(2026-08-17)——moto-vespa.glb 這顆模型完全沒有 UV 座標
+   (只有 POSITION/NORMAL,查過 glTF JSON 確認過,不是猜的),原本 5 塊材質
+   都是純色 baseColorFactor,沒有貼圖插槽。kc 想要十幾種不同烤漆質感的車色
+   (不只是換純色),但沒有 UV 就沒地方貼真的照片材質——換一顆新模型是選項,
+   但這批免費低模來源不保證找得到「有 UV 又同風格」的機車,先試相對便宜的
+   做法:**現場算 box-projected UV**(對每個頂點看法線主要朝哪一軸,就用另外
+   兩軸的座標當 UV),不需要模型本身有 UV,缺點是曲面(車殼圓角)貼圖會有
+   輕微拉伸/接縫,但鏡頭在街上離得夠遠(見 CAM 那段註解 dist:22 high:11),
+   細節誤差不至於穿幫。只套在車殼主體(Material.001,量出來是 1209 頂點的
+   那塊淺灰面板)上——輪胎/把手/車燈那幾塊小材質维持原本純色,不然輪胎會被
+   染成車漆色很怪。 */
+function boxProjectUV(THREE, geometry, tile){
+  const pos = geometry.attributes.position, norm = geometry.attributes.normal;
+  const uv = new Float32Array(pos.count * 2);
+  for(let i = 0; i < pos.count; i++){
+    const nx = Math.abs(norm.getX(i)), ny = Math.abs(norm.getY(i)), nz = Math.abs(norm.getZ(i));
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    let u, v;
+    if(nx >= ny && nx >= nz){ u = z; v = y; }
+    else if(ny >= nx && ny >= nz){ u = x; v = z; }
+    else { u = x; v = y; }
+    uv[i*2] = u / tile; uv[i*2+1] = v / tile;
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
+/* file 抓不到(圖還沒生出來)就完全不動 model,維持原本純色材質——只有
+   TextureLoader 真的載到圖才會換材質,不會出現「材質換成空白貼圖」這種半殘
+   狀態。model 是 propModel() 回傳的 group。 */
+function applyMotoSkin(THREE, model, file){
+  if(!file) return;
+  new THREE.TextureLoader().load(TEX_DIR + file, tex => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    model.traverse(o => {
+      if(!o.isMesh || o.material.name !== 'Material.001') return;
+      boxProjectUV(THREE, o.geometry, 3.2);
+      o.material = new THREE.MeshStandardMaterial({ map:tex, roughness:.55 });
+    });
+  }, undefined, () => {});
+}
+
 /* 刺青(2026-08-12):不用 DecalGeometry——那個機制是對著 SkinnedMesh 的
  * 綁定姿勢(bind pose)幾何投影出一塊靜態網格,骨架一動畫變形,貼花不會跟著
  * 走,會凍結在原地跟手臂分離。改成一片貼了圖的小平面,**直接掛在骨骼底下**
@@ -1616,6 +1696,57 @@ function tattooTexture(THREE, img){
    同一個倍率。沒列進來的 name 用 1.8 當預設。 */
 const ONCE_SPEED = { pickup: 2.8, pet: 1.6, pet_low: 1.6 };
 
+/* 騎機車跨坐姿(2026-08-17)——sitAction 是 Mixamo 抓來的「坐椅子」動作
+   (膝蓋併攏、雙腳落地),不是騎車姿勢,kc 玩起來說「沒有騎機車的動作」。
+   找過 Mixamo 有沒有專門的機車/腳踏車騎乘動作,沒有貨(motorcycle/motorbike/
+   biker/scooter/bike/moped/bicycle/straddle/horse 都搜過)。改成:sit 動畫
+   照樣播,騎乘中每幀在 mixer.update() 之後,只在「大腿」骨頭疊加一個張開
+   的旋轉——小腿/腳掌不動,維持 sit 動畫原本算出來的角度(kc:「腳根本
+   不用動」,反正機車上小腿大半被車身擋住,不用為了看不太到的地方冒風險)。
+   骨骼名字抓法跟 addTattoo() 同一套。
+   **角度上限踩過的坑**:大腿骨此刻已經被 sit 動畫轉過一次,local 軸不等於
+   世界座標的左右/前後,疊加旋轉的效果不是線性的——拿 boneWorldPos() 量過
+   一輪,角度加到 .5 兩腳幾乎沒分開,加到 .65 以上兩腳直接在世界座標裡交叉
+   打結(踝關節左右順序整個反過來,看起來像側坐/坐反了)。.4 左右是安全
+   上限,量出來兩腳間距約 9cm,分得不算開但至少沒有交叉——kc 的重點現在是
+   手臂,腿先求穩定不出包。 */
+export const RIDE_POSE = {
+  thighSplay:.35,
+  armX:-.7, armZ:.2, armY:.05    // 肩膀三軸合起來轉,手才會平伸,見下面說明——
+                                  // 2026-08-17 kc 拿 #tune 面板現場拖出來的定案值。
+};
+
+function applyRidePose(bones){
+  if(!bones.LeftUpLeg) return;
+  bones.LeftUpLeg.rotateY(-RIDE_POSE.thighSplay);
+  bones.RightUpLeg.rotateY(RIDE_POSE.thighSplay);
+  /* 手往前平伸(2026-08-17 kc 要求)——sit 動畫是手放大腿上那種坐姿,肩膀
+     往前抬。拿 __dbg.boneWorldPos() 量手掌實際世界座標試出來的,不是肉眼
+     直接調中的:
+     - 只轉 local X 一軸,手掌雖然有往前(+z)也有抬高,但同時整條手臂會
+       往外側偏(側向分量跟著變大),畫面上讀成「手舉起來張開」不是「往前伸」。
+     - local X + local Z 兩軸一起轉,側向分量互相抵銷、往前的分量還加大,
+       手臂才會讀成一直線往前伸。兩軸的角度是各自試出來的固定值,不是同一個
+       數字的正負號换算。
+     - 兩軸疊加後手肘本身還有點彎,但因為是疊加在 sit 動畫本來的手肘角度上,
+       再去動手肘骨頭(local X/Y/Z 都試過)只會讓手掌往後或往側邊偏,沒有一個
+       軸能單純把手肘拉直,所以手肘不動,靠肩膀兩軸就夠讀成「伸手」了。
+     - **左右鏡射注意**:local X 兩邊同號,local Z 兩邊要反號(跟大腿的
+       thighSplay 一樣是鏡射骨骼),同號的話其中一邊的側向分量會加倍不會
+       抵銷,手臂讀起來還是歪的——這裡踩過一次。
+     - armY:2026-08-17 kc 要求補上第三軸給 #tune 面板拖(當時只有 X/Z 兩個
+       slider,kc 說不夠)。單獨測過對手掌位置影響很小(接近骨頭自己的
+       length/twist 軸),但留著給面板拖著玩,鏡射方式跟 armZ 一樣兩邊反號。 */
+  if(bones.LeftArm){
+    bones.LeftArm.rotateX(RIDE_POSE.armX);
+    bones.LeftArm.rotateZ(RIDE_POSE.armZ);
+    bones.LeftArm.rotateY(RIDE_POSE.armY);
+    bones.RightArm.rotateX(RIDE_POSE.armX);
+    bones.RightArm.rotateZ(-RIDE_POSE.armZ);
+    bones.RightArm.rotateY(-RIDE_POSE.armY);
+  }
+}
+
 export function buildPlayer(THREE, scene){
   const g = new THREE.Group();
   scene.add(g);
@@ -1627,6 +1758,7 @@ export function buildPlayer(THREE, scene){
   let runPhase = 0;                                   // 只在「跑步動畫還沒載到」的過渡期用,見下面
   const onceActions = {};                             // name -> clipAction 快取,見 playOnce()
   let playingOnce = false;                            // true 時 animate() 的 idle/walk/run 切換整段跳過
+  const RIDE_BONES = {};                              // 騎機車跨坐姿,見 applyRidePose()
 
   const rig = MODELS.m;                               // 主角固定用 Remy(男性)這副骨架
   loadModel(rig.idle).then(idleGltf => {
@@ -1639,6 +1771,14 @@ export function buildPlayer(THREE, scene){
     g.remove(primitive.rig);
     g.add(model);
     mode = 'gltf';
+
+    /* 騎機車跨坐姿(2026-08-17)——見 applyRidePose() 的說明,骨骼名字抓法
+       跟 addTattoo() 同一套(Mixamo 'mixamorig:XXX' 被 GLTFLoader 拿掉冒號)。
+       LeftFoot/RightFoot/LeftLeg/RightLeg 沒被 applyRidePose() 用到,留著
+       是給 __dbg.boneWorldPos() 除錯用(量骨頭實際世界座標,肉眼在單一鏡頭
+       角度容易看錯,見 RIDE_POSE 那段的教訓)。 */
+    ['LeftUpLeg','RightUpLeg','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand','RightHand','LeftFoot','RightFoot','LeftLeg','RightLeg']
+      .forEach(n => { RIDE_BONES[n] = model.getObjectByName('mixamorig'+n); });
 
     mixer = new THREE.AnimationMixer(model);
     if(idleGltf.animations[0]){
@@ -1753,8 +1893,10 @@ export function buildPlayer(THREE, scene){
       }
     }
     mixer.update(dt/1000);                            // dt 這個檔案裡是毫秒,AnimationMixer 吃秒數
+    if(riding) applyRidePose(RIDE_BONES);              // 套跨坐姿,見上面 RIDE_POSE 的說明
   }
-  return { group:g, animate, playOnce, eyeY:PLAYER.eyeY, height:PLAYER.height };
+  return { group:g, animate, playOnce, eyeY:PLAYER.eyeY, height:PLAYER.height,
+            debugBones: () => RIDE_BONES };
 }
 
 /* NPC:一顆骨架、換一套材質顏色站著不動(idle 動畫,不接 walk——現有的廟口
@@ -1776,6 +1918,7 @@ export function buildPlayer(THREE, scene){
  * 回傳 { group, animate }——animate(dt) 要接進呼叫端的 render loop,
  * 不然 idle 動畫的骨架姿勢不會更新,角色會卡在瀏覽器抓到檔案那一刻的預設姿勢。 */
 export function buildNPC(THREE, scene, opts){
+  console.log('[buildNPC entry]', opts.rig, !!opts.bottle);
   const g = new THREE.Group();
   g.position.set(opts.x || 0, .3, opts.z || 0);
   scene.add(g);
@@ -1820,7 +1963,18 @@ export function buildNPC(THREE, scene, opts){
     g.add(model);
 
     mixer = new THREE.AnimationMixer(model);
-    if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play();
+    /* opts.pose==='sit'(2026-08-17,爸爸醉倒那張截圖用):sit.glb 跟
+       walk.glb 同一套「anim-only」——只有骨架+動畫沒有 mesh(見
+       assets/models/README.md「轉檔」那節),mesh 還是從 rig.idle 那份來,
+       這裡只是另外借一顆動畫接上同一個 mixer,跟 buildPlayer() 的
+       sitAction 同一招。只有 rig 'm'(Remy)目前有 sit.glb,其他 rig 沒有
+       就直接退回 idle,不會壞。 */
+    if(opts.pose === 'sit' && rig.sit){
+      loadModel(rig.sit).then(sitGltf => {
+        if(sitGltf.animations[0]) mixer.clipAction(sitGltf.animations[0]).play();
+        else if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play();
+      }).catch(() => { if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play(); });
+    } else if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play();
 
     /* 刺青:opts.tattoo 沒給就不加。要在 mixer 先跑過一次 update 之後才能算
      * 位置——不然骨架還停在匯入時的預設姿勢(T-pose,手臂平舉),不是站立

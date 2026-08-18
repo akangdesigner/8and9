@@ -19,8 +19,10 @@
     pants: '#333a44',
     shoe:  '#191c21',
     /* 3D 街上用的布料照片檔名(assets/tex/,見 PROMPTS.md)。2D 室內目前是純色畫,
-     * 用不到這幾張,但寫在這裡以後兩邊都查得到同一份。 */
-    tex: { hood: 'char-hoodie.png', pants: 'char-pants.png', shoe: 'char-shoe.png' }
+     * 用不到這幾張,但寫在這裡以後兩邊都查得到同一份。?v= 是換圖時的快取破壞
+     * 參數(同一招 clerk-portrait.png 已經在用),檔名沒變瀏覽器會沿用舊快取,
+     * 見 memory「Asset swap verification」——換圖記得把 v 加一。 */
+    tex: { hood: 'char-hoodie.png?v=2', pants: 'char-pants.png?v=2', shoe: 'char-shoe.png' }
   };
   root.Character = Character;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
