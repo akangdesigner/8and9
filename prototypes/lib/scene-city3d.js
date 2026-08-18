@@ -184,12 +184,6 @@ export function buildCity(THREE, scene){
     tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
     plastic:std({color:0xc0473a,roughness:.75}),
     tin:std({color:0x6a6f6a,roughness:.7,metalness:0}),
-    /* 電表箱(2026-08-18 第二十一輪):kc 要求變電箱也做成真的立體方塊
-       (不再是貼平的 addProp() 卡片),跟冷氣機箱體同一套「±x 貼正面照片、
-       其餘四面純色」做法,所以要開一顆獨立材質——不能沿用 M.tin,那顆已經
-       被 ac-unit.png 佔用。metalness 直接照 M.tin/M.metal 第十八輪修好的
-       教訓給 0,不要重踩「沒 envMap,高 metalness 會被吃黑」那個坑。 */
-    meterboxTex:std({color:0x8a857a,roughness:.7,metalness:0}),
     templeDoor:std({color:0x6e1c14,roughness:.8}),
     /* 香爐座、供桌各自開專屬材質,不要沿用 M.curb/M.gold——那兩個共用材質
        還貼在路緣石、屋脊/門楣上,直接貼圖會連累不相干的地方。 */
@@ -280,25 +274,11 @@ export function buildCity(THREE, scene){
     { mats:[M.alleyFloor], file:'walk.png', rep:[3,3], mirror:true, tint:0x2e2a26 },
     { mats:[M.alleyWallSide], file:'alley-wall-side.png', rep:[1,2], mirror:true },
     { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, tint:0xcfcabc },
-    /* tint:0xffffff(2026-08-18 第十九輪,真正抓到的根因):M.tin 的
-       `color:0x6a6f6a`(灰,約 42% 亮度)本來是「貼圖還沒載到之前」的
-       灰色佔位色,但這條 loader 規則沒有 tint 欄位,`o.tint` 是 falsy,
-       下面 forEach 那句 `if(o.tint) m.color.setHex(o.tint)` 永遠不會執行
-       ——貼圖真的載入之後,material.color 還是停在那顆 42% 亮度的灰,跟
-       貼圖相乘,把整張 ac-unit.png 永久壓暗到不到一半亮度。前面第十六
-       (補光)、第十八(metalness/位置)輪一路調亮光源都只是繞過這個根本
-       乘數,治標不治本。補一個 tint:0xffffff,貼圖載入後材質色重置回
-       白,不再吃掉貼圖亮度。 */
-    /* 第二十一輪:kc 給了冷氣機/電表箱的正面+側面雙視圖,要求「對照長寬高」
-       ——用 PIL 量了正面/側面兩張圖裡物件本身的實際 bounding box(排除黑底
-       margin),不是憑印象抓比例。順便把 `ac-unit.png` 重新裁緊(去掉原本
-       裁圖留的黑邊 margin,706×942→706×776),這樣貼圖本身就是「填滿整個
-       箱面」,不用再靠箱體幾何硬湊比例吃掉誤差。版號跟著加到 `?v=3`。
-       `meterbox-unit.png` 是變電箱的正面(同一批量測、同一套裁緊做法,
-       665×942,不透明填滿版本——跟 `prop-meterbox.png` 那張帶 alpha 的
-       卡片版不是同一張檔案,那張留給以後如果還要用卡片形式的地方)。 */
-    { mats:[M.tin], file:'ac-unit.png?v=3', rep:[1,1], mirror:true, tint:0xffffff, lift:.1 },
-    { mats:[M.meterboxTex], file:'meterbox-unit.png', rep:[1,1], mirror:true, tint:0xffffff, lift:.1 },
+    /* 冷氣機/電表箱的貼圖(ac-unit.png/meterbox-unit.png 系列)第二十四輪
+       改成 wallUnit() 自己直接 loader.load(),不再借這條共用管線掛在
+       M.tin/M.meterboxTex 上——M.tin 其實還有別的用途(騎樓雨遮材質,見
+       row() 裡的 awnM),之前掛在它身上等於雨遮偶爾會被 AC 機身照片糊到,
+       是個沒被抓到的舊坑,這輪順便拔掉。 */
     { mats:[M.templeDoor], file:'temple-door.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.incenseStone], file:'incense-stone.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.altarTable], file:'altar-table.png', rep:[1,1], mirror:true, lift:.1 },
@@ -312,7 +292,13 @@ export function buildCity(THREE, scene){
     { mats:[M.tarpB], file:'tarp-blue.png', rep:[1,1], mirror:true, lift:.12 },
     { mats:[M.plastic], file:'plastic-red.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.metal], file:'metal-frame.png', rep:[1,1], mirror:true, lift:.08 },
-    { mats:[M.stallTop], file:'stall-top.png', rep:[1,1], mirror:true, lift:.1 }
+    { mats:[M.stallTop], file:'stall-top.png', rep:[1,1], mirror:true, lift:.1 },
+    /* 紙箱堆(2026-08-18 第二十八輪):crateStack() 兩顆箱子共用同一顆材質貼滿
+       六面(頂上那顆還會亂轉角度),跟冷氣機/電表箱不同,紙箱沒有正面/側面
+       之分,不用三視圖/六面圖,一張無縫可重複貼的滿版材質照就夠——跟
+       tarp-red.png/metal-frame.png 那批同一套用法。tint:0xffffff 照 M.tin
+       那次抓到的根因(見上面第十九輪筆記)一起補,不留同一個坑。 */
+    { mats:[M.cardboard], file:'cardboard.png', rep:[1,1], mirror:true, tint:0xffffff, lift:.1 }
     /* 巷子配電箱不走這條(材質貼滿六面)管線,見下面 alley() 改用 addProp('utilitybox',...)——
        2026-08-18 抓到 utility-box.png 這張其實是廟金雕花貼圖貼錯,已經有現成對的
        prop-utilitybox.png(街上原本就在用的綠色鐵箱)可以借,直接改用卡片貼法。 */
@@ -967,37 +953,14 @@ export function buildCity(THREE, scene){
   row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
 
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 =====
-   * 冷氣機箱體(2026-08-18):原本 M.tin 一張照片貼滿六面,側面/頂面被拉伸糊成一片,
-   * 從斜角看很假——改用材質陣列,只有面對走道的 ±x 兩面貼 ac-unit.png,其餘四面
-   * 貼 M.metal(已經有 metal-frame.png,深色刮痕鐵皮,當側板夠用,不用另外生圖)。
-   * 第十五輪(同一天):kc 生了一張正式的冷氣機正面照(黑底,正面+側面兩格,
-   * 跟 prop-meterbox.png 同一批流程來的,只是這張不用轉 alpha——ac-unit.png
-   * 是貼滿整個箱面的材質,不是浮貼卡片,沒有背景要挖空),只裁正面那格蓋掉
-   * 原本的 ac-unit.png,loader 補上 `?v=2` 破快取。
-   * 第十七輪(同一天,kc 抓到「方塊大小根本沒有按照貼圖比例」):裁出來的
-   * `ac-unit.png`/`prop-meterbox.png` 都是 706×942(直的,寬:高≈0.75),
-   * 但箱體原本是 `box(1.6,1.1,1.2,...)`——貼 ac-unit.png 的 ±x 兩面實際
-   * UV 尺寸是 高(y)×寬(z)=1.1×1.2≈0.92,比圖片胖快 25%,貼圖被橫向拉伸。
-   * 改成 `box(1.2,1.4,1.05,...)`——z:y = 1.05/1.4 = 0.75,跟圖片比例對上,
-   * 不再拉伸;順便瘦身/加高一點,比例上更像貼牆的直式機身,不是原本那顆
-   * 扁胖的箱子。
-   * 第二十一輪(kc 給正面+側面雙視圖,要求「對照長寬高」重量一次):第十七輪
-   * 用的是「整張裁圖畫布」的長寬比(706:942),裡面還包含黑底 margin,不是
-   * 物件本身真正的輪廓比例;這輪改用 PIL 量正面圖跟側面圖裡物件實際
-   * bounding box(排除黑底):正面 706×776(w:h=0.910)、側面(側視寬度=
-   * 真實進深)706×942(d:h=0.749)。箱體三個維度分別對應:
-   * `box(x,y,z)` 的 y=箱高(直接量)、z=面向走道那兩面的「寬」(對應正面
-   * 的 w)、x=箱體實際進深(對應側面圖量出來的 d,跟正面貼圖無關,純粹
-   * 決定箱子從牆面凸出來多厚)。取 y=1.4:z=1.4×0.910≈1.27,
-   * x=1.4×0.749≈1.05——`box(1.05,1.4,1.27,...)`。跟第十七輪那版
-   * (1.2,1.4,1.05)比,z 變胖一截、x 變窄一截,方向是對的(前一版沒有側面
-   * 資料可用,x/z 兩個維度是憑感覺湊的,這輪才第一次有真的側視圖可以量)。 */
-  const acBoxMats = [M.tin, M.tin, M.metal, M.metal, M.metal, M.metal];
-  /* 電表箱同一套(2026-08-18 第二十一輪):正面圖 665×942(w:h=0.706)、
-     側面圖 434×937(d:h=0.463)。取 y=1.3:z=1.3×0.706≈0.92,
-     x=1.3×0.463≈0.60——`box(0.60,1.3,0.92,...)`。跟冷氣機不同材質
-     (`meterboxTex`,見上面 M 那段),其餘四面一樣借 M.metal 當側板。 */
-  const meterboxMats = [M.meterboxTex, M.meterboxTex, M.metal, M.metal, M.metal, M.metal];
+   * 冷氣機/電表箱箱體尺寸沿革(第十五→二十二輪,2026-08-18):從「一張照片
+   * 貼滿六面被拉伸」一路修到「拿 PIL 量正面+側面雙視圖的真實 bounding box
+   * 反推長寬高比例」,中間還踩過「兩張圖不是乾淨 50/50 對切」的坑。最後量出
+   * 冷氣機正面 953×776(w:h=1.228)、側面 440×789(d:h=0.558);電表箱正面
+   * 697×977(w:h=0.713)、側面 434×953(d:h=0.455)。第二十四輪把這批箱體從
+   * `acBoxMats`/`meterboxMats`(MeshStandardMaterial+場景燈光,材質陣列
+   * 邏輯)整個換掉,改用下面 wallUnit() 那套(MeshBasicMaterial,正面貼 ±x、
+   * 側面貼 ±z),數值定案版本見下面 AC_DIMS/MB_DIMS 那兩行,這裡不重複列。 */
   /* 巷子牆貼圖,一種長度一顆材質(2026-08-18 第十輪,理由見上面 M 那段
      「第十輪」註解——不能像其他貼圖一樣共用一顆材質+repeat 貼滿整面牆,
      這張圖的電表/管線/海報都是特定位置的獨一無二細節,repeat 兩次就是
@@ -1117,19 +1080,106 @@ export function buildCity(THREE, scene){
      用 (x+.18, z-.12) 位移疊在下面那顆的一個角上,兩顆大小又不一樣,輪廓
      疊出一階一階的樓梯形狀,不像紙箱堆。改成兩顆箱子同一個 (x,z) 中心
      疊放,只用旋轉(不是位移)做出「隨手疊的、沒對齊」的感覺——旋轉不會
-     破壞疊放的外輪廓,位移會。 */
+     破壞疊放的外輪廓,位移會。
+     第二十八輪(2026-08-18,cardboard.png 貼圖接上之後):kc 說「紙箱可以
+     多一點有雜物感」——原本只有兩顆乾淨疊放的箱子,規規矩矩一個壓一個,
+     看起來像剛搬來的貨,不像巷子裡沒人管的舊紙箱堆。補兩個元素:一顆
+     斜靠在主堆旁邊、位置偏移+z 軸也歪斜(不是單純疊高,像是堆不下滑下來
+     靠著的那顆);一片壓扁攤平的紙箱(高度壓到 .12,接近攤平的破紙箱)
+     躺在地上,暗示「這堆東西已經放很久、有的已經被踩爛/淋濕塌掉」。
+     solid() 範圍跟著新的外輪廓放大一點,不然扁掉那片紙箱會讓人穿模走過去。
+     **待辦(2026-08-18,kc 回報「箱子根本沒貼到圖」,下一輪接續)**:用
+     __dbg.near() 查過材質——map:true、color:ffffff,程式面看起來貼圖有
+     載入,但 kc 實機看到的畫面沒有紋理,根因還沒抓到,先別假設「跟 M.tin
+     那次一樣是 tint 沒重置」就動手改,場景裡的實際截圖還沒來得及跟 kc
+     核對(這次 __dbg.at() 教學跳到 indoor 模式那次意外插曲也還沒排除
+     是不是跟這個回報同時發生、彼此無關)。下一輪先重新截圖比對,不要照
+     這則筆記的猜測直接下結論。 */
   function crateStack(x, z){
-    add(box(1.0,.8,.8, M.cardboard), x, .4, z, true, false);
+    const base = box(1.0,.8,.8, M.cardboard);
+    base.rotation.y = .12;
+    add(base, x, .4, z, true, false);
     const top = box(.7,.6,.6, M.cardboard);
     top.rotation.y = .35;
     add(top, x, 1.1, z, true, false);
-    solid(x, z, .55, .45);
+    const lean = box(.55,.5,.45, M.cardboard);
+    lean.rotation.y = -.6; lean.rotation.z = .22;
+    add(lean, x+.62, .25, z-.38, true, false);
+    const flat = box(.85,.12,.65, M.cardboard);
+    flat.rotation.y = .8;
+    add(flat, x-.68, .07, z+.42, true, false);
+    solid(x, z, .95, .85);
   }
   function drainGrate(x, z){
     const g = new THREE.Mesh(new THREE.PlaneGeometry(.7,.5), M.recess);
     g.rotation.x = -Math.PI/2;
     add(g, x, .29, z, false, false);
   }
+  /* 冷氣機/電表箱掛牆版本(2026-08-18 第二十四輪):在大街上用綠色佔位方塊+
+     debugTexturedBox() 驗證過「正面貼 ±x、側面貼 ±z、頂/底/背面留素色」這套
+     BoxGeometry 材質陣列邏輯沒問題之後,kc 直接要求砍掉大街測試方塊跟巷子裡
+     舊的 acBoxMats/meterboxMats 註解版本(材質陣列邏輯換了,沿用舊註解容易
+     對錯位置),兩種箱體用同一套做法直接掛回真的巷子牆上。目前還是用
+     MeshBasicMaterial(不吃場景燈光)——先把「掛牆位置對不對、貼圖對不對」
+     這件事驗證掉,巷子那組場景燈光不夠亮的問題(見上面 alleyFill 那一長串
+     燈光筆記)之後再處理,不要混在一起 debug。掛牆高度不能太低:kc 明講
+     「不要太低」,電表箱之前用 addProp() 卡片版直接貼地面(底部碰地,y=h/2)
+     ——這輪兩種箱體都抬到腰部以上的掛牆高度(冷氣 y=5.4 接近牆頂、電表箱
+     y=2.4 齊腰),不是隨手擺在地上的雜物。
+     第二十五輪:kc 補了頂面照片(跟正面/側面同一批六宮格參考圖裡的第三張),
+     貼上 +y(這個俯視視角的鏡頭其實常常看得到方塊頂面,不是無所謂的面)。
+     沒有底面照片——箱體貼牆懸空,底面朝下對著巷子地板,這個鏡頭角度看不到,
+     不生圖硬湊,留素色深灰(不再用綠色佔位,綠色是「還沒貼圖」的訊號,頂面
+     補上之後只剩底面沒有真的照片,用接近鐵皮的深灰比亮綠色合理)。 */
+  /* 明暗度(2026-08-18 第二十七輪):kc 說貼圖看起來太亮太平——這批照片是
+     白天平光拍的產品照,MeshBasicMaterial 不吃場景光照,貼上去就是原圖
+     100% 亮度,跟巷子其他材質(靠 M.wall/M.tin 這批 tint 壓過的貼圖,見上面
+     loader 那段「AI 給的是白天平光的照片,直接丟進夜景會太亮」的同一個
+     教訓)比起來太搶眼、也太平沒有明暗層次。用同一招——貼圖真的載入後把
+     材質色從純白壓到 WALLUNIT_TINT 這個灰階,乘掉一截亮度。這裡選了
+     0xb0b0b0(~69%),不喜歡的話這一個常數改掉就好,不用逐一改呼叫點。 */
+  const WALLUNIT_TINT = 0xb0b0b0;
+  function wallUnit(w, h, d, frontFile, sideFile, topFile, cx, cy, cz, ry){
+    const flat = c => new THREE.MeshBasicMaterial({ color:c });
+    const frontMat = flat(0x22ff44), sideMat = flat(0x22ff44), topMat = flat(0x22ff44);
+    const bottomMat = flat(0x2a2a28);
+    const mesh = add(box(w, h, d, [frontMat, frontMat, topMat, bottomMat, sideMat, sideMat]), cx, cy, cz, true, false);
+    mesh.rotation.y = ry || 0;
+    [[frontFile, frontMat], [sideFile, sideMat], [topFile, topMat]].forEach(([file, mat]) => {
+      loader.load(TEX_DIR + file, img => {
+        const t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+        mat.map = t; mat.color.setHex(WALLUNIT_TINT); mat.needsUpdate = true;
+      });
+    });
+    return mesh;
+  }
+  /* 冷氣機管線(2026-08-18 第二十七輪):kc 抓到「冷氣機附近沒有管線很怪」
+   * ——真的冷氣室外機一定有一條銅管/排水管沿牆面往下接,現在箱體是憑空
+   * 貼在牆上,沒有這條線索就很像 3D 建模隨手擺的道具,不像真的裝過的
+   * 設備。補一條簡單的直管,從箱體底部沿牆拉到地面,借 M.wire(已經是
+   * 深色,巷子橫牽電線同一顆材質)不用另開材質。只給冷氣機加,電表箱
+   * 本身不接這種外露管線,不用比照辦理。 */
+  function addPipe(x, yTop, yBot, z, r){
+    const h = yTop - yBot;
+    if(h <= 0) return;
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r||.045, r||.045, h, 6), M.wire);
+    mesh.position.set(x, yBot + h/2, z);
+    mesh.castShadow = false; mesh.receiveShadow = false;
+    scene.add(mesh);
+  }
+  const AC_DIMS = [.78,1.4,1.72];
+  const AC_FILES = ['ac-unit.png?v=4', 'ac-unit-side.png', 'ac-unit-top.png'];
+  const MB_DIMS = [.59,1.3,.93];
+  const MB_FILES = ['meterbox-unit.png?v=2', 'meterbox-unit-side.png', 'meterbox-unit-top.png'];
+  /* 掛牆高度分層(2026-08-18 第二十六輪):kc 丟了一張擺放參考圖,標示冷氣
+     室外機高/中/低三檔(離地約 2.6m/1.2m/0.4m)、電箱「橫向一排」跟「單個」
+     兩檔(離地約 1.8m/1.0m),明講「不要全部同一高度」「不要全部對齊」。
+     1 單位≈0.42 米(跟下面 PLAYER 那條註解換算 Vespa 車長用的同一個比例尺),
+     離地高度換算成箱體中心 y 要加半個箱高(add() 吃的是幾何中心,不是底部):
+     冷氣 h=1.4→半高 .7,電箱 h=1.3→半高 .65。 */
+  const AC_Y = { high: 2.6/.42 + .7, mid: 1.2/.42 + .7, low: .4/.42 + .7 };
+  const MB_Y = { row: 1.8/.42 + .65, single: 1.0/.42 + .65 };
+  const AC_TIER = ['high','mid','low'];
   const alleys = [];
   function alley(x, z0, z1){
     alleys.push({ x, z0, z1 });                        // 小地圖要畫,別在外面重算一次
@@ -1142,20 +1192,23 @@ export function buildCity(THREE, scene){
       add(box(6, 13, len, alleyWallFaces(len)), x + s*(HW+3), 6.5, cz);
       solid(x + s*(HW+3), cz, 3, len/2);
     });
-    /* 第二十輪(2026-08-18):冷氣機箱體/電表卡片先關掉,kc 說「還是沒看到
-       冷氣,先把變電箱跟冷氣刪除,只要給我一個方塊放在街上的地上,先確認
-       沒問題」——連續五輪(第三/十六/十八/十九輪)在巷子裡調燈光/材質
-       都沒能讓 kc 肉眼確認,退回最小可驗證單位:先在大街(採光正常、
-       變數少)擺一顆單純的測試方塊(見下面 `TEST_AC_BOX` 那段),等貼圖
-       在那邊肉眼確認沒問題,再決定要不要把這兩段加回巷子。**不是刪掉
-       這個功能,是註解掉,尺寸/材質/tint 那些修正都還留著,確認過就地
-       解註解即可,不用重寫。** */
-    // for(let i=0;i<5;i++){
-    //   const zz = z0 + (i+.5)*(z1-z0)/5;
-    //   add(box(1.05,1.4,1.27, acBoxMats), x + (i%2?1:-1)*(HW-.3), 4.4+((i*3)%3), zz, true, false);
-    // }
-    // [-.85,0,.85].forEach(dz =>
-    //   addProp('meterbox', x - (HW-1), z0 + (z1-z0)*.3 + dz, .75, 1.0, 0x6a655a, Math.PI/2));
+    /* 第二十四輪:掛牆版冷氣機/電表箱(見上面 wallUnit 那則長筆記)。第二十六輪
+       照 kc 的擺放參考圖重排:冷氣 4 顆輪流吃 AC_Y 高/中/低三檔,不再全部
+       同一個 y;電箱從「3 顆各自散開」改成「1 排 3 個緊靠+1 個單獨」,跟
+       參考圖裡「電箱(橫向一排)」+「電箱(單個)」那組構圖一致。第二十七輪
+       每顆冷氣機補一條 addPipe() 管線(見上面那則筆記),偏移量抓箱體
+       正面寬度(AC_DIMS[2])的 .42 倍,落在箱體邊緣附近、不會穿模。 */
+    [.1,.38,.64,.9].forEach((f, i) => {
+      const zz = z0 + (z1-z0)*f;
+      const ux = x + (i%2?1:-1)*(HW-.3);
+      const uy = AC_Y[AC_TIER[i%3]];
+      wallUnit(...AC_DIMS, ...AC_FILES, ux, uy, zz);
+      addPipe(ux, uy - AC_DIMS[1]/2, .3, zz + AC_DIMS[2]*.42);
+    });
+    const mbRowZ = z0 + (z1-z0)*.5;
+    [-1.1,0,1.1].forEach(dz =>
+      wallUnit(...MB_DIMS, ...MB_FILES, x - (HW-.3), MB_Y.row, mbRowZ + dz));
+    wallUnit(...MB_DIMS, ...MB_FILES, x + (HW-.3), MB_Y.single, z0 + (z1-z0)*.18);
     [0, .32].forEach((f, i) => {
       const lz = cz + (z1-z0)*f;
       placeAlleyLamp(x + (i%2?1:-1)*(HW-.6), lz);
@@ -1165,6 +1218,7 @@ export function buildCity(THREE, scene){
       alleyWire(x-(HW+3), zz, x+(HW+3), zz+1.2, y, sag);
     });
     crateStack(x + (HW-.6), z0 + (z1-z0)*.58);
+    crateStack(x - (HW-.6), z0 + (z1-z0)*.28);
     drainGrate(x - (HW-.5), z0 + (z1-z0)*.84);
     alleyFill(x, cz);
   }
@@ -1198,18 +1252,27 @@ export function buildCity(THREE, scene){
       add(wall, wx, 6.5, wz);
       solid(wx, wz, Math.abs(len/2*ux)+Math.abs(3*nx), Math.abs(len/2*uz)+Math.abs(3*nz));
     });
-    /* 冷氣機箱體/電表卡片,同一套跟 alley() 一致——第二十輪暫時註解掉,
-       理由見 alley() 內同一輪的註解。 */
-    // for(let i=0;i<6;i++){
-    //   const along = -len/2 + (i+.5)*len/6;
-    //   const [jx,jz] = at(along, (i%2?1:-1)*(HW-.3));
-    //   const junk = box(1.05,1.4,1.27, acBoxMats); junk.rotation.y = ang;
-    //   add(junk, jx, 4.4+((i*3)%3), jz, true, false);
-    // }
-    // [-.85,0,.85].forEach(d => {
-    //   const [mx,mz] = at(len*-.2 + d, HW-1);
-    //   addProp('meterbox', mx, mz, .75, 1.0, 0x6a655a, ang-Math.PI/2);
-    // });
+    /* 掛牆版冷氣機/電表箱,同一套跟 alley() 一致(見上面 wallUnit 那則
+       筆記,高度分層見 AC_Y/MB_Y 那則第二十六輪筆記)。斜巷用 at(along, side)
+       換算世界座標,fixture 跟牆一樣要轉 ry=ang,不然貼圖面沒對齊斜巷的
+       走道方向。第二十七輪管線同一套,offset 加在 along 那個分量上
+       (跟著 ux/uz 方向走,不是世界座標的 z),斜巷才不會偏掉。 */
+    [-.4,-.1,.2,.45].forEach((f, i) => {
+      const side = (i%2?1:-1)*(HW-.3);
+      const [jx,jz] = at(len*f, side);
+      const uy = AC_Y[AC_TIER[i%3]];
+      wallUnit(...AC_DIMS, ...AC_FILES, jx, uy, jz, ang);
+      const [px,pz] = at(len*f + AC_DIMS[2]*.42, side);
+      addPipe(px, uy - AC_DIMS[1]/2, .3, pz);
+    });
+    [-1.1,0,1.1].forEach(dAlong => {
+      const [rx,rz] = at(dAlong, -(HW-.3));
+      wallUnit(...MB_DIMS, ...MB_FILES, rx, MB_Y.row, rz, ang);
+    });
+    {
+      const [sx,sz] = at(len*-.3, HW-.3);
+      wallUnit(...MB_DIMS, ...MB_FILES, sx, MB_Y.single, sz, ang);
+    }
     [-.32,.32].forEach((f, i) => {
       const [lx,lz] = at(len*f, (i%2?1:-1)*(HW-.6));
       placeAlleyLamp(lx, lz);
@@ -1220,6 +1283,10 @@ export function buildCity(THREE, scene){
       alleyWire(wx0, wz0, wx1, wz1, y, sag);
     });
     const [cx2,cz2] = at(len*.2, HW-.6); crateStack(cx2, cz2);
+    /* 第二十八輪:同一輪加密紙箱堆(見上面 crateStack() 那則筆記),沿線距離
+       挑得夠遠(along=len*.4 vs 其他雜物大多落在 along≈0 附近),不會疊到
+       電表箱排/水溝蓋。 */
+    const [cx3,cz3] = at(len*.4, -(HW-.6)); crateStack(cx3, cz3);
     const [dx2,dz2] = at(len*-.2, -(HW-.5)); drainGrate(dx2, dz2);
     alleyFill(cx, cz);
   }
@@ -1515,14 +1582,9 @@ export function buildCity(THREE, scene){
   addProp('hydrant', -52, -16.5, .9, 1.2, 0xa0402c);
   addProp('utilitybox', -30, -16.5, 1.1, 1.4, 0x4a5a42);
 
-  /* 第二十→二十一輪除錯用測試方塊(2026-08-18,kc 要求):冷氣機/電表箱
-     貼圖在巷子裡怎麼調都看不出來,退到大街(出生點旁,x:0,z:-11.5,一開頁
-     就在角色正旁邊)擺兩顆最單純的測試方塊並排,方便直接對照。第二十一輪
-     兩顆都換成 kc 給的正面+側面雙視圖量出來的真實比例(見上面 acBoxMats/
-     meterboxMats 那兩則註解)。**這是暫時性除錯裝飾,不是正式街景——
-     確認貼圖沒問題之後,這兩行連同這則註解整段刪掉,不要留著當永久裝飾。** */
-  add(box(1.05,1.4,1.27, acBoxMats), 2, .7, -11.5, true, true);
-  add(box(.60,1.3,.92, meterboxMats), 4.2, .65, -11.5, true, true);
+  /* 大街上的除錯測試方塊(第二十→二十三輪)已經整段拿掉——貼圖/材質陣列
+     邏輯都驗證過沒問題了,第二十四輪直接把同一套做法(見上面 wallUnit)
+     部署回真的巷子牆上,不用再留大街上的佔位裝飾。 */
 
   /* 機車 2026-08-04 拿掉(方塊拼裝太假),2026-08-14 用真的低模模型補回來——
      Vespa,Jasmine Roberts,CC-BY,授權見 assets/models/CREDITS.md,跟垃圾/
