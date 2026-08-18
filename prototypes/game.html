@@ -845,23 +845,71 @@ homeBedroomImg.src = '../assets/bg/home-bedroom.png?v=1';
  * 小人)風格完全不搭——**跟場景其他人物用不同美術管線的素材不要混,回頭
  * 全部走 3D 模型截圖這條路**(這條規則跟超商店員當初的決定一致,見「超商
  * 店員」那節)。
- * **已知限制,先頂著用**:Mixamo 只有「坐椅子」那顆通用坐姿動畫(跟騎機車
- * 那顆共用同一套邏輯,見 `buildNPC` 的 `opts.pose==='sit'`),不是「醉倒
- * 攤在地上」的姿勢——沒有靠牆歪一邊、單純坐正。要更貼近「醉」的感覺,得
- * 找/做專門的動作或改用 IK,這輪先不做。
- * **酒瓶(2026-08-18):3D 場景裡試過把幾何酒瓶掛在手骨上(仿 addTattoo()
- * 那套「掛到骨骼、用 world scale 抵銷縮放」手法),遇到一個沒解開的坑——
- * 坐姿動畫下手骨的 local 座標軸方向沒有像 addTattoo() 那則舊註解描述的
- * T-pose 前臂那樣是「已知的」,肉眼調了幾輪 offset/rotation、把幾何放大
- * 到全身高度 15% 都沒能在截圖裡看到酒瓶(很可能是被手/大腿的網格擋住,
- * 或方向算錯到背後去了)。**放棄場景內 3D 掛件,改成直接在裁切好的截圖
- * PNG 上用 PIL 畫一個色塊酒瓶**(`tools/`底下沒有留腳本,是這輪臨時在
- * scratchpad 寫的一次性 script,合成邏輯很簡單:找到他右手的像素位置,
- * 疊一個深綠色矩形瓶身+窄矩形瓶頸+瓶蓋)——效果比 3D 掛件直接可控、
- * 而且馬上看得到結果,以後要加其他人物手持小物,這條路徑比 3D 掛件
- * 好除錯,建議優先考慮。 */
-const dadDrunkImg = new Image(); dadDrunkImg.onload = paintHomeBackdrop; dadDrunkImg.src = '../assets/bg/dad-drunk.png?v=3';
-const dadCrop = { x:0, y:0, w:100, h:157 };
+ * **v4 岔題(2026-08-18 第三輪)**:一度試過換成 `opts.pose:'lie'`(Mixamo
+ * 「Lying Down」動畫)拍側面全身躺平,kc 看了實際效果打回票——**「醉倒」
+ * 要的是坐姿、背對鏡頭**,不是整個人躺平,退回 v2/v3 的方向(`lie` 這顆
+ * pose 跟 `assets/models/base-human-lie.glb` 都還留著沒刪,以後真的要人
+ * 整個躺平可以撿回來用,見 `buildNPC` 的 `spawnDad` 那段註解)。
+ * **v5(坐姿+背對定案)**:`rotationY` 傳 `Math.PI`(不是 0)才是背對鏡頭——
+ * 之前 v2/v3 誤用 0,拍出來其實是正面,這輪用 claude-in-chrome 開瀏覽器
+ * 綠幕(`renderer3d.setClearColor(0x00ff00,1)`)實際截圖比對過才抓到這個
+ * 坑,`tools/green-to-alpha.py` 去背。
+ * **v6(這輪,椅子+酒瓶合成定案)**:kc 要「角落放張椅子給爸爸坐」,一開始
+ * 拆三張圖疊(爸爸/椅子/酒瓶分開,`DAD_TWEAK`/`CHAIR_TWEAK` 滑桿面板各自
+ * 調位置)——疊圖順序卡住:椅子背對鏡頭那側(貼近鏡頭的座面前緣+前腳)
+ * 該蓋住爸爸下半身一點,但整張椅子圖一次全蓋前面 vs 全部在後面兩個選項
+ * 都不對(前者整個人下半身被吃掉、後者看起來像浮在椅子前面),要精準只
+ * 有「前緣/前腳」蓋住得把椅子圖切成前後兩半分開疊,這輪先不做那麼細——
+ * **kc 直接把爸爸單獨截圖(這輪產出的 dad-drunk.png)、椅子截圖、酒瓶都
+ * 拿到 Photoshop 手動合成一張**,合成時酒瓶也順便改成拿在手上舉起來喝
+ * (不是丟在地上),黑底輸出,黑底轉透明用同一套「不限邊界連通、只要夠
+ * 暗就去背」處理(跟椅子那次踩過的坑一樣,黑色鏤空——椅背縫隙、腋下——
+ * 沒連到邊界,一般黑轉透明腳本挖不到,直接整張圖無腦判斷夠黑就去背)。
+ * 從這版起 `dad-drunk.png` 是「爸爸+椅子+酒瓶」合成後的單一張圖,不再是
+ * 三張分開疊——`DAD_TWEAK` 保留(單一整體的位置/大小滑桿),`CHAIR_TWEAK`
+ * 跟 `dadChairImg`/`dadBottleImg` 那三個獨立疊圖變數拿掉,不用了。 */
+const dadDrunkImg = new Image(); dadDrunkImg.onload = paintHomeBackdrop; dadDrunkImg.src = '../assets/bg/dad-drunk.png?v=6';
+const dadCrop = { x:0, y:0, w:686, h:1403 };
+/* 爸爸疊圖位置(2026-08-18):原本是寫死在 paintHomeBackdrop() 裡的字面
+   數字,kc 說要「用滑桿調」不要一直改程式碼重整頁——拉成一個物件,滑桿
+   面板(__dbg.tweakDad(),見下面)直接改這個物件的值再呼叫
+   paintHomeBackdrop() 重畫,不用碰程式碼。`.w` 是畫面寬度(px),
+   `.x`/`.bottom` 是左上角 x 跟底部貼齊的 y。 */
+const DAD_TWEAK = { x:766, bottom:720, w:152 };
+/* 媽媽坐沙發(2026-08-18):第一版走 3D 模型截圖(spawnMom→綠幕截圖→
+   green-to-alpha.py→裁切),跟爸爸/店員同一條管線,面對鏡頭(`spawnMom(0)`,
+   不是 `Math.PI`——kc 特別提醒跟爸爸背對鏡頭不同)。截圖去背踩到「邊緣去
+   溢色」誤判(見對話紀錄,手臂腋下陰影被壓成深綠色塊),改用不限邊界連通
+   的去背方式修好過一次。**最終還是換成 kc 自己拿 GPT 生的寫實照片版**
+   (這張本身就是透明背景,不用再去背)——這正是「跟其他角色用不同美術
+   管線的素材不要混」那條規則(dad-drunk v1、超商店員都踩過)這次第三次
+   被踩到,不過這輪是 kc 看過 3D 版本後明確選擇要換成寫實版,不是誤用,
+   照辦。mom-sit.png,946×1504。 */
+const momSitImg = new Image(); momSitImg.onload = paintHomeBackdrop; momSitImg.src = '../assets/bg/mom-sit.png?v=3';
+const momCrop = { x:0, y:0, w:946, h:1504 };
+const MOM_TWEAK = { x:566, bottom:504, w:100 };
+/* 接地陰影(2026-08-18,kc 反應「媽媽腳下沒有踩到地板的陰影」):疊圖角色
+   是平面貼紙貼上去的,沒有真的 3D 光影,腳下懸空感很重。畫一個貼在地板上
+   的橢圓形放射狀漸層陰影(中心深、邊緣淡出到透明),不用另外生素材——
+   跟 SceneHome.renderBackground() 那條 canvas-only 管線一致的做法。畫在
+   人物「之前」(疊圖順序上陰影會被腳蓋住一點,才不會浮在鞋子前面)。
+   ew/eh 橢圓的寬高比隨便抓(寬 0.7 倍人物寬、高只有寬的 30%——陰影是
+   俯視角的橢圓,不是圓形),不是精算,肉眼調得不對再改。 */
+function drawFloorShadow(x, bottom, w){
+  const ew = w*.7, eh = ew*.3;
+  const cx = x + w/2;
+  gbg.save();
+  gbg.translate(cx, bottom);
+  gbg.scale(1, eh/ew);
+  const grad = gbg.createRadialGradient(0,0,0, 0,0,ew/2);
+  grad.addColorStop(0, 'rgba(0,0,0,.38)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  gbg.fillStyle = grad;
+  gbg.beginPath();
+  gbg.arc(0, 0, ew/2, 0, Math.PI*2);
+  gbg.fill();
+  gbg.restore();
+}
 function paintHomeBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(homeLivingImg.complete && homeLivingImg.naturalWidth){
@@ -873,14 +921,55 @@ function paintHomeBackdrop(){
     gbg.restore();
   }
   if(dadDrunkImg.complete && dadDrunkImg.naturalWidth){
-    /* 坐姿(跟站立的 INDOOR_HERO_TARGET_PX≈276px 比,矮不少)——120px 寬是
-       肉眼比對客廳背景裡餐桌椅高度抓的,不是精算。位置(2026-08-18 第二輪,
-       用 claude-in-chrome 開瀏覽器實測調的,不是憑印象猜):x 1080→1130、
-       底部 y 650→700,比上一輪(900→1080)更貼牆角、更靠近地板,離右邊
-       房間門更近,加深「攤在牆角」的感覺。 */
-    const dw = 120, dh = dw * (dadCrop.h/dadCrop.w);
-    gbg.drawImage(dadDrunkImg, dadCrop.x,dadCrop.y,dadCrop.w,dadCrop.h, 1130, 700-dh, dw, dh);
+    const dw = DAD_TWEAK.w, dh = dw * (dadCrop.h/dadCrop.w);
+    drawFloorShadow(DAD_TWEAK.x, DAD_TWEAK.bottom, dw);
+    gbg.drawImage(dadDrunkImg, dadCrop.x,dadCrop.y,dadCrop.w,dadCrop.h, DAD_TWEAK.x, DAD_TWEAK.bottom-dh, dw, dh);
   }
+  if(momSitImg.complete && momSitImg.naturalWidth){
+    const mw = MOM_TWEAK.w, mh = mw * (momCrop.h/momCrop.w);
+    drawFloorShadow(MOM_TWEAK.x, MOM_TWEAK.bottom, mw);
+    gbg.drawImage(momSitImg, momCrop.x,momCrop.y,momCrop.w,momCrop.h, MOM_TWEAK.x, MOM_TWEAK.bottom-mh, mw, mh);
+  }
+}
+/* 滑桿調整面板(2026-08-18,暫時性除錯工具,跟 __dbg.spawnDad() 那些同一類——
+   kc 要親手拉滑桿調疊圖位置,不要每次改數字都重存檔重整頁。控制台打
+   __dbg.tweakDad() 開面板,滑桿即時改 DAD_TWEAK/MOM_TWEAK 並重畫,面板上
+   的數字就是最終值(或直接留著滑桿調的結果,不用回填程式碼)。 */
+function tweakDadPanel(){
+  const old = document.getElementById('dadTweakPanel');
+  if(old){ old.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'dadTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:220px;box-shadow:0 4px 20px #000a';
+  const groups = [
+    ['爸爸(含椅子)', DAD_TWEAK],
+    ['媽媽(沙發)', MOM_TWEAK]
+  ];
+  const rowDefs = [
+    ['x','x 位置', 400, 1280],
+    ['bottom','底部高度(y)', 300, 720],
+    ['w','整體寬度', 40, 240]
+  ];
+  panel.innerHTML = groups.map(([title, obj], gi) =>
+    `<div style="font-weight:bold;margin:${gi?'12px':'0'} 0 6px">${title}位置滑桿</div>` +
+    rowDefs.map(([key,label,min,max]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="tweak_${gi}_${key}_v">${obj[key]}</span><br>
+       <input type="range" id="tweak_${gi}_${key}" min="${min}" max="${max}" step="1" value="${obj[key]}" style="width:100%">
+       </div>`
+    ).join('')
+  ).join('') + '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakDad()</div>';
+  document.body.appendChild(panel);
+  groups.forEach(([, obj], gi) => {
+    rowDefs.forEach(([key]) => {
+      const input = document.getElementById(`tweak_${gi}_${key}`);
+      const out = document.getElementById(`tweak_${gi}_${key}_v`);
+      input.addEventListener('input', () => {
+        obj[key] = +input.value;
+        out.textContent = input.value;
+        paintHomeBackdrop();
+      });
+    });
+  });
 }
 function paintBedroomBackdrop(){
   gbg.clearRect(0,0,1280,720);
@@ -1686,6 +1775,13 @@ syncHUD(); drawTags();
 
 /* 除錯用:主控台可以直接把角色傳到某個門口，省得走一分鐘 */
 window.__dbg = {
+  /* scene/city(2026-08-18):之前 __dbg 沒有直接暴露 3D 場景本身,要查某顆
+     mesh 的材質/貼圖有沒有真的套上去,只能用 near() 那組間接資訊(位置/
+     尺寸),沒法驗證材質——巷子冷氣機箱體那次(kc 說「根本沒有方塊啊」)
+     就是靠暴露 scene 才能直接把材質暫時換成高強度發光色現場驗證,查出
+     幾何/材質/貼圖其實都是對的,是巷子環境光真的太暗才讀不出來,不是
+     哪裡漏接。留著這兩個當永久除錯工具,以後同類問題不用再繞。 */
+  scene, city,
   goto(id){
     const d = city.doors.find(x => x.id === id);
     if(!d) return '沒有這個門：' + city.doors.map(x=>x.id).join(', ');
@@ -1698,11 +1794,16 @@ window.__dbg = {
     .map(o => ({ pos:[+o.position.x.toFixed(2),+o.position.y.toFixed(2),+o.position.z.toFixed(2)],
                  rot:[+o.rotation.x.toFixed(3),+o.rotation.y.toFixed(3),+o.rotation.z.toFixed(3)],
                  scale:[+o.scale.x.toFixed(2),+o.scale.y.toFixed(2),+o.scale.z.toFixed(2)],
-                 size: o.geometry?.parameters })); },
+                 size: o.geometry?.parameters,
+                 mat: (Array.isArray(o.material) ? o.material : [o.material]).map(m => ({
+                   color: m.color?.getHexString(), map: !!m.map, mapSrc: m.map?.image?.src,
+                   metalness: m.metalness, roughness: m.roughness
+                 })) })); },
   leave(){ leaveIndoor(); },
   setIndoor(px, py, face){ IN.px=px; IN.py=py; if(face) IN.face=face; },
   tick(dt){ renderIndoor3D(dt||16); renderIndoorForeground(); },   // 手動推進一幀,不用等 rAF,方便測室內位置
-  heroIndoor, indoorScene, renderer3d, IN, paintStoreBackdrop,
+  heroIndoor, indoorScene, renderer3d, IN, paintStoreBackdrop, paintHomeBackdrop,
+  DAD_TWEAK, MOM_TWEAK, tweakDad: tweakDadPanel,
   indoorCalib(){
     const s = heroIndoor.group.scale.x;
     return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
@@ -1728,9 +1829,13 @@ window.__dbg = {
   },
   clerkTick(dt){ if(this._clerk) this._clerk.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
   captureClerk(){ return c3d.toDataURL('image/png'); },
-  /* 2026-08-17:爸爸醉倒那張截圖用,跟 spawnClerk 同一招,差別是 pose:'sit'
-     (借用 buildNPC 剛加的 sit 支援,只有 rig 'm' 有 sit.glb)。截完就可以
-     刪,不是要留在場景裡即時渲染。 */
+  /* 2026-08-17:爸爸醉倒那張截圖用,跟 spawnClerk 同一招。2026-08-18 第二輪
+     試過換成 pose:'lie'(Mixamo「Lying Down」,見 assets/models/README 跟
+     scene-city3d.js MODELS.m.lie)拍側面全身躺平,kc 看了實際效果後打回票——
+     **要的其實是坐姿、背對鏡頭**(口語的「醉倒」不是真的整個人躺平,是
+     「癱坐著喝到不省人事」那種),跟 v2/v3 同一個方向,retire pose:'lie'
+     這條路(程式碼留著、MODELS 裡的 lie 也留著,只是這裡不用了,以後真的
+     要人整個躺平再撿回來用)。 */
   spawnDad(rotY){
     if(this._dad) indoorScene.remove(this._dad.group);
     this._dad = buildNPC(THREE, indoorScene, {
@@ -1747,6 +1852,20 @@ window.__dbg = {
     return 'spawned';
   },
   dadTick(dt){ if(this._dad) this._dad.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
+  /* 2026-08-18:媽媽坐沙發那張截圖用,跟 spawnDad 同一招,rig 換 'f'
+     (Sophie),借同一顆 sit.glb(見 scene-city3d.js MODELS.f.sit 那段
+     註解)。截完就可以刪。 */
+  spawnMom(rotY){
+    if(this._mom) indoorScene.remove(this._mom.group);
+    this._mom = buildNPC(THREE, indoorScene, {
+      rig:'f', rotationY: rotY||0, pose:'sit',
+      skin: HP.momSkin, hair:HP.momHair, hood: HP.momTop, pants: HP.momPants, shoe:'#1a1a1a'
+    });
+    this._mom.group.position.set(640, 200, 0);
+    this._mom.group.scale.setScalar(INDOOR_HERO_SCALE);
+    return 'spawned';
+  },
+  momTick(dt){ if(this._mom) this._mom.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
   state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
                   pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] }),
   ridePose(patch){ if(patch) Object.assign(RIDE_POSE, patch); return { ...RIDE_POSE }; },

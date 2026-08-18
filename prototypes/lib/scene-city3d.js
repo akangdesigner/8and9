@@ -170,10 +170,26 @@ export function buildCity(THREE, scene){
     pillar:std({map:T.wall,color:0xd0c8b6,roughness:.9}),
     glassOff:std({color:0x1c2731,roughness:.28,metalness:.45}),
     glassLit:std({color:0xe4ead8,emissive:0xf4f6e8,emissiveIntensity:1.1,roughness:.35}),
-    metal:std({color:0x3a3f46,roughness:.5,metalness:.6}),
+    /* metal/tin 的 metalness(2026-08-18 第十八輪,kc 說「燈光也可以 tweak」
+       順便查的):場景沒有 envMap,金屬感全靠環境反射撐,`alumFrame` 那顆
+       材質的註解早就寫過「不要用高 metalness,沒反射源會整塊黑掉」,但
+       metal/tin 這兩顆一直沒套用同一條教訓,原本 .6/.4 在暗巷這種光源少
+       的地方會被吃成死黑。第一次壓到 .2/.15 還是不夠——冷氣機箱體貼近
+       走道側牆(±x 法線),巷子的光源(路燈/補光)大多架在高處往下照,
+       跟箱體正面法線夾角接近垂直,漫射光本來就吃得少,殘留一點
+       metalness 就足以再把僅剩的漫射光吃掉一截。乾脆全部歸零,跟這個
+       場景大多數材質(M.wall/M.roof 這批預設 metalness=0)同一個量級,
+       不留任何要靠環境反射撐的成分。 */
+    metal:std({color:0x3a3f46,roughness:.5,metalness:0}),
     tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
     plastic:std({color:0xc0473a,roughness:.75}),
-    tin:std({color:0x6a6f6a,roughness:.7,metalness:.4}),
+    tin:std({color:0x6a6f6a,roughness:.7,metalness:0}),
+    /* 電表箱(2026-08-18 第二十一輪):kc 要求變電箱也做成真的立體方塊
+       (不再是貼平的 addProp() 卡片),跟冷氣機箱體同一套「±x 貼正面照片、
+       其餘四面純色」做法,所以要開一顆獨立材質——不能沿用 M.tin,那顆已經
+       被 ac-unit.png 佔用。metalness 直接照 M.tin/M.metal 第十八輪修好的
+       教訓給 0,不要重踩「沒 envMap,高 metalness 會被吃黑」那個坑。 */
+    meterboxTex:std({color:0x8a857a,roughness:.7,metalness:0}),
     templeDoor:std({color:0x6e1c14,roughness:.8}),
     /* 香爐座、供桌各自開專屬材質,不要沿用 M.curb/M.gold——那兩個共用材質
        還貼在路緣石、屋脊/門楣上,直接貼圖會連累不相干的地方。 */
@@ -185,13 +201,65 @@ export function buildCity(THREE, scene){
     /* 店面凹進去的洞:側面看到的材質,故意深色,靠方向光自己暗下去做出深度,
        不用另外做假陰影的面板。 */
     recess:std({color:0x121417,roughness:.97}),
-    /* 巷子地板/積水(2026-08-18,回應 kc「地上也不知道是啥」):alleyFloor
-       跟 M.walk 是同一張 walk.png,只是換一顆更暗更髒的 tint(見下面 loader
-       那段獨立的一筆),讓巷子讀起來跟大街乾淨人行道不是同一塊地——單純
-       換色調,不用另外生圖。alleyWet 是地上積水漬,半透明深色平面貼在地板
-       上面,不用貼圖(反光感靠低 roughness 撐,不用等貼圖載入)。 */
-    alleyFloor:std({map:T.walk,roughness:.92}),
-    alleyWet:std({color:0x14171a,roughness:.2,transparent:true,opacity:.5,depthWrite:false}),
+    /* 巷子地板(2026-08-18 第三輪,照 kc 給的參考截圖重規劃——整條地板都是
+       濕的,不是原本兩塊突兀的積水色塊):MeshPhysicalMaterial 加 clearcoat,
+       低 roughness 讓路燈的光沿走道拉出長長一條反光,參考圖那種濕潤柏油感
+       主要就是這個效果撐出來的,不是貼圖本身多細緻。原本的 alleyWet(兩塊
+       獨立矩形積水)整塊拿掉,改成地板材質本身統一濕,不用再算積水位置。 */
+    alleyFloor: new THREE.MeshPhysicalMaterial({ map:T.walk, roughness:.5, metalness:.12, clearcoat:1, clearcoatRoughness:.1 }),
+    /* 巷子牆面(同一輪):原本沿用 M.wallC——跟全城建築外牆共用同一顆材質,
+       貼圖重複率也跟大馬路店面一樣稀疏,讀起來像放大的建築外牆,不是窄巷
+       磁磚牆。開一顆獨立材質,同一張 wall.png 但重複率抓密一截(磁磚縫更
+       密)、tint 更暗更髒,才跟大街店面拉開差異。 */
+    /* alley-wall.png(2026-08-18 第五輪):kc 生的專屬巷子磁磚牆照片(小磁磚
+       格+鏽漬水痕+管線孔洞,比借用的 wall.png 髒得多),換掉借用大街外牆
+       貼圖那版。照片本身已經很暗很髒,tint 不用再像借圖那版硬壓暗
+       (0x585048 那顆是為了湊乾淨貼圖硬加的,換真的髒貼圖之後太暗會死黑),
+       改用接近中性的淺色 tint 只是微調,不要蓋掉照片本身的細節。
+       第九輪(同一天):kc 抓到疊在牆上的水管/電表卡/海報卡太小太暗、
+       在暗巷裡讀不出來,提案「牆壁本身就該包含這些東西」——kc 重生了
+       第二版 alley-wall.png,直接把管線/電表箱/海報都拍進同一張照片裡,
+       換掉這張之後拿掉原本疊加的 3D 水管/電表卡/海報卡(見下面 alley()/
+       alleyDiag() 的異動)。**這張圖檔名沒變,只是內容整個換了**,loader
+       那筆補上 `?v=2` 破快取——`shop-home.png` 那次踩過同一個坑(見那節
+       筆記),忘記加版號的話瀏覽器會一直吃到舊版。
+       第十輪(同一天):kc 抓到「重複性太高」——這張圖上的電表/管線/海報
+       都是特定位置的獨一無二細節,不是磁磚縫那種天生可以無縫重複的紋理,
+       用 rep:[2,1] 貼滿整面 24 單位長的牆,同一組電表/海報會在牆上重複
+       出現兩次,一眼看得出是複製貼上。kc 要的是「一開始的尺寸就直接貼一張
+       圖」——整面牆只放這張照片一次,不重複,不夠長的部分接受裁切,不要
+       拉伸(跟 shopFront() 處理門面貼圖長寬比對不上的手法一模一樣,見那個
+       函式的註解)。三種巷子(`alley()` 兩次、`alleyDiag()` 一次)的牆長度
+       都不一樣(24/18/約 40),不能再共用同一顆材質+同一組 repeat 設定,
+       改成 `alleyWallMaterial(len)`——每種長度各自算一次裁切、各自一顆
+       材質,圖只載入一次(`alleyWallImg`/`alleyWallImgPromise` 快取），
+       不同長度的牆各自套自己的 repeat/offset,不會共用同一顆材質物件。
+       第十一輪(同一天):kc 進一步講清楚——不只是裁切邏輯要對,**生圖
+       當下的長寬比就該先貼近牆的比例**,不要生正方形再裁,裁掉的部分等於
+       白生。kc 重生第三版 alley-wall.png,改成寬幅橫幅(1672×941,約
+       16:9),電表/管線/海報三種細節横向分散在畫面左/中/右三段,不是全部
+       擠在正中央——這樣不管哪段長度的牆裁到哪一塊,大概率都裁得到東西,
+       不會裁出一片空牆。`alleyWallMaterial(len)` 的裁切邏輯不用跟著改
+       (原本就是照 img.width/img.height 現算,寬幅圖自動吃到更小的裁切
+       幅度),只有 `?v=3` 版號要往上加。
+       第十四輪(同一天):kc 說「正面用這個,因為變電箱要額外貼圖」——
+       第四版 alley-wall.png(1683×934)拿掉了電表箱那個獨一無二的細節,
+       只留管線/海報/黴斑/補丁磁磚這種可以重複出現不奇怪的紋理,電表箱
+       改回獨立貼圖(kc 生圖中,還沒交回來,等圖到了用 addProp() 接一張
+       新卡片,不是回頭改 alley-wall.png)。版號跟著加到 `?v=4`。 */
+    /* M.alleyWall 這個共用材質已經拿掉了(見上面第十輪筆記)——改用下面的
+       alleyWallMaterial(len) 現場生成,每種牆長度各一顆,不要在這裡補回來。 */
+    /* 巷子紙箱堆(2026-08-18 第七輪):純色沒貼圖,跟 M.roof/M.curb 這批
+       材質同一個慣例——舊瓦楞紙箱本來就沒什麼反光,純色布朗撐得住,
+       不用等貼圖。 */
+    cardboard:std({color:0xa8895c,roughness:.95}),
+    /* 巷子牆側面(2026-08-18 第十三輪):kc 說純色太素,直接指定用第一版
+       alley-wall.png(存成 alley-wall-side.png,還是原本那張沒有電表/管線
+       獨一無二細節的磁磚+黴斑照片——這張沒有「特定位置的一次性細節」,
+       是天生可以重複貼的紋理,不會踩到主牆那張「repeat 會露出複製貼上」
+       的坑,直接照 M.wall 那批貼圖同一套 rep+mirror 慣例貼就好,不用
+       alleyWallMaterial(len) 那套裁切邏輯。 */
+    alleyWallSide: std({ color:0xc2bcae, roughness:.9 }),
     threshold:std({color:0x24211c,roughness:.92}),
     glass:std({color:0xdbe6ea,transparent:true,opacity:.09,roughness:.12,metalness:.1,depthWrite:false}),
     /* 店面箱體側面(跟招牌箱體側面共用):暗灰鋁框感,吃一點反光就好,
@@ -209,9 +277,28 @@ export function buildCity(THREE, scene){
     { mats:[M.shutter], file:'shutter.png', rep:[1,1], tint:0xa8b0ac },
     { mats:[M.road],  file:'road.png',  rep:[5,5], mirror:true, tint:0x6a7178 },
     { mats:[M.walk],  file:'walk.png',  rep:[3,3], mirror:true, tint:0xc2beb4 },
-    { mats:[M.alleyFloor], file:'walk.png', rep:[3,3], mirror:true, tint:0x55504a },
+    { mats:[M.alleyFloor], file:'walk.png', rep:[3,3], mirror:true, tint:0x2e2a26 },
+    { mats:[M.alleyWallSide], file:'alley-wall-side.png', rep:[1,2], mirror:true },
     { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, tint:0xcfcabc },
-    { mats:[M.tin], file:'ac-unit.png', rep:[1,1], mirror:true, lift:.1 },
+    /* tint:0xffffff(2026-08-18 第十九輪,真正抓到的根因):M.tin 的
+       `color:0x6a6f6a`(灰,約 42% 亮度)本來是「貼圖還沒載到之前」的
+       灰色佔位色,但這條 loader 規則沒有 tint 欄位,`o.tint` 是 falsy,
+       下面 forEach 那句 `if(o.tint) m.color.setHex(o.tint)` 永遠不會執行
+       ——貼圖真的載入之後,material.color 還是停在那顆 42% 亮度的灰,跟
+       貼圖相乘,把整張 ac-unit.png 永久壓暗到不到一半亮度。前面第十六
+       (補光)、第十八(metalness/位置)輪一路調亮光源都只是繞過這個根本
+       乘數,治標不治本。補一個 tint:0xffffff,貼圖載入後材質色重置回
+       白,不再吃掉貼圖亮度。 */
+    /* 第二十一輪:kc 給了冷氣機/電表箱的正面+側面雙視圖,要求「對照長寬高」
+       ——用 PIL 量了正面/側面兩張圖裡物件本身的實際 bounding box(排除黑底
+       margin),不是憑印象抓比例。順便把 `ac-unit.png` 重新裁緊(去掉原本
+       裁圖留的黑邊 margin,706×942→706×776),這樣貼圖本身就是「填滿整個
+       箱面」,不用再靠箱體幾何硬湊比例吃掉誤差。版號跟著加到 `?v=3`。
+       `meterbox-unit.png` 是變電箱的正面(同一批量測、同一套裁緊做法,
+       665×942,不透明填滿版本——跟 `prop-meterbox.png` 那張帶 alpha 的
+       卡片版不是同一張檔案,那張留給以後如果還要用卡片形式的地方)。 */
+    { mats:[M.tin], file:'ac-unit.png?v=3', rep:[1,1], mirror:true, tint:0xffffff, lift:.1 },
+    { mats:[M.meterboxTex], file:'meterbox-unit.png', rep:[1,1], mirror:true, tint:0xffffff, lift:.1 },
     { mats:[M.templeDoor], file:'temple-door.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.incenseStone], file:'incense-stone.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.altarTable], file:'altar-table.png', rep:[1,1], mirror:true, lift:.1 },
@@ -882,45 +969,204 @@ export function buildCity(THREE, scene){
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 =====
    * 冷氣機箱體(2026-08-18):原本 M.tin 一張照片貼滿六面,側面/頂面被拉伸糊成一片,
    * 從斜角看很假——改用材質陣列,只有面對走道的 ±x 兩面貼 ac-unit.png,其餘四面
-   * 貼 M.metal(已經有 metal-frame.png,深色刮痕鐵皮,當側板夠用,不用另外生圖)。 */
+   * 貼 M.metal(已經有 metal-frame.png,深色刮痕鐵皮,當側板夠用,不用另外生圖)。
+   * 第十五輪(同一天):kc 生了一張正式的冷氣機正面照(黑底,正面+側面兩格,
+   * 跟 prop-meterbox.png 同一批流程來的,只是這張不用轉 alpha——ac-unit.png
+   * 是貼滿整個箱面的材質,不是浮貼卡片,沒有背景要挖空),只裁正面那格蓋掉
+   * 原本的 ac-unit.png,loader 補上 `?v=2` 破快取。
+   * 第十七輪(同一天,kc 抓到「方塊大小根本沒有按照貼圖比例」):裁出來的
+   * `ac-unit.png`/`prop-meterbox.png` 都是 706×942(直的,寬:高≈0.75),
+   * 但箱體原本是 `box(1.6,1.1,1.2,...)`——貼 ac-unit.png 的 ±x 兩面實際
+   * UV 尺寸是 高(y)×寬(z)=1.1×1.2≈0.92,比圖片胖快 25%,貼圖被橫向拉伸。
+   * 改成 `box(1.2,1.4,1.05,...)`——z:y = 1.05/1.4 = 0.75,跟圖片比例對上,
+   * 不再拉伸;順便瘦身/加高一點,比例上更像貼牆的直式機身,不是原本那顆
+   * 扁胖的箱子。
+   * 第二十一輪(kc 給正面+側面雙視圖,要求「對照長寬高」重量一次):第十七輪
+   * 用的是「整張裁圖畫布」的長寬比(706:942),裡面還包含黑底 margin,不是
+   * 物件本身真正的輪廓比例;這輪改用 PIL 量正面圖跟側面圖裡物件實際
+   * bounding box(排除黑底):正面 706×776(w:h=0.910)、側面(側視寬度=
+   * 真實進深)706×942(d:h=0.749)。箱體三個維度分別對應:
+   * `box(x,y,z)` 的 y=箱高(直接量)、z=面向走道那兩面的「寬」(對應正面
+   * 的 w)、x=箱體實際進深(對應側面圖量出來的 d,跟正面貼圖無關,純粹
+   * 決定箱子從牆面凸出來多厚)。取 y=1.4:z=1.4×0.910≈1.27,
+   * x=1.4×0.749≈1.05——`box(1.05,1.4,1.27,...)`。跟第十七輪那版
+   * (1.2,1.4,1.05)比,z 變胖一截、x 變窄一截,方向是對的(前一版沒有側面
+   * 資料可用,x/z 兩個維度是憑感覺湊的,這輪才第一次有真的側視圖可以量)。 */
   const acBoxMats = [M.tin, M.tin, M.metal, M.metal, M.metal, M.metal];
+  /* 電表箱同一套(2026-08-18 第二十一輪):正面圖 665×942(w:h=0.706)、
+     側面圖 434×937(d:h=0.463)。取 y=1.3:z=1.3×0.706≈0.92,
+     x=1.3×0.463≈0.60——`box(0.60,1.3,0.92,...)`。跟冷氣機不同材質
+     (`meterboxTex`,見上面 M 那段),其餘四面一樣借 M.metal 當側板。 */
+  const meterboxMats = [M.meterboxTex, M.meterboxTex, M.metal, M.metal, M.metal, M.metal];
+  /* 巷子牆貼圖,一種長度一顆材質(2026-08-18 第十輪,理由見上面 M 那段
+     「第十輪」註解——不能像其他貼圖一樣共用一顆材質+repeat 貼滿整面牆,
+     這張圖的電表/管線/海報都是特定位置的獨一無二細節,repeat 兩次就是
+     複製貼上,一眼看得出來)。圖只真的下載一次(`alleyWallImg` 快取
+     HTMLImageElement,`alleyWallPending` 存還沒套用的 callback),每種
+     長度各自建一顆 Texture 算自己的裁切,跟 shopFront() 處理門面長寬比
+     對不上時的手法一模一樣:圖比目標窄就裁切上下,圖比目標寬就裁切
+     左右,不拉伸。 */
+  let alleyWallImg = null;
+  const alleyWallPending = [];
+  loader.load(TEX_DIR + 'alley-wall.png?v=4', img => {
+    alleyWallImg = img;
+    alleyWallPending.forEach(fn => fn(img));
+    alleyWallPending.length = 0;
+  }, undefined, () => {});
+  const alleyWallMats = {};
+  function alleyWallMaterial(len){
+    if(alleyWallMats[len]) return alleyWallMats[len];
+    const m = std({ color:0xcac2b2, roughness:.92 });
+    alleyWallMats[len] = m;
+    const apply = img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      const targetAspect = len/13, ia = img.width/img.height;
+      if(ia > targetAspect){ const r = targetAspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2,0); }
+      else { const r = ia/targetAspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      t.needsUpdate = true;
+      m.map = t; m.color.setHex(0xffffff); m.needsUpdate = true;
+    };
+    if(alleyWallImg) apply(alleyWallImg); else alleyWallPending.push(apply);
+    return m;
+  }
+  /* 巷子牆的側面(2026-08-18 第十二輪,kc 截圖抓到):`box(6,13,len,m)` 傳
+     單一材質會貼滿全部六面,包括巷口露出來的那個窄側面(6×13,跟牆厚同寬)
+     ——那個面套的裁切是照「長邊面向走道」那個比例算的(len:13),硬套到
+     窄側面上會被擠壓變形。kc 原話「只要貼巷子內部的大牆就好,這種側面貼
+     純材質即可」——改傳材質陣列,只有 ±x 那兩個面向走道的大面貼照片,
+     其餘四面(含側面/頂/底)貼一顆沒有貼圖的純色材質(貼近照片平均色調,
+     不會突兀跳色)。BoxGeometry 材質陣列順序是 [+x,-x,+y,-y,+z,-z],跟
+     `acBoxMats` 那組已經在用的順序一致。第十三輪:純色被 kc 打回票,
+     `M.alleyWallSide` 換成第一版 alley-wall.png(見上面 M 那段註解),
+     這裡直接引用 M 物件那顆,不再是這個函式自己的區域變數。 */
+  function alleyWallFaces(len){
+    const front = alleyWallMaterial(len);
+    return [front, front, M.alleyWallSide, M.alleyWallSide, M.alleyWallSide, M.alleyWallSide];
+  }
+  /* 巷子路燈(2026-08-18):原本是一顆浮貼牆上、居中懸空的發光箱體,kc 說
+     「奇怪的燈」——換真的路燈模型,跟 placeLantern()/temple() 同一套
+     「沒載到模型前先用發光箱體佔位,不會空著」邏輯。模型抓 Poly Pizza
+     的免費路燈(Poly by Google,CC-BY 3.0,授權見 assets/models/CREDITS.md,
+     跟 dog/cat/lantern 同一個作者家族)。改成立在巷子地板上、貼著一側牆
+     (不再懸空居中),跟 H_ROADS 那批路燈同一種「立在人行道邊」邏輯,
+     只是矮一截配合巷子比例(巷子牆只有 13 高,撐不住大路那種 15 單位
+     燈柱)。solid() 給一顆小碰撞,跟其他立地道具同一套慣例,細長柱體
+     不太會真的擋到人。第十八輪:kc 說「路燈要高一點」,7.5→10(還是比
+     牆矮,13 高的牆撐不住太誇張的燈柱,但比原本高快 1/3)。 */
+  function placeAlleyLamp(x, z){
+    const size = 10, headY = size*.9;
+    const fallback = box(1.3,.32,.9, glow(0xffb060,2.0));
+    const holder = add(fallback, x, headY, z, false, false);
+    loadModel('street-lamp.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, size, 'y', 0), x, 0, z, true, false);
+    }).catch(() => {});
+    /* 光強度/顏色(2026-08-18 第三輪,照參考圖加深暗巷裡那圈燈池的對比):
+       原本 i:26 太均勻,整條巷子被打得差不多亮——調高強度、縮小 r(範圍),
+       讓光在燈下拉出一圈明顯的亮池,離開範圍很快就吃掉,不是均勻打亮全巷。
+       顏色也調暖一截(0xffe6a8→0xffb060),搭配巷子牆變暗之後對比更明顯。
+       第十八輪:kc 明講「燈光也可以 tweak」,連續好幾輪東西看不到,這次
+       直接把範圍/強度拉高一截(r:20→30,i:46→60),不再堅持第三輪那種
+       「只有燈下一小圈亮」的緊縮效果,換取整條巷子細節讀得出來優先。 */
+    lampSpots.push({ x, y:headY, z, c:0xffb060, i:60, r:30 });
+    solid(x, z, .3, .3);
+  }
+  /* 巷子補光(2026-08-18 第十六輪):kc 連續好幾輪抓到「牆上的東西根本沒有
+     啊」——冷氣機箱體實測(拿 __dbg 把材質暫時換成高強度發光色驗證過)
+     材質/貼圖/幾何全部是對的,問題是路燈那組 i:46,r:20(第三輪為了「一圈
+     圈亮池」故意調緊的,見上面那則註解)範圍太小、太集中,牆面大半段
+     只剩全城共用的 hemisphere/directional 環境光在撐,而那組環境光本來
+     就是給室外大街用的亮度,巷子牆的暗色材質(M.tin/M.metal 這批)在那個
+     亮度下幾乎讀不出來。不能動全城共用的環境光(會拖動大街觀感),改成
+     在巷子中央加一顆大範圍、低強度的暖灰補光——只墊高巷子這個局部範圍的
+     基礎亮度,不再造出第二圈搶眼的亮池(半徑夠大、強度夠低,肉眼看不太
+     出來這是一顆燈,只會覺得巷子整體沒那麼死黑)。
+     第十八輪:跟路燈那組一起調亮(i:16→28,r:34→42),kc 明講可以 tweak
+     燈光,不用再手下留情。 */
+  function alleyFill(x, z){
+    /* y 從 7→4.5(第十八輪同一次調整):冷氣機箱體貼牆、面朝走道(±x
+       法線),高度落在 4.4 附近——原本補光架在 y:7(接近路燈高度),
+       跟箱體正面法線幾乎垂直,漫射光貢獻很少。補光壓低到跟箱體同一個
+       高度帶,光線方向比較貼平走道,照到箱體正面的角度才有效。 */
+    lampSpots.push({ x, y:4.5, z, c:0xcfa980, i:28, r:42 });
+  }
+  /* 巷子橫牽電線(2026-08-18 第六輪,照 kc 給的參考截圖——那張最上緣有一條
+     斜斜橫過巷子的電纜,現在的巷子頭頂完全是空的)。跟 H_ROADS 電線杆之間
+     牽線同一套 TubeGeometry+QuadraticBezierCurve3 做法,只是這裡是牆對牆
+     橫跨巷子寬度,不是杆對杆沿街跑。純裝飾,沒有碰撞、沒有陰影(跟街上
+     那批電線同一個理由:細長 tube 陰影意義不大,省效能)。 */
+  function alleyWire(x0, z0, x1, z1, y, sag){
+    const p0 = new THREE.Vector3(x0, y, z0);
+    const p1 = new THREE.Vector3(x1, y, z1);
+    const mid = new THREE.Vector3((x0+x1)/2, y-sag, (z0+z1)/2);
+    const wire = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(p0, mid, p1), 10, .035, 4, false),
+      M.wire
+    );
+    wire.castShadow = false; wire.receiveShadow = false;
+    scene.add(wire);
+  }
+  /* 紙箱堆/排水溝蓋(2026-08-18 第七輪,kc 說「還久得很」,繼續補雜物,
+     不等貼圖那條線也一起推):牆角堆疊兩顆大小不一的紙箱打斷牆基那條
+     太乾淨的線,溝蓋借 M.recess(本來就是深色凹陷材質)貼在地板上,
+     跟 litter 同一套「墊在地板厚度之上、不要埋進去」的 y=.29。都不呼叫
+     solid() 除了紙箱堆——紙箱堆疊起來有實際體積,擋一下路合理;溝蓋是
+     平貼地板的裝飾,不擋。 */
+  /* 第十七輪修正(2026-08-18,kc 截圖抓到「奇怪樓梯」):原本上面那顆小箱子
+     用 (x+.18, z-.12) 位移疊在下面那顆的一個角上,兩顆大小又不一樣,輪廓
+     疊出一階一階的樓梯形狀,不像紙箱堆。改成兩顆箱子同一個 (x,z) 中心
+     疊放,只用旋轉(不是位移)做出「隨手疊的、沒對齊」的感覺——旋轉不會
+     破壞疊放的外輪廓,位移會。 */
+  function crateStack(x, z){
+    add(box(1.0,.8,.8, M.cardboard), x, .4, z, true, false);
+    const top = box(.7,.6,.6, M.cardboard);
+    top.rotation.y = .35;
+    add(top, x, 1.1, z, true, false);
+    solid(x, z, .55, .45);
+  }
+  function drainGrate(x, z){
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(.7,.5), M.recess);
+    g.rotation.x = -Math.PI/2;
+    add(g, x, .29, z, false, false);
+  }
   const alleys = [];
   function alley(x, z0, z1){
     alleys.push({ x, z0, z1 });                        // 小地圖要畫,別在外面重算一次
+    /* 巷子寬度(2026-08-18 第四輪加寬到 3.6、第九輪 kc 說「不要加寬好了」
+       改回來)——維持 3.2,跟 alleyDiag() 的 3.6 不一致,kc 接受這個不一致,
+       不用特地拉齊。 */
     const HW = 3.2, len = Math.abs(z1-z0), cz = (z0+z1)/2;
     add(box(HW*2+8, .28, len, M.alleyFloor), x, .14, cz, false, true);
     [-1,1].forEach(s => {
-      add(box(6, 13, len, M.wallC), x + s*(HW+3), 6.5, cz);
+      add(box(6, 13, len, alleyWallFaces(len)), x + s*(HW+3), 6.5, cz);
       solid(x + s*(HW+3), cz, 3, len/2);
     });
-    /* 落地水管(2026-08-18,回應 kc「巷子裝飾很假」):貼牆細長金屬管,
-       跟牆面同一批 M.metal(已有 metal-frame.png 貼圖),兩側交錯各兩支,
-       純粹打斷整片平牆,不用另外做彎頭幾何。 */
-    for(let i=0;i<4;i++){
-      const zz = z0 + (i+.5)*(z1-z0)/4, s = i%2?1:-1;
-      add(box(.16,11.5,.16, M.metal), x + s*(HW+.12), 5.8, zz, false, false);
-    }
-    for(let i=0;i<5;i++){
-      const zz = z0 + (i+.5)*(z1-z0)/5;
-      add(box(1.6,1.1,1.2, acBoxMats), x + (i%2?1:-1)*(HW-.3), 4.4+((i*3)%3), zz, true, false);
-      /* 配電箱(2026-08-18):M.utilityBox 那張貼圖其實是廟金雕花貼錯的,見上面
-         loader 那段註解——改借街上本來就在用的 prop-utilitybox.png 卡片,
-         面向走道中央(ry=90°,box 固定貼在 -x 側牆)。 */
-      if(i%2) addProp('utilitybox', x - (HW-1), zz, 1.1, 1.4, 0x4a5a42, Math.PI/2);
-    }
-    /* 地上兩灘積水(同一輪):暗色半透明平面貼在地板頂面上方(y=.29,同一套
-       「墊在地板厚度之上、不要埋進去」規則,litter 那批已經踩過一次教訓)。 */
-    [[.24,2.6,1.6,-1],[.7,2.0,2.4,1]].forEach(([f,pw,pd,side]) => {
-      const pz = z0 + (z1-z0)*f;
-      const puddle = new THREE.Mesh(new THREE.PlaneGeometry(pw,pd), M.alleyWet);
-      puddle.rotation.x = -Math.PI/2;
-      add(puddle, x + side*.7, .29, pz, false, false);
-    });
-    [0, .32].forEach(f => {
+    /* 第二十輪(2026-08-18):冷氣機箱體/電表卡片先關掉,kc 說「還是沒看到
+       冷氣,先把變電箱跟冷氣刪除,只要給我一個方塊放在街上的地上,先確認
+       沒問題」——連續五輪(第三/十六/十八/十九輪)在巷子裡調燈光/材質
+       都沒能讓 kc 肉眼確認,退回最小可驗證單位:先在大街(採光正常、
+       變數少)擺一顆單純的測試方塊(見下面 `TEST_AC_BOX` 那段),等貼圖
+       在那邊肉眼確認沒問題,再決定要不要把這兩段加回巷子。**不是刪掉
+       這個功能,是註解掉,尺寸/材質/tint 那些修正都還留著,確認過就地
+       解註解即可,不用重寫。** */
+    // for(let i=0;i<5;i++){
+    //   const zz = z0 + (i+.5)*(z1-z0)/5;
+    //   add(box(1.05,1.4,1.27, acBoxMats), x + (i%2?1:-1)*(HW-.3), 4.4+((i*3)%3), zz, true, false);
+    // }
+    // [-.85,0,.85].forEach(dz =>
+    //   addProp('meterbox', x - (HW-1), z0 + (z1-z0)*.3 + dz, .75, 1.0, 0x6a655a, Math.PI/2));
+    [0, .32].forEach((f, i) => {
       const lz = cz + (z1-z0)*f;
-      add(box(1.3,.32,.9, glow(0xffe6a8,2.0)), x, 6.4, lz, false, false);
-      lampSpots.push({ x, y:6.4, z:lz, c:0xffe6a8, i:26, r:30 });
+      placeAlleyLamp(x + (i%2?1:-1)*(HW-.6), lz);
     });
+    [[.12,12.3,.5],[.45,11.7,.9],[.78,12.5,.35]].forEach(([f,y,sag]) => {
+      const zz = z0 + (z1-z0)*f;
+      alleyWire(x-(HW+3), zz, x+(HW+3), zz+1.2, y, sag);
+    });
+    crateStack(x + (HW-.6), z0 + (z1-z0)*.58);
+    drainGrate(x - (HW-.5), z0 + (z1-z0)*.84);
+    alleyFill(x, cz);
   }
   alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -78 + B_LINE + DEPTH/2);   // 中華路 ⇄ 廟口路
   alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  72 - B_LINE - DEPTH/2);   // 中華路 ⇄ 後火車站
@@ -946,36 +1192,36 @@ export function buildCity(THREE, scene){
     add(floor, cx, .14, cz, false, true);
 
     [-1,1].forEach(s => {
-      const wall = box(6, 13, len, M.wallC);
+      const wall = box(6, 13, len, alleyWallFaces(len));
       wall.rotation.y = ang;
       const [wx,wz] = at(0, s*(HW+3));
       add(wall, wx, 6.5, wz);
       solid(wx, wz, Math.abs(len/2*ux)+Math.abs(3*nx), Math.abs(len/2*uz)+Math.abs(3*nz));
     });
-    /* 落地水管,同一套跟 alley() 一致(2026-08-18) */
-    for(let i=0;i<4;i++){
-      const along = -len/2 + (i+.5)*len/4, s = i%2?1:-1;
-      const [px,pz] = at(along, s*(HW+.12));
-      add(box(.16,11.5,.16, M.metal), px, 5.8, pz, false, false);
-    }
-    for(let i=0;i<6;i++){
-      const along = -len/2 + (i+.5)*len/6;
-      const [jx,jz] = at(along, (i%2?1:-1)*(HW-.3));
-      const junk = box(1.6,1.1,1.2, acBoxMats); junk.rotation.y = ang;
-      add(junk, jx, 4.4+((i*3)%3), jz, true, false);
-    }
-    /* 地上積水,同一套跟 alley() 一致(2026-08-18) */
-    [[.28,2.4,1.6],[.72,2.0,2.2]].forEach(([f,pw,pd]) => {
-      const [px,pz] = at(-len/2+len*f, 0);
-      const puddle = new THREE.Mesh(new THREE.PlaneGeometry(pw,pd), M.alleyWet);
-      puddle.rotation.x = -Math.PI/2;
-      add(puddle, px, .29, pz, false, false);
+    /* 冷氣機箱體/電表卡片,同一套跟 alley() 一致——第二十輪暫時註解掉,
+       理由見 alley() 內同一輪的註解。 */
+    // for(let i=0;i<6;i++){
+    //   const along = -len/2 + (i+.5)*len/6;
+    //   const [jx,jz] = at(along, (i%2?1:-1)*(HW-.3));
+    //   const junk = box(1.05,1.4,1.27, acBoxMats); junk.rotation.y = ang;
+    //   add(junk, jx, 4.4+((i*3)%3), jz, true, false);
+    // }
+    // [-.85,0,.85].forEach(d => {
+    //   const [mx,mz] = at(len*-.2 + d, HW-1);
+    //   addProp('meterbox', mx, mz, .75, 1.0, 0x6a655a, ang-Math.PI/2);
+    // });
+    [-.32,.32].forEach((f, i) => {
+      const [lx,lz] = at(len*f, (i%2?1:-1)*(HW-.6));
+      placeAlleyLamp(lx, lz);
     });
-    [-.32,.32].forEach(f => {
-      const [lx,lz] = at(len*f, 0);
-      add(box(1.3,.32,.9, glow(0xffe6a8,2.0)), lx, 6.4, lz, false, false);
-      lampSpots.push({ x:lx, y:6.4, z:lz, c:0xffe6a8, i:26, r:30 });
+    [[-.35,12.3,.5],[0,11.7,.9],[.35,12.5,.35]].forEach(([f,y,sag]) => {
+      const [wx0,wz0] = at(len*f, -(HW+3));
+      const [wx1,wz1] = at(len*f, HW+3);
+      alleyWire(wx0, wz0, wx1, wz1, y, sag);
     });
+    const [cx2,cz2] = at(len*.2, HW-.6); crateStack(cx2, cz2);
+    const [dx2,dz2] = at(len*-.2, -(HW-.5)); drainGrate(dx2, dz2);
+    alleyFill(cx, cz);
   }
   alleyDiag(12, B_LINE+DEPTH/2, 48, 72-B_LINE-DEPTH/2);   // 中華路 ⇄ 後火車站,斜的那條
 
@@ -1269,6 +1515,15 @@ export function buildCity(THREE, scene){
   addProp('hydrant', -52, -16.5, .9, 1.2, 0xa0402c);
   addProp('utilitybox', -30, -16.5, 1.1, 1.4, 0x4a5a42);
 
+  /* 第二十→二十一輪除錯用測試方塊(2026-08-18,kc 要求):冷氣機/電表箱
+     貼圖在巷子裡怎麼調都看不出來,退到大街(出生點旁,x:0,z:-11.5,一開頁
+     就在角色正旁邊)擺兩顆最單純的測試方塊並排,方便直接對照。第二十一輪
+     兩顆都換成 kc 給的正面+側面雙視圖量出來的真實比例(見上面 acBoxMats/
+     meterboxMats 那兩則註解)。**這是暫時性除錯裝飾,不是正式街景——
+     確認貼圖沒問題之後,這兩行連同這則註解整段刪掉,不要留著當永久裝飾。** */
+  add(box(1.05,1.4,1.27, acBoxMats), 2, .7, -11.5, true, true);
+  add(box(.60,1.3,.92, meterboxMats), 4.2, .65, -11.5, true, true);
+
   /* 機車 2026-08-04 拿掉(方塊拼裝太假),2026-08-14 用真的低模模型補回來——
      Vespa,Jasmine Roberts,CC-BY,授權見 assets/models/CREDITS.md,跟垃圾/
      貓狗同一個 poly.pizza 資源家族。原始模型量出來 x:1.65 y:3.20 z:4.38
@@ -1559,9 +1814,20 @@ const MODELS = {
           (見 buildPlayer 的 sitAction),animate() 多一個 riding 參數決定
           要不要蓋掉 idle/walk/run 選擇。 */
        sit:'base-human-sit.glb',
+       /* lie(2026-08-18,爸爸醉倒改版):Mixamo「Lying Down」動畫,靜態躺姿
+          （不是咳嗽/嘔吐那種帶動作的版本，見 DESIGN_NOTES「爸爸 v3」節後續
+          更新）。轉檔流程跟 sit 完全一樣。 */
+       lie:'base-human-lie.glb',
        parts: { Body:'skin', Tops:'hood', Bottoms:'pants', Shoes:'shoe',
                  Hair:'hair', Eyes:'eyes', Eyelashes:'eyes' } },
   f: { idle:'base-human-f-idle.glb', walk:'base-human-f-walk.glb',
+       /* sit 一開始試過借 rig 'm' 的 base-human-sit.glb(2026-08-18,媽媽坐
+          沙發那張截圖想借用)——**骨骼名字雖然都是 mixamorig:xxx 標準命名,
+          但 Sophie 跟 Remy 的骨骼比例/T-pose 沒對齊,套上去整個人扭曲變形
+          (脖子拉長、身體塌陷),不能跨 rig 共用**,截圖存證見對話紀錄。
+          改成 Mixamo 選 Sophie 角色重下載一顆「Sitting」動畫轉出
+          base-human-f-sit.glb,流程跟 rig 'm' 的 sit 完全一樣。 */
+       sit:'base-human-f-sit.glb',
        parts: { Ch02_Body:'skin', Ch02_Cloth:'hood', Ch02_Sneakers:'shoe',
                  Ch02_Hair:'hair', Ch02_Eyelashes:'eyes', Ch02_Socks:'pants' } },
   /* 2026-08-12 為了阿源另外接的:同是男性,但髮型/五官跟 Remy(m)不一樣——
@@ -2014,15 +2280,17 @@ export function buildNPC(THREE, scene, opts){
     g.add(model);
 
     mixer = new THREE.AnimationMixer(model);
-    /* opts.pose==='sit'(2026-08-17,爸爸醉倒那張截圖用):sit.glb 跟
+    /* opts.pose 借一顆額外動作蓋掉 idle(2026-08-17 起,先是 'sit' 給爸爸
+       醉倒那張截圖用,2026-08-18 補 'lie' 給「醉倒攤在地上」用):跟
        walk.glb 同一套「anim-only」——只有骨架+動畫沒有 mesh(見
        assets/models/README.md「轉檔」那節),mesh 還是從 rig.idle 那份來,
        這裡只是另外借一顆動畫接上同一個 mixer,跟 buildPlayer() 的
-       sitAction 同一招。只有 rig 'm'(Remy)目前有 sit.glb,其他 rig 沒有
-       就直接退回 idle,不會壞。 */
-    if(opts.pose === 'sit' && rig.sit){
-      loadModel(rig.sit).then(sitGltf => {
-        if(sitGltf.animations[0]) mixer.clipAction(sitGltf.animations[0]).play();
+       sitAction 同一招。查 rig[opts.pose] 而不是寫死比對某個字串,哪個 rig
+       有哪些額外姿勢看 MODELS registry,沒有就直接退回 idle,不會壞。 */
+    const poseFile = opts.pose && rig[opts.pose];
+    if(poseFile){
+      loadModel(poseFile).then(poseGltf => {
+        if(poseGltf.animations[0]) mixer.clipAction(poseGltf.animations[0]).play();
         else if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play();
       }).catch(() => { if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play(); });
     } else if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play();
@@ -2079,5 +2347,5 @@ export function buildNPC(THREE, scene, opts){
     swayPhase += dt*.0009;
     model.position.y = Math.sin(swayPhase)*.012;     // 重心換腳的極小幅度浮動,不是走路
   }
-  return { group:g, animate };
+  return { group:g, animate, getMixer: () => mixer };
 }
