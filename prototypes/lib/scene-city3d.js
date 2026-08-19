@@ -266,7 +266,15 @@ export function buildCity(THREE, scene){
 
   const loader = new THREE.ImageLoader();
   /* tint 只在真的載到圖的時候才套:AI 給的是白天平光的照片,直接丟進夜景會太亮
-     (柏油會變水泥路)。程序生成的那張本來就調過了,不能再乘一次。 */
+     (柏油會變水泥路)。程序生成的那張本來就調過了,不能再乘一次。
+     根因修好(2026-08-19,見 DESIGN_NOTES「貼圖 color 沒重置」那節):下面
+     forEach 裡以前是 `if(o.tint) m.color.setHex(o.tint)`,沒給 tint 的規則
+     材質色永遠不會重置——`M` 裡預先給了非白色 placeholder 的那批(tarp/
+     tarpB/metal/plastic/curb/roof/templeDoor/gold/stallTop/incenseStone/
+     altarTable,共 11 顆)全部中招,貼圖有載入但被 placeholder 色乘到接近
+     看不出來,巷子/廟埕看起來像沒貼圖。改成永遠重置(沒給 tint 就設回白,
+     不再是「沒給就不動」),一次修掉整批,以後新增規則也不會再忘記補
+     tint。 */
   [ { mats:[M.wall, M.wallB, M.wallC, M.wallD], file:'wall.png', rep:[1,1], lift:.16 },
     { mats:[M.shutter], file:'shutter.png', rep:[1,1], tint:0xa8b0ac },
     { mats:[M.road],  file:'road.png',  rep:[5,5], mirror:true, tint:0x6a7178 },
@@ -307,29 +315,33 @@ export function buildCity(THREE, scene){
       const t = new THREE.CanvasTexture(prep(img, o));
       t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(o.rep[0], o.rep[1]);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-      o.mats.forEach(m => { m.map = t; if(o.tint) m.color.setHex(o.tint); m.needsUpdate = true; });
+      o.mats.forEach(m => { m.map = t; m.color.setHex(o.tint || 0xffffff); m.needsUpdate = true; });
     }, undefined, () => {});                 // 沒這張圖就算了,不要吵
   });
 
   /* ===== 店家門面 =====
    * assets/tex/shop-<kind>.png,一種店一張(所有檳榔攤長一樣,要變體之後再加)。
    * emissiveMap 用同一張:店內的燈自己會亮,不然騎樓底下什麼都看不見。
-   * 圖的長寬比跟門面對不上就取中間裁切,不要拉伸——AI 給的多半是 3:2,門面是 1.96:1。 */
+   * 圖的長寬比跟門面對不上就取中間裁切,不要拉伸——AI 給的多半是 3:2,門面是 1.96:1。
+   *
+   * 門面變體(2026-08-19):food/betel 這種同業態開很多間的,原本全部共用
+   * 同一張 shop-<kind>.png,店數一多「身體」重複感就跑出來(kc 抓到)。
+   * 呼叫端可以多傳一個 variant(食物/檳榔攤現在用跟招牌 signKey 同一個
+   * 輪替編號),會先試 shop-<kind>-<variant>.png,404 就退回原本共用那張
+   * ——不補新照片之前畫面跟現在完全一樣,之後 kc 生一張補一張就好,不用
+   * 一次生滿。variant 沒傳(其他業態,店數少不需要變體)行為不變。 */
   const FRONT_ASPECT = (UNIT - .4 - 2.6) / 4.6;
   const frontMats = {};
-  function shopFront(kind){
+  function shopFront(kind, variant){
     if(!kind || kind === 'shutter' || kind === 'gap') return null;
-    if(kind in frontMats) return frontMats[kind];
+    const ck = variant == null ? kind : `${kind}-${variant}`;
+    if(ck in frontMats) return frontMats[ck];
 
     /* 還沒載到圖的時候要跟原本長得一模一樣,不能因為多了這條管線就變差 */
     const m = std(kind === 'store'
       ? { color:0xe4ead8, emissive:0xf4f6e8, emissiveIntensity:1.1, roughness:.35 }
       : { color:0x1c2731, roughness:.28, metalness:.45 });
-    /* 2026-08-17:shop-home.png 這輪反覆重生了好幾版,瀏覽器一直吃到舊快取
-       看不到最新版(這個 session 已經在別的貼圖上踩過同一個坑)——只有這個
-       kind 加 ?v=,其他 kind 目前沒在改,不用跟著動。以後 home 這張圖
-       再換內容,把 v 往上加。 */
-    loader.load(TEX_DIR + `shop-${kind}.png` + (kind === 'home' ? '?v=2' : ''), img => {
+    const applyImg = img => {
       const t = new THREE.Texture(img);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
       const ia = img.width / img.height;
@@ -337,8 +349,19 @@ export function buildCity(THREE, scene){
       else { const r = ia/FRONT_ASPECT; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
       m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = .55;
       m.color.setHex(0xffffff); m.roughness = .6; m.metalness = 0; m.needsUpdate = true;
-    }, undefined, () => {});
-    frontMats[kind] = m;
+    };
+    /* 2026-08-17:shop-home.png 這輪反覆重生了好幾版,瀏覽器一直吃到舊快取
+       看不到最新版(這個 session 已經在別的貼圖上踩過同一個坑)——只有這個
+       kind 加 ?v=,其他 kind 目前沒在改,不用跟著動。以後 home 這張圖
+       再換內容,把 v 往上加。 */
+    const baseFile = TEX_DIR + `shop-${kind}.png` + (kind === 'home' ? '?v=2' : '');
+    if(variant == null){
+      loader.load(baseFile, applyImg, undefined, () => {});
+    } else {
+      loader.load(TEX_DIR + `shop-${kind}-${variant}.png`, applyImg, undefined,
+        () => loader.load(baseFile, applyImg, undefined, () => {}));
+    }
+    frontMats[ck] = m;
     return m;
   }
 
@@ -396,6 +419,18 @@ export function buildCity(THREE, scene){
 
   const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
   const colliders = [], doors = [], lampSpots = [], play = [];
+  /* 場景地標文字牌(2026-08-19,kc 說廟埕那批方塊分不出哪個是哪個,截圖
+     裡全部糊成色塊)——不是遊戲內容,是給 kc 邊玩邊對照用的除錯標籤,
+     game.html 拿這份清單投影到螢幕上疊字,跟 doors/alleys 同一套「buildCity
+     算好座標,game.html 只管畫」分工。座標不要跟 stall()/temple() 那邊的
+     數字重複寫死兩份,直接在原本 add 的地方順手 push 一筆。 */
+  const landmarks = [];
+  /* 攤子遮雨簾垂長吵了三輪(2026-08-19,kc:「到底難在哪裡你給我滑桿」)——
+     與其我猜一個數字、截圖、kc 不滿意、再猜一個數字,直接把垂簾的
+     mesh 暴露出去,讓 game.html 那邊接一個滑桿面板(__dbg.tweakStall())
+     即時改 scale.y/position.y,kc 自己拖到滿意為止,最後那個數字才是
+     定案,不用再來回猜。 */
+  const stallValance = [];
   let parkBounds = null;                              // 見下面 park(),whereAmI() 要用
   const add = (mesh,x,y,z,cast,recv) => {
     mesh.position.set(x,y,z);
@@ -780,12 +815,12 @@ export function buildCity(THREE, scene){
          鐵捲門那張貼圖貼上去之後一直沒出現就是這個原因。 */
       if(s.kind === 'shutter'){
         add(box(faceW,4.4,faceD, M.shutter), fX+offX, 2.3, fZ+offZ, false, true);
-      } else if(s.proto && shopFront(s.kind)){
+      } else if(s.proto && shopFront(s.kind, s.bodyIdx)){
         /* 單一店面試做「有厚度」的版本,先不動其他店——比較效果用,見上面 richStoreFront。 */
-        richStoreFront({ axis, face, fX, fZ, faceW, photoMat: shopFront(s.kind) });
+        richStoreFront({ axis, face, fX, fZ, faceW, photoMat: shopFront(s.kind, s.bodyIdx) });
       } else {
         const lit = s.kind === 'store';
-        const photo = shopFront(s.kind);
+        const photo = shopFront(s.kind, s.bodyIdx);
         /* 照片只貼「朝街那一面」,箱體其餘五面(尤其側面那圈)換成鋁框材質——
            不然側面會顯示同一張照片被拉伸壓扁的樣子,店內天花板的白光糊成一圈
            發光邊框,反而看起來更假。沒照片(玻璃色塊)的店不用管,單色本來就沒有
@@ -921,9 +956,9 @@ export function buildCity(THREE, scene){
   const S = {
     sh:{kind:'shutter'}, gap:{kind:'gap'},
     food:(c,proto)=>{ const n = nFood++ % FOOD.length;
-      return { kind:'food', sign:c||0xd94a35, text:FOOD[n], signKey:'food-'+n, proto:!!proto }; },
+      return { kind:'food', sign:c||0xd94a35, text:FOOD[n], signKey:'food-'+n, bodyIdx:n, proto:!!proto }; },
     betel:()=>{ const n = nBetel++ % BETEL.length;
-      return { kind:'betel', sign:0x5ce08a, text:BETEL[n], signKey:'betel-'+n }; },
+      return { kind:'betel', sign:0x5ce08a, text:BETEL[n], signKey:'betel-'+n, bodyIdx:n }; },
     net:()=>({kind:'net',sign:0x4fc8f0,text:'網咖',signKey:'net'}),
     arcade:()=>({kind:'arcade',sign:0xff4fa0,text:'遊藝場',signKey:'arcade'}),
     moto:()=>({kind:'moto',sign:0x3f8fd8,text:'機車行',signKey:'moto'}),
@@ -1088,13 +1123,10 @@ export function buildCity(THREE, scene){
      靠著的那顆);一片壓扁攤平的紙箱(高度壓到 .12,接近攤平的破紙箱)
      躺在地上,暗示「這堆東西已經放很久、有的已經被踩爛/淋濕塌掉」。
      solid() 範圍跟著新的外輪廓放大一點,不然扁掉那片紙箱會讓人穿模走過去。
-     **待辦(2026-08-18,kc 回報「箱子根本沒貼到圖」,下一輪接續)**:用
-     __dbg.near() 查過材質——map:true、color:ffffff,程式面看起來貼圖有
-     載入,但 kc 實機看到的畫面沒有紋理,根因還沒抓到,先別假設「跟 M.tin
-     那次一樣是 tint 沒重置」就動手改,場景裡的實際截圖還沒來得及跟 kc
-     核對(這次 __dbg.at() 教學跳到 indoor 模式那次意外插曲也還沒排除
-     是不是跟這個回報同時發生、彼此無關)。下一輪先重新截圖比對,不要照
-     這則筆記的猜測直接下結論。 */
+     **待辦已排查(2026-08-19)**:kc 回報「箱子根本沒貼到圖」那次,重新用
+     __dbg.at() 傳到 crateStack() 實際座標近看截圖,貼圖其實有正確渲染
+     (看得到瓦楞紙摺痕),不是程式漏接——結論見 DESIGN_NOTES「紙箱貼圖
+     待辦排查」那節,不在這裡重複整段理由。 */
   function crateStack(x, z){
     const base = box(1.0,.8,.8, M.cardboard);
     base.rotation.y = .12;
@@ -1344,8 +1376,10 @@ export function buildCity(THREE, scene){
     wash.position.set(0, 7, z+24); wash.target.position.set(0, 8, z+4);
     scene.add(wash, wash.target);
     [-15.5,15.5].forEach(x => { add(box(2,1,2.6, M.incenseStone), x, .8, z+7.4);
-      add(box(1.4,1.8,1.6, M.incenseStone), x, 2.1, z+7); solid(x, z+7.2, 1.1, 1.4); });
+      add(box(1.4,1.8,1.6, M.incenseStone), x, 2.1, z+7); solid(x, z+7.2, 1.1, 1.4);
+      landmarks.push({ x, y:2.1, z:z+7, text:'香爐座' }); });
     doors.push({ id:'temple', name:'宮廟', x:0, z:z+10 });
+    landmarks.push({ x:0, y:9, z:z+4.6, text:'宮廟' });
     /* 供桌:2026-08-14 kc 截圖抓到「一塊實心方塊」——原本是兩層疊死的箱體,
        完全不透光,不管貼什麼圖上去,輪廓都只會讀成一塊磚。拆成四支腳+裙板+
        薄桌面,腳跟腳之間留空隙透光,才讀得出「桌子」而不是「箱子」
@@ -1356,6 +1390,7 @@ export function buildCity(THREE, scene){
       [.3,.5,3.2, 2.1,0], [.3,.5,3.2, -2.1,0]
     ].forEach(([w,h,d,ax,az]) => add(box(w,h,d, M.altarTable), ax, 1.95, z+22+az));
     add(box(6,.35,4.4, M.altarTable), 0, 2.35, z+22, false, false);
+    landmarks.push({ x:0, y:2.9, z:z+22, text:'供桌' });
     solid(0, z+22, 2.6, 1.8);
     lampSpots.push({ x:0, y:4, z:z+22, c:0xffb066, i:24, r:22 });
     /* 供桌桌面上的擺設:2026-08-14 kc 截圖抓到「桌面空的,還是看不出來是幹嘛
@@ -1406,20 +1441,133 @@ export function buildCity(THREE, scene){
      的空氣,兩塊板子讀起來像各自飄著,不是同一個攤子。改法兩條:支架加粗到
      看得見;屋頂邊緣加一圈帆布垂簾(跟現實攤子的遮雨布垂邊同一個道理),
      把屋頂到桌面那段空氣用同一塊布視覺上接起來,不是真的加高攤體。 */
-  function stall(x, z, c){
-    add(box(6.4,.4,3.6, c), x, 3.5, z, true, false);
-    [[-2.9,1.5],[2.9,1.5],[-2.9,-1.5],[2.9,-1.5]].forEach(([a,b]) =>
-      add(box(.32,3.4,.32, M.metal), x+a, 1.7, z+b));
-    [ [6.4,.5,.12, 0,1.74], [6.4,.5,.12, 0,-1.74],
-      [.12,.5,3.4, 3.14,0], [.12,.5,3.4, -3.14,0]
-    ].forEach(([w,h,d,ax,az]) => add(box(w,h,d, c), x+ax, 3.05, z+az, false, false));
-    add(box(5.6,1.7,2.4, M.metal), x, 1.1, z);
-    add(box(5.8,.25,2.6, M.stallTop), x, 2.05, z, false, true);
-    add(box(.5,.24,.5, glow(0xfff0cc,1.4)), x, 3.15, z, false, false);
-    lampSpots.push({ x, y:3.05, z, c:0xffd79a, i:18, r:16 });
-    solid(x, z, 3, 1.8);
+  /* 攤子招牌(2026-08-19):桌面貼圖修好(見 DESIGN_NOTES「廟埕材質 color
+     沒重置」)之後桌面本身有木紋了,但整攤還是看不出來在賣什麼——沒有專屬
+     招牌照片之前,先借用街上食物店家同一批 sign-food-*.png(這遊戲本來就有
+     「同一種店長一樣」的慣例,見 shopFront() 檳榔攤那則),掛一塊小招牌在
+     攤子開口那面,至少讀得出「這裡在賣吃的、賣什麼」。真正「桌面擺滿商品」
+     的照片還沒生,先不做,那個要另外生圖,見 DESIGN_NOTES。
+     掛的位置抓在屋頂(y=3.5)跟桌面(y=2.05)中間、valance 前緣(z±1.74)
+     再往外一點——z+1.65 是猜的「玩家/鏡頭在南邊」那側,跟 kc 核對過再調。 */
+  /* signKey/propIdx 分開(2026-08-19,kc 要求兩攤改賣「東山鴨頭」/「廟口
+     乾麵」):原本 foodIdx 一個數字同時決定招牌(borrow 街上 sign-food-N.png)
+     跟桌面小物,兩攤要換成不在 FOOD 陣列裡的新品項,招牌撐不住只用數字
+     編號了,拆成 signKey(招牌檔名,見 signImage())+ propIdx(桌面小物挑哪一
+     組,見下面那個陣列,跟招牌名字脫鉤,鴨頭/乾麵先借用最接近的碗+筷子
+     那組頂著,不是精準對應)兩個獨立參數。 */
+  /* 展示櫃貼圖(2026-08-19,kc 修正方向:不是貼在桌面頂面,是貼在「正面
+     朝客人」那片玻璃上——原本想法是俯視拍托盤貼桌面頂,kc 指出更好的做法:
+     直接拍一張「玻璃展示櫃正面、裡面看得到食材」的照片(跟她一開始給的
+     參考照片同一個角度),貼在一片朝向鏡頭的直立平面上。這樣照片本身
+     拍出來的深度感/透視(櫃子裡的層次)會保留,而且因為是貼在正面直立面,
+     鏡頭幾乎正對著看,不會有俯視貼圖那種「攤平了很怪」的透視錯位問題——
+     跟 signImage() 那些招牌能貼得住是同一個道理。跟 shopFront()/signImage()
+     同一套「單張裁切、不鏡射」邏輯,差別是這裡不用發光(emissiveMap)——
+     展示櫃不用自己發光,場景燈光照到就好。 */
+  const trayMats = {};
+  function trayMaterial(file, aspect){
+    const key = file + '|' + aspect.toFixed(2);
+    if(key in trayMats) return trayMats[key];
+    const m = std({ color:0xa8895c, roughness:.9 });   // 沒圖之前跟 M.stallTop 同色,不會壞
+    trayMats[key] = m;
+    loader.load(TEX_DIR + file, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      const ia = img.width / img.height;
+      if(ia > aspect){ const r = aspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2,0); }
+      else { const r = ia/aspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      m.map = t; m.color.setHex(0xffffff); m.roughness = .6; m.needsUpdate = true;
+    }, undefined, () => {});
+    return m;
   }
-  stall(-22,-92, M.tarp); stall(-13,-92, M.tarpB); stall(20,-90, M.tarp);
+  function stall(x, z, c, signKey, propIdx, name, trayFile, sideFile){
+    /* 柱子高度(2026-08-19):3.4(原始)→4.0(第一輪抓到「柱子太矮」)→
+       4.5(kc 這輪再加半節)。仍然貼地 y=0 到頂,不是整根往上飄,棚頂/
+       垂簾/招牌照上一輪同一個邏輯跟著抬(這次多抬 .5)、桌面/櫃檯完全
+       不動。 */
+    add(box(6.4,.4,3.6, c), x, 4.6, z, true, false);
+    [[-2.9,1.5],[2.9,1.5],[-2.9,-1.5],[2.9,-1.5]].forEach(([a,b]) =>
+      add(box(.32,4.5,.32, M.metal), x+a, 2.25, z+b));
+    /* 遮雨簾垂長:壓薄到 .2、頂邊貼著棚頂底部(4.4,柱子加高跟著抬)
+       不動,可以用 __dbg.tweakStall() 滑桿現場調。 */
+    stallValance.push(...[ [6.4,.2,.12, 0,1.74], [6.4,.2,.12, 0,-1.74],
+      [.12,.2,3.4, 3.14,0], [.12,.2,3.4, -3.14,0]
+    ].map(([w,h,d,ax,az]) => add(box(w,h,d, c), x+ax, 4.3, z+az, false, false)));
+    /* 展示櫃貼圖(2026-08-19,kc:「貼起來超怪而且中間為何有地方沒貼到」)
+       ——根因:櫃體正面(下面這塊)跟桌面(下面下面那塊)是兩個獨立的 box,
+       中間桌面那塊有 .5 高的側邊本來只貼 M.stallTop 木紋(以為頂面貼了
+       就好,沒想到桌面自己的正面窄邊也會被鏡頭看到),兩塊都貼食材圖的
+       中間夾了一條原木色的縫,讀起來像「貼一半」。改法:桌面正面那條窄邊
+       也貼同一顆 caseFrontMat(跟櫃體正面共用同一個材質物件,不是重新
+       裁一次),縫補起來,上下看起來是同一片食材連續下來,不是兩張各自
+       獨立的圖各貼各的。
+       BoxGeometry 材質陣列順序是 [+x,-x,+y,-y,+z,-z],z+ 是客人/鏡頭那側
+       (跟招牌/垂簾那些 z+ 偏移同一個既有慣例)。 */
+    const caseFrontMat = trayFile ? trayMaterial(trayFile, 5.6/1.7) : null;
+    const caseSideMat = trayFile && sideFile ? trayMaterial(sideFile, 2.4/1.7) : null;
+    add(box(5.6,1.7,2.4, trayFile
+      ? [caseSideMat || M.metal, caseSideMat || M.metal, M.metal, M.metal, caseFrontMat, M.metal]
+      : M.metal), x, 1.1, z);
+    /* 桌面板加厚(2026-08-19,kc 截圖抓到「桌面根本看不到」):.25 太薄,
+       這個俯角鏡頭幾乎看不到正面那條邊,木紋貼圖等於白貼。加厚到 .5,
+       正面可視面積變兩倍,肉眼才讀得出來是塊桌板,不是一條線。
+       頂面(+y)貼 trayFile、正面(+z)貼跟櫃體共用的 caseFrontMat(見上面
+       那則筆記,補「中間沒貼到」那條縫),側面/底面繼續用 M.stallTop
+       木紋。長寬比抓桌面實際的 5.8/2.6。 */
+    add(box(5.8,.5,2.6, trayFile
+      ? [M.stallTop, M.stallTop, trayMaterial(trayFile, 5.8/2.6), M.stallTop, caseFrontMat, M.stallTop]
+      : M.stallTop), x, 2.2, z, false, true);
+    /* 攤位 3D 小物(2026-08-19,kc:「開始放攤位3D小物了」)——跟供桌
+       candelabra/incense-bowl 同一套 placeAltarProp() 做法(見上面 temple()
+       那段),不是貼圖:立體物件貼平面照片會很怪這個教訓已經在供桌那次
+       踩過一次,不要在攤子重踩。桌面頂面在 y=2.45(stallTop 中心 2.2+
+       高度 .5 的一半)。三攤各自配對應 FOOD 品項的小物(見 game.html
+       FOOD 陣列 0=魯肉飯/1=切仔麵/2=鹹酥雞),lockAxis 是憑碗/鍋這類矮胖
+       物件「鎖高度會被撐爆」的教訓猜的(跟 incense-bowl 那次同一個坑),
+       擺完效果不對再調,不是精算過的定案。 */
+    const stallTopY = 2.45;
+    function placeStallProp(file, targetSize, lockAxis, dx, dz){
+      const fallback = box(targetSize*.6, targetSize*.5, targetSize*.6, std({ color:0xb8b0a0, roughness:.8 }));
+      const holder = add(fallback, x+dx, stallTopY + targetSize*.25, z+dz, false, false);
+      loadModel(file).then(gltf => {
+        scene.remove(holder);
+        add(propModel(THREE, gltf, targetSize, lockAxis, 0), x+dx, stallTopY, z+dz, false, false);
+      }).catch(() => {});
+    }
+    ([
+      [['food-rice-bowl.glb', .5, 'x', -1.3, .3], ['food-chopsticks.glb', .45, 'x', -.55, .35], ['food-drink-cup.glb', .45, 'y', 1.5, .2]],
+      [['food-udon.glb', .55, 'x', -1.2, .3], ['food-chopsticks.glb', .45, 'x', -.4, .35]],
+      [['food-cooking-pot.glb', .6, 'x', -1.1, .2], ['food-drink-cup.glb', .45, 'y', 1.3, .2]]
+    ][propIdx % 3] || []).forEach(([file, size, axis, dx, dz]) => placeStallProp(file, size, axis, dx, dz));
+    /* 拿掉小發光方塊(2026-08-19,同一輪):跟上面同一張截圖抓到的問題——
+       這顆小方塊(emissiveIntensity 1.4)在攤子開口那個小範圍裡,跟現在
+       新加的招牌(也是發光材質)疊在一起,兩顆一起被 UnrealBloomPass 吃到
+       糊成一片死白,把桌面/招牌都蓋過去。招牌本身已經有「這攤有燈」的
+       效果,這顆純裝飾方塊留著只會扣分,直接拔掉。lampSpots 是真的場景
+       光源,留著負責照亮攤子,跟這顆純視覺方塊是兩回事,不受影響。 */
+    lampSpots.push({ x, y:3.05, z, c:0xffd79a, i:18, r:16 });
+    /* 招牌被遮住(2026-08-19,kc 截圖抓到):原本塞在桌面(y 2.2 上緣 2.45)
+       跟遮雨簾(y 2.8~3.3)中間那條窄縫裡,加厚桌面那次(見上面那則筆記)
+       又把縫再壓窄一截,招牌大半截被遮雨簾擋住,只有下緣一小條露出來。
+       挪到棚頂(box(6.4,.4,3.6,c) 的頂在 y 3.7)上方、往前推(z+1.9,比
+       遮雨簾的 z+1.74 更靠外)——像真的夜市攤子懸掛式招牌那樣浮在棚子
+       上緣前方,不會被自己的棚子擋到。 */
+    const signW = 2.0, signH = 1.0;
+    add(new THREE.Mesh(new THREE.PlaneGeometry(signW, signH),
+        signImage(signKey, signW/signH, 1)), x, 5.35, z + 1.9, false, false);
+    solid(x, z, 3, 1.8);
+    /* 地標牌要有名字(2026-08-19,kc:「要有招牌名稱啊」)——原本三攤都
+       只顯示「攤子」,分不出哪攤賣什麼,改成顯示真的品項名字(沒給 name
+       就退回「攤子」,不會空著)。 */
+    landmarks.push({ x, y:4.6, z, text:name || '攤子' });
+  }
+  /* 東山鴨頭/廟口乾麵(2026-08-19,kc 要求):sign-duck-head.png/
+     sign-dry-noodle.png 還沒生,prompt 已經在對話裡給 kc,生圖之前這兩塊
+     招牌會先顯示 signImage() 的深色佔位底,不會壞、不用等圖才能推這次改動。
+     第三攤(鹹酥雞)沒被點名,維持原本借用街上 sign-food-2.png 那套。 */
+  stall(-22,-92, M.tarp, 'duck-head', 0, '老大東山鴨頭', 'stall-duck-case-front.png', 'stall-duck-case-side.png');
+  stall(-13,-92, M.tarpB, 'dry-noodle', 1, '廟口乾麵');
+  stall(20,-90, M.tarp, 'food-2', 2, '鹹酥雞');
   function tableSet(x, z){
     add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) => add(box(.14,1.5,.14, M.plastic), x+a*1.05, .75, z+b*1.05));
@@ -1710,7 +1858,7 @@ export function buildCity(THREE, scene){
     return false;
   }
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
 }
 
 /* ---------------- 角色 ----------------
@@ -2186,6 +2334,27 @@ export function buildPlayer(THREE, scene){
     }).catch(() => {});
   }).catch(() => {});
 
+  /* 換裝(2026-08-19,打工穿店員制服用)——照 buildNPC() 的 opts.tex 那段
+   * 同一套 ImageLoader+prep()+CanvasTexture 邏輯,只是包成可以「臨時換、
+   * 之後換回來」的一對方法,而不是建立時就決定死。origMaps 存的是換之前
+   * 那個材質的 map/color,resetTex() 直接還原物件參照,不是重新從檔案讀
+   * 一次玩家原本的衣服貼圖(省一次網路/decode,也不用另外記玩家原本穿
+   * 什麼檔名)。 */
+  const origMaps = {};
+  function setTex(slot, file){
+    if(!M[slot]) return;
+    if(!(slot in origMaps)) origMaps[slot] = { map:M[slot].map, color:M[slot].color.getHex() };
+    new THREE.ImageLoader().load(TEX_DIR + file, img => {
+      const t = new THREE.CanvasTexture(prep(img, { mirror:true, lift:.1 }));
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      M[slot].map = t; M[slot].color.setHex(0xffffff); M[slot].needsUpdate = true;
+    }, undefined, () => {});
+  }
+  function resetTex(slot){
+    if(!M[slot] || !(slot in origMaps)) return;
+    M[slot].map = origMaps[slot].map; M[slot].color.setHex(origMaps[slot].color); M[slot].needsUpdate = true;
+  }
+
   /* 單次動作(撿垃圾彎腰、摸貓狗蹲下這種,不是循環播放的 idle/walk/run)。
      name 對到 rig.once 的 key,找不到檔案或骨架還沒載好就直接呼叫 onDone,
      跟這個專案「缺檔案不會壞」的慣例一致——呼叫端(game.html)不用另外判斷
@@ -2274,16 +2443,15 @@ export function buildPlayer(THREE, scene){
     mixer.update(dt/1000);                            // dt 這個檔案裡是毫秒,AnimationMixer 吃秒數
     if(riding) applyRidePose(RIDE_BONES);              // 套跨坐姿,見上面 RIDE_POSE 的說明
   }
-  return { group:g, animate, playOnce, eyeY:PLAYER.eyeY, height:PLAYER.height,
+  return { group:g, animate, playOnce, setTex, resetTex, eyeY:PLAYER.eyeY, height:PLAYER.height,
             debugBones: () => RIDE_BONES };
 }
 
-/* NPC:一顆骨架、換一套材質顏色站著不動(idle 動畫,不接 walk——現有的廟口
- * NPC 本來就是站著,要走動再照 buildPlayer 那套接 walk)。
+/* NPC:一顆骨架、換一套材質顏色站著不動(idle 動畫)。
  * 跟 buildPlayer 共用同一份 idle glb(loadModel 快取),不用重新下載一次。
  * 沒有方塊人 fallback——NPC 這批本來就是這次才新增的,沒有「舊畫法」要相容。
  *
- * opts: { x, z, rotationY, rig, height, skin, hair, hood, pants, shoe, tex, tattoo }
+ * opts: { x, z, rotationY, rig, height, skin, hair, hood, pants, shoe, tex, tattoo, path, speed }
  * (顏色用 '#rrggbb')。rig 是 'm'(男性,Remy)/'f'(女性,Sophie)/'m2'
  * (男性,Leonard,髮型跟 Remy 不同)之一,不填預設 'm'——見上面 MODELS 的
  * 註解,'f' 那副骨架上衣褲子是同一個 mesh,hood/pants 兩個顏色只有 hood
@@ -2294,6 +2462,14 @@ export function buildPlayer(THREE, scene){
  * 沒給就是純色。tattoo 不填就沒有刺青,填 {} 用預設位置(右前臂外側)+
  * 紅色佔位色塊,填 { texFile } 用真的白底黑線稿(assets/tex/ 底下的檔名,
  * 會自動跑 tattooTexture() 把白底轉透明),見 addTattoo() 的說明。
+ *
+ * path(2026-08-19,行人巡邏,見 DESIGN_NOTES「主街/廟口的行人」):[[x1,z1],
+ * [x2,z2]] 兩點,給了就在這兩點之間直線來回走(接 walk 動畫,不是原地
+ * idle),沒給就是原本站定不動那套(小步待機+偶爾轉頭看玩家)。speed
+ * 不填預設 .0022(單位/毫秒,比玩家走路慢,見 buildPlayer 那邊 .0055 這個
+ * 數字是「單位/毫秒」的量級)。**只擋玩家,不擋其他行人**——每隻行人給
+ * 各自不重疊的座標區段就好(座標怎麼挑的、怎麼確認沒卡進牆裡/機車,見
+ * DESIGN_NOTES 那節),没有做行人互相閃避,範圍先縮到這裡。
  * 回傳 { group, animate }——animate(dt) 要接進呼叫端的 render loop,
  * 不然 idle 動畫的骨架姿勢不會更新,角色會卡在瀏覽器抓到檔案那一刻的預設姿勢。 */
 export function buildNPC(THREE, scene, opts){
@@ -2331,9 +2507,24 @@ export function buildNPC(THREE, scene, opts){
    * 沒有獨立頭骨,轉向是整顆模型小角度旋轉,幅度鎖在 ±.6 弧度內(約 34°),
    * 不會整個人轉過去、看起來還是「站在原地瞄一眼」。animate() 第二參數
    * playerPos 沒給(例如超商店員 clerkTick())就完全不會觸發,退回純 idle。 */
-  const baseRotationY = opts.rotationY || 0;
+  let baseRotationY = opts.rotationY || 0;
   let model = null, glancing = false, glanceT = 0, glanceTimer = 1200 + Math.random()*2400;
   let swayPhase = Math.random()*Math.PI*2;
+
+  /* 巡邏(path,2026-08-19 從純 2 點來回擴充成「多站來回、每站可以停留」):
+   * targetIdx 指向 opts.path 裡「正在走去的那一點」,走到底(第一或最後一個
+   * 索引)才掉頭,不是只有 2 點——путь數量可以是 2、3、5 點都行,dir 記
+   * 目前正往陣列哪個方向走(+1/-1),來回沿同一條路徑走,不是繞圈(這座城
+   * 沒有真的路徑規劃,直線走每一段都要 kc/我事先用 __dbg.city.blocked()
+   * 逐段驗證過不會穿牆,轉角多插一個中繼點就好,見 game.html PEDESTRIANS
+   * 那則長註解)。每個點可以是 [x,z] 或 [x,z,waitMs]——第三個數字是走到
+   * 這一點之後要停留幾毫秒才繼續(不給就是 0,直接接著走,舊的純 2 點
+   * pedestrian 沒有第三個數字,行為跟改之前一模一樣,不用擔心動到)。
+   * walkAction 只有給了 path 才去載,省得每隻站定不動的 NPC 也白白多下載
+   * 一次 walk.glb。 */
+  const patrolling = Array.isArray(opts.path) && opts.path.length >= 2;
+  const patrolSpeed = opts.speed || .0022;
+  let targetIdx = 1, dir = 1, waitT = 0, idleAction = null, walkAction = null, activeAction = null;
 
   let mixer = null;
   loadModel(rig.idle).then(idleGltf => {
@@ -2350,12 +2541,23 @@ export function buildNPC(THREE, scene, opts){
        sitAction 同一招。查 rig[opts.pose] 而不是寫死比對某個字串,哪個 rig
        有哪些額外姿勢看 MODELS registry,沒有就直接退回 idle,不會壞。 */
     const poseFile = opts.pose && rig[opts.pose];
+    if(idleGltf.animations[0]){
+      idleAction = mixer.clipAction(idleGltf.animations[0]);
+      activeAction = idleAction;
+    }
     if(poseFile){
       loadModel(poseFile).then(poseGltf => {
         if(poseGltf.animations[0]) mixer.clipAction(poseGltf.animations[0]).play();
-        else if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play();
-      }).catch(() => { if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play(); });
-    } else if(idleGltf.animations[0]) mixer.clipAction(idleGltf.animations[0]).play();
+        else if(idleAction) idleAction.play();
+      }).catch(() => { if(idleAction) idleAction.play(); });
+    } else if(idleAction) idleAction.play();
+
+    /* 巡邏才載 walk.glb——跟 buildPlayer() 的 walkAction 同一份骨架動畫
+       (rig.walk),不重新做一套。載到之前 patrolling 那段會先站著不動,
+       不會空白也不會報錯,跟這個檔案「缺檔案不會壞」的慣例一致。 */
+    if(patrolling && rig.walk) loadModel(rig.walk).then(walkGltf => {
+      if(walkGltf.animations[0]) walkAction = mixer.clipAction(walkGltf.animations[0]);
+    }).catch(() => {});
 
     /* 刺青:opts.tattoo 沒給就不加。要在 mixer 先跑過一次 update 之後才能算
      * 位置——不然骨架還停在匯入時的預設姿勢(T-pose,手臂平舉),不是站立
@@ -2387,6 +2589,43 @@ export function buildNPC(THREE, scene, opts){
     if(mixer) mixer.update(dt/1000);
     if(!model) return;
 
+    /* 巡邏(2026-08-19 擴充成多站來回+停留,見上面 opts.path 那則長註解):
+       沿路徑走直線,走到底掉頭,走到「有停留時間」的點先罰站 waitT 毫秒
+       再繼續。**只擋玩家**——玩家站在路線上(1.8 單位內)就停下來等,
+       不會穿過去,不然「不穿模」這句白做了;沒有做行人互相閃避(每隻給
+       的座標區段本來就不重疊)。walkAction 還沒載到之前用站定不動頂著,
+       不會瞬移或空白。 */
+    if(patrolling){
+      if(waitT > 0){
+        waitT -= dt;
+        if(walkAction && idleAction && activeAction !== idleAction){
+          activeAction.fadeOut(.2); idleAction.reset().fadeIn(.2).play(); activeAction = idleAction;
+        }
+        return;
+      }
+      const [tx, tz] = opts.path[targetIdx];
+      const dx = tx - g.position.x, dz = tz - g.position.z, dist = Math.hypot(dx, dz);
+      if(dist <= .15){
+        waitT = opts.path[targetIdx][2] || 0;
+        if(targetIdx === opts.path.length-1) dir = -1;
+        else if(targetIdx === 0) dir = 1;
+        targetIdx += dir;
+      }
+      const blocked = playerPos && Math.hypot(playerPos.x-g.position.x, playerPos.z-g.position.z) < 1.8;
+      const moving = dist > .15 && !blocked;
+      if(moving){
+        const step = Math.min(dist, patrolSpeed*dt);
+        g.position.x += dx/dist*step;
+        g.position.z += dz/dist*step;
+        model.rotation.y = Math.atan2(dx, dz);
+      }
+      if(walkAction && idleAction){
+        const next = moving ? walkAction : idleAction;
+        if(next !== activeAction){ activeAction.fadeOut(.2); next.reset().fadeIn(.2).play(); activeAction = next; }
+      }
+      return;
+    }
+
     glanceTimer -= dt;
     if(glanceTimer <= 0){
       const dist = playerPos ? Math.hypot(playerPos.x-g.position.x, playerPos.z-g.position.z) : Infinity;
@@ -2409,5 +2648,13 @@ export function buildNPC(THREE, scene, opts){
     swayPhase += dt*.0009;
     model.position.y = Math.sin(swayPhase)*.012;     // 重心換腳的極小幅度浮動,不是走路
   }
-  return { group:g, animate, getMixer: () => mixer };
+  /* setFacing(2026-08-19,收銀小遊戲排隊客人「輪到就轉向玩家」用)——
+   * 呼叫端原本試著直接改 `group.rotation.y`,結果沒有效果:真正決定
+   * 朝向的是上面 animate() 每幀重算、寫回 `model.rotation.y` 的
+   * baseRotationY(model 是掛在 group 底下的子物件,改 group 的旋轉
+   * 跟 model 自己每幀蓋掉的旋轉是兩層獨立的變換,不會互相影響)。改成
+   * 把 baseRotationY 從 const 改 let,開一個 setter 讓呼叫端能真的改到
+   * animate() 實際在用的那個值。 */
+  function setFacing(angle){ baseRotationY = angle; }
+  return { group:g, animate, setFacing, getMixer: () => mixer };
 }

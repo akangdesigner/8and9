@@ -167,6 +167,22 @@
   .caret.on { opacity:1; }
   @keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(3px);} }
 
+  /* 收銀小遊戲的選項(2026-08-19 第八輪,kc 說「對話框高度要大一點,上面
+     題目下面選項」)——原本借用既有的 openMenu()/#menu,結果是題目跟選項
+     兩個各自浮動的獨立元件,疊在畫面下方看起來是分開的兩塊。改成選項
+     直接長在 `#dialog .frame` 裡面(`#coOpts`,緊接在 `.dbody` 題目下面),
+     同一個灰底金框的盒子,自然會因為多了選項內容被撐高,不用另外設一個
+     固定的「大一點」高度。空的時候(平常劇情對話,沒有選項)`#coOpts`
+     沒有子元素,margin-top 也不會生效(:empty 選到就不留白),看起來
+     跟原本的對話框一樣,不會影響劇情那邊的既有樣子。 */
+  #coOpts { display:flex; flex-direction:column; gap:7px; margin-top:16px; }
+  #coOpts:empty { margin-top:0; }
+  #coOpts button { text-align:left; background:rgba(12,16,23,.95); color:#dfe4ea;
+    border:1px solid #3d4757; border-left:3px solid #55617a; padding:9px 15px;
+    font-size:15.5px; font-family:inherit; letter-spacing:.04em; cursor:pointer; border-radius:3px;
+    transition:all .13s; }
+  #coOpts button:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; transform:translateX(3px); }
+
   #menu { position:fixed; left:50%; transform:translateX(-50%); bottom:6%;
           display:none; flex-direction:column; gap:5px; width:min(560px,82%); z-index:8; }
   #menu.on { display:flex; }
@@ -335,6 +351,7 @@
   <div class="frame">
     <div class="dname" id="dName">你</div>
     <div class="dbody"><span id="dTx"></span><span class="caret" id="dCaret">▼</span></div>
+    <div id="coOpts"></div>
   </div>
 </div>
 <div id="menu"></div>
@@ -834,17 +851,12 @@ const city = buildCity(THREE, scene);
 const hero = buildPlayer(THREE, scene);
 hero.group.position.set(CITY.spawn.x, .3, CITY.spawn.z);
 
-/* 場景地標標籤(2026-08-19,kc 說廟埕那批方塊分不出哪個是哪個)——
-   city.landmarks(scene-city3d.js 那邊算好座標)拿來投影成螢幕上的文字牌,
-   DOM 元素只建一次、每幀改 style 位置,不用每幀重建節點。off-screen/
-   在鏡頭後面的直接關掉 display,不留在畫面邊緣糊成一團。 */
+/* 場景地標標籤(2026-08-19 加,同一天 kc 又要求先拿掉——攤位/香爐那些
+   小標籤先不要。city.landmarks 資料跟下面 updateWorldLabels() 都留著,
+   worldLabels 給空陣列讓迴圈變 no-op,之後要恢復只要把 [] 換回
+   city.landmarks.map(...) 那行。 */
 const wlabelsEl = document.getElementById('wlabels');
-const worldLabels = city.landmarks.map(l => {
-  const el = document.createElement('div');
-  el.className = 'wlabel'; el.textContent = l.text;
-  wlabelsEl.appendChild(el);
-  return { pos: new THREE.Vector3(l.x, l.y, l.z), el };
-});
+const worldLabels = [];
 const _wlabelV = new THREE.Vector3();
 function updateWorldLabels(){
   worldLabels.forEach(({ pos, el }) => {
@@ -1746,8 +1758,17 @@ function openIndoorSpot(id){
        docs/DESIGN_NOTES.md「早班不是死門」節)——`IN.askedJob` 那段問完
        之後 `IN.hired` 就是 true,櫃台就會多這個選項,點了直接開始收銀
        小遊戲。沒有另外接「今天是不是排班日」的日曆邏輯,想上班隨時可以
-       上,範圍先縮到這裡。 */
-    if(IN.hired) items.push({ label:'上班', cost:'翹課,開始收銀', run:() => startCheckoutShift() });
+       上,範圍先縮到這裡。
+       一天只能上班一次(2026-08-19 第九輪,kc 要求)——跟 steal()/
+       stealCaughtDay 同一招:記「上次上班是哪一天」,今天已經上過班了
+       選項還在,點下去只丟 toast 說明,不是直接把選項藏起來(藏起來玩家
+       會搞不懂「上班」怎麼不見了,steal() 那套已經驗證過這樣比較清楚)。 */
+    if(IN.hired) items.push({ label:'上班',
+      cost: day === workedDay ? '今天上過班了' : '翹課,開始收銀',
+      run: () => {
+        if(day === workedDay){ toast('店長說今天班表滿了,明天再來。', 2400); return; }
+        startCheckoutShift();
+      } });
     items.push({ label:'看店員在幹嘛', cost:'', run:() =>
       toast(IN.clerkFace === 'B' ? '他背對著你在補菸。' : '他站在收銀機前面，眼睛掃過店裡。', 2400) });
     items.push({ label:'離開', cls:'back', run(){} });
@@ -1802,10 +1823,24 @@ const CO_CLERK_PX = 540, CO_CLERK_PY = 210;   // 玩家上班時站的位置(原
    同一份邏輯,不是另外發明一套。
    **第二版寬度(950~1280,330px)蓋過頭,把最前面那位客人(CO_QUEUE_PX[0]
    =500,世界座標 1000)也一起遮住,只剩一雙鞋浮在畫面上**——kc 抓到「第一
-   個客人不能被擋掉」。矩形只需要蓋住玩家自己的腿(玩家世界座標
-   CO_CLERK_PX*SC=1080),收窄成 1020~1140(以玩家為中心留一點餘裕),
-   跟最前面客人的 1000 留出 20px 淨空,不會互相蓋到。 */
-const CO_CLERK_CLIP = { x:1020, y:CLERK_CLIP_Y, w:120, h:200 };
+   個客人不能被擋掉」。第三版收窄到 1020~1140,kc 玩起來還是回報「有點
+   被切掉」——玩家模型本身在這個縮放比例下腿部寬度粗抓只需要 50px 左右
+   (INDOOR_HERO_SCALE 換算回來的量級),1020~1140(120px)留了兩倍以上
+   的餘裕,代表問題不是矩形不夠窄,是離客人(世界座標 1000)不夠遠
+   (只留 20px)。**這輪原則改成:矩形盡量窄、但離客人盡量遠**——收窄到
+   剛好蓋住玩家腿部的寬度(1045~1115,70px,一樣以玩家中心 1080 對稱),
+   跟客人的淨空從 20px 拉開到 45px。kc 玩起來如果還是覺得切到,代表玩家
+   实際腿部寬度比這裡估的更寬,要再加寬,但同時把整條排隊線
+   (CO_QUEUE_PX)往左移遠一點分攤壓力,不要只靠縮窄矩形這一個手段。 */
+/* 第四輪(2026-08-19,kc:「手不會在櫃檯前面,所以不會看到櫃檯下方的手」)
+   ——前三輪只顧著量腿的寬度,矩形卡得剛好貼腿,站定不動時看起來是對的;
+   idle 動畫手臂會擺動,擺到 70px 這條窄欄外面就會露出來,變成「手穿模」。
+   左邊(x:1045)是客人淨空的硬限制不能再往左收,右邊沒有這個限制,直接
+   加寬(70→130)吃掉手臂擺動的空間;高度也往上多留 20px(y 254 起),
+   蓋住手臂稍微抬高、還沒抬到櫃檯桌面之上那個過渡帶。如果玩起來手還是
+   露在左邊(客人那一側),下一步照上面第三輪筆記講的,把 CO_QUEUE_PX
+   整條往左移遠,不要再往左收這個矩形。 */
+const CO_CLERK_CLIP = { x:1045, y:CLERK_CLIP_Y-20, w:130, h:220 };
 function coDrawClerkClip(){
   const r = CO_CLERK_CLIP;
   g2f.imageSmoothingEnabled = true;
@@ -1833,9 +1868,13 @@ function coUpdateQueue(dt){
     m.px += (m.targetPx - m.px) * Math.min(1, dt*.006);
     m.npc.group.position.x = m.px*SC;
     m.npc.animate(dt);
-    /* 正在服務的那位轉向玩家——測試中,先試 -90 度,見 DESIGN_NOTES 那節
-       「轉錯邊」的除錯記錄。 */
-    if(i === 0 && CO.customer) m.npc.setFacing(-Math.PI/2);
+    /* 正在服務的那位轉向玩家(2026-08-19 第六輪)——`0`、`Math.PI/2`(排隊
+       預設值)、`-Math.PI/2` 都被 kc 實測抓到方向不對,四個角度只剩
+       `Math.PI` 沒試過,這輪換這個。細節見 DESIGN_NOTES「客人轉錯邊」
+       那節除錯過程——如果這個還是不對,四個直角都試完了,要往
+       `coSpawnQueueMember()` 的排隊預設朝向本身或模型正面定義去查,不是
+       這裡的數字問題。 */
+    if(i === 0 && CO.customer) m.npc.setFacing(Math.PI);
   });
 }
 /* 前面那位結完帳:移除他的模型、剩下的人補位往前一格、如果班表裡還有
@@ -1868,8 +1907,10 @@ function coFade(label, mid){
 
 let CO = null;   // 一整個班的執行狀態,null 表示沒在上班
 let CO_SAVED = null;   // 上班前的玩家位置/朝向,下班還原用
+let workedDay = -1;   // 上次上班是哪一天,見上面「上班」選單那段一天一次的判斷
 function startCheckoutShift(){
   busy = true;
+  workedDay = day;
   coFade('上班', () => {
     CO_SAVED = { px:IN.px, py:IN.py, face:IN.face };
     IN.px = CO_CLERK_PX; IN.py = CO_CLERK_PY; IN.face = 'F';
@@ -1877,7 +1918,7 @@ function startCheckoutShift(){
     const pool = CHECKOUT_ITEMS.slice();
     const promoSet = [];
     for(let i=0;i<2 && pool.length;i++) promoSet.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0].name);
-    CO = { n:0, correct:0, promoSet, customer:null, answer:'', awaitingInput:false, timer:0, raf:0, lastT:0, queue:[], spawned:0 };
+    CO = { n:0, correct:0, promoSet, customer:null, timer:0, raf:0, lastT:0, queue:[], spawned:0 };
     for(let i=0;i<Math.min(CO_QUEUE_PX.length, CO_CUSTOMERS_PER_SHIFT); i++){
       CO.queue.push(coSpawnQueueMember(CO_QUEUE_PX[i])); CO.spawned++;
     }
@@ -1906,8 +1947,11 @@ function coGenCustomer(){
   }
   const total = basket.reduce((s,b) => s + coLineTotal(b), 0);
   const payQR = Math.random() < .4;
-  let given = null;
-  if(!payQR){ const bills=[100,500,1000]; given = bills.find(v => v >= total) || 1000; }
+  /* given 不管 payQR 都要算(2026-08-19 第九輪)——手機支付這單用不到真的
+     找零,但選項要跟現金客人共用同一組「$金額」干擾項,這個假想的找零錨點
+     兩種客人都要有。 */
+  const bills=[100,500,1000];
+  const given = bills.find(v => v >= total) || 1000;
   return { basket, total, payQR, given };
 }
 /* 客人講的話——故意不直接講總金額,只講每樣東西的單價(跟「第二件五折」
@@ -1921,39 +1965,91 @@ function coBasketLine(c){
   const itemsText = parts.join('、');
   return c.payQR ? `「${itemsText}。我用手機付。」` : `「${itemsText}。這是 $${c.given}。」`;
 }
+/* 對話框改成「問答式」直接題目+答案一起出現(2026-08-19 第六輪,kc 說
+   「對話框內要直接像問答一樣直接給題目跟答案」)——上一輪還是走 say()
+   那套打字機效果,客人講完話玩家要先按空白鍵把對話框關掉、再重開一個
+   新的「找多少」提示,兩段式、有停頓感。這輪不再呼叫 say(),直接自己
+   設定 dName/dTx/portrait 一次到位,題目(客人講的品項/付款方式)跟
+   答案欄(找多少？＿)同時顯示,玩家不用先按過一次空白鍵才能開始打字。
+   `dlg.on` 沒被動到(還是 false),tickDialog()/advanceDialog() 那套
+   打字機邏輯天生不會插手,兩套系統互不干擾。 */
+/* 選項直接長在對話框裡(2026-08-19 第八輪,kc 說「對話框高度要大一點,
+   上面題目下面選項」)——上一輪借用 openMenu()/#menu,題目跟選項是兩個
+   各自浮動的獨立元件,疊在畫面下方看起來是分開的兩塊,不是 kc 要的「同一
+   個盒子,題目在上、選項在下」。改成 `#coOpts`(見上面 CSS,長在
+   `#dialog .frame` 裡,緊接在 `.dbody` 題目下面)自己刻一個按鈕列表,
+   不再呼叫 openMenu()——連帶好處是不用再管 openMenu()/closeMenu() 那組
+   會把 busy 摸過一輪的問題,busy 全程都是 startCheckoutShift() 設的那個
+   true,這裡完全不用碰。 */
+function coShowOptions(items){
+  const host = document.getElementById('coOpts');
+  host.innerHTML = '';
+  items.forEach(it => {
+    const b = document.createElement('button');
+    b.textContent = it.label;
+    b.onclick = it.run;
+    host.appendChild(b);
+  });
+}
 function coNextCustomer(){
   if(CO.n >= CO_CUSTOMERS_PER_SHIFT){ coEndShift(); return; }
   CO.n++;
   CO.customer = coGenCustomer();
   CO.timer = CO_TIME_PER_CUSTOMER;
   document.getElementById('coTimerTrack').classList.add('on');
-  const c = CO.customer;
-  say('customer', coBasketLine(c), () => {
-    if(c.payQR){ coResolve(true); return; }
-    dlgEl.classList.add('on');   // advanceDialog() 剛把對話框關掉,立刻重開,銜接進「找多少」輸入
-    coBeginAnswer();
-  });
+  drawPortrait('customer');
+  dlgEl.classList.add('on');
+  coBeginAnswer();
 }
-/* 找零改成直接在對話框裡打字(2026-08-19 第三輪,kc 說「不要數字鍵盤,
-   改成對話框輸入」)——沒有另外做 <input>,跟這個專案其他地方一樣全部
-   走鍵盤事件(見下面 addEventListener('keydown') 最前面那段攔截),數字
-   鍵/退格/Enter 直接改 CO.answer,借用既有的 `dCaret` 閃爍游標當輸入
-   游標,不用另外做一個。 */
+/* 找零改成選項(2026-08-19 第七輪,kc 說「我要可以直接有選項」)——上上輪
+   打字輸入(鍵盤直接在對話框裡打數字)整套拿掉。金額選項一個是正確
+   答案,其餘是 `CO_WRONG_DELTAS` 裡隨機抽的偏移量湊出來的錯誤選項
+   (可能同分重複,`Set` 去重到湊滿為止)。 */
+const CO_WRONG_DELTAS = [10,-10,20,-20,5,-5,50,-50,15,-15];
+function coShuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+/* count/mustIncludeCorrect(2026-08-19 第九輪)——手機支付客人也要跟現金
+   客人共用這組金額選項當干擾項,但那個「找多少」的錨點對手機客人來說
+   本來就不會是正確答案,不用特別把它塞進 Set(mustIncludeCorrect=false),
+   單純拿來湊 3 個看起來合理的金額誘餌。 */
+function coChangeOptions(correct, count=4, mustIncludeCorrect=true){
+  const pool = coShuffle(CO_WRONG_DELTAS);
+  const opts = new Set(mustIncludeCorrect ? [correct] : []);
+  for(const d of pool){
+    if(opts.size >= count) break;
+    const v = correct + d;
+    if(v >= 0 && v !== correct) opts.add(v);
+  }
+  return coShuffle([...opts]).slice(0, count);
+}
+/* 手機支付跟找零合併成同一組選項(2026-08-19 第九輪,kc 抓到「每個客人
+   都要問問題,只是如果他有提到手機支付你就選掃 QR CODE,誤選也算錯」)
+   ——上一版手機支付客人只丟一顆「掃 QR CODE」按鈕,點下去保送正確,等於
+   沒有真的在考;現在不管客人付現還付手機,都是同一組 4 個選項(QR CODE
+   +3 個金額干擾項),玩家要真的聽客人講的是「我用手機付」還是報金額現金,
+   選錯——不管是現金客人選了 QR、還是手機客人選了金額——都算
+   coResolve(false)。金額干擾項的錨點是 given-total(假裝這單是現金會
+   找多少),手機客人這個錨點只拿來生像樣的干擾選項,不會被判定正確。 */
 function coBeginAnswer(){
-  CO.awaitingInput = true;
-  CO.answer = '';
-  coRenderAnswer();
-}
-function coRenderAnswer(){
+  const c = CO.customer;
+  const change = c.given - c.total;
   dName.textContent = '客人';
-  dTx.textContent = `找多少？${CO.answer}`;
-  dCaret.classList.add('on');
-}
-function coSubmitAnswer(){
-  if(!CO || !CO.awaitingInput) return;
-  CO.awaitingInput = false;
-  const correctChange = CO.customer.given - CO.customer.total;
-  coResolve(Number(CO.answer) === correctChange);
+  dTx.textContent = `${coBasketLine(c)}\n怎麼收這筆？`;
+  dCaret.classList.remove('on');
+  const moneyOpts = coChangeOptions(change, 3, !c.payQR).map(v => ({
+    label: '$' + v, correct: !c.payQR && v === change
+  }));
+  const qrOpt = { label:'掃 QR CODE', correct: c.payQR };
+  coShowOptions(coShuffle([qrOpt, ...moneyOpts]).map(o => ({
+    label: o.label,
+    run: () => coResolve(o.correct)
+  })));
 }
 /* WRONG_LINES(2026-08-19)——kc 定案「算錯會被罵」,語氣照這個專案一貫
    的規矩:罵事不罵人,不能寫成嘲笑角色蠢(見 lib/quiz.js WRONG 那組同一
@@ -1966,12 +2062,16 @@ const CO_WRONG_LINES = [
 const CO_RIGHT_LINES = ['「謝謝。」', '客人拿了東西就走，沒多說什麼。', '「動作可以啦。」'];
 function coResolve(correct){
   CO.customer = null;
-  CO.awaitingInput = false;
   dlgEl.classList.remove('on');
   document.getElementById('coTimerTrack').classList.remove('on');
+  document.getElementById('coOpts').innerHTML = '';   // 逾時也可能發生在選項還沒點的時候,順手清掉
   if(correct){
+    /* 算對不再當場給錢(2026-08-19 第九輪,kc 要求「上班結束後店員會跟你
+       對話核發工資」)——工資改成下班時店員一次結清(見 coEndShift()),
+       這裡只累計 CO.correct,算錯扣錢(收銀機短少自己貼)還是當場的,
+       兩件事精神不一樣:貼錢是你犯的錯馬上要付代價,工資是老闆說了算、
+       要等他跟你結。 */
     CO.correct++;
-    chg('money', CO_RIGHT_WAGE);
     toast(CO_RIGHT_LINES[Math.floor(Math.random()*CO_RIGHT_LINES.length)], 1600);
   } else {
     chg('money', CO_WRONG_MONEY); chg('mood', CO_WRONG_MOOD);
@@ -1989,23 +2089,72 @@ function coTick(dt){
   const pct = Math.max(0, CO.timer / CO_TIME_PER_CUSTOMER);
   track.querySelector('i').style.width = (pct*100) + '%';
   track.classList.toggle('low', pct < .3);
-  if(CO.timer <= 0){ CO.customer = null; CO.awaitingInput = false; coResolve(false); }
+  if(CO.timer <= 0){ CO.customer = null; coResolve(false); }
+}
+/* 下班結算分級(2026-08-19 第十輪,kc 要求「不是說算對幾個是失誤幾次」
+   +「信評太低會被罵得很慘,比如『我就知道這種底層』那種」+「信評好會
+   有鼓勵跟額外獎金」+「小叮嚀」)——用失誤次數(不是答對次數)分三級:
+   全對/普通/失誤多。**最差那級的台詞刻意寫成老闆的偏見**(「你這種背景
+   的」),不是遊戲在說「你活該」——這一段的立場照 CLAUDE.md 基準線,
+   講的是「社會怎麼看待這群人」,把難聽話放進一個會這樣講話的老闆嘴裡,
+   不是旁白/系統對玩家下的判斷,跟 lib/quiz.js 那條「答錯不能嘲笑角色,
+   責任歸處境」不衝突——那條管的是遊戲敘事本身的立場,這裡是角色(老闆)
+   自己講出一句真實世界會出現的偏見。 */
+const CO_BONUS = 40;   // 表現好的額外獎金,不是按時薪算,先抓一個感覺對的數字
+function coShiftReview(n, correct){
+  const wrong = n - correct;
+  if(wrong === 0) return {
+    lines: [ `「今天 ${n} 個客人，一次都沒錯。」`, '「算你會做事，多給你一點。」' ],
+    tip: '客人越急你反而要慢下來算——這個訣竅你自己抓到了。',
+    bonus: CO_BONUS
+  };
+  if(wrong <= 2) return {
+    lines: [ `「${n} 個裡面錯 ${wrong} 個，還可以。」` ],
+    tip: '找錢先算總金額，再算差額，不要一步到位用猜的。',
+    bonus: 0
+  };
+  return {
+    lines: [ `「${n} 個裡面錯了 ${wrong} 個，這樣我要自己貼多少你知道嗎？」`,
+              '「你這種背景的，我大概猜得到會這樣。」' ],
+    tip: '算不出來就慢下來重算一次，比錯了道歉快。',
+    bonus: 0
+  };
 }
 function coEndShift(){
   cancelAnimationFrame(CO.raf);
   const correct = CO.correct, n = CO_CUSTOMERS_PER_SHIFT;
+  const review = coShiftReview(n, correct);
+  const wage = correct * CO_RIGHT_WAGE + review.bonus;
   coDespawnQueue();
   dlgEl.classList.remove('on'); dlg.on = false;
   document.getElementById('coTimerTrack').classList.remove('on');
+  document.getElementById('coOpts').innerHTML = '';
   heroIndoor.resetTex('hood');
   IN.px = CO_SAVED.px; IN.py = CO_SAVED.py; IN.face = CO_SAVED.face;
   CO = null;
   paintStoreBackdrop();   // CO 清空了,店員截圖這次重畫會補回來
+  /* 下班後店員跟你對話核發工資(2026-08-19 第九輪,kc 要求)——原本是
+     toast 帶過,改成真的幾句店員台詞(main lines + 小叮嚀),用
+     coSayChain() 接力播,錢在最後一句 main line 出現前給
+     (chg('money',wage),飄字會跟對話同時跳出來,視覺上像「這是你的
+     錢」那個動作)。busy 這裡照舊放開(跟其他 say() 呼叫端一樣),接下來
+     擋玩家走動的是 dlg.on,不是 busy——兩者是分開判斷的(見移動邏輯的
+     `!busy && !dlg.on`),不用在這裡刻意再鎖一次。 */
   coFade('下班', () => {
     busy = false;
     advanceTime(180);
-    toast(`下班了。這班 ${n} 位客人，算對 ${correct} 次。`, 3600);
+    chg('money', wage);
+    coSayChain('clerk', [...review.lines, review.tip]);
   });
+}
+/* say() 一次只能播一句,接力播多句要靠 after 回呼一路串下去——跟
+   game.html 別處(問有沒有缺人那段)手寫巢狀 say() 是同一招,只是這裡
+   句數會變(2~3 句看分級結果),包成一個小函式比每個分級各寫一次巢狀
+   呼叫省事。 */
+function coSayChain(who, lines, i){
+  i = i || 0;
+  if(i >= lines.length) return;
+  say(who, lines[i], () => coSayChain(who, lines, i+1));
 }
 
 function updateIndoor(dt){
@@ -2077,7 +2226,11 @@ function updateIndoor(dt){
   const lockDepth = PLACE === 'home' || PLACE === 'bedroom';
 
   if(!busy && !dlg.on && (dx||dy)){
-    const sp = 1.35 * (dx&&dy ? .71 : 1);
+    /* 2D 室內也能跑(2026-08-19,kc 要求):跟 updateCity() 的 Shift=2 倍
+       同一顆 keys['shift']、同一個倍率,手感才一致——街上用 Shift 跑習慣了
+       走進室內卻沒反應會覺得壞掉。 */
+    const run = keys['shift'] ? 2 : 1;
+    const sp = 1.35 * run * (dx&&dy ? .71 : 1);
     /* 房間水平範圍吃 BEDROOM_WALK_TWEAK 滑桿(2026-08-19),不是通用的
        20~LW-20——衣櫃層架伸到走道上,maxPx 比一般房間邊界窄。 */
     const pxMin = PLACE === 'bedroom' ? BEDROOM_WALK_TWEAK.minPx : 20;
@@ -2387,17 +2540,6 @@ function maybeTriggerStoryNode(){
    =================================================================== */
 const keys = {};
 addEventListener('keydown', e => {
-  /* 收銀小遊戲的「找多少」輸入(2026-08-19,見上面 coBeginAnswer() 那段
-     註解)——攔在最前面,整段吃掉不讓 WASD/空白鍵那些邏輯繼續跑,不然
-     打「2」這種數字鍵不會誤觸其他東西,但 Enter/Backspace 本來就有各自
-     的意義,要在這裡先擋下來。 */
-  if(CO && CO.awaitingInput){
-    e.preventDefault();
-    if(e.key >= '0' && e.key <= '9'){ if(CO.answer.length < 5) CO.answer += e.key; coRenderAnswer(); }
-    else if(e.key === 'Backspace'){ CO.answer = CO.answer.slice(0,-1); coRenderAnswer(); }
-    else if(e.key === 'Enter'){ coSubmitAnswer(); }
-    return;
-  }
   const k = e.key.toLowerCase();
   keys[k] = true;
   startBuskerAudio();          // 第一次按鍵才建立 AudioContext,見上面那段註解

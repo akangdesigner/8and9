@@ -20,6 +20,11 @@
 | `candelabra.glb` | Simple Candelabra | Don Carson | CC-BY | https://poly.pizza/m/b07YM_KsRhb |
 | `incense-bowl.glb` | Bowl Dirty | Kay Lousberg | Public Domain (CC0) | https://poly.pizza/m/ASUKhSq7pS |
 | `street-lamp.glb` | Street lamp | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/8hhAxfVhxyf |
+| `food-udon.glb` | Udon | Quaternius | Public Domain (CC0) | https://poly.pizza/m/8eOp8bismL |
+| `food-cooking-pot.glb` | Cooking Pot | Quaternius | Public Domain (CC0) | https://poly.pizza/m/jAUb3FoCN7 |
+| `food-chopsticks.glb` | Chopsticks | Poly by Google | CC-BY | https://poly.pizza/m/f0piCrI4HrZ |
+| `food-rice-bowl.glb` | Bowl of rice | jeremy | CC-BY | https://poly.pizza/m/clVUEgVMIiX |
+| `food-drink-cup.glb` | Soda | Quaternius | Public Domain (CC0) | https://poly.pizza/m/IqXSdKUMnY |
 
 CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時記得帶著這份清單
 (或至少「遊具模型來自 Poly by Google,CC-BY 3.0」這句話),不要漏掉。
@@ -43,3 +48,10 @@ CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時�
 **`dog.glb`/`cat.glb`(2026-08-14):** 街上的小狗原本是跟主角同一套膠囊+球體
 灰模拼的,kc 問「貓狗在哪,你要不要去抓一個模型來」,換成 Poly Pizza 的
 Dog/Cat(都是 Poly by Google,CC-BY 3.0),順便補了一隻貓——原本只有狗。
+
+**`food-*.glb`(2026-08-19):** 廟埕攤子桌面「擺滿商品」那件事,kc 一開始
+想用照片貼圖解決,後來自己抓到「立體物件貼平面照片會很怪」(跟供桌
+香爐/燭台同一個教訓,見 `scene-city3d.js` `placeAltarProp()` 那段舊筆記),
+決定改抓真的 3D 小物——挑的都是碗麵/碗飯/筷子/鍋子/飲料這種攤子桌上會有
+的東西,對應 `game.html` `FOOD` 陣列(魯肉飯/切仔麵/鹹酥雞/自助餐/熱炒/
+豆漿)裡的品項。還沒接進 `stall()`,先下載放著,下一輪擺上去。
