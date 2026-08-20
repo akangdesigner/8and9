@@ -930,6 +930,19 @@ const AYI = { x:-22, z:-93.5, visits:0, seenEvents:{}, catQuest:{ active:false, 
    簡化成「累計撿滿 3 件」,不做額外的範圍判斷。 */
 const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
 
+/* 阿源好朋友門檻(2026-08-20,kc:「他會叫你去刺青並且帶女朋友來,帥潮
+   >30 他才會跟你當好朋友,跟學校女生交往也會加值」)——跟阿姨/阿成不同,
+   他的觸發條件是遊戲狀態(ST.cool)不是單純互動次數,見 talkToYuan()。
+   hasTattoo/hasGirlfriend 這輪先當debug 開關(跟 joinedTroupe 同一套
+   「系統本身還沒做,先給 kc 一個手動開關測」做法)——刺青店
+   (`prototypes/tattoo-room.html`/`scene-tattoo.js`)跟小美的交往任務
+   (`lib/quests.js` mei1~mei4)都還沒接進 game.html,真的接上之後,把這兩
+   個布林值改成讀真正的完成條件就好,talkToYuan() 的判斷邏輯不用重寫。
+   「跟學校女生交往也會加值」這句這輪直接簡化成「hasGirlfriend 為真」同一
+   個布林值,沒有另外做一個獨立的數值加成——小美線真的接上、有真正的
+   交往進度可以讀之後,這裡可以再拆細。 */
+const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:false, hasGirlfriend:false, friend:false };
+
 /* 街頭藝人(2026-08-20,kc 追加:「手上要拿吉他」)——拉出來宣告成獨立
  * 變數,因為要在模型載入完成後把吉他掛到他身上(骨架是非同步載入的,
  * loadModel().then() 才 g.add(model),所以掛吉他要等,見下面
@@ -2381,10 +2394,10 @@ function coEndShift(){
    game.html 別處(問有沒有缺人那段)手寫巢狀 say() 是同一招,只是這裡
    句數會變(2~3 句看分級結果),包成一個小函式比每個分級各寫一次巢狀
    呼叫省事。 */
-function coSayChain(who, lines, i){
+function coSayChain(who, lines, i, after){
   i = i || 0;
-  if(i >= lines.length) return;
-  say(who, lines[i], () => coSayChain(who, lines, i+1));
+  if(i >= lines.length){ after && after(); return; }
+  say(who, lines[i], () => coSayChain(who, lines, i+1, after));
 }
 
 function updateIndoor(dt){
@@ -3022,6 +3035,8 @@ function updateCity(dt){
       nearProp = { type:'ayi', ref:AYI };
     if(!nearProp && Math.hypot(pos.x-ACHENG.x, pos.z-ACHENG.z) < 4.5)
       nearProp = { type:'acheng', ref:ACHENG };
+    if(!nearProp && Math.hypot(pos.x-YUAN.x, pos.z-YUAN.z) < 3.2)
+      nearProp = { type:'yuan', ref:YUAN };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
        讀 npc.group.position。純背景路人,不記名字、不分支對話,一句隨機
@@ -3054,6 +3069,7 @@ function updateCity(dt){
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
                       : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
+                      : nearProp.type === 'yuan' ? '按 <b>空白鍵</b> 找阿源'
                       : nearProp.type === 'pedestrian' ? '按 <b>空白鍵</b> 打聲招呼'
                       : '按 <b>空白鍵</b> 撿起垃圾';
     hintEl.classList.add('on');
@@ -3175,7 +3191,7 @@ function talkToStallVendor(state, data, whoKey, onBuyMenu, opts){
   const ev = data.events.find(e => e.at === state.visits && !state.seenEvents[e.at]);
   if(ev){
     state.seenEvents[ev.at] = true;
-    say(whoKey, ev.beats.map(b => b.text).join('\n\n'), () => {
+    playBeats(ev.beats, 0, () => {
       if(ev.calm) chg('calm', ev.calm);
       if(ev.money) chg('money', ev.money);
       if(ev.full) chg('full', ev.full);
@@ -3222,6 +3238,63 @@ function talkToAcheng(){
     }
     openStallMenu('阿成的麵攤', '阿成', 45, 16, '「趁熱吃。」', '「自己人,不用跟我客氣。」', extra);
   }, { talkGivesCalm: 2 });
+}
+/* 阿源好朋友門檻(2026-08-20)——狀態機:
+   1. 帥潮 <=30:退回原本的 events[]/talk[] 閒聊(跟 talkToStallVendor 同一套
+      「按次數觸發劇情事件、沒事件就隨機閒聊」邏輯,傳空 onBuyMenu 因為他
+      沒有買賣選單)。
+   2. 帥潮 >30 但還沒問過(asked=false):第一次跨過門檻,觸發 askFriend——
+      他開口要求刺青+帶女朋友來,之後每次都會停在「還缺什麼」的提醒,
+      不會重複整段 ask 台詞。
+   3. asked=true 但 hasTattoo/hasGirlfriend 沒集滿:提醒還差哪個。
+   4. 兩個條件都滿足:觸發 becomeFriend 里程碑,friend 從此恆真,之後只是
+      單純聊天(退回 talk[] 隨機句,不再檢查門檻)。 */
+const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
+function talkToYuan(){
+  if(YUAN.friend){
+    YUAN.visits++;
+    say('yuan', YUAN_DATA.talk[Math.random()*YUAN_DATA.talk.length|0]);
+    return;
+  }
+  if(YUAN.asked && YUAN.hasTattoo && YUAN.hasGirlfriend){
+    const ev = YUAN_DATA.becomeFriend;
+    playBeats(ev.beats, 0, () => {
+      if(ev.calm) chg('calm', ev.calm);
+      if(ev.cool) chg('cool', ev.cool);
+      YUAN.friend = true;
+      if(ev.quiet) toast(ev.quiet, 3200);
+    });
+    return;
+  }
+  if(YUAN.asked){
+    const missing = [!YUAN.hasTattoo && '刺青', !YUAN.hasGirlfriend && '帶女朋友來'].filter(Boolean).join('、');
+    say('yuan', '他看了你一眼。\n\n「' + missing + '還沒喔。」');
+    return;
+  }
+  if(ST.cool > 30){
+    const ev = YUAN_DATA.askFriend;
+    playBeats(ev.beats, 0, () => {
+      YUAN.asked = true;
+      if(ev.quiet) toast(ev.quiet, 3200);
+    });
+    return;
+  }
+  /* 帥潮 <=30(2026-08-20,kc:「會被酸言酸語」)——events[]（at:3/at:6 那
+     兩段,實際是他關心你的深層時刻)照舊按次數觸發,只有「這次沒有事件」
+     的閒聊 fallback 換成 lowCoolTalk(酸你的那組),不是 talk[]（那組現在
+     保留給 friend=true 之後用,見上面 talk[] 那則筆記）。不能直接呼叫
+     talkToStallVendor()，因為它固定讀 data.talk，沒有辦法換成 lowCoolTalk。 */
+  YUAN.visits++;
+  const ev = YUAN_DATA.events.find(e => e.at === YUAN.visits && !YUAN.seenEvents[e.at]);
+  if(ev){
+    YUAN.seenEvents[ev.at] = true;
+    playBeats(ev.beats, 0, () => {
+      if(ev.calm) chg('calm', ev.calm);
+      if(ev.quiet) toast(ev.quiet, 3200);
+    });
+  } else {
+    say('yuan', YUAN_DATA.lowCoolTalk[Math.random()*YUAN_DATA.lowCoolTalk.length|0]);
+  }
 }
 function buyMoto(m){
   openMenu('機車行', [
@@ -3283,6 +3356,7 @@ function interactProp(prop){
      這裡刻意留白,不重複講。 */
   if(prop.type === 'ayi'){ talkToAyi(); return; }
   if(prop.type === 'acheng'){ talkToAcheng(); return; }
+  if(prop.type === 'yuan'){ talkToYuan(); return; }
   if(prop.type === 'statue'){
     toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
     return;
@@ -3427,7 +3501,7 @@ window.__dbg = {
   /* 陣頭特價測試開關(2026-08-20)——陣頭音遊本身還沒做,先用這個手動切,
      見 talkToAyi()/ayiBuyMenu() 那則筆記。 */
   joinedTroupe: (v) => { if(v != null) joinedTroupe = v; return joinedTroupe; },
-  AYI, talkToAyi, ACHENG, talkToAcheng,
+  AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   indoorCalib(){
     const s = heroIndoor.group.scale.x;
     return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
