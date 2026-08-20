@@ -735,6 +735,11 @@ const WHO = {
   worker:{ name:'她',   opt:{ face:'F', skin:'#c9a077', hair:'#241f1c', top:'#7a2f45', topD:'#5c2436', pants:'#232323' } },
   ayi:   { name:'阿姨', opt:{ face:'F', skin:'#c9a077', hair:'#2c2420', top:'#5c4a3a', topD:'#3a2e26', pants:'#333333' } },
   acheng:{ name:'阿成', opt:{ face:'F', skin:'#b98a63', hair:'#3a3128', top:'#2e4a3a', topD:'#1e3a2a', pants:'#2b2b2b' } },
+  /* yuan(2026-08-20)——頭像先接進來,但阿源本人在 game.html 還沒有真的
+     互動分支(3D 角色只是站在原地,跟 npc-temple.js 的 yuan 資料一樣沒接
+     上,見 ACHENG/AYI 那兩則筆記的先例)。這次先把頭像/WHO 準備好,下次
+     要幫他接對話再直接用。 */
+  yuan:  { name:'阿源', opt:{ face:'F', skin:'#c9976e', hair:'#d9a53a', top:'#3a1010', topD:'#2a0a0a', pants:'#2b2b2b' } },
   /* 收銀小遊戲的客人(2026-08-19)——沒有固定角色設定,顏色隨便挑一組跟
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
@@ -759,8 +764,10 @@ const PORTRAIT_IMGS = {
   /* worker/acheng(2026-08-20)——廟口真人頭像這輪的前兩張,阿源/阿姨
      還沒生,那兩個 key 沒進這個表之前 drawPortrait() 會自動退回
      SF.person() 像素小人(既有 fallback,不會壞)。 */
-  worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=1'),
-  acheng: loadPortraitImg('../assets/bg/acheng-portrait.png?v=1')
+  worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=2'),
+  acheng: loadPortraitImg('../assets/bg/acheng-portrait.png?v=2'),
+  ayi:    loadPortraitImg('../assets/bg/ayi-portrait.png?v=1'),
+  yuan:   loadPortraitImg('../assets/bg/yuan-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
@@ -923,6 +930,48 @@ const AYI = { x:-22, z:-93.5, visits:0, seenEvents:{}, catQuest:{ active:false, 
    簡化成「累計撿滿 3 件」,不做額外的範圍判斷。 */
 const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
 
+/* 街頭藝人(2026-08-20,kc 追加:「手上要拿吉他」)——拉出來宣告成獨立
+ * 變數,因為要在模型載入完成後把吉他掛到他身上(骨架是非同步載入的,
+ * loadModel().then() 才 g.add(model),所以掛吉他要等,見下面
+ * attachGuitar() 那段,跟 buildNPC() 裡加刺青要先 mixer.update(0.0001)
+ * 讓骨架落到站姿再量位置是同一個坑——這裡沒有精確掛在手骨上(這個
+ * 專案沒有做手部骨骼綁定那一層,tattoo 那套也只是貼在前臂表面而不是
+ * 綁骨),吉他改成用「胸前斜背」這個角度湊,不管手有沒有動,吉他的
+ * 相對位置看起來都合理,不會因為 idle 動畫擺手而穿模跑位。
+ * 舞台/麥克風架是靜態幾何,見 scene-city3d.js 的 buskerStage()——那邊
+ * 決定「地方長什麼樣」,這裡只決定「人跟吉他」。 */
+const buskerNPC = buildNPC(THREE, scene, {
+  x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:Math.PI*.75, rig:'m2',
+  skin:'#b98a63', hair:'#3a3128',
+  hood:'#2e4a3a', pants:'#26241f', shoe:'#4a4038'
+});
+(function attachGuitar(){
+  const model = buskerNPC.group.children[0];
+  if(!model){ requestAnimationFrame(attachGuitar); return; }
+  const wood = new THREE.MeshStandardMaterial({ color:0x8a5a32, roughness:.7 });
+  const dark = new THREE.MeshStandardMaterial({ color:0x2a1c12, roughness:.6 });
+  const guitar = new THREE.Group();
+  /* 吉他身:兩個疊起來的扁圓柱湊出「腰身」輪廓(上半窄、下半寬,不是一顆
+     正圓餅乾),琴頸是一根細長方柱斜插出去。**第一版尺寸抓太大**——套上去
+     整顆像抱了個南瓜/盾牌貼在背後,截圖核對才發現(見 DESIGN_NOTES),
+     這版尺寸砍半重抓,肉眼比對跟角色肩寬同一個量級才收。 */
+  const bodyLower = new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,.05,16), wood);
+  bodyLower.rotation.x = Math.PI/2; bodyLower.position.set(0,-.12,0);
+  const bodyUpper = new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,.05,16), wood);
+  bodyUpper.rotation.x = Math.PI/2; bodyUpper.position.set(0,.08,0);
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(.03,.42,.015), dark);
+  neck.position.set(0,.38,.01); neck.rotation.z = .08;
+  guitar.add(bodyLower, bodyUpper, neck);
+  /* 斜背在胸前(2026-08-20 kc:「手上要拿吉他」的簡化版——見上面長註解,
+     這個 rig 沒有手部骨骼可以真的握,斜揹的角度從正面看很像雙手扶著
+     琴身彈唱,是折衷,不是偷懶漏做)。offset 貼緊軀幹(z 只推 .12,不是
+     舊版的 .28,不然縮小後反而看起來浮在半空中跟身體脫節)。之後 kc
+     玩起來覺得位置不對再回頭調這幾個數字就好,不用整組重寫。 */
+  guitar.position.set(.02, .55, .12);
+  guitar.rotation.set(-.15, .5, -.35);
+  model.add(guitar);
+})();
+
 /* 廟口 NPC,2026-08-12 起先接兩個(其餘見 lib/npc-temple.js 的文字資料)。
  * 只做阿源跟阿姨——小胖(14 歲)、阿伯(70 幾)體型跟現有兩副骨架差太多,
  * 硬套會不像人,等有更合適的骨架再補,見 DESIGN_NOTES「3D 街上的角色」。
@@ -950,11 +999,7 @@ const NPCS = [
     x:ACHENG.x, z:ACHENG.z, rotationY:Math.PI, rig:'m3',
     skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038'
   }),
-  buildNPC(THREE, scene, {                             // 街頭藝人・中華路小公園旁
-    x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:Math.PI*.75, rig:'m2',
-    skin:'#b98a63', hair:'#3a3128',
-    hood:'#2e4a3a', pants:'#26241f', shoe:'#4a4038'
-  })
+  buskerNPC
 ];
 
 /* 中華路⇄廟口路那條巷子(2026-08-17,kc 要求)——kc 原話「這裡是嫖妓專用
@@ -1148,7 +1193,21 @@ const PEDESTRIANS = [
   /* 站在圓環雕像附近的兩隻路人——宣告跟 statueLine 都搬到上面
      STATUE_PED_A/STATUE_PED_B 那段了,這裡只是併進 PEDESTRIANS 陣列
      (按空白鍵打招呼、路線巡邏那套共用邏輯都靠這個陣列跑)。 */
-  STATUE_PED_A, STATUE_PED_B
+  STATUE_PED_A, STATUE_PED_B,
+  /* 街頭藝人的圍觀路人(2026-08-20,kc:「要有一些路人圍觀」)——3 隻站定
+     不動,鬆散圍成半圈面向舞台中心(BUSKER_POS,見 scene-city3d.js
+     buskerStage() 那節),不是排排站成一排。座標離舞台碰撞範圍
+     (R*.55≈1.43)跟麥克風架都留了淨空,不會疊模型。跟其他純背景路人
+     一樣按空白鍵打招呼(共用 PEDESTRIAN_LINES 池,不寫專屬台詞——他們
+     只是聽眾,沒有各自要透露的資訊,跟圓環雕像旁那兩隻的用意不同)。
+     rotationY 用 Math.atan2(dx,dz)(跟 buildNPC() 裡 patrol/idle 轉向
+     同一個公式)算出來面向 BUSKER_POS,不是隨便抓的角度。 */
+  buildNPC(THREE, scene, { x:BUSKER_POS.x+3.2, z:BUSKER_POS.z-1.5, rotationY:-Math.PI*.3605, rig:'f',
+    skin:'#c9a077', hair:'#241f1c', hood:'#5c4a3a', pants:'#333333', shoe:'#4a4038' }),
+  buildNPC(THREE, scene, { x:BUSKER_POS.x-1.5, z:BUSKER_POS.z-3.2, rotationY:Math.PI*.1395, rig:'m3',
+    skin:'#c2a17e', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' }),
+  buildNPC(THREE, scene, { x:BUSKER_POS.x+1.0, z:BUSKER_POS.z+3.5, rotationY:-Math.PI*.9114, rig:'f2',
+    skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' })
 ];
 NPCS.push(...PEDESTRIANS);
 

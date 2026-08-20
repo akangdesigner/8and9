@@ -616,6 +616,37 @@ export function buildCity(THREE, scene){
     lampSpots.push({ x:cx, y:4.5, z:cz, c:0xffd9a0, i:26, r:24 });
   })();
 
+  /* ===== 街頭藝人的表演區(2026-08-20,kc:「街頭藝人要特別一點吧,要有個
+   * 地方讓他演唱,要有麥克風架,要有一些路人圍觀」)=====
+   * 座標刻意跟 game.html 的 BUSKER_POS 對齊(-84+20, 4)——那個常數決定
+   * 「人站在哪」跟「歌聲音量隨距離淡出」的中心點,這裡決定「舞台長什麼
+   * 樣子」,兩個檔案本來就是分工(這座城市的靜態幾何在 scene-city3d.js、
+   * 動態的人/劇情在 game.html),不是漏同步——如果以後要搬街頭藝人的
+   * 位置,這兩處都要一起動,跟 ALLEY_WORKER 那組座標在兩個檔案各自
+   * 硬寫一份是同一個既有慣例。
+   * 舞台是一片圓木平台(重用 M.stallTop,攤子桌面同一張木紋貼圖,整座
+   * 城市除了角色都是「灰模+AI貼圖」這套,不要為了一個舞台另開一條材質
+   * 管線)。麥克風架是三段灰模疊出來的:寬底盤(穩定感)+ 細長桿 + 麥克風
+   * 頭(小球),沒有找外部模型——體積小、造型單純,程序生成比找/轉一個
+   * 3D 模型划算,跟遊具/垃圾桶那批小物同一個判斷。 */
+  (function buskerStage(){
+    const bx = V_ROADS[0].x + 20, bz = 4, R = 2.6;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, .3, 24), M.stallTop),
+        bx, .15, bz, false, true);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(R+.12, R+.12, .12, 24), M.curb),
+        bx, .06, bz, false, true);
+    /* 麥克風架站在舞台前緣、面對巡邏路人常走的那條人行道(不是舞台正中央,
+       不然會擋住街頭藝人本人站的位置——他的座標見 game.html BUSKER_POS,
+       這裡往前推 .9 個單位剛好在他身前)。 */
+    const micX = bx - .6, micZ = bz + .7;
+    add(box(.7,.06,.7, M.metal), micX, .33, micZ, false, true);   // 三腳架簡化成一片寬底盤
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,3.1,10), M.metal),
+        micX, .36+1.55, micZ, false, false);
+    add(new THREE.Mesh(new THREE.SphereGeometry(.09,10,8), M.metal),
+        micX, .36+3.15, micZ, false, false);
+    solid(bx, bz, R*.55, R*.55);   // 只擋舞台中段,麥克風架跟舞台邊緣留給路人站
+  })();
+
   /* ===== 公園:中華路南側切兩個店面寬度出來(2026-08-13,kc 說要真的一塊
    * 公園,不是隨便貼一張素材)=====
    * 跟 temple()/roundabout() 同一套做法——先蓋灰模鎖構圖,草地材質有補圖片
