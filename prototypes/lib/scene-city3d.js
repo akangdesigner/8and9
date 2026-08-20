@@ -1562,10 +1562,27 @@ export function buildCity(THREE, scene){
        又把縫再壓窄一截,招牌大半截被遮雨簾擋住,只有下緣一小條露出來。
        挪到棚頂(box(6.4,.4,3.6,c) 的頂在 y 3.7)上方、往前推(z+1.9,比
        遮雨簾的 z+1.74 更靠外)——像真的夜市攤子懸掛式招牌那樣浮在棚子
-       上緣前方,不會被自己的棚子擋到。 */
-    const signW = 2.0, signH = 1.0;
-    add(new THREE.Mesh(new THREE.PlaneGeometry(signW, signH),
-        signImage(signKey, signW/signH, 1)), x, 5.35, z + 1.9, false, false);
+       上緣前方,不會被自己的棚子擋到。
+       招牌變厚+貼在遮雨棚(2026-08-20,kc:「他有厚度好嗎而且應該貼在
+       遮雨棚」)——原本是零厚度的 PlaneGeometry 飄在棚頂正上方(y 5.35,
+       高過棚頂 4.4~4.8 那個範圍),讀起來像一張浮空的紙,跟棚子沒有
+       接觸關係。改成有厚度的 box(招牌本體 .15 深,只有朝客人那面 +z 貼
+       signImage(),其餘 5 面用邊框材質)。
+       第一版 Y 放 4.5,結果整塊卡進棚頂(4.4~4.8)的體積裡,跟屋頂 box
+       互相穿插——kc 抓到「不要卡在棚內」。第一次改法猜成往下垂掛(y
+       降到 3.7),kc 糾正:高度(Y)不用動,她要的是「往外推出來一點」
+       ——單純沿 Z 再往前推,讓招牌整塊挪出屋頂(z±1.8)/遮雨簾(z 1.74)
+       的體積範圍,不要垂直掉到棚子下緣。Y 退回 4.5,Z 從原本貼齊遮雨簾
+       的 z+1.74(半個招牌厚度都還在屋頂 z+1.8 範圍內,還是有穿插)推到
+       z+2.1,整塊完全離開屋頂跟遮雨簾的 Z 範圍,才是「不卡在棚內」。
+       邊框顏色(kc:「要跟招牌顏色一樣不是黑」)——原本用固定的深咖啡色
+       `signFrame`,跟每攤招牌自己的顏色沒關係。改用呼叫 stall() 時傳進來
+       的 `c`(棚布/遮雨簾同一顆材質,鴨頭攤紅色、乾麵攤藍色),邊框跟
+       棚子顏色統一,不是每攤都套同一款深色框。 */
+    const signW = 2.0, signH = 1.0, signD = .15;
+    add(box(signW, signH, signD,
+        [c, c, c, c, signImage(signKey, signW/signH, 1), c]),
+        x, 4.5, z + 2.1, false, false);
     solid(x, z, 3, 1.8);
     /* 地標牌要有名字(2026-08-19,kc:「要有招牌名稱啊」)——原本三攤都
        只顯示「攤子」,分不出哪攤賣什麼,改成顯示真的品項名字(沒給 name
@@ -1575,10 +1592,13 @@ export function buildCity(THREE, scene){
   /* 東山鴨頭/廟口乾麵(2026-08-19,kc 要求):sign-duck-head.png/
      sign-dry-noodle.png 還沒生,prompt 已經在對話裡給 kc,生圖之前這兩塊
      招牌會先顯示 signImage() 的深色佔位底,不會壞、不用等圖才能推這次改動。
-     第三攤(鹹酥雞)沒被點名,維持原本借用街上 sign-food-2.png 那套。 */
+     第三攤(鹹酥雞,原本借用街上 sign-food-2.png 那套)2026-08-20 kc 直接
+     刪掉——場上只留兩個真的有貼圖/有老闆站的攤子,不要留一個空殼攤位。
+     鹹酥雞這個品項本身沒有跟著消失,阿姨(`npc-temple.js` 完整劇情角色)
+     還是鹹酥雞攤老闆,她的座標(game.html NPCS,x:6,z:-86)本來就跟這個
+     3D 攤位 box 沒有綁在一起,刪這個 box 不影響她的劇情。 */
   stall(-22,-92, M.tarp, 'duck-head', 0, '老大東山鴨頭', 'stall-duck-case-front.png', 'stall-duck-case-side.png', 'stall-duck-case-top.png');
   stall(-13,-92, M.tarpB, 'dry-noodle', 1, '廟口乾麵', 'stall-noodle-case-front.png', 'stall-noodle-case-side.png', 'stall-noodle-case-top.png');
-  stall(20,-90, M.tarp, 'food-2', 2, '鹹酥雞');
   function tableSet(x, z){
     add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) => add(box(.14,1.5,.14, M.plastic), x+a*1.05, .75, z+b*1.05));
@@ -1587,7 +1607,7 @@ export function buildCity(THREE, scene){
       add(box(1.1,1.1,.12, M.plastic), x+a, 1.4, z+b-.5, true, false); });
     solid(x, z, 2.6, 2.6);
   }
-  tableSet(-18,-86); tableSet(-9,-87); tableSet(16,-85);
+  tableSet(-18,-86); tableSet(-9,-87);
 
   /* ===== 小狗/貓:街上可以摸的互動物件 =====
    * 2026-08-13 先用跟人物同一套「膠囊+球體」灰模湊了一隻不會動的狗當佔位。

@@ -1042,9 +1042,18 @@ const PEDESTRIANS = [
     skin:'#c9976e', hair:'#3a2e26', hood:'#3a4a3a', pants:'#2b2b2b', shoe:'#4a4038' }),
   buildNPC(THREE, scene, { x:69, z:-11, rotationY:Math.PI*.6, rig:'m2',
     skin:'#b98a63', hair:'#241f1c', hood:'#5c3a3a', pants:'#26241f', shoe:'#3a3430' }),
-  buildNPC(THREE, scene, { x:-13, z:-82, rotationY:0, rig:'f2',
+  /* 兩攤老闆(2026-08-20,kc:「兩個站著路人要去當老闆」+ 同時刪掉第三攤
+     鹹酥雞空殼)——原本是廟埕站定不動的兩隻純背景路人,改成站進攤子後面
+     顧攤,不是隨便站在空地。座標對齊各自的攤子 x(鴨頭 -22/乾麵 -13,見
+     scene-city3d.js stall()),z 退到攤子後方(攤子 case box 後緣在
+     z-1.2,棚頂覆蓋到 z-1.8,站在 z-1.5 剛好在棚子底下、不會卡進 case
+     box 裡),面向客人那側(z+,跟 stall() 招牌/展示櫃正面同一個慣例)。
+     還是進 PEDESTRIANS 陣列、共用 PEDESTRIAN_LINES 打招呼池,只是站的
+     位置從空地換成攤子後面,沒有另外寫劇本——真的有劇本的是阿姨(鹹酥雞,
+     npc-temple.js),跟這兩隻是不同層級,不要混在一起。 */
+  buildNPC(THREE, scene, { x:-22, z:-93.5, rotationY:Math.PI, rig:'f2',
     skin:'#c9a077', hair:'#2c2420', hood:'#3a5c4a', pants:'#333333', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:10, z:-86, rotationY:Math.PI, rig:'m3',
+  buildNPC(THREE, scene, { x:-13, z:-93.5, rotationY:Math.PI, rig:'m3',
     skin:'#c2a17e', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' }),
   /* 站在圓環雕像附近的路人(2026-08-20,STATUE 那段的說明見上面)——跟其他
      路人一樣按空白鍵打招呼,但這隻給的是專屬一句(下面 statueLine),不進
@@ -1428,6 +1437,26 @@ homeBedroomImg.src = '../assets/bg/home-bedroom.png?v=4';
  * 三張分開疊——`DAD_TWEAK` 保留(單一整體的位置/大小滑桿),`CHAIR_TWEAK`
  * 跟 `dadChairImg`/`dadBottleImg` 那三個獨立疊圖變數拿掉,不用了。 */
 const dadDrunkImg = new Image(); dadDrunkImg.onload = paintHomeBackdrop; dadDrunkImg.src = '../assets/bg/dad-drunk.png?v=6';
+/* 越式按摩店室內(2026-08-20,kc 要求把巷子妓女那段「跟她走」接一個真的
+   室內場景,不是繼續在 3D 街景上直接彈選單)——kc 說「不用走動,只是對話
+   場景」,所以不比照 store/home 那套可走動房間,是最輕量的版本:沒有
+   collider、沒有 spots,`updateIndoor()` 開頭直接擋掉 PLACE==='massage'
+   的移動處理(見那邊),角色進來後全程被 say()/openMenu() 鎖住
+   (busy/dlg.on),本來就不會真的用到方向鍵。圖片還沒生,`paintMassageBackdrop()`
+   缺圖時退回一塊素色底,不會空白也不會壞,跟這個檔案其他背景圖同一套
+   慣例。 */
+const massageImg = new Image(); massageImg.onload = () => { if(PLACE === 'massage') paintMassageBackdrop(); };
+massageImg.src = '../assets/bg/massage-wall.png?v=1';
+function paintMassageBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  if(massageImg.complete && massageImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(massageImg, 0,0,1280,720);
+  } else {
+    gbg.fillStyle = '#3a2430';
+    gbg.fillRect(0,0,1280,720);
+  }
+}
 const dadCrop = { x:0, y:0, w:686, h:1403 };
 /* 爸爸疊圖位置(2026-08-18):原本是寫死在 paintHomeBackdrop() 裡的字面
    數字,kc 說要「用滑桿調」不要一直改程式碼重整頁——拉成一個物件,滑桿
@@ -2193,6 +2222,12 @@ function coSayChain(who, lines, i){
 }
 
 function updateIndoor(dt){
+  /* 越式按摩室內(2026-08-20)沒有 spots/collider,整段是 say()/openMenu()
+     鎖住輸入的對話場景,kc 明確要求「不用走動」——直接在這裡擋掉,不要
+     依賴 busy/dlg.on 剛好全程都是 true 這個隱含假設(付錢那個分支 toast
+     跟下一段對話中間有一小段 busy/dlg.on 都是 false 的空檔,那段空檔方向鍵
+     還是會動,所以要在這裡明講擋掉,不是繞個彎湊巧擋住)。 */
+  if(PLACE === 'massage') return;
   /* 自動走位(2026-08-18,媽媽借錢那段「先說欸→你自動走到她面前→才開口
      借錢」用):`IN.walkTarget` 有值就整段搶走玩家輸入,自己把 IN.px 往
      target.px 推,跟按鍵移動共用同一個每幀步進量(1.35,沒有乘 dt——
@@ -2418,6 +2453,31 @@ function leaveIndoor(){
     wlabelsEl.style.display = '';
     hero.group.position.set(returnTo.x, .3, returnTo.z);
     advanceTime(1);
+  });
+}
+/* 越式按摩店(2026-08-20)——巷子那位 ALLEY_WORKER 站在街上,但真正談的
+ * 地方是這間店,對照現實的暗巷色情店常見掛牌方式(見 DESIGN_NOTES)。
+ * 沒有實體的門(city.doors),直接從 interactProp() 的 'worker' 分支呼叫,
+ * 比照 sleep()/enterBedroom() 那種「不用走去門口」的簡化版 fade,不走
+ * enterIndoor() 的 walkIn 那段(那是給真的 3D 街上門口用的)。跟
+ * enterIndoor() 一樣要存 returnTo,leaveIndoor() 才知道要把玩家放回哪。 */
+function enterMassage(){
+  returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
+  busy = true;
+  fade('越式按摩', () => {
+    MODE = 'indoor';
+    PLACE = 'massage';
+    document.getElementById('city').style.display = 'none';
+    wlabelsEl.style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    /* 站位(2026-08-20 kc 生完 massage-wall.png 之後現場肉眼調的):按摩床
+       在畫面正中央,站中間會疊到床上——挪到床左前方那塊空地(盆栽跟床
+       中間),不會疊到任何家具。 */
+    IN.px = 190; IN.py = 345; IN.face = 'F';
+    document.getElementById('where').textContent = '越式按摩';
+    hintEl.classList.remove('on');   // 進場前殘留的「按空白鍵搭話」提示清掉,updateIndoor() 這個 PLACE 不會再幫忙清
+    paintMassageBackdrop();
+    talkToWorker(ALLEY_WORKER);
   });
 }
 /* 客廳 ⇄ 房間:兩個都算「室內」(MODE 全程維持 'indoor'),只是 PLACE 換,
@@ -2901,7 +2961,16 @@ function talkToWorker(w){
     openMenu('巷子裡', [
       { label:'付錢,跟她走', cost:'$'+WORKER_PRICE, cls: ST.money<WORKER_PRICE?'bad':'',
         run(){
-          if(ST.money < WORKER_PRICE){ toast('錢不夠。她聳聳肩,轉向別人。', 2000); return; }
+          /* 2026-08-20 改成室內場景(見 enterMassage())之後,每個分支結束
+             都要呼叫 leaveIndoor() 把玩家送回巷子,不然 openMenu() 一
+             closeMenu() 就把 busy 放掉,人會卡在沒有 spots/collider 的
+             越式按摩空場景裡動彈不得(那句「不用走動」是這個場景的設計,
+             不是漏做離場邏輯)。錢不夠這條也要送出去,不是留在原地乾等。 */
+          if(ST.money < WORKER_PRICE){
+            toast('錢不夠。她聳聳肩,轉向別人。', 2000);
+            setTimeout(leaveIndoor, 2000);
+            return;
+          }
           chg('money', -WORKER_PRICE); chg('mood', 6); chg('stamina', -10);
           advanceTime(25);
           w.talked = true;
@@ -2911,27 +2980,35 @@ function talkToWorker(w){
              才跳出來,不要兩段疊在一起搶畫面。w.toldStory 擋之後重複——比較
              像「她只在那一次多說了」,不是每次都重播同一段獨白。錢買的是她的
              時間,不是這段故事本身,所以框架上不寫成「因為付了錢所以講」,
-             是她自己選擇在這段安靜時間裡說出來。 */
+             是她自己選擇在這段安靜時間裡說出來。第一次講完故事、之後每次
+             重複都用 leaveIndoor 當 say()/setTimeout 的收尾,送玩家回巷子。 */
           if(!w.toldStory){
             w.toldStory = true;
             setTimeout(() => say('worker',
-              '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」'
+              '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」',
+              leaveIndoor
             ), 2700);
+          } else {
+            setTimeout(leaveIndoor, 2700);
           }
         } },
       { label:'就聊兩句,不談這個', cls:'',
         run(){
           w.talked = true;
           /* 追加一句埋伏筆(2026-08-20)——不點名跟圓環雕像的關係,只是先讓
-             玩家知道她家裡還有一個小的,完整關係要付錢跟她走才會知道。 */
-          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」\n\n她頓了一下,像是想到什麼。「家裡還有一個要顧,比較小的。」沒有再說下去。');
+             玩家知道她家裡還有一個小的,完整關係要付錢跟她走才會知道。
+             say() 的 after 直接接 leaveIndoor,讀完這段話就送回巷子。 */
+          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」\n\n她頓了一下,像是想到什麼。「家裡還有一個要顧,比較小的。」沒有再說下去。', leaveIndoor);
         } },
-      { label:'不說話,轉身走掉', cls:'back', run(){} }
+      { label:'不說話,轉身走掉', cls:'back', run(){ leaveIndoor(); } }
     ]);
   });
 }
 function interactProp(prop){
-  if(prop.type === 'worker'){ talkToWorker(prop.ref); return; }
+  /* 2026-08-20:跟她搭話不再直接在 3D 街景上彈選單,先 fade 進越式按摩店
+     室內(enterMassage()),talkToWorker() 本身沒有改參數/呼叫時機,只是
+     現在是從室內場景裡呼叫,不是從街上。 */
+  if(prop.type === 'worker'){ enterMassage(); return; }
   /* 圓環雕像的碑文(2026-08-20)——單句、不署名不寫年份,跟 pet/litter 同
      層級的輕互動,一個 toast 帶過就好,不開選單。跟這尊雕像有關的完整
      故事在別處(圓環路人的 statueLine、talkToWorker() 的完整故事分支),
