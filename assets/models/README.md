@@ -6,13 +6,21 @@
 
 ## 現在有幾副骨架
 
-`scene-city3d.js` 的 `MODELS` registry 註冊了三副,對應三組檔名前綴:
+`scene-city3d.js` 的 `MODELS` registry 註冊了五副,對應五組檔名前綴:
 
 | rig id | 來源(Mixamo 角色) | 用在誰 | 檔名前綴 |
 |---|---|---|---|
 | `m`  | Remy(男性)   | 主角 | `base-human-` |
 | `f`  | Sophie(女性) | 阿姨等女性 NPC | `base-human-f-` |
 | `m2` | Leonard(男性,短髮)| 阿源——跟主角同性別但要換髮型,髮型是模型內建固定形狀換不了造型,只能整套換一個來源模型 | `base-human-m2-` |
+| `m3` | Brian(男性,光頭)| 超商排隊客人/行人湊數,2026-08-20 | `base-human-m3-` |
+| `f2` | Megan(女性,短髮)| 超商排隊客人/行人湊數,2026-08-20 | `base-human-f2-` |
+
+`m3`/`f2` 是 2026-08-20 為了「排隊客人/行人只有 3 副骨架,肉眼容易抓到重複」
+這個待辦補的(見 `docs/DESIGN_NOTES.md` 那節),流程跟前三副完全一樣,只是
+從 Mixamo 的「Casual」分類裡挑的——目的是要跟既有三副在體型/髮型上明顯不同,
+不是隨便挑。Brian 是光頭,沒有獨立的 Hair mesh,`MODELS.m3.parts` 沒有
+`hair` 這個 key,不是漏接。
 
 每副都是「免費帳號登入下載,兩個各自獨立的動畫(Idle、Walking——Walking 記得勾
 **In Place**,不然動畫會帶著角色自己位移,跟遊戲自己算的座標打架)。下載設定:

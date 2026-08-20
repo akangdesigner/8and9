@@ -206,7 +206,8 @@
   #toast { position:fixed; left:50%; top:16%; transform:translateX(-50%);
            background:rgba(8,10,14,.9); border-left:3px solid #d8b24a; padding:9px 18px;
            font-size:15px; color:#e8ecf1; border-radius:2px; letter-spacing:.05em;
-           opacity:0; transition:opacity .4s; pointer-events:none; z-index:7; max-width:62%; }
+           opacity:0; transition:opacity .4s; pointer-events:none; z-index:7; max-width:62%;
+           white-space:pre-line; }
   #toast.on { opacity:1; }
 
   /* 場景地標標籤(2026-08-19,kc 說廟埕那批方塊分不出哪個是哪個)——除錯用,
@@ -916,7 +917,7 @@ const NPCS = [
    的互動邏輯讀的資料,不只是視覺擺設,所以獨立出來,不是丟進上面純裝飾
    的 NPCS 就算了(不過 animate() 還是要跟 NPCS 一樣接進 render loop,見
    下面 push 那行)。 */
-const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false };
+const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false };
 const workerNPC = buildNPC(THREE, scene, {
   x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:Math.PI*.4, rig:'f',
   skin:'#c9a077', hair:'#241f1c',
@@ -932,6 +933,24 @@ const clientNPC = buildNPC(THREE, scene, {
   hood:'#33383f', pants:'#26241f', shoe:'#3a3430'
 });
 NPCS.push(clientNPC);
+
+/* 圓環雕像(2026-08-20,kc 看到 Girlscout 小孩骨架轉出來全身單色像「泥像」
+   當場生的點子)——擺在西園街⇄中華路那個圓環(scene-city3d.js roundabout()
+   種樹的地方,CITY.V_ROADS[0].x/CITY.H_ROADS[1].z),紀念一個被父母長期
+   虐待的孤兒,長大後創辦弱勢女子棒球隊、車禍過世的女孩——她是巷子那位
+   ALLEY_WORKER 的女兒(完整故事見下面 talkToWorker() 的「付錢跟她走」分支)。
+   用既有的 MODELS.kid(Girlscout,轉檔後全身只有一個 mesh、只認一個顏色,
+   見 assets/models/README.md)天生就是「單色雕像」材質,不用另外做材質。
+   frozen:true(scene-city3d.js buildNPC() 新加的選項)讓姿勢定格在 idle
+   第一格、永遠不再更新——這隻角色刻意不 push 進 NPCS,沒有人會呼叫
+   animate(),姿勢自然凍住,不用另外做「雕像」子系統。位置偏離圓心(樹幹)
+   2~3 個單位,避免疊到 buildTree() 種的那棵樹;真的定案前用 __dbg.near()
+   在瀏覽器裡核對過一次沒有穿模。 */
+const STATUE = { x: CITY.V_ROADS[0].x + 2.2, z: CITY.H_ROADS[1].z + 1.6 };
+buildNPC(THREE, scene, {
+  x: STATUE.x, z: STATUE.z, rotationY: Math.PI*.15, rig:'kid',
+  skin:'#8a877e', frozen:true
+});
 
 /* 路人搭話的一句話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)
  * ——純背景路人共用一個池子隨機抽,不用逐一取名寫劇本(跟阿源/阿姨那種有
@@ -987,7 +1006,10 @@ const PEDESTRIAN_LINES_CRUEL = [          // 風評 <= -40
  * 純 2 點來回的行人,改成走真正跨街區的多站路線,中間插的轉角點都是用
  * `__dbg.city.blocked(x,z)` 一段一段量出來確認沒穿牆才定案的(這座城沒有
  * 真的路徑規劃,直線走每一段路線都要事先驗證,見 scene-city3d.js buildNPC
- * 裡 opts.path 那則註解)。第三個數字是停留幾毫秒。 */
+ * 裡 opts.path 那則註解)。第三個數字是停留幾毫秒。
+ * 2026-08-20:原本 10 隻只有 m/f/m2 三副骨架湊(m×4/f×4/m2×2),補 m3/f2
+ * 兩副新骨架後,挑 4 隻改掉(2 隻 m→m3、2 隻 f→f2),五副骨架各佔 2 隻,
+ * 跟 CO_CUSTOMER_LOOKS 同一輪待辦、同一個理由,見 DESIGN_NOTES。 */
 const PEDESTRIANS = [
   // 超商 ⇄ 機車行,各停 3 秒——中間 (-6.5,-11) 是繞開路燈柱的轉角點
   buildNPC(THREE, scene, { x:-12, z:-13.6, path:[[-12,-13.6,3000],[-6.5,-11],[3,-13,3000]], rig:'m',
@@ -1006,13 +1028,13 @@ const PEDESTRIANS = [
   // 廟埕攤子 ⇄ 小公園,各停 4 秒——中間 (-22,-78)/(-24,-78)/(-24,-13.6)/
   // (54,-13.6) 沿著巷子(x=-24 那條)+中華路走出去,不是直接切過整片街區
   buildNPC(THREE, scene, { x:-22, z:-89,
-    path:[[-22,-89,4000],[-22,-78],[-24,-78],[-24,-13.6],[54,-13.6],[54,-18,4000]], rig:'f',
+    path:[[-22,-89,4000],[-22,-78],[-24,-78],[-24,-13.6],[54,-13.6],[54,-18,4000]], rig:'f2',
     skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' }),
   // 廟埕兩顆攤子之間來回,各停 2.5 秒——座標沒動(kc 之前就核對過不穿模),
   // 這隻只補停留時間,不是重新繞路:廟埕中段(供桌/香爐/阿源阿姨那一帶)
   // 東西向擠滿道具跟人,量過沒有乾淨的直線可以再插一條長路線
-  buildNPC(THREE, scene, { x:-9, z:-90, path:[[-9,-90,2500],[9,-90,2500]], rig:'m',
-    skin:'#b98a63', hair:'#241f1c', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038' }),
+  buildNPC(THREE, scene, { x:-9, z:-90, path:[[-9,-90,2500],[9,-90,2500]], rig:'m3',
+    skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038' }),
   // 站定不動 3 隻中華路、2 隻廟埕,跟上面走動的錯開座標,不會撞在一起
   buildNPC(THREE, scene, { x:-30, z:-11, rotationY:Math.PI*.3, rig:'f',
     skin:'#c2a17e', hair:'#2c2420', hood:'#4a3a5c', pants:'#26241f', shoe:'#3a3430' }),
@@ -1020,10 +1042,18 @@ const PEDESTRIANS = [
     skin:'#c9976e', hair:'#3a2e26', hood:'#3a4a3a', pants:'#2b2b2b', shoe:'#4a4038' }),
   buildNPC(THREE, scene, { x:69, z:-11, rotationY:Math.PI*.6, rig:'m2',
     skin:'#b98a63', hair:'#241f1c', hood:'#5c3a3a', pants:'#26241f', shoe:'#3a3430' }),
-  buildNPC(THREE, scene, { x:-13, z:-82, rotationY:0, rig:'f',
+  buildNPC(THREE, scene, { x:-13, z:-82, rotationY:0, rig:'f2',
     skin:'#c9a077', hair:'#2c2420', hood:'#3a5c4a', pants:'#333333', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:10, z:-86, rotationY:Math.PI, rig:'m',
-    skin:'#c2a17e', hair:'#2c2622', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' })
+  buildNPC(THREE, scene, { x:10, z:-86, rotationY:Math.PI, rig:'m3',
+    skin:'#c2a17e', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' }),
+  /* 站在圓環雕像附近的路人(2026-08-20,STATUE 那段的說明見上面)——跟其他
+     路人一樣按空白鍵打招呼,但這隻給的是專屬一句(下面 statueLine),不進
+     共用的 PEDESTRIAN_LINES 池,interactProp() 的 'pedestrian' 分支裡有
+     判斷 ref.statueLine 優先於隨機池那段邏輯。座標在圓環人行道上,跟
+     BUSKER_POS(-77,4)錯開,不站同一側。 */
+  Object.assign(buildNPC(THREE, scene, { x:CITY.V_ROADS[0].x-8, z:CITY.H_ROADS[1].z-2, rotationY:Math.PI*.6, rig:'m2',
+    skin:'#b98a63', hair:'#3a3128', hood:'#4a4a3a', pants:'#26241f', shoe:'#3a3430' }),
+    { statueLine:'「圓環那尊,是紀念一個囡仔的。」他往樹那邊抬了下下巴。「聽講她自己一個人長大的,後來帶一群查某囡仔打棒球,打出名了。車禍走的,才二十外歲。」' })
 ];
 NPCS.push(...PEDESTRIANS);
 
@@ -1846,12 +1876,17 @@ function coDrawClerkClip(){
   g2f.imageSmoothingEnabled = true;
   g2f.drawImage(c2dbg, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h);
 }
+/* 2026-08-20:原本 5 組只有 m/f/m2 三副骨架湊,重複用了兩次 rig 'f' 跟兩次
+   rig 'm',kc 玩起來覺得排隊客人臉都差不多。補了 m3(Brian)/f2(Megan)
+   兩副新骨架後,把原本重複的第 4/5 組換成新骨架,5 組現在各自一副骨架,
+   不重複了——見 assets/models/README.md 跟 DESIGN_NOTES「排隊客人外觀會
+   重複」那節。 */
 const CO_CUSTOMER_LOOKS = [   // 純色換裝,跟巷子/廟口那些配角同一套,不用新素材
   { rig:'m',  skin:'#c2a17e', hair:'#2c2622', hood:'#3a4a5c', pants:'#2b2b2b', shoe:'#4a4038' },
   { rig:'f',  skin:'#c9a077', hair:'#241f1c', hood:'#6a3a4a', pants:'#333333', shoe:'#4a4038' },
   { rig:'m2', skin:'#b98a63', hair:'#3a3128', hood:'#4a4a3a', pants:'#26241f', shoe:'#3a3430' },
-  { rig:'f',  skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' },
-  { rig:'m',  skin:'#b98a63', hair:'#241f1c', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038' }
+  { rig:'f2', skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' },
+  { rig:'m3', skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038' }
 ];
 function coSpawnQueueMember(px){
   const look = CO_CUSTOMER_LOOKS[Math.floor(Math.random()*CO_CUSTOMER_LOOKS.length)];
@@ -2727,6 +2762,8 @@ function updateCity(dt){
       if(!m.ridden && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
     if(!nearProp && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 3.2)
       nearProp = { type:'worker', ref:ALLEY_WORKER };
+    if(!nearProp && Math.hypot(pos.x-STATUE.x, pos.z-STATUE.z) < 3.2)
+      nearProp = { type:'statue', ref:STATUE };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
        讀 npc.group.position。純背景路人,不記名字、不分支對話,一句隨機
@@ -2756,6 +2793,7 @@ function updateCity(dt){
                           ? '按 <b>空白鍵</b> 跟老闆談車'
                           : '按 <b>空白鍵</b> 騎上去')
                       : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
+                      : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'pedestrian' ? '按 <b>空白鍵</b> 打聲招呼'
                       : '按 <b>空白鍵</b> 撿起垃圾';
     hintEl.classList.add('on');
@@ -2868,11 +2906,25 @@ function talkToWorker(w){
           advanceTime(25);
           w.talked = true;
           toast('半小時後,你一個人走回巷口。', 2600);
+          /* 完整故事(圓環雕像那條支線,2026-08-20,見 DESIGN_NOTES)只在第一次
+             「付錢跟她走」之後追加,用 setTimeout 接在上面那句 toast 淡出之後
+             才跳出來,不要兩段疊在一起搶畫面。w.toldStory 擋之後重複——比較
+             像「她只在那一次多說了」,不是每次都重播同一段獨白。錢買的是她的
+             時間,不是這段故事本身,所以框架上不寫成「因為付了錢所以講」,
+             是她自己選擇在這段安靜時間裡說出來。 */
+          if(!w.toldStory){
+            w.toldStory = true;
+            setTimeout(() => say('worker',
+              '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」'
+            ), 2700);
+          }
         } },
       { label:'就聊兩句,不談這個', cls:'',
         run(){
           w.talked = true;
-          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」');
+          /* 追加一句埋伏筆(2026-08-20)——不點名跟圓環雕像的關係,只是先讓
+             玩家知道她家裡還有一個小的,完整關係要付錢跟她走才會知道。 */
+          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」\n\n她頓了一下,像是想到什麼。「家裡還有一個要顧,比較小的。」沒有再說下去。');
         } },
       { label:'不說話,轉身走掉', cls:'back', run(){} }
     ]);
@@ -2880,6 +2932,14 @@ function talkToWorker(w){
 }
 function interactProp(prop){
   if(prop.type === 'worker'){ talkToWorker(prop.ref); return; }
+  /* 圓環雕像的碑文(2026-08-20)——單句、不署名不寫年份,跟 pet/litter 同
+     層級的輕互動,一個 toast 帶過就好,不開選單。跟這尊雕像有關的完整
+     故事在別處(圓環路人的 statueLine、talkToWorker() 的完整故事分支),
+     這裡刻意留白,不重複講。 */
+  if(prop.type === 'statue'){
+    toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
+    return;
+  }
   if(prop.type === 'moto'){
     if(prop.ref.forSale && !prop.ref.owned) buyMoto(prop.ref);
     else mountMoto(prop.ref);
@@ -2904,6 +2964,9 @@ function interactProp(prop){
     chg('stamina', -5);
     toast(prop.ref.label + '。' + PLAY_LINES[Math.random()*PLAY_LINES.length|0], 2400);
   } else if(prop.type === 'pedestrian'){
+    /* statueLine(2026-08-20):圓環雕像旁那隻路人專屬台詞,優先於下面的
+       共用池——不受風評檔位影響,他講的是雕像的來歷,不是關於玩家的閒話。 */
+    if(prop.ref.statueLine){ toast(prop.ref.statueLine, 3200); return; }
     /* 風評 <=-10 才會扯到家人(2026-08-19 kc 從 -40 改成 -10,門檻拉低,
        家人話題更容易觸發),-10~0 之間只是冷淡防備,>=0 維持原本的閒聊。
        聽到最難聽那檔扣一點心情,呼應「這種話真的會傷人」,不是聽聽就算了。 */

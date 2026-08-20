@@ -1480,7 +1480,7 @@ export function buildCity(THREE, scene){
     }, undefined, () => {});
     return m;
   }
-  function stall(x, z, c, signKey, propIdx, name, trayFile, sideFile){
+  function stall(x, z, c, signKey, propIdx, name, trayFile, sideFile, topFile){
     /* 柱子高度(2026-08-19):3.4(原始)→4.0(第一輪抓到「柱子太矮」)→
        4.5(kc 這輪再加半節)。仍然貼地 y=0 到頂,不是整根往上飄,棚頂/
        垂簾/招牌照上一輪同一個邏輯跟著抬(這次多抬 .5)、桌面/櫃檯完全
@@ -1503,19 +1503,30 @@ export function buildCity(THREE, scene){
        獨立的圖各貼各的。
        BoxGeometry 材質陣列順序是 [+x,-x,+y,-y,+z,-z],z+ 是客人/鏡頭那側
        (跟招牌/垂簾那些 z+ 偏移同一個既有慣例)。 */
+    /* 頂面貼圖(2026-08-20):原本頂面偷懶借 trayFile(正面食材那張)重裁,
+       kc 抓到「這就是整個櫃子的貼圖」——kc 生的圖其實是一張俯視鐵檯面
+       (含醬料碗/免洗筷)+ 正面展示櫃 + 側面玻璃小窗三個視角合成的參考圖,
+       頂面該用真的俯視那段,不是拿正面照重裁一個很怪的比例上去。沒給
+       topFile 就退回 trayFile(舊兩攤/沒給頂圖的情況不會壞)。 */
     const caseFrontMat = trayFile ? trayMaterial(trayFile, 5.6/1.7) : null;
     const caseSideMat = trayFile && sideFile ? trayMaterial(sideFile, 2.4/1.7) : null;
+    const caseTopMat = trayFile ? trayMaterial(topFile || trayFile, 5.8/2.6) : null;
     add(box(5.6,1.7,2.4, trayFile
       ? [caseSideMat || M.metal, caseSideMat || M.metal, M.metal, M.metal, caseFrontMat, M.metal]
       : M.metal), x, 1.1, z);
     /* 桌面板加厚(2026-08-19,kc 截圖抓到「桌面根本看不到」):.25 太薄,
        這個俯角鏡頭幾乎看不到正面那條邊,木紋貼圖等於白貼。加厚到 .5,
-       正面可視面積變兩倍,肉眼才讀得出來是塊桌板,不是一條線。
-       頂面(+y)貼 trayFile、正面(+z)貼跟櫃體共用的 caseFrontMat(見上面
-       那則筆記,補「中間沒貼到」那條縫),側面/底面繼續用 M.stallTop
-       木紋。長寬比抓桌面實際的 5.8/2.6。 */
+       正面可視面積變兩倍,肉眼才讀得出來是塊桌板,不是一條線。長寬比
+       抓桌面實際的 5.8/2.6。
+       桌面 box 跟展示櫃 box 是兩個不同東西的坑(2026-08-20,kc:「攤位是
+       兩個長方體結合」)——桌面(薄薄 .5 高的檯板)一開始正面/側面借展示
+       櫃(1.7 高的玻璃櫃)的照片貼圖硬套,不管是接續共用還是各自貼,
+       讀起來都不對(食材招牌照片不是拍給這片窄邊用的,素材沒有專門
+       對應)。kc 拍板:桌面只有頂面(+y)是真的俯視照片(caseTopMat),
+       四個側邊(±x/±z)全部退回素面 M.metal(鐵灰,跟展示櫃鐵框同色系),
+       讀作「桌面鑲一圈鐵邊架在櫃子上」,不勉強套用不對應的照片。 */
     add(box(5.8,.5,2.6, trayFile
-      ? [M.stallTop, M.stallTop, trayMaterial(trayFile, 5.8/2.6), M.stallTop, caseFrontMat, M.stallTop]
+      ? [M.metal, M.metal, caseTopMat, M.metal, M.metal, M.metal]
       : M.stallTop), x, 2.2, z, false, true);
     /* 攤位 3D 小物(2026-08-19,kc:「開始放攤位3D小物了」)——跟供桌
        candelabra/incense-bowl 同一套 placeAltarProp() 做法(見上面 temple()
@@ -1565,8 +1576,8 @@ export function buildCity(THREE, scene){
      sign-dry-noodle.png 還沒生,prompt 已經在對話裡給 kc,生圖之前這兩塊
      招牌會先顯示 signImage() 的深色佔位底,不會壞、不用等圖才能推這次改動。
      第三攤(鹹酥雞)沒被點名,維持原本借用街上 sign-food-2.png 那套。 */
-  stall(-22,-92, M.tarp, 'duck-head', 0, '老大東山鴨頭', 'stall-duck-case-front.png', 'stall-duck-case-side.png');
-  stall(-13,-92, M.tarpB, 'dry-noodle', 1, '廟口乾麵');
+  stall(-22,-92, M.tarp, 'duck-head', 0, '老大東山鴨頭', 'stall-duck-case-front.png', 'stall-duck-case-side.png', 'stall-duck-case-top.png');
+  stall(-13,-92, M.tarpB, 'dry-noodle', 1, '廟口乾麵', 'stall-noodle-case-front.png', 'stall-noodle-case-side.png', 'stall-noodle-case-top.png');
   stall(20,-90, M.tarp, 'food-2', 2, '鹹酥雞');
   function tableSet(x, z){
     add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
@@ -1996,8 +2007,10 @@ function buildPrimitiveRig(THREE, parent, M){
  * 一個檔案。缺檔案/載入失敗時 onError 什麼都不做,場上就一直是方塊人——
  * 跟這個檔案其他地方「缺材質貼圖不會壞」是同一套慣例(見 prep() 的說明)。
  *
- * 兩套骨架:'m'(Remy,男性,主角在用)跟 'f'(Sophie,女性,2026-08-12
- * 為了廟口角色補的)。**不同來源模型,Blender 匯出時部件名字不保證一樣**——
+ * 現在五套骨架:'m'(Remy,男性,主角在用)、'f'(Sophie,女性,2026-08-12
+ * 為了廟口角色補的)、'm2'(Leonard,男性換髮型)、'm3'/'f2'(Brian/Megan,
+ * 2026-08-20 為了排隊客人/行人湊數補的,見下面 MODELS 裡各自的註解)。
+ * **不同來源模型,Blender 匯出時部件名字不保證一樣**——
  * Remy 是 Body/Tops/Bottoms/Shoes/Hair/Eyes/Eyelashes(語意清楚,上衣褲子
  * 分開兩個 mesh);Sophie 是 Ch02_Body/Ch02_Cloth/Ch02_Sneakers/Ch02_Hair/
  * Ch02_Eyelashes/Ch02_Socks(**整套衣服是同一個 mesh「Cloth」,上衣跟褲子
@@ -2046,7 +2059,27 @@ const MODELS = {
   m2: { idle:'base-human-m2-idle.glb', walk:'base-human-m2-walk.glb',
         parts: { Ch31_Body:'skin', Ch31_Sweater:'hood', Ch31_Collar:'hood',
                   Ch31_Pants:'pants', Ch31_Shoes:'shoe', Ch31_Hair:'hair',
-                  Ch31_Eyelashes:'eyes' } }
+                  Ch31_Eyelashes:'eyes' } },
+  /* 2026-08-20:排隊客人/行人只有 3 副骨架湊 10 隻以上角色,kc 玩起來抓到
+     「看起來重複」,補兩副(Brian 男/Megan 女),詳見 DESIGN_NOTES「排隊客人
+     外觀會重複」那節。Brian 是光頭造型,沒有獨立 Hair mesh(部件裡本來就
+     沒有,不是漏接),parts 沒有 hair 這個 key。 */
+  m3: { idle:'base-human-m3-idle.glb', walk:'base-human-m3-walk.glb',
+        parts: { Ch01_Body:'skin', Ch01_Shirt:'hood', Ch01_Pants:'pants',
+                  Ch01_Sneakers:'shoe', Ch01_Eyelashes:'eyes' } },
+  f2: { idle:'base-human-f2-idle.glb', walk:'base-human-f2-walk.glb',
+        parts: { Ch22_Body:'skin', Ch22_Shirt:'hood', Ch22_Pants:'pants',
+                  Ch22_Sneakers:'shoe', Ch22_Hair:'hair', Ch22_Eyelashes:'eyes' } },
+  /* 2026-08-20 kc 問「有沒有老人跟小孩的」查 Mixamo 的結果:老人不用另外
+     找模型,靠灰白髮色/膚色調整就有長輩感,不用加新骨架。小孩找到唯一
+     寫實比例(不是 Timmy/Amy 那種大頭 Q 版)的來源「Girlscout T Masuyama」
+     (Mixamo 原始貼圖是殭屍化女童軍,已被轉檔流程剝光,不影響),但**這副
+     骨架匯出時全身只有一個 mesh 節點「GirlScout」,不像其他骨架 Body/
+     Shirt/Pants 分開**——parts 只能對到一個 key,整隻只能單一顏色,沒辦法
+     像其他角色皮膚/衣服分開換色。先加進 registry 讓 kc 肉眼看外觀決定要不要
+     正式收,不是定案。 */
+  kid: { idle:'base-human-kid-idle.glb', walk:'base-human-kid-walk.glb',
+         parts: { GirlScout:'skin' } }
 };
 
 /* 快取:每個 glb 只 fetch+parse 一次,buildPlayer 跟 buildNPC(2026-08-12 起
@@ -2551,6 +2584,15 @@ export function buildNPC(THREE, scene, opts){
         else if(idleAction) idleAction.play();
       }).catch(() => { if(idleAction) idleAction.play(); });
     } else if(idleAction) idleAction.play();
+
+    /* opts.frozen(2026-08-20,圓環雕像用):呼叫端不會把這隻角色 push 進
+       NPCS,所以永遠不會有人呼叫 animate() 幫 mixer 前進——但骨架不 tick
+       過一次的話會卡在匯入時的 T-pose,不是站立的樣子。這裡借跟上面刺青
+       同一招(mixer.update(0.0001)),把姿勢定格在 idle 播放的第一格,
+       之後永遠不再更新,天然就是「靜止的雕像」,不用另外做凍結動畫系統。
+       只處理沒有 poseFile 的情況——目前只有 MODELS.kid(沒有 sit/lie)
+       會用到 frozen,不需要處理 poseFile 那個非同步分支。 */
+    if(opts.frozen && !poseFile && mixer) mixer.update(0.0001);
 
     /* 巡邏才載 walk.glb——跟 buildPlayer() 的 walkAction 同一份骨架動畫
        (rig.walk),不重新做一套。載到之前 patrolling 那段會先站著不動,
