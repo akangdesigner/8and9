@@ -2767,13 +2767,29 @@ spots,新增 `updateIndoor()` 開頭一行 `if(PLACE==='massage') return;`
 跟她走」那個分支 toast 跟下一段對話中間有一小段 busy/dlg.on 都是 false
 的空檔,那段空檔方向鍵還是會動,所以要在這裡明講擋掉)。
 
-技術做法:`enterMassage()`(`game.html`)比照 `sleep()`/`enterBedroom()`
+技術做法:`enterMassage(w)`(`game.html`)比照 `sleep()`/`enterBedroom()`
 那種「不用走去門口」的簡化版 `fade()`,不是 `enterIndoor()` 的 `walkIn`
-那套(那是給真的 3D 街上門口用的)。`interactProp()` 的 `'worker'` 分支
-從直接呼叫 `talkToWorker()` 改成先呼叫 `enterMassage()`,`talkToWorker()`
-本身的三個選項分支都補上 `leaveIndoor()` 收尾(`say()` 的 `after` 參數或
-`setTimeout`),不然 `openMenu()` 一 `closeMenu()` 就放掉 `busy`,玩家會
-卡在沒有 spots/collider 的空場景裡動彈不得。
+那套(那是給真的 3D 街上門口用的)。
+
+**第一版接錯觸發點,kc 當場糾正**(「不對,是付錢跟他走才是接受他的
+服務」「付錢才會換場景」)——第一版把整段 `talkToWorker()`(開場白+
+選單三選項)都搬進室內場景,變成走近她講話就先切場景,選單反而是在
+房間裡選。改回:`interactProp()` 的 `'worker'` 分支維持原本直接呼叫
+`talkToWorker()`,開場白+選單全部留在街上(3D 城市)跟這輪之前完全
+一樣;只有「付錢,跟她走」那個分支的 `run()` 在扣完錢、`chg()` 完之後
+才呼叫 `enterMassage(w)` 切場景——「聊兩句」跟「不說話走掉」兩個分支
+維持原本在街上 `say()`/直接返回,完全不進室內。`enterMassage()` 內部
+處理 toast+故事+`leaveIndoor()` 收尾,呼叫端(`talkToWorker()`)只負責
+錢/時間/屬性的變動跟呼不呼叫它,職責切乾淨。
+
+**第二個角色**(kc 追加:「那個人物模型要進來啊,兩人要側身面對面
+講話」)——`indoorScene`(店員/爸媽那套室內 3D 共用的場景,`heroIndoor`
+所在的那個)裡多建一個 `workerIndoor`(`buildNPC()`,配色照抄街上
+`ALLEY_WORKER` 那份),全域只建一次、平常 `visible=false`,只有
+`PLACE==='massage'` 時才在 `renderIndoor3D()` 裡定位+顯示,站在玩家
+右側固定 `MASSAGE_WORKER_PX`,朝向抓 `-heroIndoor.group.rotation.y`
+(玩家面右她就面左,鏡射)——玩家 `IN.face` 這輪也從 `'F'`(面對鏡頭)
+改成 `'R'`(側身),兩個角色因此側身相對,不是各自面對鏡頭傻站。
 
 背景圖 `assets/bg/massage-wall.png`——prompt 照 `assets/bg/PROMPTS.md`
 既有規則現場給 kc(亮、正常、不要陰森、不能有真實品牌),沒寫進那份文件

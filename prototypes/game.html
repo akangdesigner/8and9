@@ -368,6 +368,7 @@
 <script src="lib/scene-bedroom.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
+<script src="lib/npc-temple.js"></script>
 <script src="../src/tags.js"></script>
 <script type="importmap">
 { "imports": {
@@ -732,6 +733,8 @@ const WHO = {
   mom:   { name:'媽',   opt:{ face:'F', skin:HP.momSkin, hair:HP.momHair, top:HP.momTop, topD:HP.momTopD, pants:HP.momPants } },
   dad:   { name:'爸',   opt:{ face:'F', skin:HP.dadSkin, hair:HP.dadHair, top:HP.dadTop, topD:HP.dadTopD, pants:HP.dadPants } },
   worker:{ name:'她',   opt:{ face:'F', skin:'#c9a077', hair:'#241f1c', top:'#7a2f45', topD:'#5c2436', pants:'#232323' } },
+  ayi:   { name:'阿姨', opt:{ face:'F', skin:'#c9a077', hair:'#2c2420', top:'#5c4a3a', topD:'#3a2e26', pants:'#333333' } },
+  acheng:{ name:'阿成', opt:{ face:'F', skin:'#b98a63', hair:'#3a3128', top:'#2e4a3a', topD:'#1e3a2a', pants:'#2b2b2b' } },
   /* 收銀小遊戲的客人(2026-08-19)——沒有固定角色設定,顏色隨便挑一組跟
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
@@ -878,6 +881,22 @@ function updateWorldLabels(){
    `new Audio('...').play()` 就好,靠近淡入淡出那段(updateCity 裡)不用動。 */
 const BUSKER_POS = { x: -84+7, z: 4 };
 
+/* 阿姨挪去顧鴨頭攤(2026-08-20,kc:「把阿姨調整過來」)——她原本是廟埕
+   一個獨立站點(x:6,z:-86),人設是「鹹酥雞攤」,但鹹酥雞那個 3D 攤位
+   box 這輪被 kc 直接刪掉了(scene-city3d.js stall(),攤位種類不重要,
+   人是重點)。座標對齊「老大東山鴨頭」攤子(-22,-92),站在攤子後方
+   (z-1.5,跟 PEDESTRIANS 那兩隻「攤子老闆」佔位同一個算法,見下面
+   PEDESTRIANS 那段筆記),取代掉原本站那個位置的路人佔位。
+   visits/seenEvents 用來驅動 npc-temple.js 裡她的 events[](按互動次數
+   觸發,不是按遊戲日期——她的 events 資料本身沒有明講是哪種計數,這裡
+   先選「互動次數」,理由是不用跟七條指標那套 day 計時器綁在一起,買賣
+   這種小互動可以同一天連續發生。不喜歡這個選擇跟 kc 說一聲就改。 */
+const AYI = { x:-22, z:-93.5, visits:0, seenEvents:{} };
+/* 阿成・廟口乾麵攤(2026-08-20,kc:「他是最照顧你的人,一直跟他聊天會加
+   歸屬感,他會推薦你陣頭」)——跟 AYI 同一套 visits/seenEvents 機制,站在
+   「廟口乾麵」攤子後方,取代掉原本站那個位置的路人佔位。 */
+const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{} };
+
 /* 廟口 NPC,2026-08-12 起先接兩個(其餘見 lib/npc-temple.js 的文字資料)。
  * 只做阿源跟阿姨——小胖(14 歲)、阿伯(70 幾)體型跟現有兩副骨架差太多,
  * 硬套會不像人,等有更合適的骨架再補,見 DESIGN_NOTES「3D 街上的角色」。
@@ -896,10 +915,14 @@ const NPCS = [
     tex:{ hood:'char-yuan-shirt.png' },                 // 真的花襯衫材質
     tattoo:{ texFile:'tattoo-dragon-koi.png' }          // 前臂刺青,位置是目前肉眼調的最佳猜測,還沒最終確認
   }),
-  buildNPC(THREE, scene, {                             // 阿姨・50幾・廟口攤子
-    x:6, z:-86, rotationY:0, rig:'f',
+  buildNPC(THREE, scene, {                             // 阿姨・50幾・鴨頭攤(原鹹酥雞攤,見上面 AYI 那則筆記)
+    x:AYI.x, z:AYI.z, rotationY:Math.PI, rig:'f',
     skin:'#c9a077', hair:'#2c2420',
     hood:'#5c4a3a', pants:'#333333', shoe:'#4a4038'
+  }),
+  buildNPC(THREE, scene, {                             // 阿成・40幾・乾麵攤(見上面 ACHENG 那則筆記),取代原本站這裡的路人佔位
+    x:ACHENG.x, z:ACHENG.z, rotationY:Math.PI, rig:'m3',
+    skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038'
   }),
   buildNPC(THREE, scene, {                             // 街頭藝人・中華路小公園旁
     x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:Math.PI*.75, rig:'m2',
@@ -1044,17 +1067,9 @@ const PEDESTRIANS = [
     skin:'#b98a63', hair:'#241f1c', hood:'#5c3a3a', pants:'#26241f', shoe:'#3a3430' }),
   /* 兩攤老闆(2026-08-20,kc:「兩個站著路人要去當老闆」+ 同時刪掉第三攤
      鹹酥雞空殼)——原本是廟埕站定不動的兩隻純背景路人,改成站進攤子後面
-     顧攤,不是隨便站在空地。座標對齊各自的攤子 x(鴨頭 -22/乾麵 -13,見
-     scene-city3d.js stall()),z 退到攤子後方(攤子 case box 後緣在
-     z-1.2,棚頂覆蓋到 z-1.8,站在 z-1.5 剛好在棚子底下、不會卡進 case
-     box 裡),面向客人那側(z+,跟 stall() 招牌/展示櫃正面同一個慣例)。
-     還是進 PEDESTRIANS 陣列、共用 PEDESTRIAN_LINES 打招呼池,只是站的
-     位置從空地換成攤子後面,沒有另外寫劇本——真的有劇本的是阿姨(鹹酥雞,
-     npc-temple.js),跟這兩隻是不同層級,不要混在一起。 */
-  buildNPC(THREE, scene, { x:-22, z:-93.5, rotationY:Math.PI, rig:'f2',
-    skin:'#c9a077', hair:'#2c2420', hood:'#3a5c4a', pants:'#333333', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:-13, z:-93.5, rotationY:Math.PI, rig:'m3',
-    skin:'#c2a17e', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' }),
+     顧攤。兩個位置後來都被有劇本的角色取代掉了(鴨頭攤是阿姨、乾麵攤是
+     阿成,見上面 AYI/ACHENG 那兩則筆記),原本那兩隻純背景路人佔位
+     整組拿掉,不留在 PEDESTRIANS 陣列裡佔位置。 */
   /* 站在圓環雕像附近的路人(2026-08-20,STATUE 那段的說明見上面)——跟其他
      路人一樣按空白鍵打招呼,但這隻給的是專屬一句(下面 statueLine),不進
      共用的 PEDESTRIAN_LINES 池,interactProp() 的 'pedestrian' 分支裡有
@@ -1651,6 +1666,16 @@ const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
 
 const heroIndoor = buildPlayer(THREE, indoorScene);
+/* 越式按摩室內的第二個角色(2026-08-20,kc:「那個人物模型要進來啊,
+   兩人要側身面對面講話」)——沿用巷子那位 workerNPC 一樣的配色(rig 'f',
+   見 ALLEY_WORKER 那段 buildNPC 呼叫)。跟 heroIndoor 一樣全域只建一次
+   (indoorScene 不是每次進場景才建,重新載入 glb 沒必要),平常不顯示,
+   只有 PLACE==='massage' 時在 renderIndoor3D() 裡打開 visible 並定位。 */
+const workerIndoor = buildNPC(THREE, indoorScene, {
+  rig:'f', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
+});
+workerIndoor.group.visible = false;
+const MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
 
 /* 店員 3D 骨架模型拿掉了(2026-08-13,見上面「整體改回 2D 背景」)——跟
    照片級背景擺在一起像人形立牌,質感差太多。kc 說他之後自己做 2D 版畫進
@@ -1667,6 +1692,17 @@ function renderIndoor3D(dt){
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
   heroIndoor.animate(dt, IN.moving, 1);
+  /* 越式按摩室內的第二個角色(2026-08-20,見 workerIndoor 宣告那段註解)
+     ——站在固定的 MASSAGE_WORKER_PX,跟玩家同一條 py(同一條「地板線」),
+     面朝玩家(跟 heroIndoor 的朝向鏡射,玩家面右她就面左)。只有
+     PLACE==='massage' 才顯示/更新,其餘場景維持 visible=false、不佔渲染。 */
+  workerIndoor.group.visible = (PLACE === 'massage');
+  if(PLACE === 'massage'){
+    workerIndoor.group.position.set(MASSAGE_WORKER_PX*SC, 720 - IN.py*SC, 0);
+    workerIndoor.group.scale.setScalar((HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store) / PLAYER.height);
+    workerIndoor.group.rotation.y = -heroIndoor.group.rotation.y;
+    workerIndoor.animate(dt);
+  }
   renderer3d.render(indoorScene, indoorCamera);
 }
 
@@ -2457,11 +2493,15 @@ function leaveIndoor(){
 }
 /* 越式按摩店(2026-08-20)——巷子那位 ALLEY_WORKER 站在街上,但真正談的
  * 地方是這間店,對照現實的暗巷色情店常見掛牌方式(見 DESIGN_NOTES)。
- * 沒有實體的門(city.doors),直接從 interactProp() 的 'worker' 分支呼叫,
- * 比照 sleep()/enterBedroom() 那種「不用走去門口」的簡化版 fade,不走
- * enterIndoor() 的 walkIn 那段(那是給真的 3D 街上門口用的)。跟
- * enterIndoor() 一樣要存 returnTo,leaveIndoor() 才知道要把玩家放回哪。 */
-function enterMassage(){
+ * 沒有實體的門(city.doors),直接從 talkToWorker() 的「付錢,跟她走」
+ * 分支呼叫(**不是**走近她講話就切場景——kc 糾正過一次,開場白+選單
+ * 維持在街上,只有真的付錢才進場景),比照 sleep()/enterBedroom() 那種
+ * 「不用走去門口」的簡化版 fade,不走 enterIndoor() 的 walkIn 那段(那是
+ * 給真的 3D 街上門口用的)。跟 enterIndoor() 一樣要存 returnTo,
+ * leaveIndoor() 才知道要把玩家放回哪。金錢/時間/mood/stamina 的變動、
+ * w.talked 都已經在呼叫端(talkToWorker() 的付錢分支)處理完才呼叫這裡,
+ * 這個函式只管「切場景 + 講故事 + 離場」。 */
+function enterMassage(w){
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
   fade('越式按摩', () => {
@@ -2472,12 +2512,29 @@ function enterMassage(){
     document.getElementById('indoor').classList.add('on');
     /* 站位(2026-08-20 kc 生完 massage-wall.png 之後現場肉眼調的):按摩床
        在畫面正中央,站中間會疊到床上——挪到床左前方那塊空地(盆栽跟床
-       中間),不會疊到任何家具。 */
-    IN.px = 190; IN.py = 345; IN.face = 'F';
+       中間),不會疊到任何家具。face 用 'R' 不是 'F'(kc:「兩人要側身
+       面對面講話」)——workerIndoor 站在她右邊、面朝 'L',兩人側身相對,
+       見 renderIndoor3D()。 */
+    IN.px = 190; IN.py = 345; IN.face = 'R';
     document.getElementById('where').textContent = '越式按摩';
     hintEl.classList.remove('on');   // 進場前殘留的「按空白鍵搭話」提示清掉,updateIndoor() 這個 PLACE 不會再幫忙清
     paintMassageBackdrop();
-    talkToWorker(ALLEY_WORKER);
+    toast('半小時後,你一個人走回巷口。', 2600);
+    /* 完整故事(圓環雕像那條支線,2026-08-20,見 DESIGN_NOTES)只在第一次
+       「付錢跟她走」之後追加,用 setTimeout 接在上面那句 toast 淡出之後
+       才跳出來,不要兩段疊在一起搶畫面。w.toldStory 擋之後重複——比較
+       像「她只在那一次多說了」,不是每次都重播同一段獨白。錢買的是她的
+       時間,不是這段故事本身,所以框架上不寫成「因為付了錢所以講」,
+       是她自己選擇在這段安靜時間裡說出來。 */
+    if(!w.toldStory){
+      w.toldStory = true;
+      setTimeout(() => say('worker',
+        '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」',
+        leaveIndoor
+      ), 2700);
+    } else {
+      setTimeout(leaveIndoor, 2700);
+    }
   });
 }
 /* 客廳 ⇄ 房間:兩個都算「室內」(MODE 全程維持 'indoor'),只是 PLACE 換,
@@ -2824,6 +2881,12 @@ function updateCity(dt){
       nearProp = { type:'worker', ref:ALLEY_WORKER };
     if(!nearProp && Math.hypot(pos.x-STATUE.x, pos.z-STATUE.z) < 3.2)
       nearProp = { type:'statue', ref:STATUE };
+    /* 阿姨(2026-08-20)——固定站點,跟 STATUE/ALLEY_WORKER 同一套用常數座標
+       量距離,不用像 PEDESTRIANS 那樣讀會變動的 group.position。 */
+    if(!nearProp && Math.hypot(pos.x-AYI.x, pos.z-AYI.z) < 3.2)
+      nearProp = { type:'ayi', ref:AYI };
+    if(!nearProp && Math.hypot(pos.x-ACHENG.x, pos.z-ACHENG.z) < 3.2)
+      nearProp = { type:'acheng', ref:ACHENG };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
        讀 npc.group.position。純背景路人,不記名字、不分支對話,一句隨機
@@ -2854,6 +2917,8 @@ function updateCity(dt){
                           : '按 <b>空白鍵</b> 騎上去')
                       : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
+                      : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
+                      : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
                       : nearProp.type === 'pedestrian' ? '按 <b>空白鍵</b> 打聲招呼'
                       : '按 <b>空白鍵</b> 撿起垃圾';
     hintEl.classList.add('on');
@@ -2935,6 +3000,68 @@ function dismountMoto(){
 /* 跟機車行買車(2026-08-17)——m.forSale 那台才會走這條,其餘車(包括這台
    買下之前)按空白鍵直接是 mountMoto(),見下面 interactProp() 那段判斷。
    付完錢當場 owned=true,之後騎這台不再扣風評(見 mountMoto())。 */
+/* 廟口兩個攤販老闆(2026-08-20)——npc-temple.js 的 NpcTemple.NPCS 資料
+   第一次真的接上 3D 世界,之前那份資料完全沒有介面在消費。阿姨/阿成共用
+   同一套邏輯(openStallMenu/talkToStallVendor),按空白鍵:先跑 events[]
+   (按 state.visits 計次,一次性、有 beats/quiet/數值),本身已經是一次
+   交易的事件(帶 money/full)不再疊加下面的買東西選單,避免「故事裡才剛
+   給過東西,馬上又問你要不要買」的重複感;沒有觸發中事件才退回 talk[]
+   隨機一句,接著才開買東西選單。
+   陣頭特價(kc:「如果你有跳過陣頭的會有特價」)——陣頭系統本身(音遊)
+   還沒做,先加 window.__dbg.joinedTroupe(true) 這個開關讓 kc 現場測,
+   之後陣頭真的做出來,把判斷條件換成真正的完成旗標就好,價格/文案邏輯
+   不用重寫。兩攤都吃這個折扣(阿成事件裡講的「以後跟我拿東西都算自己人
+   價」,阿姨那邊沒特別講但邏輯一致,算廟口整體對「自己人」的待遇)。 */
+let joinedTroupe = false;
+const AYI_DATA = NpcTemple.NPCS.find(n => n.id === 'ayi');
+const ACHENG_DATA = NpcTemple.NPCS.find(n => n.id === 'acheng');
+function openStallMenu(vendorLabel, whoName, price, full, buyLine, discountLine){
+  const discount = joinedTroupe;
+  const p = discount ? Math.round(price * .7) : price;
+  openMenu(vendorLabel, [
+    { label: discount ? '買一份(自己人價)' : '買一份來吃', cost:'$'+p, cls: ST.money<p?'bad':'',
+      run(){
+        if(ST.money < p){ toast('錢不夠,' + whoName + '看了你一眼,還是先笑笑。', 2000); return; }
+        chg('money', -p); chg('full', full);
+        toast(discount ? discountLine : buyLine, 2000);
+      } },
+    { label:'不買,聊聊就好', cls:'', run(){} },
+    { label:'走掉', cls:'back', run(){} }
+  ]);
+}
+/* talkGivesCalm:阿成專屬(kc:「一直跟他聊天會加歸屬感」)——阿姨的閒聊
+   talk[] 不給數值,只有 events[] 才給,阿成連隨機閒聊都給一點點
+   歸屬感(calm),兩人待客邏輯不一樣,不能共用同一份「聊天有沒有加成」
+   判斷,拆成參數。 */
+function talkToStallVendor(state, data, whoKey, onBuyMenu, opts){
+  opts = opts || {};
+  state.visits++;
+  const ev = data.events.find(e => e.at === state.visits && !state.seenEvents[e.at]);
+  if(ev){
+    state.seenEvents[ev.at] = true;
+    say(whoKey, ev.beats.map(b => b.text).join('\n\n'), () => {
+      if(ev.calm) chg('calm', ev.calm);
+      if(ev.money) chg('money', ev.money);
+      if(ev.full) chg('full', ev.full);
+      const isTransaction = !!(ev.money || ev.full);
+      if(ev.quiet) toast(ev.quiet, 3200);
+      if(!isTransaction) setTimeout(onBuyMenu, ev.quiet ? 3400 : 400);
+    });
+  } else {
+    if(opts.talkGivesCalm) chg('calm', opts.talkGivesCalm);
+    const line = data.talk[Math.random()*data.talk.length|0];
+    say(whoKey, line, onBuyMenu);
+  }
+}
+function talkToAyi(){
+  talkToStallVendor(AYI, AYI_DATA, 'ayi',
+    () => openStallMenu('阿姨的攤子', '阿姨', 50, 18, '「來,趁熱。」', '「自己人,算你便宜。」'));
+}
+function talkToAcheng(){
+  talkToStallVendor(ACHENG, ACHENG_DATA, 'acheng',
+    () => openStallMenu('阿成的麵攤', '阿成', 45, 16, '「趁熱吃。」', '「自己人,不用跟我客氣。」'),
+    { talkGivesCalm: 2 });
+}
 function buyMoto(m){
   openMenu('機車行', [
     { label:'付錢買下這台', cost:'$'+MOTO_PRICE, cls: ST.money<MOTO_PRICE?'bad':'',
@@ -2961,58 +3088,40 @@ function talkToWorker(w){
     openMenu('巷子裡', [
       { label:'付錢,跟她走', cost:'$'+WORKER_PRICE, cls: ST.money<WORKER_PRICE?'bad':'',
         run(){
-          /* 2026-08-20 改成室內場景(見 enterMassage())之後,每個分支結束
-             都要呼叫 leaveIndoor() 把玩家送回巷子,不然 openMenu() 一
-             closeMenu() 就把 busy 放掉,人會卡在沒有 spots/collider 的
-             越式按摩空場景裡動彈不得(那句「不用走動」是這個場景的設計,
-             不是漏做離場邏輯)。錢不夠這條也要送出去,不是留在原地乾等。 */
-          if(ST.money < WORKER_PRICE){
-            toast('錢不夠。她聳聳肩,轉向別人。', 2000);
-            setTimeout(leaveIndoor, 2000);
-            return;
-          }
+          /* 2026-08-20 kc 糾正:「付錢才會換場景」——開場白+選單本來就在
+             街上(這個 run() 之前的部分沒動),錢不夠就留在街上跳一句
+             toast 就好,不用進場景再送出來。真的付錢才呼叫 enterMassage()
+             切進越式按摩室內。 */
+          if(ST.money < WORKER_PRICE){ toast('錢不夠。她聳聳肩,轉向別人。', 2000); return; }
           chg('money', -WORKER_PRICE); chg('mood', 6); chg('stamina', -10);
           advanceTime(25);
           w.talked = true;
-          toast('半小時後,你一個人走回巷口。', 2600);
-          /* 完整故事(圓環雕像那條支線,2026-08-20,見 DESIGN_NOTES)只在第一次
-             「付錢跟她走」之後追加,用 setTimeout 接在上面那句 toast 淡出之後
-             才跳出來,不要兩段疊在一起搶畫面。w.toldStory 擋之後重複——比較
-             像「她只在那一次多說了」,不是每次都重播同一段獨白。錢買的是她的
-             時間,不是這段故事本身,所以框架上不寫成「因為付了錢所以講」,
-             是她自己選擇在這段安靜時間裡說出來。第一次講完故事、之後每次
-             重複都用 leaveIndoor 當 say()/setTimeout 的收尾,送玩家回巷子。 */
-          if(!w.toldStory){
-            w.toldStory = true;
-            setTimeout(() => say('worker',
-              '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」',
-              leaveIndoor
-            ), 2700);
-          } else {
-            setTimeout(leaveIndoor, 2700);
-          }
+          enterMassage(w);
         } },
       { label:'就聊兩句,不談這個', cls:'',
         run(){
           w.talked = true;
           /* 追加一句埋伏筆(2026-08-20)——不點名跟圓環雕像的關係,只是先讓
              玩家知道她家裡還有一個小的,完整關係要付錢跟她走才會知道。
-             say() 的 after 直接接 leaveIndoor,讀完這段話就送回巷子。 */
-          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」\n\n她頓了一下,像是想到什麼。「家裡還有一個要顧,比較小的。」沒有再說下去。', leaveIndoor);
+             這個分支不進室內場景,維持原本在街上直接 say()。 */
+          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」\n\n她頓了一下,像是想到什麼。「家裡還有一個要顧,比較小的。」沒有再說下去。');
         } },
-      { label:'不說話,轉身走掉', cls:'back', run(){ leaveIndoor(); } }
+      { label:'不說話,轉身走掉', cls:'back', run(){} }
     ]);
   });
 }
 function interactProp(prop){
-  /* 2026-08-20:跟她搭話不再直接在 3D 街景上彈選單,先 fade 進越式按摩店
-     室內(enterMassage()),talkToWorker() 本身沒有改參數/呼叫時機,只是
-     現在是從室內場景裡呼叫,不是從街上。 */
-  if(prop.type === 'worker'){ enterMassage(); return; }
+  /* 搭話本身還是在街上彈選單(2026-08-20 kc 糾正:「付錢才會換場景」,
+     不是走近她講話就先切場景)——talkToWorker() 開場白+選單維持在 3D
+     街景上,只有選「付錢,跟她走」才真的觸發 enterMassage() 切進室內,
+     見 talkToWorker() 那個分支。 */
+  if(prop.type === 'worker'){ talkToWorker(prop.ref); return; }
   /* 圓環雕像的碑文(2026-08-20)——單句、不署名不寫年份,跟 pet/litter 同
      層級的輕互動,一個 toast 帶過就好,不開選單。跟這尊雕像有關的完整
      故事在別處(圓環路人的 statueLine、talkToWorker() 的完整故事分支),
      這裡刻意留白,不重複講。 */
+  if(prop.type === 'ayi'){ talkToAyi(); return; }
+  if(prop.type === 'acheng'){ talkToAcheng(); return; }
   if(prop.type === 'statue'){
     toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
     return;
@@ -3134,6 +3243,10 @@ window.__dbg = {
   tuitionQuest: () => TUITION_QUEST, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   KNOWLEDGE, studyGainKnowledge,
   day: (n) => { if(n != null) day = n; return day; },
+  /* 陣頭特價測試開關(2026-08-20)——陣頭音遊本身還沒做,先用這個手動切,
+     見 talkToAyi()/ayiBuyMenu() 那則筆記。 */
+  joinedTroupe: (v) => { if(v != null) joinedTroupe = v; return joinedTroupe; },
+  AYI, talkToAyi, ACHENG, talkToAcheng,
   indoorCalib(){
     const s = heroIndoor.group.scale.x;
     return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
