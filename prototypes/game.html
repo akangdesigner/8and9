@@ -752,10 +752,15 @@ const WHO = {
    `SF.person()` 像素小人。**PORTRAIT_IMGS 集中管理**,不要再一個角色一個
    if/else 分支——加新角色的照片只要在這個表加一行。 */
 const PORTRAIT_IMGS = {
-  clerk: loadPortraitImg('../assets/bg/clerk-portrait.png?v=2'),
-  pc:    loadPortraitImg('../assets/bg/pc-portrait.png?v=1'),
-  mom:   loadPortraitImg('../assets/bg/mom-portrait.png?v=1'),
-  dad:   loadPortraitImg('../assets/bg/dad-portrait.png?v=1')
+  clerk:  loadPortraitImg('../assets/bg/clerk-portrait.png?v=2'),
+  pc:     loadPortraitImg('../assets/bg/pc-portrait.png?v=1'),
+  mom:    loadPortraitImg('../assets/bg/mom-portrait.png?v=1'),
+  dad:    loadPortraitImg('../assets/bg/dad-portrait.png?v=1'),
+  /* worker/acheng(2026-08-20)——廟口真人頭像這輪的前兩張,阿源/阿姨
+     還沒生,那兩個 key 沒進這個表之前 drawPortrait() 會自動退回
+     SF.person() 像素小人(既有 fallback,不會壞)。 */
+  worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=1'),
+  acheng: loadPortraitImg('../assets/bg/acheng-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
@@ -879,7 +884,12 @@ function updateWorldLabels(){
    BUSKER_AUDIO),不是要多好聽,是要有「路過會聽到有人在唱歌」的存在感——
    之後 kc 想換真人錄音,只要把 startBuskerAudio() 裡的合成邏輯換成
    `new Audio('...').play()` 就好,靠近淡入淡出那段(updateCity 裡)不用動。 */
-const BUSKER_POS = { x: -84+7, z: 4 };
+/* 2026-08-20:原本站 -84+7(=-77,4),離圓環雕像只有 5 個單位,跟雕像旁
+   那兩隻專屬台詞的路人擠在同一小塊視野裡——kc 說「把其中一個路人搬走,
+   沒有裝對話的」(街頭藝人沒有進 PEDESTRIANS 陣列,按空白鍵沒有反應,
+   確實是「沒裝對話的」那個),搬去 -84+20(=-64,4),離雕像那組拉開到
+   17+ 個單位,`__dbg.near()` 核對過附近沒有東西。 */
+const BUSKER_POS = { x: -84+20, z: 4 };
 
 /* 阿姨挪去顧鴨頭攤(2026-08-20,kc:「把阿姨調整過來」)——她原本是廟埕
    一個獨立站點(x:6,z:-86),人設是「鹹酥雞攤」,但鹹酥雞那個 3D 攤位
@@ -891,11 +901,27 @@ const BUSKER_POS = { x: -84+7, z: 4 };
    觸發,不是按遊戲日期——她的 events 資料本身沒有明講是哪種計數,這裡
    先選「互動次數」,理由是不用跟七條指標那套 day 計時器綁在一起,買賣
    這種小互動可以同一天連續發生。不喜歡這個選擇跟 kc 說一聲就改。 */
-const AYI = { x:-22, z:-93.5, visits:0, seenEvents:{} };
+/* catQuest(2026-08-20,kc:「他們希望有一些任務之類的,比如幫她餵狗」)——
+   沒有另外做一套任務系統(`lib/quests.js` 那套 15 條、slots/days 計時的
+   任務總表完全沒接進 game.html,架在另一套「一天分時段」的模型上,跟
+   game.html 現在這種即時走位的street不是同一套,這輪不動它,先簡單接)。
+   借用場上本來就有的「貓」(scene-city3d.js placePet('cat.glb',-28,-90,...),
+   離阿姨攤子最近的那隻)當任務物件:阿姨那邊開口拜託,完成條件是玩家去
+   摸一次那隻貓(既有的 pet 互動,見 interactProp() 'pet' 分支),不用另外
+   做新動畫/新物件。 */
+/* catQuest 狀態機(2026-08-20 second pass,kc:「回報任務才會拿到獎勵」)——
+   一開始 taskDone/done 疊在一起,摸到貓當場就給錢,kc 糾正:要先做完
+   (taskDone)、再回去跟阿姨講一聲(done)才給獎勵,不是做完當下自動觸發。
+   active=接了任務、taskDone=貓摸過了但還沒回報、done=回報完拿到獎勵
+   (終態,offer 不會再出現)。 */
+const AYI = { x:-22, z:-93.5, visits:0, seenEvents:{}, catQuest:{ active:false, taskDone:false, done:false } };
 /* 阿成・廟口乾麵攤(2026-08-20,kc:「他是最照顧你的人,一直跟他聊天會加
    歸屬感,他會推薦你陣頭」)——跟 AYI 同一套 visits/seenEvents 機制,站在
-   「廟口乾麵」攤子後方,取代掉原本站那個位置的路人佔位。 */
-const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{} };
+   「廟口乾麵」攤子後方,取代掉原本站那個位置的路人佔位。
+   litterQuest 同樣借用場上既有機制(city.litter/interactProp() 的垃圾
+   撿拾分支),完成條件是撿滿 3 件(need),不限定要在廟口附近撿到的那幾件,
+   簡化成「累計撿滿 3 件」,不做額外的範圍判斷。 */
+const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
 
 /* 廟口 NPC,2026-08-12 起先接兩個(其餘見 lib/npc-temple.js 的文字資料)。
  * 只做阿源跟阿姨——小胖(14 歲)、阿伯(70 幾)體型跟現有兩副骨架差太多,
@@ -1033,6 +1059,55 @@ const PEDESTRIAN_LINES_CRUEL = [          // 風評 <= -40
  * 2026-08-20:原本 10 隻只有 m/f/m2 三副骨架湊(m×4/f×4/m2×2),補 m3/f2
  * 兩副新骨架後,挑 4 隻改掉(2 隻 m→m3、2 隻 f→f2),五副骨架各佔 2 隻,
  * 跟 CO_CUSTOMER_LOOKS 同一輪待辦、同一個理由,見 DESIGN_NOTES。 */
+/* 圓環雕像旁的兩隻路人(2026-08-20)——拉出來宣告成獨立變數(不是直接寫
+   在 PEDESTRIANS 陣列字面量裡),因為 tweakStatuePedsPanel()(見下面,
+   kc:「你找不到角度給我 tweak 我調整」,跟 tweakDadPanel() 同一招)要
+   拿得到這兩隻的參照才能即時轉角度。STATUE_PED_TWEAK 存的是角度(0~360,
+   給滑桿用比較直覺),套用時才轉成弧度。 */
+const STATUE_PED_TWEAK = { aDeg: 26, bDeg: 298 };   // kc 用修好的滑桿現場肉眼調定案(2026-08-20)
+const STATUE_PED_A = Object.assign(buildNPC(THREE, scene, { x:CITY.V_ROADS[0].x-8, z:CITY.H_ROADS[1].z-2, rotationY:STATUE_PED_TWEAK.aDeg*Math.PI/180, rig:'m2',
+  skin:'#b98a63', hair:'#3a3128', hood:'#4a4a3a', pants:'#26241f', shoe:'#3a3430' }),
+  { statueLine:'「圓環那尊,是紀念一個囡仔的。」他往樹那邊抬了下下巴。「聽講她自己一個人長大的,後來帶一群查某囡仔打棒球,打出名了。車禍走的,才十幾歲。」' });
+const STATUE_PED_B = Object.assign(buildNPC(THREE, scene, { x:-75, z:-4, rotationY:STATUE_PED_TWEAK.bDeg*Math.PI/180, rig:'f2',
+  skin:'#c9976e', hair:'#3a2e26', hood:'#4a4a3a', pants:'#232323', shoe:'#3a3430' }),
+  { statueLine:'她往雕像那邊看了一眼。「好可憐的小女孩,自從她走了以後,她媽媽聽說就流落八大了。」' });
+/* 滑桿面板調這兩隻的朝向(2026-08-20,kc:「你找不到角度給我 tweak 我
+   調整」)——跟 tweakDadPanel() 同一招,即時改、不用重整頁。轉角度存在
+   STATUE_PED_TWEAK(0~360,滑桿用度數比較直覺),套用時才換算成弧度。
+   **第一版直接寫 model.rotation.y 完全沒用,kc 回報「拖動滑桿完全沒
+   反應」**——根因是 buildNPC() 的「小步待機」動畫(見 scene-city3d.js
+   animate() 裡 targetY/baseRotationY 那段,偶爾轉向玩家 + 原地重心晃動)
+   每一幀都會把 model.rotation.y 算回 baseRotationY 附近,外部直接改
+   model.rotation.y 只撐得過一幀就被蓋掉,肉眼看起來像完全沒反應,不是
+   事件沒觸發(STATUE_PED_TWEAK 的數字其實有在變,只是畫面沒跟著動)。
+   改用 buildNPC() 已經有現成的 setFacing(angle)(收銀小遊戲排隊客人
+   「輪到就轉向玩家」在用同一個 API,scene-city3d.js 那邊有找到),它改的
+   是 baseRotationY 本尊,動畫邏輯下一幀就會用新角度收斂過去,才是真的
+   会生效的寫法。 */
+function tweakStatuePedsPanel(){
+  const old = document.getElementById('statuePedTweakPanel');
+  if(old){ old.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'statuePedTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:220px;box-shadow:0 4px 20px #000a';
+  const rows = [['aDeg','路人 A(說她生平那位)', STATUE_PED_A], ['bDeg','路人 B(說她媽媽那位)', STATUE_PED_B]];
+  panel.innerHTML = '<div style="font-weight:bold;margin:0 0 6px">圓環路人朝向(度)</div>' +
+    rows.map(([key,label]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="tweak_sp_${key}_v">${STATUE_PED_TWEAK[key]}</span><br>
+       <input type="range" id="tweak_sp_${key}" min="0" max="360" step="1" value="${STATUE_PED_TWEAK[key]}" style="width:100%">
+       </div>`
+    ).join('') + '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakStatuePeds()</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([key,,npc]) => {
+    const input = document.getElementById(`tweak_sp_${key}`);
+    const out = document.getElementById(`tweak_sp_${key}_v`);
+    input.addEventListener('input', () => {
+      STATUE_PED_TWEAK[key] = +input.value;
+      out.textContent = input.value;
+      npc.setFacing(STATUE_PED_TWEAK[key]*Math.PI/180);
+    });
+  });
+}
 const PEDESTRIANS = [
   // 超商 ⇄ 機車行,各停 3 秒——中間 (-6.5,-11) 是繞開路燈柱的轉角點
   buildNPC(THREE, scene, { x:-12, z:-13.6, path:[[-12,-13.6,3000],[-6.5,-11],[3,-13,3000]], rig:'m',
@@ -1070,14 +1145,10 @@ const PEDESTRIANS = [
      顧攤。兩個位置後來都被有劇本的角色取代掉了(鴨頭攤是阿姨、乾麵攤是
      阿成,見上面 AYI/ACHENG 那兩則筆記),原本那兩隻純背景路人佔位
      整組拿掉,不留在 PEDESTRIANS 陣列裡佔位置。 */
-  /* 站在圓環雕像附近的路人(2026-08-20,STATUE 那段的說明見上面)——跟其他
-     路人一樣按空白鍵打招呼,但這隻給的是專屬一句(下面 statueLine),不進
-     共用的 PEDESTRIAN_LINES 池,interactProp() 的 'pedestrian' 分支裡有
-     判斷 ref.statueLine 優先於隨機池那段邏輯。座標在圓環人行道上,跟
-     BUSKER_POS(-77,4)錯開,不站同一側。 */
-  Object.assign(buildNPC(THREE, scene, { x:CITY.V_ROADS[0].x-8, z:CITY.H_ROADS[1].z-2, rotationY:Math.PI*.6, rig:'m2',
-    skin:'#b98a63', hair:'#3a3128', hood:'#4a4a3a', pants:'#26241f', shoe:'#3a3430' }),
-    { statueLine:'「圓環那尊,是紀念一個囡仔的。」他往樹那邊抬了下下巴。「聽講她自己一個人長大的,後來帶一群查某囡仔打棒球,打出名了。車禍走的,才二十外歲。」' })
+  /* 站在圓環雕像附近的兩隻路人——宣告跟 statueLine 都搬到上面
+     STATUE_PED_A/STATUE_PED_B 那段了,這裡只是併進 PEDESTRIANS 陣列
+     (按空白鍵打招呼、路線巡邏那套共用邏輯都靠這個陣列跑)。 */
+  STATUE_PED_A, STATUE_PED_B
 ];
 NPCS.push(...PEDESTRIANS);
 
@@ -2883,9 +2954,14 @@ function updateCity(dt){
       nearProp = { type:'statue', ref:STATUE };
     /* 阿姨(2026-08-20)——固定站點,跟 STATUE/ALLEY_WORKER 同一套用常數座標
        量距離,不用像 PEDESTRIANS 那樣讀會變動的 group.position。 */
-    if(!nearProp && Math.hypot(pos.x-AYI.x, pos.z-AYI.z) < 3.2)
+    /* 阿姨/阿成互動半徑用 4.5,不是其他 3.2 那批(貓/垃圾/雕像這些站在
+       開闊地上的互動物)——kc:「人站在攤位前面就可以觸發對話,這才正常」。
+       兩人都站在攤子後方(z-93.5),客人正常站的位置是櫃檯前緣(case box
+       前緣 z-90.8 再往外一點,約 z-89~-90),距離大概 3.5~4.5,3.2 量不到,
+       站在正常買東西的位置反而觸發不了對話。 */
+    if(!nearProp && Math.hypot(pos.x-AYI.x, pos.z-AYI.z) < 4.5)
       nearProp = { type:'ayi', ref:AYI };
-    if(!nearProp && Math.hypot(pos.x-ACHENG.x, pos.z-ACHENG.z) < 3.2)
+    if(!nearProp && Math.hypot(pos.x-ACHENG.x, pos.z-ACHENG.z) < 4.5)
       nearProp = { type:'acheng', ref:ACHENG };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
@@ -3015,19 +3091,20 @@ function dismountMoto(){
 let joinedTroupe = false;
 const AYI_DATA = NpcTemple.NPCS.find(n => n.id === 'ayi');
 const ACHENG_DATA = NpcTemple.NPCS.find(n => n.id === 'acheng');
-function openStallMenu(vendorLabel, whoName, price, full, buyLine, discountLine){
+function openStallMenu(vendorLabel, whoName, price, full, buyLine, discountLine, extra){
   const discount = joinedTroupe;
   const p = discount ? Math.round(price * .7) : price;
-  openMenu(vendorLabel, [
+  const items = [
     { label: discount ? '買一份(自己人價)' : '買一份來吃', cost:'$'+p, cls: ST.money<p?'bad':'',
       run(){
         if(ST.money < p){ toast('錢不夠,' + whoName + '看了你一眼,還是先笑笑。', 2000); return; }
         chg('money', -p); chg('full', full);
         toast(discount ? discountLine : buyLine, 2000);
-      } },
-    { label:'不買,聊聊就好', cls:'', run(){} },
-    { label:'走掉', cls:'back', run(){} }
-  ]);
+      } }
+  ];
+  if(extra) items.push(...extra);
+  items.push({ label:'不買,聊聊就好', cls:'', run(){} }, { label:'走掉', cls:'back', run(){} });
+  openMenu(vendorLabel, items);
 }
 /* talkGivesCalm:阿成專屬(kc:「一直跟他聊天會加歸屬感」)——阿姨的閒聊
    talk[] 不給數值,只有 events[] 才給,阿成連隨機閒聊都給一點點
@@ -3054,13 +3131,38 @@ function talkToStallVendor(state, data, whoKey, onBuyMenu, opts){
   }
 }
 function talkToAyi(){
-  talkToStallVendor(AYI, AYI_DATA, 'ayi',
-    () => openStallMenu('阿姨的攤子', '阿姨', 50, 18, '「來,趁熱。」', '「自己人,算你便宜。」'));
+  talkToStallVendor(AYI, AYI_DATA, 'ayi', () => {
+    const q = AYI.catQuest, extra = [];
+    if(q.taskDone && !q.done){
+      extra.push({ label:'「貓顧好了。」', cls:'',
+        run(){
+          q.done = true;
+          chg('money', 30); chg('calm', 6);
+          toast('「謝謝你啊,這個拿去。」（$+30，歸屬感 +6）', 2600);
+        } });
+    } else if(!q.active && !q.done){
+      extra.push({ label:'「旁邊那隻貓,你有空幫我顧一下嗎?」', cls:'',
+        run(){ q.active = true; toast('「謝謝啊,牠認生,你去摸摸牠就好。」', 2400); } });
+    }
+    openStallMenu('阿姨的攤子', '阿姨', 50, 18, '「來,趁熱。」', '「自己人,算你便宜。」', extra);
+  });
 }
 function talkToAcheng(){
-  talkToStallVendor(ACHENG, ACHENG_DATA, 'acheng',
-    () => openStallMenu('阿成的麵攤', '阿成', 45, 16, '「趁熱吃。」', '「自己人,不用跟我客氣。」'),
-    { talkGivesCalm: 2 });
+  talkToStallVendor(ACHENG, ACHENG_DATA, 'acheng', () => {
+    const q = ACHENG.litterQuest, extra = [];
+    if(q.taskDone && !q.done){
+      extra.push({ label:'「垃圾撿好了。」', cls:'',
+        run(){
+          q.done = true;
+          chg('money', 40); chg('calm', 8);
+          toast('「你人真好。」阿成塞給你一包滷味。（$+40，歸屬感 +8）', 2600);
+        } });
+    } else if(!q.active && !q.done){
+      extra.push({ label:'「廟口這附近的垃圾,你順手幫忙撿一撿?」', cls:'',
+        run(){ q.active = true; toast('「三包就好,不用撿到天亮。」', 2400); } });
+    }
+    openStallMenu('阿成的麵攤', '阿成', 45, 16, '「趁熱吃。」', '「自己人,不用跟我客氣。」', extra);
+  }, { talkGivesCalm: 2 });
 }
 function buyMoto(m){
   openMenu('機車行', [
@@ -3144,6 +3246,14 @@ function interactProp(prop){
       chg('stamina', -3);
       const lines = PET_LINES[prop.ref.label] || PET_LINES['小狗'];
       toast(lines[Math.random()*lines.length|0], 2400);
+      /* 阿姨的貓任務(2026-08-20,第二輪 kc:「回報任務才會拿到獎勵」)——
+         摸到貓這裡只標記 taskDone,不直接發錢/歸屬感,要回去跟阿姨講一聲
+         (talkToAyi() 裡 taskDone && !done 那個分支)才真的給獎勵。不限定
+         摸的是不是「她那隻」貓,場上只有一隻貓,不用另外比對座標。 */
+      if(prop.ref.label === '貓' && AYI.catQuest.active && !AYI.catQuest.taskDone){
+        AYI.catQuest.taskDone = true;
+        setTimeout(() => toast('牠讓你摸了一陣子。可以回去跟阿姨說一聲了。', 2600), 2600);
+      }
     });
   } else if(prop.type === 'play'){
     chg('mood', 3);
@@ -3181,6 +3291,17 @@ function interactProp(prop){
       if(li !== -1) city.litter.splice(li, 1);
       nearProp = null;
       hintEl.classList.remove('on');
+      /* 阿成的垃圾任務(2026-08-20,第二輪 kc:「回報任務才會拿到獎勵」)——
+         撿滿這裡只標記 taskDone,不直接發錢/歸屬感,要回去跟阿成講一聲
+         (talkToAcheng() 裡 taskDone && !done 那個分支)才真的給獎勵。
+         不限定要在廟口附近撿到的那幾件,簡化成「累計撿滿 3 件」。 */
+      if(ACHENG.litterQuest.active && !ACHENG.litterQuest.taskDone){
+        ACHENG.litterQuest.picked++;
+        if(ACHENG.litterQuest.picked >= ACHENG.litterQuest.need){
+          ACHENG.litterQuest.taskDone = true;
+          setTimeout(() => toast('湊到三包了。可以回去跟阿成說一聲了。', 2600), 2400);
+        }
+      }
     });
   }
 }
@@ -3239,6 +3360,7 @@ window.__dbg = {
   tick(dt){ renderIndoor3D(dt||16); renderIndoorForeground(); },   // 手動推進一幀,不用等 rAF,方便測室內位置
   heroIndoor, indoorScene, renderer3d, IN, paintStoreBackdrop, paintHomeBackdrop,
   DAD_TWEAK, SHADOW_TWEAK, tweakDad: tweakDadPanel, tweakStall: tweakStallPanel,
+  STATUE_PED_TWEAK, tweakStatuePeds: tweakStatuePedsPanel,
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
   tuitionQuest: () => TUITION_QUEST, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   KNOWLEDGE, studyGainKnowledge,

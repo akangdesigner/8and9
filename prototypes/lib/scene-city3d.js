@@ -184,7 +184,6 @@ export function buildCity(THREE, scene){
     tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
     plastic:std({color:0xc0473a,roughness:.75}),
     tin:std({color:0x6a6f6a,roughness:.7,metalness:0}),
-    templeDoor:std({color:0x6e1c14,roughness:.8}),
     /* 香爐座、供桌各自開專屬材質,不要沿用 M.curb/M.gold——那兩個共用材質
        還貼在路緣石、屋脊/門楣上,直接貼圖會連累不相干的地方。 */
     incenseStone:std({color:0x8a857a,roughness:.9}),
@@ -287,7 +286,6 @@ export function buildCity(THREE, scene){
        M.tin/M.meterboxTex 上——M.tin 其實還有別的用途(騎樓雨遮材質,見
        row() 裡的 awnM),之前掛在它身上等於雨遮偶爾會被 AC 機身照片糊到,
        是個沒被抓到的舊坑,這輪順便拔掉。 */
-    { mats:[M.templeDoor], file:'temple-door.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.incenseStone], file:'incense-stone.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.altarTable], file:'altar-table.png', rep:[1,1], mirror:true, lift:.1 },
     { mats:[M.roof], file:'temple-roof.png', rep:[2,1], mirror:true, lift:.12 },
@@ -391,14 +389,38 @@ export function buildCity(THREE, scene){
     return m;
   }
 
+  /* ===== 廟門(2026-08-20)=====
+   * assets/tex/temple-door-<key>.png,中門/左右次間門神各自一張——真的廟中門
+   * 秦叔寶/尉遲恭雙將、次間文官加冠晉爵,三扇門長得不一樣。不走上面 M 陣列
+   * 那條 mirror:true 的可平鋪材質管線(那套是拿來蓋掉接縫的無縫材質做法,
+   * 鏡射會把一張完整的門神畫切成 4 小塊鏡像貼在同一扇門上,人像會變得很怪)
+   * ——改用跟 signImage() 一樣「整張圖只貼一次、依比例置中裁切」的做法。 */
+  const doorCache = {};
+  function templeDoorMat(key, aspect){
+    const ck = `${key}|${aspect.toFixed(2)}`;
+    if(ck in doorCache) return doorCache[ck];
+    const m = std({ color:0x6e1c14, roughness:.8 });
+    doorCache[ck] = m;
+    loader.load(TEX_DIR + `temple-door-${key}.png`, img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      const ia = img.width / img.height;
+      if(ia > aspect){ const r = aspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2,0); }
+      else { const r = ia/aspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      m.map = t; m.color.setHex(0xffffff); m.roughness = .6; m.needsUpdate = true;
+    }, undefined, () => {});
+    return m;
+  }
+
   /* ===== 樓上的立面 =====
    * assets/tex/facade-N.png:騎樓頂以上那幾層——鐵窗、冷氣主機、曬的衣服、水管、
    * 加蓋的鐵皮。這是台灣街景資訊量最大的一塊,現在整片是空白磁磚。
    * 只貼朝街那一面,而且是獨立一塊薄板貼在建築正面外側,不動建築本體。
    * 一樓不畫在這張裡:騎樓頂會把它整個擋掉。 */
   /* 只列已經有的檔案。列了還沒生的那幾張的話,四分之三的樓會是空白磁磚,
-     跟有貼圖的那幾棟擺在一起太突兀——寧可先全部同一張。 */
-  const FACADES = ['facade-1.png', 'facade-2.png'];
+     跟有貼圖的那幾棟擺在一起太突兀——寧可先全部同一張。
+     facade-3.png(2026-08-20)補上第三張,輪替母數變 3。 */
+  const FACADES = ['facade-1.png', 'facade-2.png', 'facade-3.png'];
   const facadeCache = {};
   function facadeMat(file, aspect, base){
     const key = `${file}|${aspect.toFixed(2)}|${base.color.getHex()}`;
@@ -1348,8 +1370,8 @@ export function buildCity(THREE, scene){
     add(box(2.4,1.2,2.4, M.gold), 0, 15.5, z);
     add(box(9,2.2,.5, M.gold), 0, 9.2, z+4.7, false, false);
     [-13,-5,5,13].forEach(x => { add(box(1.7,8.5,1.7, M.redD), x, 4.25, z+5.2); solid(x, z+5.2, .85,.85); });
-    [[-9,3.4],[0,4.4],[9,3.4]].forEach(([x,w]) =>
-      add(box(w,6,.4, M.templeDoor), x, 3, z+4.6, false, true));
+    [[-9,3.4,'left'],[0,4.4,'center'],[9,3.4,'right']].forEach(([x,w,key]) =>
+      add(box(w,6,.4, templeDoorMat(key, w/6)), x, 3, z+4.6, false, true));
     /* 燈籠:2026-08-14 kc 抓到「發光箱體很假」——原本是一顆會發光的純色箱子,
        換成 Poly Pizza 的免費燈籠模型(red lantern,Sophie Kim,CC-BY,授權見
        assets/models/CREDITS.md),跟遊具/垃圾/寵物同一套 propModel() 縮放置底
