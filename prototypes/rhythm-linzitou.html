@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>no-way-up ／ 跳陣頭(音遊畫面原型)</title>
+<style>
+  :root{
+    --bg:#120a08; --panel:#1c1210; --line:#3a241c; --ink:#f0e6d8; --dim:#b8a08e;
+    --gold:#d8b24a; --lup:#e0483a; --ldown:#4fa3c8; --lleft:#5fb87a; --lright:#d8b24a; --bad:#8d949e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;
+    font:15px/1.6 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;color:var(--ink)}
+  #stage{position:relative;width:100vw;height:100vh}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #startOverlay{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;background:rgba(10,6,5,.86);
+    text-align:center;padding:20px}
+  #startOverlay h1{margin:0;font-size:22px;letter-spacing:.06em;color:var(--gold)}
+  #startOverlay p{margin:0;color:var(--dim);font-size:13px;max-width:420px}
+  .keyHint{display:flex;gap:10px;margin-top:6px}
+  .keyHint .k{border:1px solid var(--line);background:var(--panel);border-radius:8px;
+    padding:8px 14px;font-size:13px;min-width:52px}
+  .keyHint .k b{display:block;font-size:16px;margin-bottom:2px}
+  .k.up b{color:var(--lup)} .k.down b{color:var(--ldown)}
+  .k.left b{color:var(--lleft)} .k.right b{color:var(--lright)}
+  #startBtn{margin-top:10px;background:var(--gold);color:#241608;border:none;
+    padding:10px 28px;border-radius:999px;font-size:15px;font-weight:700;cursor:pointer}
+  #endOverlay{position:absolute;inset:0;display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;background:rgba(10,6,5,.9)}
+  #endOverlay h2{margin:0;font-size:20px;color:var(--gold)}
+  #endOverlay .stat{color:var(--dim);font-size:13px}
+  #endOverlay .verdict{font-size:15px;margin-top:6px;max-width:400px;text-align:center}
+  #hud{position:absolute;top:0;left:0;right:0;padding:14px 18px;display:flex;
+    justify-content:space-between;align-items:flex-start;pointer-events:none}
+  #hud .title{font-size:13px;color:var(--dim);letter-spacing:.1em}
+  #hud .score{font-size:22px;font-variant-numeric:tabular-nums;margin-top:2px}
+  #hud .combo{font-size:13px;color:var(--gold);margin-top:2px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div>
+      <div class="title">乙未年遶境・跟阿源一起跳陣頭</div>
+      <div class="score" id="scoreEl">0</div>
+      <div class="combo" id="comboEl">COMBO 0</div>
+    </div>
+  </div>
+  <div id="startOverlay">
+    <h1>跳 陣 頭</h1>
+    <p>阿伯站在旁邊看。箭頭來的時候按對方向鍵——這是廟裡的規矩,不是遊戲難度。
+       這版音樂是測試用的合成鼓點,之後會換成真的歌。</p>
+    <div class="keyHint">
+      <div class="k up"><b>↑</b>上</div>
+      <div class="k down"><b>↓</b>下</div>
+      <div class="k left"><b>←</b>左</div>
+      <div class="k right"><b>→</b>右</div>
+    </div>
+    <button id="startBtn">開始</button>
+  </div>
+  <div id="endOverlay">
+    <h2 id="endTitle">結束</h2>
+    <div class="stat" id="endStat"></div>
+    <div class="verdict" id="endVerdict"></div>
+    <button id="retryBtn" style="margin-top:14px;background:var(--panel);color:var(--ink);
+      border:1px solid var(--line);padding:8px 20px;border-radius:999px;cursor:pointer">再一次</button>
+  </div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+  function resize(){ canvas.width = innerWidth*devicePixelRatio; canvas.height = innerHeight*devicePixelRatio;
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); }
+  resize(); addEventListener('resize', resize);
+
+  /* 固定背景圖(2026-08-20):純氣氛底圖,shallow depth-of-field 生的,沒圖之前
+     維持純色背景(body 的 --bg),補了自動蓋上去,不用改別的地方。cover 填滿、
+     不拉伸變形——比較長的那邊裁掉,跟 shopFront() 裁切邏輯同一個精神。 */
+  let bgImg = null;
+  { const img = new Image(); img.onload = () => bgImg = img; img.onerror = () => {};
+    img.src = '../assets/rhythm-bg-temple.png'; }
+  function drawBg(){
+    if(!bgImg) return;
+    const cw = innerWidth, ch = innerHeight, ia = bgImg.width/bgImg.height, ca = cw/ch;
+    let sw, sh, sx, sy;
+    if(ia > ca){ sh = bgImg.height; sw = sh*ca; sy = 0; sx = (bgImg.width-sw)/2; }
+    else { sw = bgImg.width; sh = sw/ca; sx = 0; sy = (bgImg.height-sh)/2; }
+    ctx.drawImage(bgImg, sx, sy, sw, sh, 0, 0, cw, ch);
+    ctx.fillStyle = 'rgba(10,6,5,.55)'; ctx.fillRect(0,0,cw,ch);   // 壓暗,不然前景箭頭/字讀不清楚
+    /* 照片本身帶模糊人群,跟遊戲畫的陣頭角色會撞在一起分不出來——角色站的
+       那條(baseY 附近)額外壓一條深色地帶,像舞台地板燈區,把角色從背景
+       人群裡「頂」出來,不是純粹疊死一層暗。 */
+    const g = ctx.createLinearGradient(0, ch*0.6, 0, ch*0.95);
+    g.addColorStop(0, 'rgba(6,3,2,0)'); g.addColorStop(1, 'rgba(6,3,2,.75)');
+    ctx.fillStyle = g; ctx.fillRect(0, ch*0.6, cw, ch*0.35);
+  }
+
+  /* ===== 譜面(2026-08-20,測試用)=====
+   * 真的歌(Suno)還沒生出來之前,先寫一段固定 BPM 的合成鼓點譜面,把音符軌／
+   * 判定／連段視覺這整套機制做完、跑得動。之後只要換掉 CHART + 換成真的音檔,
+   * 機制不用重寫——見 DESIGN_NOTES「跳陣頭做成音遊」那節。
+   * 記譜:U/D/L/R = 上下左右四個方向鍵,.=休止,八分音符網格。 */
+  const BPM = 96, EIGHTH = 60/BPM/2;
+  const MEASURES = [
+    'U.D.L.R.', 'L.R.U.D.', 'UD.LR.UD', 'U.LRD.U.',
+    'D.U.R.L.', 'RL.UD.RL', 'U.D.LR.U', 'L.R.UD..'
+  ];
+  const LANE_OF = { U:'up', D:'down', L:'left', R:'right' };
+  const CHART = [];
+  MEASURES.concat(MEASURES).forEach((m,mi) => {
+    m.split('').forEach((ch,i) => {
+      if(LANE_OF[ch]) CHART.push({ t: mi*8*EIGHTH + i*EIGHTH, lane: LANE_OF[ch], hit:false, miss:false });
+    });
+  });
+  const SONG_LEN = CHART[CHART.length-1].t + 2.5;
+
+  /* ===== 音訊(合成鼓點,跟街頭藝人 startBuskerAudio() 同一套 Web Audio 做法)=====
+   * 上/下用音高不同的鼓聲(調性),左/右用濾波頻率不同的鈸聲(打擊感),
+   * 四個方向聽起來要分得出來,不是都同一顆音色。 */
+  let actx = null;
+  function playTone(t, freq){
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(freq,t); o.frequency.exponentialRampToValueAtTime(freq*.45,t+.12);
+    g.gain.setValueAtTime(.9,t); g.gain.exponentialRampToValueAtTime(.001,t+.28);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+.3);
+  }
+  function playNoise(t, hpFreq){
+    const dur=.09, buf = actx.createBuffer(1, actx.sampleRate*dur, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1)*(1-i/d.length);
+    const src = actx.createBufferSource(); src.buffer = buf;
+    const hp = actx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=hpFreq;
+    const g = actx.createGain(); g.gain.setValueAtTime(.55,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+    src.connect(hp); hp.connect(g); g.connect(actx.destination); src.start(t);
+  }
+  const LANES = {
+    up:    { color:'#e0483a', dx:0,  dy:-1, play:t=>playTone(t,170) },
+    down:  { color:'#4fa3c8', dx:0,  dy:1,  play:t=>playTone(t,95)  },
+    left:  { color:'#5fb87a', dx:-1, dy:0,  play:t=>playNoise(t,2400) },
+    right: { color:'#d8b24a', dx:1,  dy:0,  play:t=>playNoise(t,4200) }
+  };
+
+  /* ===== 遊戲狀態 ===== */
+  let running=false, t0=0, score=0, combo=0, maxCombo=0, judged=0, good=0, ok=0, miss=0;
+  const LEAD = 1.7;           // 音符從畫面右緣飄到判定圈要花的時間(秒)
+  const HIT_GOOD = .09, HIT_OK = .17;
+  let popups = [];            // 判定飄字
+  let judgeFlash = { up:0, down:0, left:0, right:0 };
+
+  function trackY(){ return innerHeight*0.30; }
+  function judgeX(){ return innerWidth*0.16; }
+
+  function laneKey(code){
+    if(code==='ArrowUp') return 'up';
+    if(code==='ArrowDown') return 'down';
+    if(code==='ArrowLeft') return 'left';
+    if(code==='ArrowRight') return 'right';
+    return null;
+  }
+
+  function popup(text, x, color){
+    popups.push({ text, x, y: trackY()-40, life:1, color });
+  }
+
+  function judge(lane){
+    if(!running) return;
+    const now = actx.currentTime - t0;
+    let best=null, bestDt=1e9;
+    for(const n of CHART){
+      if(n.hit||n.miss) continue;
+      const dt = Math.abs(n.t-now);
+      if(dt<bestDt){ bestDt=dt; best=n; }
+    }
+    if(!best || bestDt>HIT_OK || best.lane!==lane){
+      // 打錯拍子或打錯邊都不算,不清 combo(陣頭鼓手偶爾亂拍是常態,不用太嚴)
+      return;
+    }
+    best.hit = true; judged++;
+    judgeFlash[lane] = 1;
+    dancerPulse = 1;
+    if(bestDt<=HIT_GOOD){ good++; combo++; score+=300; popup('剛好', judgeX(), '#d8b24a'); }
+    else { ok++; combo++; score+=120; popup('還行', judgeX(), '#b8a08e'); }
+    maxCombo = Math.max(maxCombo, combo);
+  }
+
+  addEventListener('keydown', e => {
+    const lane = laneKey(e.code);
+    if(lane){ e.preventDefault(); judge(lane); }   // 擋掉方向鍵預設的頁面捲動
+  });
+
+  /* 除錯用(跟 scene-city3d.js 的 __dbg 同一個慣例):瀏覽器 console 打
+     __dbg.now() 看目前音樂時間、__dbg.chart 看譜面、__dbg.judge('up') 手動觸發判定。 */
+  window.__dbg = { chart: CHART, judge, now: () => actx ? actx.currentTime - t0 : null,
+    state: () => ({ running, score, combo, good, ok, miss }) };
+
+  /* ===== 陣頭隊伍(背景):combo 越高,出來的人越多、越亮 =====
+   * 民俗宗教是這個專案風險最高的一塊(見 DESIGN_NOTES 開頭那張表)——故意
+   * 不畫成可愛吉祥物,用簡化的畫臉剪影+素色長袍,像遠遠看一群真的在遶境
+   * 的人,不是拿八家將做萌角色。 */
+  const DANCERS = Array.from({length:8}, (_,i) => ({
+    x: 0.2 + (i/8)*0.7, faceSplit: i%2===0, phase: i*1.3
+  }));
+
+  /* ===== 紙娃娃拆件(2026-08-20)=====
+   * assets/tex/char-parade-<part>.png:頭/身體/一隻手臂/一隻腿,各自只生一張
+   * 靜態圖(沒有「連續動作影格」的一致性問題),程式用跟下面 drawDancers()
+   * 同一套走路數學去轉動這幾張圖的關節,原理跟拉線紙娃娃一樣。手臂/腿左右
+   * 共用同一張圖,靠 ctx.scale(-1,1) 鏡射出另一側,不用生 6 張。
+   * 沒圖之前(PARTS.ready 是 false)完全退回原本的幾何圖形畫法,不會壞掉。 */
+  const PARTS = {};
+  let partsReady = false;
+  ['head','torso','arm','leg'].forEach(k => {
+    const img = new Image();
+    img.onload = () => { PARTS[k] = img; partsReady = ['head','torso','arm','leg'].every(x => PARTS[x]); };
+    img.onerror = () => {};
+    img.src = '../assets/tex/char-parade-' + k + '.png';
+  });
+  /* 畫一段肢體:pivot 是關節座標(肩/髖),angle 是相對「垂直往下掛」的旋轉角,
+     圖片本身的頂邊要對齊 pivot(生圖 prompt 已經要求肩/髖端切齊圖片最上緣)。 */
+  function drawLimb(img, pivotX, pivotY, angle, len, flip){
+    const w = len * (img.width/img.height);
+    ctx.save();
+    ctx.translate(pivotX, pivotY);
+    ctx.rotate(flip ? -angle : angle);
+    if(flip) ctx.scale(-1,1);
+    ctx.drawImage(img, -w/2, 0, w, len);
+    ctx.restore();
+  }
+
+  /* 走路循環的節拍跟音樂的 BPM 綁在一起(踩點,不是隨機晃)——
+     STEP_HZ 抓「兩步一拍」,跟真的遶境隊伍隨鼓點齊步的感覺一致。 */
+  const STEP_HZ = (BPM/60) * Math.PI * 2 / 2;
+  let dancerPulse = 0;    // 每次打中一個音符就頂一下最前面那個人,呼應打點
+
+  function drawDancers(t){
+    const shown = Math.min(DANCERS.length, 2+Math.floor(combo/8));
+    const baseY = innerHeight*0.72;
+    DANCERS.slice(0, shown).forEach((d,i) => {
+      const alpha = Math.min(1, .35 + combo/60);
+      const walk = t*STEP_HZ + d.phase;
+      const stride = Math.sin(walk);           // -1~1,左右腳交替
+      const bob = Math.abs(Math.sin(walk))*7;  // 每一步都會往上頂一下(雙倍頻率)
+      const sway = Math.sin(walk*0.5)*3;       // 身體左右輕晃
+      const pulse = i===0 ? dancerPulse : 0;   // 只有最前面那個人吃「剛打中」的加成
+      const x = d.x*innerWidth + sway, y = baseY - bob*4 - pulse*14;
+
+      // 腳下一圈暖光,把角色從背景照片的模糊人群裡「頂」出來
+      ctx.save();
+      const glow = ctx.createRadialGradient(x, y+70, 2, x, y+70, 46);
+      glow.addColorStop(0, `rgba(255,190,110,${.32*alpha})`);
+      glow.addColorStop(1, 'rgba(255,190,110,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y+70, 46, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      ctx.save(); ctx.globalAlpha = alpha;
+
+      if(partsReady){
+        // 紙娃娃拆件:腿/手臂繞關節旋轉,身體/頭固定貼上去
+        const LEG_A = 0.5, ARM_A = 0.4;
+        drawLimb(PARTS.leg, x-8, y+58,  stride*LEG_A, 30, false);
+        drawLimb(PARTS.leg, x+8, y+58, -stride*LEG_A, 30, true);
+        const th = 54, tw = th * (PARTS.torso.width/PARTS.torso.height);
+        ctx.drawImage(PARTS.torso, x-tw/2, y+8, tw, th);
+        drawLimb(PARTS.arm, x-15, y+16, -stride*ARM_A, 24, false);
+        drawLimb(PARTS.arm, x+15, y+16,  stride*ARM_A, 24, true);
+        const hh = 32, hw = hh * (PARTS.head.width/PARTS.head.height);
+        ctx.drawImage(PARTS.head, x-hw/2, y-24, hw, hh);
+      } else {
+        // 沒圖之前的幾何佔位(4 張紙娃娃圖補齊會自動換成上面那段)
+        ctx.fillStyle = '#241a14';
+        [[-1,stride],[1,-stride]].forEach(([side,s]) => {
+          ctx.beginPath();
+          ctx.moveTo(x+side*8, y+58); ctx.lineTo(x+side*8+s*10, y+82);
+          ctx.lineTo(x+side*8+s*10+6, y+82); ctx.lineTo(x+side*8+6, y+58);
+          ctx.closePath(); ctx.fill();
+        });
+        ctx.fillStyle = i%3===0 ? '#6e1c14' : (i%3===1 ? '#1c2731' : '#3a241c');
+        ctx.beginPath(); ctx.moveTo(x-26+stride*4,y+62); ctx.lineTo(x-16,y+10); ctx.lineTo(x+16,y+10);
+        ctx.lineTo(x+26-stride*4,y+62); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = i%3===0 ? '#6e1c14' : (i%3===1 ? '#1c2731' : '#3a241c');
+        ctx.lineWidth = 7; ctx.lineCap = 'round';
+        [[-1,-stride],[1,stride]].forEach(([side,s]) => {
+          ctx.beginPath(); ctx.moveTo(x+side*15, y+16);
+          ctx.lineTo(x+side*15+s*9, y+34+Math.abs(s)*6); ctx.stroke();
+        });
+        ctx.beginPath(); ctx.arc(x, y-6, 16, 0, Math.PI*2); ctx.clip();
+        ctx.fillStyle = d.faceSplit ? '#c8302a' : '#e8d9a8';
+        ctx.fillRect(x-16, y-22, 16, 32);
+        ctx.fillStyle = d.faceSplit ? '#141414' : '#c8302a';
+        ctx.fillRect(x, y-22, 16, 32);
+        ctx.restore();
+        ctx.save(); ctx.globalAlpha = alpha;
+        ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(x,y-6,16,0,Math.PI*2); ctx.stroke();
+      }
+      ctx.restore();
+    });
+    dancerPulse = Math.max(0, dancerPulse-.07);
+  }
+
+  function drawGauge(){
+    const w = innerWidth*0.5, x = innerWidth/2 - w/2, y = 14, h = 10;
+    const pct = Math.min(1, judged ? (good + ok*.6) / CHART.length * 1.0 : 0);
+    ctx.fillStyle = 'rgba(255,255,255,.08)'; roundRect(x,y,w,h,5); ctx.fill();
+    ctx.fillStyle = pct>0.55 ? '#5fb87a' : (pct>0.3?'#d8b24a':'#8d3a30');
+    roundRect(x,y,w*pct,h,5); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1; roundRect(x,y,w,h,5); ctx.stroke();
+    ctx.fillStyle='var(--dim)'; ctx.font='11px "Noto Sans TC"'; ctx.textAlign='center';
+    ctx.fillStyle = '#b8a08e';
+    ctx.fillText('阿伯認可度', innerWidth/2, y+h+16);
+  }
+  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  /* 一顆箭頭音符/判定圖示:圓底色 = 該方向的專屬顏色,裡面一個白色三角形
+     指向 LANES[lane] 的 dx/dy,不用字型畫箭頭符號(不同字型/瀏覽器渲染高度
+     對不齊,三角形自己畫比較穩)。 */
+  function drawArrowBadge(x, y, lane, r, alpha){
+    const L = LANES[lane];
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = L.color; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.translate(x,y); ctx.rotate(Math.atan2(L.dy, L.dx));
+    const s = r*.5;
+    ctx.beginPath(); ctx.moveTo(s,0); ctx.lineTo(-s*.6,-s*.75); ctx.lineTo(-s*.6,s*.75); ctx.closePath();
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTrack(now){
+    const y = trackY(), jx = judgeX(), w = innerWidth;
+    ctx.strokeStyle='rgba(216,178,74,.35)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+
+    // 判定圈:平時是一圈淡金色目標環,打中哪個方向就短暫亮那個方向的箭頭
+    ctx.beginPath(); ctx.arc(jx, y, 28, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(216,178,74,.5)'; ctx.lineWidth = 3; ctx.stroke();
+    Object.keys(LANES).forEach(lane => {
+      const f = judgeFlash[lane];
+      if(f>0) drawArrowBadge(jx, y, lane, 26+f*8, .5+f*.5);
+      judgeFlash[lane] = Math.max(0, f-.08);
+    });
+
+    // 音符
+    CHART.forEach(n => {
+      if(n.hit) return;
+      const dt = n.t - now;
+      if(dt < -HIT_OK){ if(!n.miss){ n.miss=true; miss++; combo=0; judged++; popup('MISS', jx, '#8d3a30'); } return; }
+      if(dt > LEAD) return;
+      const x = jx + (dt/LEAD)*(w-jx);
+      drawArrowBadge(x, y, n.lane, 20, 1);
+    });
+  }
+
+  function drawPopups(dt){
+    ctx.textAlign='center'; ctx.font='bold 15px "Noto Sans TC"';
+    popups.forEach(p => {
+      ctx.globalAlpha = Math.max(0,p.life);
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, p.x, p.y - (1-p.life)*30);
+      p.life -= dt*1.6;
+    });
+    ctx.globalAlpha = 1;
+    popups = popups.filter(p => p.life>0);
+  }
+
+  let lastFrame = 0;
+  function loop(ts){
+    if(!running) return;
+    const dtFrame = lastFrame ? Math.min(.05,(ts-lastFrame)/1000) : 0; lastFrame = ts;
+    const now = actx.currentTime - t0;
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    drawBg();
+    drawDancers(now);
+    drawTrack(now);
+    drawGauge();
+    drawPopups(dtFrame);
+
+    document.getElementById('scoreEl').textContent = score;
+    document.getElementById('comboEl').textContent = 'COMBO ' + combo;
+
+    if(now > SONG_LEN) endSong();
+    else requestAnimationFrame(loop);
+  }
+
+  function startSong(){
+    actx = new (window.AudioContext||window.webkitAudioContext)();
+    t0 = actx.currentTime + .4;
+    CHART.forEach(n => LANES[n.lane].play(t0+n.t));
+    running = true; score=0; combo=0; maxCombo=0; judged=0; good=0; ok=0; miss=0;
+    CHART.forEach(n => { n.hit=false; n.miss=false; });
+    document.getElementById('startOverlay').style.display='none';
+    document.getElementById('endOverlay').style.display='none';
+    requestAnimationFrame(loop);
+  }
+
+  function endSong(){
+    running = false;
+    const total = CHART.length;
+    const pct = Math.round(((good + ok*.6) / total) * 100);
+    document.getElementById('endStat').textContent =
+      `完成度 ${pct}%　最大連段 ${maxCombo}　剛好 ${good}／還行 ${ok}／MISS ${miss}`;
+    let verdict;
+    if(pct>=70) verdict = '阿源在旁邊笑了一下。你跟上了。';
+    else verdict = '拍子亂了幾次,阿伯皺了一下眉——但阿源拍拍你的肩:「第一次都這樣,下次再來。」';
+    document.getElementById('endTitle').textContent = pct>=70 ? '跟上了' : '沒跟上';
+    document.getElementById('endVerdict').textContent = verdict;
+    document.getElementById('endOverlay').style.display='flex';
+  }
+
+  document.getElementById('startBtn').onclick = startSong;
+  document.getElementById('retryBtn').onclick = startSong;
+})();
+</script>
+</body>
+</html>
