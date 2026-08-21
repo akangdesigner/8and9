@@ -1230,7 +1230,13 @@ NPCS.push(...PEDESTRIANS);
 const c2df = document.getElementById('c2df'), g2f = c2df.getContext('2d');
 const LW = 640, LH = 360, SC = 2;
 const STORE = {
-  bgSrc:'../assets/bg/store-wall.png', walkN:190, walkS:345,
+  /* walkN 原本是 190(跟 spots 的 door/fridge/shelf/counter y0 抄同一個數字,
+     沒有另外驗證),2026-08-21 kc 截圖抓到:站在這條線上(尤其門口)腳會
+     卡進門框下緣的軌道、頭頂到門楣,不是貼地站好。用 __dbg.setIndoor()+
+     tick() 從 190 開始逐格往下量,210 是腳完全清出門框、頭也有淨空的
+     第一個乾淨位置——改這一個數字,門口/飲料櫃/貨架/櫃台共用的北邊界
+     跟著全部往南退一點,不用每個 spot 分別修。 */
+  bgSrc:'../assets/bg/store-wall.png', walkN:210, walkS:345,
   /* x/y/w/h 是鮮食櫃在畫面上的矩形(y 是底邊、h 是高),從
      store-wall.png(1668×943)縮放貼滿 1280×720 canvas 的比例反推「鮮食櫃
      應該站在哪裡」量出來的——跟舊的整合單張照片版本量出來的數字幾乎一樣
@@ -1387,13 +1393,22 @@ clerkBackImg.src = '../assets/bg/clerk-back.png?v=4';
    - 2026-08-14 kc 截圖抓到:飲料櫃跟貨架原本完全沒有碰撞(只有櫃台有),
      玩家可以一路走進貨架、腳陷進商品裡。照片裡這一整排(飲料櫃/貨架/
      櫃台)其實是同一面牆,中間沒有真的走道——改成一個貫穿整面牆的碰撞
-     (只在門口那段留空隙),不用再每個家具各自兜一個框。 */
+     (只在門口那段留空隙),不用再每個家具各自兜一個框。
+   - 2026-08-21 kc 截圖抓到:站在鮮食櫃左側時,肩膀/手臂會穿進鐵架
+     左前角,右側貼近卻不會。用 __dbg.setIndoor()+tick() 逐 px 量過:
+     `x0`(224)這個數字本身沒錯(跟右邊 x1 對稱、跟畫面矩形一致),但
+     `store-hot-cabinet.png` 是近距離特寫拍的實物照片,鏡頭沒有完全
+     正對,左前角在照片裡本來就比矩形量出來的範圍更往外凸——右側沒有
+     這個問題,純粹是這張照片的透視偏差,不是量錯。加一個只吃左側的
+     `HOT_LEFT_EXTRA_PAD`(量到約 209~212px 才會碰到,取 210 留一點
+     餘裕),不動全域 `COLLIDE_PAD`(會連帶影響其他家具已經調好的手感)。 */
 const BACK_WALL_STAND_PY = 230;
 const HOT_FOOTPRINT_DEPTH = 46;
+const HOT_LEFT_EXTRA_PAD = 10;
 const doorSpot = STORE.spots.find(s => s.id === 'door');
 const counterSpot = STORE.spots.find(s => s.id === 'counter');
 const FIXTURE_COLLIDERS = [
-  { x0: STORE.hot.x, x1: STORE.hot.x + STORE.hot.w,
+  { x0: STORE.hot.x - HOT_LEFT_EXTRA_PAD, x1: STORE.hot.x + STORE.hot.w,
     pyBack: STORE.hot.y - HOT_FOOTPRINT_DEPTH, pyFront: STORE.hot.y },
   { x0: doorSpot.x + doorSpot.w, x1: counterSpot.x + counterSpot.w,
     pyBack: STORE.walkN, pyFront: BACK_WALL_STAND_PY }
@@ -2283,7 +2298,11 @@ function coBeginAnswer(){
   const c = CO.customer;
   const change = c.given - c.total;
   dName.textContent = '客人';
-  dTx.textContent = `${coBasketLine(c)}\n怎麼收這筆？`;
+  /* 2026-08-21 kc 玩過反映「怎麼收這筆？」誤導,以為只是選付款方式——
+     原本故意寫中性是要考「有沒有聽客人講手機支付」(見上面第九輪那則
+     筆記),kc 現場決定推翻,改回直接問「要找多少錢？」,接受 QR 客人
+     這句話會比較容易被猜到,清楚優先。 */
+  dTx.textContent = `${coBasketLine(c)}\n要找多少錢？`;
   dCaret.classList.remove('on');
   const moneyOpts = coChangeOptions(change, 3, !c.payQR).map(v => ({
     label: '$' + v, correct: !c.payQR && v === change
@@ -2604,7 +2623,12 @@ function enterIndoor(door){
       wlabelsEl.style.display = 'none';   // 進門後停止更新,不然殘留位置疊在室內畫面上
       document.getElementById('indoor').classList.add('on');
       if(PLACE === 'store'){
-        IN.px = 150; IN.py = 320; IN.face = 'F';
+        /* 2026-08-21 kc 截圖回報:應該要「一進超商就站在門口」,原本這裡
+           是隨手湊的店中央座標(150,320),跟門口(STORE.spots id:'door',
+           x0~x1 約 6~126,walkN=190)差了一大截,人一進門就已經在店中間。
+           改成站在門口正中央、y 卡在 walkN(北邊界本來就擋住不能再往上),
+           面朝 'F' 是原本就有的「面向店內」——一進門自然轉身往店裡走。 */
+        IN.px = 66; IN.py = STORE.walkN; IN.face = 'F';
         document.getElementById('where').textContent = '超商';
         /* 2026-08-17 抓到的坑:c2dbg 這張畫布現在跟家/房間共用,超商原本
            假設它「只要在頁面載入時畫過一次就永遠是超商」(wallImg.onload
