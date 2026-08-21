@@ -138,12 +138,32 @@ function grimeTexture(THREE){
   return _grimeTex;
 }
 
+/* 街道骨架收緊(2026-08-21,kc:「我希望我的地圖格局就是一個正方形3x3
+ * [後來確認是 3 橫 2 縱]的街道,然後廟城往外凸一塊區域」)——路網本身早就
+ * 是 3 橫(廟口路/中華路/後火車站)+ 2 縱(西園街/東和街),數量沒錯,問題是
+ * bounds 比 V_ROADS 的路面+人行道邊緣還寬了一截(每邊多出約 20 單位),
+ * 那圈沒人規劃過的空地就是這一整輪黑洞、繞路漏洞的根:地圖邊界跟實際
+ * 路網對不齊。改法(方案圖見對話紀錄那個 artifact):
+ *   - V_ROADS 不動(x:±84),bounds.x 收緊到跟它的路面+人行道外緣剛好貼齊
+ *     (84+ROAD_HW/2+WALK_W=84+16=100,原本 104 那 4 個單位純浪費)。
+ *   - H_ROADS 三條路的間距順手拉對稱:廟口路 -78→-84、後火車站 72→84,
+ *     跟中華路(0)兩邊各差 84,核心變成乾淨的 2×2 街廓正方形,bounds.z
+ *     南緣同步收到 100(跟 x 同一個邊界寬度,真的是正方形)。
+ *   - 廟埕維持原本寬度/做法,只從新的廟口路(z:-84)那條線往北獨立凸出去,
+ *     不算進這個 2×2 裡——圍牆本身只有北牆(templeCompoundWall 的 zN)
+ *     跟著路一起挪到 -84,南牆/西牆/東牆跟裡面的宮廟本體、攤子、供桌全部
+ *     不動,省得牽動已經調好的內容(kc 確認過「不算大改」)。北牆挪動後
+ *     gateSpan 也要跟著新的 bounds.x[1]=100 對齊,不然又會重演「牆比地圖
+ *     窄一圈」那次繞路漏洞。bounds.z 北緣(-118)維持不動,南牆(-116)離
+ *     它還有 2 個單位緩衝,跟以前一樣。
+ *   - 中華路那排店/你家/超商/刺青店這些現有內容位置不動,要怎麼分配進
+ *     2×2 街廓之後再談,這輪只確定骨架。 */
 export const CITY = {
   ROAD_HW: 9, WALK_W: 7, UNIT: 12, DEPTH: 11,
-  H_ROADS: [ { z:-78, name:'廟口路' }, { z:0, name:'中華路' }, { z:72, name:'後火車站' } ],
+  H_ROADS: [ { z:-84, name:'廟口路' }, { z:0, name:'中華路' }, { z:84, name:'後火車站' } ],
   V_ROADS: [ { x:-84, name:'西園街' }, { x:84, name:'東和街' } ],
   get B_LINE(){ return this.ROAD_HW + this.WALK_W + this.DEPTH/2; },   // 21.5
-  bounds: { x:[-104,104], z:[-118,92] },
+  bounds: { x:[-100,100], z:[-118,100] },
   spawn: { x:0, z:-11.5 }                                             // 中華路北側人行道
 };
 
@@ -463,25 +483,39 @@ export function buildCity(THREE, scene){
 
   /* ===== 路面 ===== */
   H_ROADS.forEach(r => {
-    add(box(210,.2,ROAD_HW*2, M.road), 0, 0, r.z, false, true);
-    [-1,1].forEach(s => {
+    /* 廟口路的路面/人行道伸進廟城裡面了(2026-08-21,kc 截圖抓到「黃線上面
+       不會有路啊」)——原本廟口路南側(s=-1,朝廟城那側)不放 curb 是舊設計
+       (石板直接跟路面接起來,見下面那則舊筆記),那時候廟城還沒有圍牆。
+       現在廟城有實心圍牆了(z:-84 剛好是廟口路的路中心線),路面/人行道
+       symmetric 蓋在路中心兩側,南側那一半(z:-84~-93 路面、-93~-100 人行道)
+       直接蓋進圍牆裡面的廟城範圍,牆才 .6 薄,擋不住整條完整寬度的路。
+       改成廟口路只蓋北側(城市這一側,s=1)的路面/人行道,南側(廟城那側)
+       整段不蓋——圍牆本身+廟城自己的石板地面接手那一側,路真的在牆內
+       消失,不會再看到路面/黃線切進廟城裡面。 */
+    const templeRoad = r.z === H_ROADS[0].z;
+    if(templeRoad){
+      add(box(210,.2,ROAD_HW, M.road), 0, 0, r.z + ROAD_HW/2, false, true);
+    } else {
+      add(box(210,.2,ROAD_HW*2, M.road), 0, 0, r.z, false, true);
+    }
+    (templeRoad ? [1] : [-1,1]).forEach(s => {
       add(box(210,.3,WALK_W, M.walk), 0, .15, r.z + s*(ROAD_HW+WALK_W/2), false, true);
-      /* 廟口路南側(s=-1)正對廟埕那段不放 curb——見下面 temple() 的石板直接
-         跟路面接起來,不要有一條硬邊切過廣場(2026-08-13,kc 覺得路網太方正)。 */
-      if(r.z === H_ROADS[0].z && s === -1){
-        [[-105,-52.5],[52.5,105]].forEach(([x0,x1]) =>
-          add(box(x1-x0,.34,.6, M.curb), (x0+x1)/2, .17, r.z + s*(ROAD_HW+.3), false, true));
-      } else {
-        add(box(210,.34,.6, M.curb), 0, .17, r.z + s*(ROAD_HW+.3), false, true);
-      }
+      add(box(210,.34,.6, M.curb), 0, .17, r.z + s*(ROAD_HW+.3), false, true);
     });
     for(let x=-100;x<104;x+=7) add(box(3.4,.02,.2, glow(0xb8ad72,.3)), x, .11, r.z, false, true);
   });
+  /* 側街路面伸過頭了(2026-08-21,kc 畫圖確認過:「正方形四邊都是乾淨
+     直角,只有廟埕本身凸出去,街道不能凸出去」)——depth 172、中心 z:-3
+     是舊尺寸,算出來北端到 z:-89,比新的正方形北邊界(廟口路,z:-84)
+     還多凸 5 個單位,直接畫進廟埕凸出區裡,變成「街道也跟著凸出去了」。
+     街道骨架收緊之後正方形是 z:[-84,84](見檔案開頭 CITY 定義那則筆記),
+     side street 路面/人行道/curb 三層都要精確卡在這個範圍,depth 改成
+     168、中心 z:0,南北兩端剛好落在正方形邊界上,不多不少。 */
   V_ROADS.forEach(r => {
-    add(box(ROAD_HW*2,.2,172, M.road), r.x, 0, -3, false, true);
+    add(box(ROAD_HW*2,.2,168, M.road), r.x, 0, 0, false, true);
     [-1,1].forEach(s => {
-      add(box(WALK_W,.3,172, M.walk), r.x + s*(ROAD_HW+WALK_W/2), .15, -3, false, true);
-      add(box(.6,.34,172, M.curb), r.x + s*(ROAD_HW+.3), .17, -3, false, true);
+      add(box(WALK_W,.3,168, M.walk), r.x + s*(ROAD_HW+WALK_W/2), .15, 0, false, true);
+      add(box(.6,.34,168, M.curb), r.x + s*(ROAD_HW+.3), .17, 0, false, true);
     });
   });
 
@@ -1027,12 +1061,24 @@ export function buildCity(THREE, scene){
     S.sh, S.food(), S.sh, S.net(), S.gap,
     {kind:'tattoo',id:'tattoo',label:'刺青店',sign:0xff4a5a,signKey:'tattoo'}, S.arcade(), S.gap, S.betel(),
     S.sh, S.sh, S.food(0xe8b52c), S.sh ]});
-  /* 廟口路 */
-  row({ axis:'x', at:-78+B_LINE, face:-1, from:-60, shops:[
-    S.sh, S.food(), S.betel(), S.gap, S.food(0xe8b52c), S.sh, S.drug(), S.sh, S.sh, S.sh ]});
-  /* 後火車站:暗的那一條 */
-  row({ axis:'x', at:72-B_LINE, face:1, from:-60, shops:[
-    S.sh, S.sh, S.gap, S.sh, S.moto(), S.sh, S.sh, S.sh, S.sh, S.gap ]});
+  /* 廟口路那排店整組刪掉了(2026-08-21,kc:「外面那些實體下城建築刪掉」)
+     ——上一輪才剛把 at 從寫死的舊路口(-78)修成跟著新路口(-84+B_LINE)
+     走,結果 kc 從廟埕裡看,這排真建築(有窗戶/冷氣機/真貼圖)還是從矮牆
+     後面探出頭,判定是矮牆(3.2 高)加上緊鄰城市這個組合本身有問題,連
+     同上面的圍牆一起整組拿掉。這排原本是 10 個 shop slot(S.sh/S.food/
+     S.betel/S.drug 混搭,沒有 id,不是任務相關的固定店家),刪掉不影響
+     其他劇情/任務邏輯。之後要重新決定廟口路這一段要不要蓋房子、蓋多遠,
+     跟圍牆一起再議。 */
+  /* 後火車站:暗的那一條。同一個坑,at 也是寫死的舊路口(72),街道骨架
+     收緊後路本身挪到 84,這裡跟著改成 84-B_LINE。
+     2026-08-21 kc:「學校也要建2d場景,跟家一樣重要」——原本 x=-36 那個
+     S.gap 空地換成學校門面,跟 tattoo/store/home 同一套(kind:'school'
+     還沒有 shop-school.png,shopFront() 會自動退回素色箱體頂著,之後
+     kc 生圖再補,不用改這裡)。門會透過 row() 既有的 doors.push() 自動
+     登記,不用另外手動加。 */
+  row({ axis:'x', at:84-B_LINE, face:1, from:-60, shops:[
+    S.sh, S.sh, {kind:'school', id:'school', label:'高中', sign:0x4a7fd8, signKey:'school'},
+    S.sh, S.moto(), S.sh, S.sh, S.sh, S.sh, S.gap ]});
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
      繞回 FOOD.length/BETEL.length 重複到前面已經出現過的店名(2026-08-14 kc
      抓到「麵店」重複)。FOOD 6 種、BETEL 3 種都已經在前面的排用滿,這裡多出來
@@ -1307,8 +1353,11 @@ export function buildCity(THREE, scene){
     drainGrate(x - (HW-.5), z0 + (z1-z0)*.84);
     alleyFill(x, cz);
   }
-  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -78 + B_LINE + DEPTH/2);   // 中華路 ⇄ 廟口路
-  alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  72 - B_LINE - DEPTH/2);   // 中華路 ⇄ 後火車站
+  /* 兩條巷子的端點也是寫死舊路口位置(-78/72),街道骨架收緊後路口挪到
+     -84/84,巷子端點沒跟著移就會接不到新的店面排(同一輪 kc 截圖「怪房子」
+     抓到的另一處)。 */
+  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + B_LINE + DEPTH/2);   // 中華路 ⇄ 廟口路
+  alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  84 - B_LINE - DEPTH/2);   // 中華路 ⇄ 後火車站
 
   /* ===== 斜巷:跟 alley() 同一套「兩排素牆夾一條走道」邏輯,只是不沿 x/z
    * 軸走,是斜的(2026-08-13——kc 說圓環、廟埕那些都是路口貼裝飾,路本身
@@ -1375,22 +1424,30 @@ export function buildCity(THREE, scene){
     const [dx2,dz2] = at(len*-.2, -(HW-.5)); drainGrate(dx2, dz2);
     alleyFill(cx, cz);
   }
-  alleyDiag(12, B_LINE+DEPTH/2, 48, 72-B_LINE-DEPTH/2);   // 中華路 ⇄ 後火車站,斜的那條
+  alleyDiag(12, B_LINE+DEPTH/2, 48, 84-B_LINE-DEPTH/2);   // 中華路 ⇄ 後火車站,斜的那條(同一批舊路口 72→84 的坑)
 
   /* ===== 廟埕 ===== */
   (function temple(){
     const z = -108, W = 34;
-    add(box(96,.3,22, M.stone), 0, .15, -92, false, true);
+    /* 廣場鋪面收整齊到廟口路邊界(2026-08-21,kc:「路面鋪超過廟的區域看起來
+       很怪」)——石板原本故意凸出去蓋過路面(見下面舊筆記,2026-08-13 那次
+       決定),那時候前提是有圍牆擋著,凸出的部分躲在牆後面看不到。現在廟口
+       (z:-84)整段沒有牆、完全開放,石板凸出的南緣直接跟廟口路的柏油
+       貼在一起,沒有東西界定分界,看起來很突兀。改成主石板+南緣那兩塊
+       (原本凸出最多的)北緣不動、南緣收齊到 z:-84,跟廟口路邊界對齊,
+       不再凸過去;離廟口路更遠的那兩塊(-100/-102,本來就沒凸出邊界)
+       維持原樣,深淺變化還在,只是不再跟路面重疊。 */
+    add(box(96,.3,19, M.stone), 0, .15, -93.5, false, true);
     /* 96×22 的矩形太乾淨了,跟旁邊的路網一樣方正——加幾塊大小不一、卡出去的
        石板,北緣(朝廟口路那側)故意凸進路面凸得深淺不一,讀起來像廣場自己
        長出去蓋過路面,不是切好角的方塊(2026-08-13,kc 覺得路網太方正,配合
        上面 H_ROADS 那段廟口路南側 curb 留空一起看)。y 故意抬 .01 蓋過底板,
        不然邊界重疊的地方會 z-fighting。 */
     [
-      [-30, -78, 34, 10],
-      [ 22, -76, 26, 14],
-      [-52, -94, 14, 18],
-      [ 46, -96, 12, 14]
+      [-30, -86.5, 34, 5],
+      [ 22, -86.5, 26, 5],
+      [-52, -100, 14, 18],
+      [ 46, -102, 12, 14]
     ].forEach(([x,zz,w,d]) => add(box(w,.3,d, M.stone), x, .16, zz, false, true));
     add(box(W,12,9, M.red), 0, 6, z); solid(0, z, W/2, 4.5);
     add(box(W+4,1.3,11, M.roof), 0, 12.4, z);
@@ -1436,16 +1493,23 @@ export function buildCity(THREE, scene){
     /* 供桌:2026-08-14 kc 截圖抓到「一塊實心方塊」——原本是兩層疊死的箱體,
        完全不透光,不管貼什麼圖上去,輪廓都只會讀成一塊磚。拆成四支腳+裙板+
        薄桌面,腳跟腳之間留空隙透光,才讀得出「桌子」而不是「箱子」
-       (跟 stall() 那次「幾何問題不是貼圖問題」是同一個教訓)。 */
+       (跟 stall() 那次「幾何問題不是貼圖問題」是同一個教訓)。
+       z+22→z+16(2026-08-21 街道骨架收緊):北牆跟著廟口路一起挪到 -84
+       (見檔案開頭 CITY 定義那則筆記),供桌原本在舊門洞(-78)南邊 8 個
+       單位——沒跟著挪的話,供桌 solid() 的碰撞範圍會直接堵在新門洞正
+       中央(z:-84 那條線),整個廟埕變成走不進去。整組供桌(桌腳/桌面/
+       landmark/lampSpot/香爐蠟燭)共用同一個 z+22 錨點,一起改成 z+16
+       (跟牆同樣的 -6 位移),恢復原本離門洞的淨空,供桌本身的內部相對
+       位置完全不動。 */
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) =>
-      add(box(.4,2.2,.4, M.altarTable), a*2.1, 1.1, z+22+b*1.5));
+      add(box(.4,2.2,.4, M.altarTable), a*2.1, 1.1, z+16+b*1.5));
     [ [4.6,.5,.3, 0,1.5], [4.6,.5,.3, 0,-1.5],
       [.3,.5,3.2, 2.1,0], [.3,.5,3.2, -2.1,0]
-    ].forEach(([w,h,d,ax,az]) => add(box(w,h,d, M.altarTable), ax, 1.95, z+22+az));
-    add(box(6,.35,4.4, M.altarTable), 0, 2.35, z+22, false, false);
-    landmarks.push({ x:0, y:2.9, z:z+22, text:'供桌' });
-    solid(0, z+22, 2.6, 1.8);
-    lampSpots.push({ x:0, y:4, z:z+22, c:0xffb066, i:24, r:22 });
+    ].forEach(([w,h,d,ax,az]) => add(box(w,h,d, M.altarTable), ax, 1.95, z+16+az));
+    add(box(6,.35,4.4, M.altarTable), 0, 2.35, z+16, false, false);
+    landmarks.push({ x:0, y:2.9, z:z+16, text:'供桌' });
+    solid(0, z+16, 2.6, 1.8);
+    lampSpots.push({ x:0, y:4, z:z+16, c:0xffb066, i:24, r:22 });
     /* 供桌桌面上的擺設:2026-08-14 kc 截圖抓到「桌面空的,還是看不出來是幹嘛
        的」——形狀對了,但一張沒放任何東西的桌子讀不出「拜拜的供桌」,要靠
        上面擺的東西(燭台、香爐)才認得出用途,不是靠桌子本身的造型。
@@ -1469,15 +1533,15 @@ export function buildCity(THREE, scene){
     /* 2026-08-14 kc 再抓兩個問題:香爐太小、裡面空的插不出香插進去的樣子;
        燭台原本擺供桌正中間後面,改成左右分列(香爐居中——跟現實供桌「香爐
        中間、燭台兩側」的擺法一樣)。 */
-    placeAltarProp('candelabra.glb', .8, 'y', -1.5, z+22);
-    placeAltarProp('candelabra.glb', .8, 'y', 1.5, z+22);
-    placeAltarProp('incense-bowl.glb', .85, 'x', 0, z+22);
+    placeAltarProp('candelabra.glb', .8, 'y', -1.5, z+16);
+    placeAltarProp('candelabra.glb', .8, 'y', 1.5, z+16);
+    placeAltarProp('incense-bowl.glb', .85, 'x', 0, z+16);
     /* 香爐本身只是個素面碗,不管貼多真的圖或抓多細的模型,單一個碗形狀
        都讀不出「香爐」——真正讓人一眼認出來的是插著香的輪廓(細長桿+
        頂端一點紅光),不是碗,而且香要插在「裡面裝的東西」上,不能整支
        浮空穿過碗底——加一層土色的香灰/沙填料,填到接近碗口高度,香從
        這層填料裡插出來,不是從碗裡憑空冒出來。 */
-    const incenseZ = z+22, ashY = tableTopY + .2;
+    const incenseZ = z+16, ashY = tableTopY + .2;
     add(new THREE.Mesh(new THREE.CylinderGeometry(.33,.35,.1,16),
         std({ color:0x9a8060, roughness:.95 })), 0, ashY, incenseZ, false, false);
     [[-.12,.86],[.1,.94],[-.02,.78]].forEach(([dx,h]) => {
@@ -1488,38 +1552,46 @@ export function buildCity(THREE, scene){
     add(box(5,1,5, M.roof), 24, 7.4, z+20);
   })();
 
-  /* ===== 廟埕圍牆(2026-08-20,kc 看完俯視圖說「小鎮太大了南邊沒規劃的
-   * 可以直接砍掉」+「小鎮要完美閉環不要像廟口旁邊都是黑的」)=====
-   * 廟口路以南只有廟埕本身蓋了東西,兩側跟後方是大片沒規劃的空地——
-   * CITY.bounds 是單一矩形(見檔案開頭 CITY 定義),沒辦法只縮南段的寬度
-   * 而不動北邊已經蓋滿的街區(中華路那排店面用的是同一組 x 邊界),所以
-   * 不能直接改 bounds.x。改成「圍牆把廟埕圈起來」:實體收邊(solid()
-   * 真的擋玩家走進空地)+視覺收邊(黑色虛空變成一面牆)一次解決,而且
-   * 「廟宇有院牆」本來就是現實參照,不是硬湊的技術補丁,比單純縮小地圖
-   * 更說得通。牆高 3.2(比玩家 PLAYER.height=4 矮一截,只到視線高度,
-   * 從俯視構圖看不會整個擋住廟埕本身)。牆體沿用 M.wallC(既有牆面貼圖,
-   * 跟街上建築同一批材質管線,不用另外生素材)。
-   * **第一版只圍西/東/南三面+北牆只封到廟埕本身的寬度(x:-62~57),
-   * 用 __dbg.city.blocked() 沿廟口路量了一輪抓到還是繞得過去**——廟口路
-   * 本身是全寬可以走的通道(x 一路到 ±84 側街都不擋),玩家只要沿著廟口路
-   * 走到 x=-62 以外(例如 x=-70),再直接南轉,整段路徑根本不會跟窄的
-   * 北牆(只擋在 x:-62~57 之間)相交,等於繞過牆本身,圍牆沒有真的圍到。
-   * 問題不是「牆的北端沒接東西」,是北牆蓋的寬度不夠——要擋的其實是整條
-   * 廟口路以南的通道,不是只有廟埕本身那段寬度。改成**北牆貫穿整條廟口路
-   * (x:-100~100,跟側街 V_ROADS 同一個量級,不是廟埕自己的寬度)**,只在
-   * 廟門正前方留 16 個單位的門洞(對齊 doors.push 那個 id:'temple' 入口,
-   * x:0 附近)——這條長牆才是真正把「廟口路以南」整段封起來的關鍵,西/東/
-   * 南三面牆是牆內(門洞進來之後)的廟埕本體圍牆,兩層一起才是真的閉環:
-   * 沒有任何一條路徑能繞過長牆去到廟埕兩側的空地。 */
-  (function templeCompoundWall(){
-    const xL = -62, xR = 57, zN = -78, zS = -116, wallH = 3.2, wallT = .6, gateHW = 8;
-    const gateSpan = 100;   // 北牆的東西兩段各蓋到這裡,涵蓋整條廟口路寬度
-    const wall = (w,d,x,z) => { add(box(w,wallH,d, M.wallC), x, wallH/2, z, false, true); solid(x,z,w/2,d/2); };
-    wall(wallT, zN-zS, xL, (zN+zS)/2);          // 西牆(廟埕本體)
-    wall(wallT, zN-zS, xR, (zN+zS)/2);          // 東牆(廟埕本體)
-    wall(xR-xL+wallT, wallT, (xL+xR)/2, zS);    // 南牆(廟埕本體)
-    wall(gateSpan-gateHW, wallT, -(gateSpan+gateHW)/2, zN); // 北牆・西段,貫穿整條廟口路
-    wall(gateSpan-gateHW, wallT,  (gateSpan+gateHW)/2, zN); // 北牆・東段,貫穿整條廟口路
+  /* ===== 廟城圍牆(2026-08-21,第五版——方向搞反了)=====
+   * 前幾版一直把「靠近廟口路、有門洞那面」當成北牆保留、把最深處那面當
+   * 南牆拆掉——kc 直接罵醒:廟口(entrance)面向城市/廟口路那側是**南**
+   * (現實廟宇座北朝南的傳統方位,入口朝南),最深處(離城市最遠、宮廟
+   * 本體後方)才是**北**。整個方向反了,連著改錯好幾輪還一直自信滿滿地
+   * 用查證資料「確認」自己是對的,其實驗證的前提本身就錯了。
+   * 改成真正對的版本:西/東牆不動;靠廟口路那面(zN=-84,「靠近機車的
+   * 這面牆」)整段拆掉、不留門洞——南側(廟口)完全開放,像現實很多廟埕
+   * 前埕直接對外開放、沒有實體門牆,只有廣場本身當作進出的緩衝;北面
+   * (zS=-116,宮廟本體後方,遠離城市那側)蓋一整面牆,不用留門洞(那側
+   * 本來就不是入口)。 */
+  (function templeWall(){
+    const xL=-62, xR=57, zN=-84, zS=-116, wallH=3.0, wallT=.6;
+    const wallMeshes = [];
+    const wall = (w,d,x,z) => {
+      const mat = new THREE.MeshStandardMaterial({ color:0x9aa2a6, roughness:.96 });
+      const m = add(box(w,wallH,d, mat), x, wallH/2, z, false, true);
+      wallMeshes.push({ mesh:m, faceLen: Math.max(w,d) });
+      const pad = 1.2;   // 防穿模(騎機車單幀位移可達 0.8,見更早那則筆記)
+      solid(x, z, Math.max(w/2, pad), Math.max(d/2, pad));
+    };
+    wall(wallT, zN-zS, xL, (zN+zS)/2);   // 西牆
+    wall(wallT, zN-zS, xR, (zN+zS)/2);   // 東牆
+    wall(xR-xL+wallT, wallT, (xL+xR)/2, zS);   // 北牆(宮廟本體後方,遠離城市那側,整面不留門洞)
+
+    loader.load(TEX_DIR + 'wall.png', img => {
+      const canvas = prep(img, { lift:.16 });
+      wallMeshes.forEach(({ mesh, faceLen }) => {
+        const t = new THREE.CanvasTexture(canvas);
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        t.repeat.set(Math.max(1, Math.round(faceLen/wallH)), 1);
+        mesh.material.map = t; mesh.material.needsUpdate = true;
+      });
+    }, undefined, () => {});
+
+    /* 院內鋪面補滿——牆是實心的,但鋪面缺口一樣會在牆邊看穿到背景色
+       (2026-08-21 更早那輪踩過)。蓋一塊底層石板墊在 temple() 那批石板
+       下面,補滿沒鋪到的邊角。 */
+    add(box(xR-xL-wallT, .2, zN-zS-wallT, M.stone), (xL+xR)/2, .1, (zN+zS)/2, false, true);
   })();
 
   /* 攤子 + 塑膠桌椅
@@ -1817,7 +1889,17 @@ export function buildCity(THREE, scene){
        ALLEY_WORKER(game.html,x:-22.3,z:-38)錯開,不疊到她的互動範圍。 */
     [-26,-31,'bottle',0xdce8e0],   // 垃圾袋堆在牆角
     [-22,-45,'cig',0x5a5650],
-    [-26,-47,'flyer',0xd8d2c0]
+    [-26,-47,'flyer',0xd8d2c0],
+    /* 廟城地板垃圾(2026-08-21,kc:「廟城幫我多放一些地板垃圾」)——七個
+       點都用 __dbg.city.blocked() 現場量過確認不是站在攤子/供桌/香爐座
+       那些 solid() 範圍裡,散在廟埕開放的鋪面上,不聚成一堆。 */
+    [-45,-88,'cig',0x5a5650],
+    [35,-90,'bottle',0xdce8e0],
+    [10,-85,'flyer',0xd8d2c0],
+    [-35,-105,'lunchbox',0xc9c2a8],
+    [45,-108,'cup',0xc2a0d0],
+    [20,-102,'cig',0x5a5650],
+    [-50,-100,'bottle',0xdce8e0]
   ].forEach(([x,z,kind,tint]) => {
     /* 人行道那塊 box 是 .3 厚(見 H_ROADS.forEach 的 M.walk,中心 y=.15、頂面在
        y=.3),垃圾之前放在 y=.04/.05——整片埋在人行道厚度裡面,從上面根本
@@ -1976,6 +2058,76 @@ export function buildCity(THREE, scene){
     return false;
   }
 
+  /* 遠景(2026-08-21):天空漸層+星星那版 kc 打回票——「放真正的房子方塊,
+   * 要嘛放城市遠景圖片,選一種」,選了方塊。第一版方塊蓋在 CITY.bounds
+   * 外圍、離廟埕牆有 42~47 單位空地,牆邊看不到;補了一版貼著牆的近景,
+   * 但用的是純色 MeshBasicMaterial 剪影——kc 接著問「為何不要放真的房屋
+   * 方塊」,問到真正的問題:近到站在牆邊幾步就看得到的東西,用一塊沒有
+   * 任何細節的扁平色塊,怎麼看都是明顯的假背板,跟旁邊有磚紋、有鐵窗
+   * 貼圖的真建築擺在一起特別穿幫。改成直接借用上面 row() 蓋真實店面用的
+   * 同一套材質:牆身用 M.wall/wallB/wallC/wallD(街上建築同一批磚紋磁磚
+   * 貼圖,不是純色),正面再疊一塊 facadeMat() 鐵窗貼圖(跟樓上立面同一張
+   * facade-N.png,窗戶會自己微微發光,見 facadeMat 裡的 emissiveMap)——
+   * 這一圈遠景本質上就是「城市继续往外延伸」,材質、貼圖都跟真建築一樣,
+   * 不是另外發明一套簡化版素材,遠處自然靠 scene.fog 霧化變暗,不用手動
+   * 調暗一顆假顏色。 */
+  (function skylineRing(){
+    const bx0=-104, bx1=104, bz0=-118, bz1=92, edgeGap=16, spacing=22;
+    const wallMats = [M.wall, M.wallB, M.wallC, M.wallD];
+    /* 房子加在奇怪的地方(2026-08-21,kc 截圖圈出藍圖上那條牆的線,問
+       「是要加在這個線上」)——原本每一棟的「離牆/離邊界多遠」都另外加了
+       一個 Math.random() 亂數(*14 或 *4),疊在本來就隨機的寬度 w 上面,
+       等於每棟房子面向牆的那條邊各自飄在不同距離,前緣參差不齊,不是
+       貼齊一條線的街景,看起來就是亂丟。改成 placeTower() 直接吃「要貼齊
+       的那條線座標」(nearLine),用那棟房子自己算出來的寬度反推中心點,
+       讓面向線的那條邊永遠精確貼在 nearLine 上——寬度/高度還是隨機给
+       天際線一點高低變化,但前緣對齊,讀起來才是一整排貼著邊界/貼著牆
+       蓋出來的房子,不是隨手灑的方塊。 */
+    function placeTower(nearLine, along, axis, face, hMin, hMax){
+      const perp = 11+Math.random()*9, alongLen = 11+Math.random()*9;
+      const h = (hMin??16)+Math.random()*((hMax??50)-(hMin??16));
+      const wallM = wallMats[Math.floor(Math.random()*wallMats.length)];
+      // axis==='x': 沿 x 排(北/南邊界),perp 是 z 方向(厚度);axis==='z': 沿 z 排(東/西邊界),perp 是 x 方向(厚度)
+      const w = axis==='x' ? alongLen : perp, d = axis==='x' ? perp : alongLen;
+      const cx = axis==='x' ? along : nearLine - face*(perp/2);
+      const cz = axis==='x' ? nearLine - face*(perp/2) : along;
+      add(box(w, h, d, wallM), cx, h/2, cz, false, false);
+      const upY0 = 5.9, upH = h-upY0;
+      if(upH > 3){
+        const alongF = axis==='x' ? w : d;
+        add(box(axis==='x' ? alongF : .14, upH, axis==='x' ? .14 : alongF,
+                facadeMat(FACADES[Math.floor(Math.random()*FACADES.length)], alongF/upH, wallM)),
+            cx + (axis==='z' ? face*(w/2+.1) : 0), upY0+upH/2,
+            cz + (axis==='x' ? face*(d/2+.1) : 0), false, false);
+      }
+    }
+    /* 廟城以上不要有任何房子(2026-08-21,kc 看藍圖確認:「廟城區域以上
+       不要有任何其他建築房子」)——北排(貼著地圖北緣 bz0-edgeGap)整組拿掉,
+       那排本來就在廟埕正後方,離廟埕屋頂只有 20 個單位,矮矮一顆廟探出去
+       背後卻頂著一整排 50 高的樓,顯然不對。西/東兩排本來從地圖最北緣
+       (bz0-edgeGap)開始蓋,涵蓋了廟埕整段凸出區的高度——改成從 -84(廟口路,
+       正方形的北邊界)開始,只沿著「正方形核心」那一段蓋,不再跟廟埕same
+       z 範圍重疊,廟埕凸出區左右兩側現在也不會冒出房子。 */
+    for(let x=bx0-edgeGap; x<=bx1+edgeGap; x+=spacing){
+      placeTower(bz1+edgeGap, x, 'x', -1);
+    }
+    for(let z=-84; z<=bz1+edgeGap; z+=spacing){
+      placeTower(bx0-edgeGap, z, 'z', 1);
+      placeTower(bx1+edgeGap, z, 'z', -1);
+    }
+
+    /* 廟埕西/東牆外側近景那批房子拔掉了(2026-08-21,kc:「先把廟口外面
+       奇怪的房子刪掉」)——這批貼著牆蓋的方塊來回改了好幾輪(純色剪影→
+       真材質→貼齊隔線),kc 一直沒滿意,先整組移除,不留著佔位置。牆本身
+       (templeCompoundWall,貼圖比例已經修好,repeat 是整數對齊隔線)加上
+       牆外靠 scene.fog 霧化的天空漸層,先這樣頂著。外圍那圈 CITY.bounds
+       邊界的 placeTower() 迴圈(上面那兩段 for)留著沒動,那個離得遠,不是
+       這次「廟口外面」在講的東西。之後要重新處理廟口牆外的背景,選項見
+       這次聊天紀錄:純方塊、kc 自己生的 assets/tex/skyline-temple.png
+       大圖(貼牆做法已經寫過一次,見對話紀錄),或別的做法,到時候再議,
+       不要看到舊註解就自動接回這批 tower。 */
+  })();
+
   return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
 }
 
@@ -1987,6 +2139,27 @@ export function buildCity(THREE, scene){
 /* 身高 4.0:用車道半寬(ROAD_HW=9,雙向道約 7.5 米)回推,1 單位 ≈ 0.42 米,
    4.0 單位 ≈ 1.7 米。舊的 3.2 只有 1.34 米,站在機車旁邊像國中生。 */
 export const PLAYER = { height:4.0, eyeY:3.65 };
+
+/* 天空背景(2026-08-21):outdoor 場景原本 scene.background 是純色,鏡頭只要
+ * 看到建築/牆頂以上就是死板一片黑——kc 截圖抓到「這不是一個很完整的小鎮,
+ * 背景不能這樣」。中間試過「漸層加星星加月亮」貼圖,kc 直接打回票:
+ * scene.background 是貼在螢幕空間的一張圖,轉鏡頭天空完全不會動,是騙眼睛
+ * 的招數,不是「有東西撐著地平線」——「要嘛放真正的房子方塊,要嘛放城市
+ * 遠景圖片,選一種」。選了 buildCity() 裡的 skylineRing()(真的 3D 方塊,
+ * 會隨鏡頭轉、有遮擋關係)當地平線那一圈,這裡只留最基本的直向漸層墊在
+ * skylineRing 後面當天色,不裝飾、不騙眼睛,純粹是比純色更順眼的底色。 */
+export function skyGradient(THREE, top = '#0d141e', bottom = '#242c40'){
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 512;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bottom);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 512);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
 /* 相機。2026-08-04 kc 定案壓低:「29 高那張看起來像地圖」。
    高 9、距 17 是站在街上的高度,磁磚跟柏油在這個距離才看得到質感。

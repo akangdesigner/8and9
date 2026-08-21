@@ -366,9 +366,11 @@
 <script src="lib/scene-store-front.js"></script>
 <script src="lib/scene-home.js"></script>
 <script src="lib/scene-bedroom.js"></script>
+<script src="lib/scene-school.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
 <script src="lib/npc-temple.js"></script>
+<script src="lib/npc-school.js"></script>
 <script src="../src/tags.js"></script>
 <script type="importmap">
 { "imports": {
@@ -382,7 +384,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
-import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC, RIDE_POSE } from './lib/scene-city3d.js';
+import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGradient } from './lib/scene-city3d.js';
 
 /* ===================================================================
    共用狀態 —— 兩層都吃同一份。走進超商買東西，出來街上錢就少了。
@@ -402,6 +404,25 @@ import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC, RIDE_POSE } from '
 const ST = { money:2000, full:42, calm:55, cool:8, mood:60, stamina:100, star:-30 };
 let minute = 20*60 + 14, day = 3;
 const DAYS = ['日','一','二','三','四','五','六'];
+/* 日期敘事化(2026-08-21,kc:「第一天是開學第一天是9/1」)——`day` 這個
+ * 計數器本身不動(現在從 3 開始,不是 1,見上面 `let minute = ..., day = 3`
+ * 那行——已經有 story-bet.js/story-drink.js 好幾個節點寫死用絕對 day 值
+ * 觸發,day=3 那個值一開局就會馬上命中母親線第一個節點,改成從 1 開始
+ * 會把所有既有節點往後延 2 天,等於重新調過一次已經調好的步調,沒必要)。
+ * 只是加一層「day 數字 → 真的日期字串」的換算,錨點訂在「game.html 一開局
+ * 那個 day 值(3)= 9/1」,不是「day=1 = 9/1」——兩者最後看到的字串一樣
+ * (玩家一開局就是看到 9/1),差別只在程式內部怎麼對應,不影響任何既有
+ * 節點的觸發時機。這樣「註冊單」才能顯示真的繳交期限,不是抽象的
+ * 「還剩幾天」。閏年/精確到哪一年這輪不用管——這遊戲沒有釘死是哪一年,
+ * 月份天數表夠用就好。 */
+const MONTH_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const GAME_START_DAY = 3, START_MONTH = 9, START_DATE = 1;
+function dayToDate(d){
+  let n = START_DATE + (d - GAME_START_DAY), m = START_MONTH;
+  while(n > MONTH_DAYS[m-1]){ n -= MONTH_DAYS[m-1]; m = m % 12 + 1; }
+  while(n < 1){ m = (m + 10) % 12 + 1; n += MONTH_DAYS[m-1]; }
+  return m + '/' + n;
+}
 
 /* 標籤:直接用 src/tags.js 的核心，不自己發明一套 */
 /* 開局不再帶「單親」(2026-08-19 拿掉):這個標籤的 detail 寫死「只有
@@ -445,6 +466,23 @@ function studyGainKnowledge(){
     toast(`你把零散的知識拼湊起來，好像有點懂這本書在講什麼了。\n（略懂書本內容 ×${KNOWLEDGE.rough}）`, 3800);
   } else {
     toast(`你看了一個小時的書，不確定記住了多少。\n（少少的知識 ${KNOWLEDGE.small}/10）`, 3200);
+  }
+}
+/* 偷玩手遊(2026-08-21,kc 給的「上課就好 或是偷玩手遊」兩個方向的第二個)
+ * ——沒有真的一個「教官在不在看你」的狀態可以讀(跟 steal() 靠店員朝向
+ * 判定不同層級,教室這輪只是灰模,還沒有那種細節),先用機率(30% 被抓)
+ * 頂著,量級比刺青那種大事輕很多(星 −4、歸屬感 −6),抓到人用既有的
+ * JIAOGUAN 角色,呼應他本來就是校內巡邏抓人的定位。沒被抓只有情緒
+ * +6,**沒有知識**——這是重點,偷懶就是換不到「認真上課」那份累積。 */
+function playPhoneInClass(){
+  if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+  chg('stamina', -5); advanceTime(60);
+  if(Math.random() < 0.3){
+    chg('star', -4); chg('calm', -6);
+    say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
+  } else {
+    chg('mood', 6);
+    toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
   }
 }
 
@@ -573,8 +611,12 @@ function openInventory(){
   const qHost = document.getElementById('invQuests');
   qHost.innerHTML = '';
   if(TUITION_QUEST && !TUITION_QUEST.paid){
+    /* 2026-08-21 kc:「有明確繳交期限」——原本只顯示「還剩幾天」,補上真的
+       日期(dayToDate()),「還剩幾天」留著當補充,不是取代——兩個一起看
+       比較直覺(截止日 9/30、還剩幾天)。 */
     const left = TUITION_QUEST.dueDay - day;
     const detail = `註冊單：<span class="amt">$${TUITION_QUEST.amount}</span> 還沒繳<br>` +
+      `截止日：${dayToDate(TUITION_QUEST.dueDay)}<br>` +
       (left > 0 ? `還剩 ${left} 天` : `已經過期 ${-left} 天`);
     const el = document.createElement('div');
     el.className = 'itemCard';
@@ -630,7 +672,11 @@ function syncHUD(){
   starI.style.width = starHalf + '%';
   starI.style.left = (ST.star >= 0 ? 50 : 50 - starHalf) + '%';
   document.querySelector('#clock .t').textContent = fmtTime(minute);
-  document.querySelector('#clock .d').textContent = '週' + DAYS[day%7];
+  /* 2026-08-21:這格原本是寫死的「週三」。同一天 kc 自己也在改這一行
+     (把它接成 `'週'+DAYS[day%7]` 那個算式),跟我這輪加的 `dayToDate()`
+     撞在同一個 `.d` 元素上——兩個都對,不是二選一,合併成一行(日期＋
+     星期),不要留兩條互相蓋掉的寫入。 */
+  document.querySelector('#clock .d').textContent = dayToDate(day) + ' 週' + DAYS[day%7];
   function set(id, txt, pct){
     const pod = document.getElementById(id);
     pod.querySelector('.nm').textContent = txt;
@@ -647,6 +693,13 @@ function chg(k, d){
      不再只往一個方向長。其餘指標維持原本 0~100。 */
   if(k === 'star') ST[k] = Math.max(-100, Math.min(100, ST[k]));
   else if(k !== 'money') ST[k] = Math.max(0, Math.min(100, ST[k]));
+  /* 體力低於 50 又還沒去學校的提醒,見上面 schoolRemindedDay 那則筆記。
+     跳在數值飄字之後沒有先後順序上的講究,只是程式碼寫在這裡比較順——
+     兩個都是這次 chg() 呼叫的副作用,誰先跳不影響觀感。 */
+  if(k === 'stamina' && ST.stamina < 50 && lastSchoolDay !== day && schoolRemindedDay !== day){
+    schoolRemindedDay = day;
+    toast('你想到，你今天還沒去學校。', 3000);
+  }
   syncHUD();
   const el = document.getElementById({money:'pMoney',full:'pFull',calm:'pCalm',cool:'pCool',mood:'pMood',stamina:'pStamina',star:'pStar'}[k]);
   el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
@@ -740,6 +793,19 @@ const WHO = {
      上,見 ACHENG/AYI 那兩則筆記的先例)。這次先把頭像/WHO 準備好,下次
      要幫他接對話再直接用。 */
   yuan:  { name:'阿源', opt:{ face:'F', skin:'#c9976e', hair:'#d9a53a', top:'#3a1010', topD:'#2a0a0a', pants:'#2b2b2b' } },
+  /* 學校三個(2026-08-21)——沒有真人照片,退回 SF.person() 像素小人,見
+     drawPortrait() 的 fallback。校服當底色:小美/阿仁白上衣深藍褲裙,
+     教官卡其軍訓服。 */
+  mei:      { name:'小美', opt:{ face:'F', skin:'#dcae86', hair:'#3a2e26', top:'#f2f0ea', topD:'#d8d4c8', pants:'#28304a' } },
+  jiaoguan: { name:'教官', opt:{ face:'F', skin:'#c9a077', hair:'#232323', top:'#5c6a4a', topD:'#3f4a36', pants:'#2c3a2c' } },
+  aren:     { name:'阿仁', opt:{ face:'F', skin:'#c9976e', hair:'#2c2420', top:'#f2f0ea', topD:'#d8d4c8', pants:'#28304a' } },
+  /* 小美哥(2026-08-21)——警察制服深藍,跟其他角色的便服拉開差異。 */
+  brother:  { name:'小美哥', opt:{ face:'F', skin:'#c2a17e', hair:'#1c1c1c', top:'#2b3a52', topD:'#1e2a3c', pants:'#1c2430' } },
+  /* 阿伯(2026-08-21)——TROUPE 這輪第一次真的被消費(rejectRep/兵器/規矩/
+     出陣那幾段他開口),沒有 3D 模型(體型跟現有骨架差太多,見 DESIGN_NOTES
+     「3D 街上的角色」),跟 mom/dad 同一套「沒有模型只有 WHO 頭像」做法。
+     灰髮示意年紀。 */
+  bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
   /* 收銀小遊戲的客人(2026-08-19)——沒有固定角色設定,顏色隨便挑一組跟
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
@@ -833,7 +899,7 @@ function openMenu(cap, items){
    3D 街區
    =================================================================== */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0d141e);
+scene.background = skyGradient(THREE);
 scene.fog = new THREE.FogExp2(0x0d141e, 0.0058);
 
 const camera = new THREE.PerspectiveCamera(CAM.fov, innerWidth/innerHeight, 0.1, 400);
@@ -940,8 +1006,48 @@ const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:f
    個布林值改成讀真正的完成條件就好,talkToYuan() 的判斷邏輯不用重寫。
    「跟學校女生交往也會加值」這句這輪直接簡化成「hasGirlfriend 為真」同一
    個布林值,沒有另外做一個獨立的數值加成——小美線真的接上、有真正的
-   交往進度可以讀之後,這裡可以再拆細。 */
-const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:false, hasGirlfriend:false, friend:false };
+   交往進度可以讀之後,這裡可以再拆細。
+   2026-08-21 更新:hasTattoo 這輪多了一個真的消費者(見下面 JIAOGUAN),
+   但它本身還是手動開關,不是真的刺青店完成條件——刺青店接上之後兩邊
+   一起換掉。hasGirlfriend 還是純手動,小美線這輪只接到 mei2(約過一次
+   會),還沒到 mei3(正式交往),語意上還不能撥成真,見 npc-school.js
+   開頭那則筆記。 */
+const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:false, hasGirlfriend:false, friend:false,
+               practiceIdx:0, debuted:false };
+
+/* 學校三人(2026-08-21)——接 lib/quests.js SCHOOL 那組資料,見
+   npc-school.js 開頭的筆記(哪幾條這輪做、哪幾條先跳過)。座標挑在中華路
+   東側那座小公園裡(scene-city3d.js park(),x:42~61/z:-27~-16 那塊草地),
+   不用另外蓋一棟學校建築——這座公園本來就是放學後會晃過去的地方,跟
+   阿姨/阿成借用既有攤位是同一個邏輯。座標第一版直接抓 x:42~66 範圍內的
+   數字,結果貼著西側矮圍籬(city.colliders 量到在 x:42,hw:.2)太近,
+   鏡頭角度會把圍籬外的店面招牌整個帶進畫面(截圖核對抓到的),不是真的
+   卡進碰撞箱,是構圖很亂——這版全部往內挪、也避開鞦韆(54,-21.5)/
+   滑梯(49.15,-21.5)/翹翹板(59.6,-21.5)/長椅(46,-18.5)這些
+   `__dbg.city.colliders` 量出來的既有碰撞箱,西側留至少 1 個單位淨空。
+   三人兩兩間距 4+,不會互相搶到同一個互動判定範圍(3.2)。 */
+const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
+                    together:false, togetherSinceDay:null, visitedHome:false, cooling:false,
+                    loanAsked:false, loan:0, loanDay:null, loanUnpaid:false };
+const JIAOGUAN = { x:43, z:-18.5, confronted:false };
+const AREN     = { x:45, z:-22,   offered:false };
+/* 小美哥(2026-08-21)——站在後火車站的人行道上,那個 gap 空地,不用蓋新
+   建築。座標跟其他街上固定 NPC 同一套(阿姨/阿成那種常數座標量距離,不用
+   讀 group.position)。z 第一版用 57,結果太貼近建築(鏡頭會卡進牆面貼圖
+   特寫,截圖核對抓到的),挪到 64——同時抓到 `__dbg.near()` 測距離不可靠
+   這件事,那個函式量的是 mesh 自己的 transform 原點不是視覺表面,街上
+   建築是大型 box mesh,原點可能離視覺牆面很遠,「附近沒東西」不代表真的
+   沒東西。之後要確認某個座標能不能站人,用 `__dbg.at()` 傳過去截圖肉眼
+   看,不要只信 `near()` 的數字,見 DESIGN_NOTES「小美哥」那節。
+   2026-08-21 同一天第二次挪:街道骨架收緊,後火車站本身從 72 挪到 84
+   (見 scene-city3d.js CITY 定義那則筆記,kc 同時在做的),64 這個數字
+   跟著整條路一起飄走,z=76 一開始沒仔細核對就直接照差值(+12)加回去,
+   結果又卡進牆面特寫——重新用 `__dbg.at()` 逐格截圖核對,z=74 才是真的
+   乾淨的位置(z=76 只差 2 個單位就會卡牆,margin 比想像中窄)。學校門面
+   (id:'school',x:-36)這輪也是用同一招現場核對出 z=68 才是乾淨的
+   sidewalk,兩邊算出來的「離路面偏移量」不是同一個數字(6 vs 11.5),
+   不要假設整條路兩側偏移量對稱,每個新座標都要重新核對,不能用算的。 */
+const BROTHER  = { x:48, z:74, met:false };
 
 /* 街頭藝人(2026-08-20,kc 追加:「手上要拿吉他」)——拉出來宣告成獨立
  * 變數,因為要在模型載入完成後把吉他掛到他身上(骨架是非同步載入的,
@@ -1012,7 +1118,23 @@ const NPCS = [
     x:ACHENG.x, z:ACHENG.z, rotationY:Math.PI, rig:'m3',
     skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038'
   }),
-  buskerNPC
+  buskerNPC,
+  buildNPC(THREE, scene, {                             // 小美・隔壁班(見上面 MEI 那則筆記),站在公園草地上
+    x:MEI.x, z:MEI.z, rotationY:Math.PI*.4, rig:'f2',
+    skin:'#dcae86', hair:'#3a2e26', hood:'#f2f0ea', pants:'#28304a', shoe:'#3a3a3a'
+  }),
+  buildNPC(THREE, scene, {                             // 教官・巡邏(見上面 JIAOGUAN 那則筆記)
+    x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*1.1, rig:'m2',
+    skin:'#c9a077', hair:'#232323', hood:'#5c6a4a', pants:'#2c3a2c', shoe:'#1c1c1c'
+  }),
+  buildNPC(THREE, scene, {                             // 阿仁・蹺課常客(見上面 AREN 那則筆記)
+    x:AREN.x, z:AREN.z, rotationY:Math.PI*.6, rig:'m3',
+    skin:'#c9976e', hair:'#2c2420', hood:'#f2f0ea', pants:'#28304a', shoe:'#4a4038'
+  }),
+  buildNPC(THREE, scene, {                             // 小美哥・後火車站巡邏(見上面 BROTHER 那則筆記)
+    x:BROTHER.x, z:BROTHER.z, rotationY:Math.PI*.5, rig:'m2',
+    skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c'
+  })
 ];
 
 /* 中華路⇄廟口路那條巷子(2026-08-17,kc 要求)——kc 原話「這裡是嫖妓專用
@@ -1181,10 +1303,13 @@ const PEDESTRIANS = [
   buildNPC(THREE, scene, { x:65, z:-13.5,
     path:[[65,-13.5,3000],[65,-11],[-58,-11],[-58,-13.6,3000]], rig:'m2',
     skin:'#b98a63', hair:'#3a3128', hood:'#4a4a3a', pants:'#26241f', shoe:'#3a3430' }),
-  // 廟埕攤子 ⇄ 小公園,各停 4 秒——中間 (-22,-78)/(-24,-78)/(-24,-13.6)/
-  // (54,-13.6) 沿著巷子(x=-24 那條)+中華路走出去,不是直接切過整片街區
+  // 廟埕攤子 ⇄ 小公園,各停 4 秒——中間 (-22,-84)/(-24,-84)/(-24,-13.6)/
+  // (54,-13.6) 沿著巷子(x=-24 那條)+中華路走出去,不是直接切過整片街區。
+  // z:-78→-84(2026-08-21 街道骨架收緊,廟口路本身挪到 -84,見
+  // scene-city3d.js CITY 定義那則筆記)——這兩個轉角本來就是「走到廟口路
+  // 再轉進巷子」的路口點,要跟著路一起挪,不然會在半空(舊路口位置)轉彎。
   buildNPC(THREE, scene, { x:-22, z:-89,
-    path:[[-22,-89,4000],[-22,-78],[-24,-78],[-24,-13.6],[54,-13.6],[54,-18,4000]], rig:'f2',
+    path:[[-22,-89,4000],[-22,-84],[-24,-84],[-24,-13.6],[54,-13.6],[54,-18,4000]], rig:'f2',
     skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' }),
   // 廟埕兩顆攤子之間來回,各停 2.5 秒——座標沒動(kc 之前就核對過不穿模),
   // 這隻只補停留時間,不是重新繞路:廟埕中段(供桌/香爐/阿源阿姨那一帶)
@@ -1561,6 +1686,20 @@ const BEDROOM_COLLIDERS_PHOTO = [];
 const BEDROOM_WALK_TWEAK = { spawnPx: 148, minPx: 148, maxPx: 388 };
 let HOME = HOME_FALLBACK, HOME_COLLIDERS = HOME_COLLIDERS_FALLBACK;
 let BEDROOM = BEDROOM_FALLBACK, BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_FALLBACK;
+/* 教室(2026-08-21)——只有灰模,還沒有照片版(scene-school.js 的
+   shop-school.png 也還沒生),所以不像 HOME/BEDROOM 那樣有 FALLBACK/PHOTO
+   兩組互換,先只有一組。之後 kc 生完教室照片,照 HOME_PHOTO/BEDROOM_PHOTO
+   的先例再補一個 SCHOOL_PHOTO + Image().onload 切換,這裡不用重寫。
+   沒有碰撞框(桌椅只是背景裝飾,不擋路),inBlocked() 對未知 PLACE 本來就
+   回傳 []。 */
+const SCHOOL_FALLBACK = {
+  walkN: SceneSchool.WALK_N, walkS: SceneSchool.WALK_S,
+  spots: [
+    { id:'door', name:'走廊', x:SceneSchool.W-68, w:60, y0:SceneSchool.WALK_N, y1:SceneSchool.WALK_S },
+    { id:'desk', name:'座位', x:SceneSchool.DESK.x-10, w:SceneSchool.DESK.w+20, y0:SceneSchool.WALK_N, y1:SceneSchool.WALK_S }
+  ]
+};
+let SCHOOL = SCHOOL_FALLBACK;
 
 /* naturalWidth(不是 complete!)——圖片 404 時 complete 一樣會變 true,
    naturalWidth 才分得出「真的載入成功」還是「找不到檔案」。跟超商
@@ -1803,6 +1942,15 @@ function paintBedroomBackdrop(){
     gbg.restore();
   }
 }
+/* 教室(2026-08-21)——還沒有照片(shop-school.png 都還沒生了,教室照片
+   更不用說),先固定畫灰模,沒有 img.complete 判斷那段。之後真的生了
+   教室照片,照 paintBedroomBackdrop() 的先例補一個 Image()/onload。 */
+function paintSchoolBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  gbg.save(); gbg.scale(SC,SC);
+  SceneSchool.renderBackground(gbg, { vignette:true, deskFront:true });
+  gbg.restore();
+}
 
 /* 身高:畫面固定,不管站多遠(kc 2026-08-12 定案,見 DESIGN_NOTES)。
    正交鏡頭下世界單位跟畫面 px 是固定的 1:1,不用再像透視鏡頭那樣每幀用
@@ -1818,7 +1966,11 @@ function paintBedroomBackdrop(){
 const HERO_TARGET_PX = {
   store: 106 * 1.3 * SC,   // 275.6,定案不再調
   home: 296,
-  bedroom: 320   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
+  bedroom: 320,   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
+  /* 教室(2026-08-21)——還沒有真照片可以量,先借房間那個數字(場景規格
+     是同一套 640×360/depthScale 公式,尺度先假設接近),真照片生出來再
+     肉眼核對調整,不用等這個數字才能先讓場景動起來。 */
+  school: 320
 };
 const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad/spawnMom 那些除錯用的定格截圖工具用,跟超商比例校正
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
@@ -1904,11 +2056,16 @@ function buy(price, feed, mood, line){
 /* 偷:判定的是「按下去那一刻店員朝哪邊」,不是骰子。當下沒被抓不代表安全
    ——見下面 updateIndoor() 店員轉身那段,轉回正面時如果玩家還在店內、
    手上還有沒安全脫身的贓款(pendingTheft),事後會被抓一次算總帳。 */
+/* 2026-08-21 kc:「偷東西也要扣體力」——扣 −3(不是體力活,是緊張/腎上
+   腺素的消耗,量級比對話輕,比撿垃圾/摸貓狗那批稍重)。跟被抓不被抓
+   無關,固定扣,判定前先擋體力歸零,跟其他扣體力入口同一套做法。 */
 function steal(feed){
   if(day === stealCaughtDay){
     toast('店長剛剛才盯過你一次,今天別想了。', 2400);
     return;
   }
+  if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+  chg('stamina', -3);
   if(IN.clerkFace !== 'B'){
     chg('star',-1); chg('calm',-16);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
     say('clerk', '「同學。」\n\n他沒有把話講完。\n他只是看著你，等你自己把東西放回去。',
@@ -1954,8 +2111,9 @@ function openIndoorSpot(id){
        換成」,是選項不是自動觸發)。 */
     else if(id === 'desk'){
       const items = [
-        { label:'讀書', cost:'體力 −5　1 小時', run:() => {
-          chg('stamina', -5); advanceTime(60);
+        { label:'讀書', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
+          if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+          chg('stamina', -10); advanceTime(60);
           studyGainKnowledge();
         } }
       ];
@@ -1968,6 +2126,27 @@ function openIndoorSpot(id){
       });
       items.push({ label:'不讀了', cls:'back', run(){} });
       openMenu('書桌', items);
+    }
+    return;
+  }
+  /* 教室(2026-08-21,kc:「學校也要建2d場景」)——跟 store 一樣是從 3D 街上
+     的門直接進來(不是像房間那樣嵌在另一個室內場景裡),所以「門」直接
+     呼叫 leaveIndoor(),不用另外寫 leaveSchool()。座位互動有兩個選項
+     (kc 給的兩個方向:「上課就好 或是偷玩手遊」)——上課沿用書桌讀書
+     那套(體力 −10 換知識),偷玩手遊體力扣比較少(−5,沒有真的在動腦)
+     但有被教官抓到的風險,細節見 playPhoneInClass()。 */
+  if(PLACE === 'school'){
+    if(id === 'door'){ leaveIndoor(); return; }
+    else if(id === 'desk'){
+      openMenu('座位', [
+        { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
+          if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+          chg('stamina', -10); advanceTime(60);
+          studyGainKnowledge();
+        } },
+        { label:'偷玩手遊', cost:'體力 −5　1 小時　看教官', cls:'risk', run: playPhoneInClass },
+        { label:'不要', cls:'back', run(){} }
+      ]);
     }
     return;
   }
@@ -2016,10 +2195,19 @@ function openIndoorSpot(id){
        stealCaughtDay 同一招:記「上次上班是哪一天」,今天已經上過班了
        選項還在,點下去只丟 toast 說明,不是直接把選項藏起來(藏起來玩家
        會搞不懂「上班」怎麼不見了,steal() 那套已經驗證過這樣比較清楚)。 */
+    /* 2026-08-21 kc:「工作...都會扣體力」——一整輪班(3 小時收銀)扣 −40
+      (第一版 −20,同一天第二輪 kc 要求連同對話/讀書一起調重,見
+      interactProp() 上面那則筆記),比對話/讀書都重,做完一輪班應該要
+      累到想回家。體力歸零擋在開班之前,不是開下去才發現扣成負的
+      (chg() 本來就會 clamp 在 0,但擋在門口訊息比較清楚,跟讀書/對話
+      那兩處做法一致)。 */
     if(IN.hired) items.push({ label:'上班',
-      cost: day === workedDay ? '今天上過班了' : '翹課,開始收銀',
+      cost: day === workedDay ? '今天上過班了' : (ST.stamina<=0 ? '體力不夠' : '翹課,開始收銀　體力 −40'),
+      cls: (day !== workedDay && ST.stamina<=0) ? 'bad' : '',
       run: () => {
         if(day === workedDay){ toast('店長說今天班表滿了,明天再來。', 2400); return; }
+        if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+        chg('stamina', -40);
         startCheckoutShift();
       } });
     items.push({ label:'看店員在幹嘛', cost:'', run:() =>
@@ -2166,6 +2354,30 @@ function coFade(label, mid){
 let CO = null;   // 一整個班的執行狀態,null 表示沒在上班
 let CO_SAVED = null;   // 上班前的玩家位置/朝向,下班還原用
 let workedDay = -1;   // 上次上班是哪一天,見上面「上班」選單那段一天一次的判斷
+/* 上課出席(2026-08-21,kc:「怎麼規定學生要上課」→「沒上課會扣風評」)
+ * ——跟 workedDay 同一套「記今天有沒有做過」旗標,不是另開新系統。
+ * 走進學校(enterIndoor() 的 PLACE==='school' 分支)就算「今天有去」,
+ * 不管進去之後選上課還是偷玩手遊,出席本身是這個旗標要記的事,不是
+ * 有沒有認真——認真不認真那條線已經在座位互動的兩個選項分開算了。
+ * 沒有真的星期幾可以判斷「今天是不是上課日」(HUD 那個「週三」是寫死的
+ * 靜態文字,不是真的算出來的星期幾),先簡化成「每天都算上課日」,之後
+ * 真的有平日/週末系統再收窄。在 sleep() 結算,不是 advanceTime() 的
+ * 午夜翻頁那條路——那是「玩到自然跨夜」的邊角案例,這遊戲「一天結束」
+ * 的正規動作是回家睡覺(見 DESIGN_NOTES「回家睡覺」節),用那個當結算
+ * 時機點。
+ * 2026-08-21 同一天下一輪,kc 問「第一天呢」——**第一版理解反了**,
+ * 改成初始值 = `day` 等於給開局那天寬限、不提醒也不扣分,kc 糾正
+ * 「第一天就要提醒要去上學啊」:第一天不該是例外,要跟其他天一樣正常
+ * 提醒、正常結算。改回 -1(任何合法 day 值都不會等於它),第一天就會
+ * 跟之後每一天同一套規則走,沒有特殊放水。 */
+let lastSchoolDay = -1;
+/* 體力低於 50 又還沒去學校的提醒(2026-08-21,kc:「體力如果低於50會
+ * 提醒今天還沒去上學呢」)——跟 lastSchoolDay 同一套「記今天有沒有做過」
+ * 旗標,擋掉一天只跳一次,不是體力每掉一點就跳一次吵死人。判斷點放在
+ * chg() 裡(見下面 chg() 的補丁),不是另外開一個每幀輪詢的迴圈——體力
+ * 本來就只在明確的動作(對話/讀書/工作/陣頭/偷東西...)發生時才會變,
+ * 靠 chg() 這個必經之路檢查,時機點自然就對了,不用額外掃描。 */
+let schoolRemindedDay = -1;
 function startCheckoutShift(){
   busy = true;
   workedDay = day;
@@ -2478,7 +2690,8 @@ function updateIndoor(dt){
     }
   }
 
-  const bounds = PLACE === 'store' ? STORE : PLACE === 'home' ? HOME : BEDROOM;
+  const bounds = PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
+               : PLACE === 'school' ? SCHOOL : BEDROOM;
 
   let dx=0, dy=0;
   if(keys['a']||keys['arrowleft'])  dx -= 1;
@@ -2596,6 +2809,7 @@ function fade(label, mid){
  * 「離開室內」＋「跳一天」兩件事一起做。 */
 function sleep(){
   busy = true;
+  const skippedSchool = lastSchoolDay !== day;   // 結算今天(睡覺當下的 day,還沒 ++)有沒有去學校
   fade('回家睡了一覺', () => {
     chg('stamina', 100 - ST.stamina);
     minute = 7*60; day++;
@@ -2605,20 +2819,23 @@ function sleep(){
     wlabelsEl.style.display = '';
     hero.group.position.set(returnTo.x, .3, returnTo.z);
     syncHUD();
-    toast('你回去睡了一覺,體力補滿了。', 3000);
+    if(skippedSchool) chg('star', -3);
+    toast(skippedSchool
+      ? '你回去睡了一覺，體力補滿了。\n（今天沒去學校，風評 −3）'
+      : '你回去睡了一覺，體力補滿了。', 3400);
   });
 }
 function enterIndoor(door){
-  if(door.id !== 'store' && door.id !== 'home'){
+  if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school'){
     toast(door.name + ' 的室內場景還沒做。（刺青店在 tattoo-room.html,還沒接進來）', 3600);
     return;
   }
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
   walkIn = { x: door.x, z: door.z, done(){
-    fade(door.id === 'store' ? '超商' : '家', () => {
+    fade(door.id === 'store' ? '超商' : door.id === 'school' ? '學校' : '家', () => {
       MODE = 'indoor';
-      PLACE = door.id === 'store' ? 'store' : 'home';
+      PLACE = door.id === 'store' ? 'store' : door.id === 'school' ? 'school' : 'home';
       document.getElementById('city').style.display = 'none';
       wlabelsEl.style.display = 'none';   // 進門後停止更新,不然殘留位置疊在室內畫面上
       document.getElementById('indoor').classList.add('on');
@@ -2637,6 +2854,15 @@ function enterIndoor(door){
            `where` 標籤卻顯示上一個場景的背景。這裡補回來,每次真的走進
            超商都重畫一次,不能只靠頁面載入那一次。 */
         paintStoreBackdrop();
+      } else if(PLACE === 'school'){
+        /* 一進門站在走廊門口(SCHOOL.spots id:'door',在畫面右側,見
+           scene-school.js「往右走可以走到走廊」那則筆記),照 store 的
+           先例站在門口正中央、面朝 'F' 轉身往教室裡走,不要生成在座位
+           那格中間。 */
+        IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
+        document.getElementById('where').textContent = '學校';
+        paintSchoolBackdrop();
+        lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
       } else {
         IN.px = 90; IN.py = HOME.walkS; IN.face = 'F';
         document.getElementById('where').textContent = '家';
@@ -3061,6 +3287,16 @@ function updateCity(dt){
       nearProp = { type:'acheng', ref:ACHENG };
     if(!nearProp && Math.hypot(pos.x-YUAN.x, pos.z-YUAN.z) < 3.2)
       nearProp = { type:'yuan', ref:YUAN };
+    /* 學校三人(2026-08-21)——固定站點,跟阿姨/阿成/阿源同一套,半徑用
+       3.2(站在開闊草地上,不像攤位需要放寬)。 */
+    if(!nearProp && Math.hypot(pos.x-MEI.x, pos.z-MEI.z) < 3.2)
+      nearProp = { type:'mei', ref:MEI };
+    if(!nearProp && Math.hypot(pos.x-JIAOGUAN.x, pos.z-JIAOGUAN.z) < 3.2)
+      nearProp = { type:'jiaoguan', ref:JIAOGUAN };
+    if(!nearProp && Math.hypot(pos.x-AREN.x, pos.z-AREN.z) < 3.2)
+      nearProp = { type:'aren', ref:AREN };
+    if(!nearProp && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 3.2)
+      nearProp = { type:'brother', ref:BROTHER };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
        讀 npc.group.position。純背景路人,不記名字、不分支對話,一句隨機
@@ -3079,6 +3315,35 @@ function updateCity(dt){
     ALLEY_WORKER.heard = true;
     toast('「小帥哥,要不要休息一下?」', 2600);
   }
+  /* 小美騎車搭話(2026-08-21,kc:「帥潮>22 後騎機車去找她,她會問可以
+     載我出去玩嗎」)——跟上面 ALLEY_WORKER.heard 同一套「範圍內單次觸發」,
+     但這裡要開對話+選單,不是單純 toast,所以額外擋 !dlg.on/!busy,不然
+     可能跟其他正在進行的對話疊在一起。半徑用 6(比走路互動的 3.2 寬——
+     騎車速度快,窄範圍很容易一晃就錯過;比 ALLEY_WORKER 的 9 窄,不用
+     整條路都聽得到)。獨立於 met/dated 進度,見 npc-school.js rideHook
+     那則筆記——觸發時如果還沒 met 會順便補上,但不動 dated,順風車不算
+     mei2 那筆正式約會。 */
+  if(!MEI.rideAsked && ridingMoto && ST.cool >= 22 && !dlg.on && !busy &&
+     Math.hypot(pos.x-MEI.x, pos.z-MEI.z) < 6){
+    MEI.rideAsked = true;
+    if(!MEI.met) MEI.met = true;
+    const D = NpcSchool.MEI;
+    playBeats(D.rideHook, 0, () => {
+      openMenu('小美', [
+        { label:'載她一圈', cls:'', run(){
+            playBeats(D.rideBeats, 0, () => {
+              chg('calm', 10); chg('cool', 2);
+              advanceTime(20);
+              toast(D.rideQuiet, 3200);
+            });
+          } },
+        { label:'「改天啦。」', cls:'back', run(){
+            chg('calm', -3);
+            say('mei', '「喔，好啊。」她笑了一下，沒有很失望，但也沒再多說。');
+          } }
+      ]);
+    });
+  }
 
   if(nearDoor && !busy && !dlg.on){
     hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> 進去';
@@ -3094,6 +3359,10 @@ function updateCity(dt){
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
                       : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
                       : nearProp.type === 'yuan' ? '按 <b>空白鍵</b> 找阿源'
+                      : nearProp.type === 'mei' ? '按 <b>空白鍵</b> 找小美'
+                      : nearProp.type === 'jiaoguan' ? '按 <b>空白鍵</b> 找教官'
+                      : nearProp.type === 'aren' ? '按 <b>空白鍵</b> 找阿仁'
+                      : nearProp.type === 'brother' ? '按 <b>空白鍵</b> 跟他說話'
                       : nearProp.type === 'pedestrian' ? '按 <b>空白鍵</b> 打聲招呼'
                       : '按 <b>空白鍵</b> 撿起垃圾';
     hintEl.classList.add('on');
@@ -3186,7 +3455,12 @@ function dismountMoto(){
    還沒做,先加 window.__dbg.joinedTroupe(true) 這個開關讓 kc 現場測,
    之後陣頭真的做出來,把判斷條件換成真正的完成旗標就好,價格/文案邏輯
    不用重寫。兩攤都吃這個折扣(阿成事件裡講的「以後跟我拿東西都算自己人
-   價」,阿姨那邊沒特別講但邏輯一致,算廟口整體對「自己人」的待遇)。 */
+   價」,阿姨那邊沒特別講但邏輯一致,算廟口整體對「自己人」的待遇)。
+   2026-08-21 更新:音遊(跳陣頭本體)還是沒做,但「加入陣頭練習」這個
+   前置狀態機這輪真的接了(見 talkToYuan() TROUPE 那段),joinedTroupe
+   現在會被真的門檻(TROUPE.need:cool≥25 且風評≥-30)撥成 true,不再
+   只靠 __dbg 手動切——這條註解原本說的「之後換成真旗標」這輪算完成了
+   一半,音遊本體還是空的。 */
 let joinedTroupe = false;
 const AYI_DATA = NpcTemple.NPCS.find(n => n.id === 'ayi');
 const ACHENG_DATA = NpcTemple.NPCS.find(n => n.id === 'acheng');
@@ -3274,7 +3548,45 @@ function talkToAcheng(){
    4. 兩個條件都滿足:觸發 becomeFriend 里程碑,friend 從此恆真,之後只是
       單純聊天(退回 talk[] 隨機句,不再檢查門檻)。 */
 const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
+/* 陣頭(TROUPE)——2026-08-21 這輪第一次真的接,見 npc-temple.js TROUPE
+   那則長筆記。門檻(cool≥25 且風評≥-30)一滿足就優先於下面「好朋友」
+   那條線,連續吃掉 5 次拜訪(4 次練習 + 1 次出陣),消耗完 `YUAN.debuted`
+   才 fall through 到原本邏輯——不會永久卡住友情線,因為 TROUPE 門檻
+   (cool≥25)比「好朋友」門檻(cool>30)低,通常會先被吃完。
+   ⚠ `rejectCool`/`rejectRep`(不夠格時看到什麼)**這輪沒有接**——門檻
+   沒到就直接 fall through,不會顯示拒絕場景。原因:阿源本來就有一套
+   按拜訪次數觸發的 lowCool events(at:3/at:6)在帥潮不夠時運作,如果
+   讓 TROUPE 未達標也搶著攔截每次對話,會把那套既有內容永久蓋掉——
+   這輪只接「夠格之後會發生什麼」,「不夠格主動去問會被怎麼拒絕」留給
+   之後真的要做陣頭音遊時一起處理。 */
 function talkToYuan(){
+  if(!YUAN.debuted){
+    const gate = NpcTemple.TROUPE.need;
+    if(ST.cool >= gate.cool && ST.star >= gate.repMin){
+      joinedTroupe = true;
+      const practice = NpcTemple.TROUPE.practice;
+      if(YUAN.practiceIdx < practice.length){
+        const ev = practice[YUAN.practiceIdx];
+        YUAN.practiceIdx++;
+        playBeats(ev.beats, 0, () => {
+          if(ev.calm) chg('calm', ev.calm);
+          if(ev.cool) chg('cool', ev.cool);
+          if(ev.stamina) chg('stamina', ev.stamina);
+          if(ev.quiet) toast(ev.quiet, 3400);
+        });
+        return;
+      }
+      const ev = NpcTemple.TROUPE.debut;
+      YUAN.debuted = true;
+      playBeats(ev.beats, 0, () => {
+        if(ev.calm) chg('calm', ev.calm);
+        if(ev.cool) chg('cool', ev.cool);
+        if(ev.stamina) chg('stamina', ev.stamina);
+        if(ev.quiet) toast(ev.quiet, 3400);
+      });
+      return;
+    }
+  }
   if(YUAN.friend){
     YUAN.visits++;
     say('yuan', YUAN_DATA.talk[Math.random()*YUAN_DATA.talk.length|0]);
@@ -3319,6 +3631,201 @@ function talkToYuan(){
   } else {
     say('yuan', YUAN_DATA.lowCoolTalk[Math.random()*YUAN_DATA.lowCoolTalk.length|0]);
   }
+}
+/* 學校三人(2026-08-21)——接 lib/npc-school.js,見那份檔案開頭的筆記
+   (跟 quests.js SCHOOL 的對應關係、這輪做了哪幾條)。三個函式形狀不完全
+   一樣,因為三條任務本身門檻的形狀不一樣(帥潮門檻/一次性旗標/一次性
+   branch),沒有硬套同一個共用函式。 */
+function talkToMei(){
+  const D = NpcSchool.MEI;
+  if(!MEI.met){
+    /* 2026-08-21 kc 糾正:帥潮不夠不是「她沒看到你」,是「她嫌棄你」,
+       而且玩家要能看到門檻數字,不是自己瞎猜——跟 TROUPE(陣頭)那種刻意
+       不講明數字的做法不一樣,那邊是 kc 要的懸念,這裡 kc 明講要系統提示,
+       兩個不衝突,各自照各自的要求做。提示照現有「（$+30，歸屬感 +6）」
+       那種括號附註的慣例,跟在台詞後面用 toast 補一句,不混進台詞本身。 */
+    if(ST.cool < 22){
+      say('mei', D.disdainTalk[Math.random()*D.disdainTalk.length|0], () => {
+        toast('（帥潮要到 22 以上，她才會理你——目前 ' + ST.cool + '）', 2800);
+      });
+      return;
+    }
+    playBeats(D.event1.beats, 0, () => {
+      MEI.met = true;
+      if(D.event1.calm) chg('calm', D.event1.calm);
+      if(D.event1.quiet) toast(D.event1.quiet, 3400);
+    });
+    return;
+  }
+  if(!MEI.dated){
+    openMenu('小美', [
+      { label:'約她(河堤＋鹽酥雞)', cost:'$'+D.dateCost, cls: ST.money<D.dateCost?'bad':'',
+        run(){
+          if(ST.money < D.dateCost){ toast('錢不夠,你含糊帶過這件事。', 2000); return; }
+          MEI.dated = true;
+          chg('money', -D.dateCost); chg('cool', 3);
+          playBeats(D.dateBeats, 0, () => { chg('calm', 12); toast(D.dateQuiet, 3400); });
+        } },
+      { label:'先聊聊就好', cls:'', run(){ say('mei', D.metTalk[Math.random()*D.metTalk.length|0]); } },
+      { label:'走掉', cls:'back', run(){} }
+    ]);
+    return;
+  }
+  /* 「借我一下」(2026-08-21)——約過一次會之後,下一次找她一次性觸發,
+     不卡在 mei3 進度前面(不管有沒有正式交往都可能先撞到這個)。還不還
+     不是隨機,是讀當下的 ST.calm(見下面第二段判斷)——這條線的題目是
+     「她在不在乎是用行動測，不是用嘴巴講」,用機率骰的話這個隱喻就垮了。 */
+  if(!MEI.loanAsked){
+    MEI.loanAsked = true;
+    playBeats(D.loanHookBeats, 0, () => {
+      openMenu('小美', [
+        { label:'借她 $' + D.loanAmount, cost:'$'+D.loanAmount, cls: ST.money<D.loanAmount?'bad':'',
+          run(){
+            if(ST.money < D.loanAmount){ toast('錢不夠,你只能說晚點再說。', 2000); return; }
+            MEI.loan = D.loanAmount; MEI.loanDay = day;
+            chg('money', -D.loanAmount); chg('calm', 4);
+            /* 選「借她」才聽得到她哥是警察那段——不借就聽不到,見
+               npc-school.js loanYesBeats 那則筆記。 */
+            playBeats(D.loanYesBeats, 0, () => {});
+          } },
+        { label:'「這次不方便。」', cls:'back', run(){
+            chg('calm', -3);
+            toast(D.loanNo, 2600);
+          } }
+      ]);
+    });
+    return;
+  }
+  /* 借出去的錢滿 5 天才結算——歸屬感 ≥60 算她真的在乎,會主動還;不到就
+     拖過去,不會再追,`MEI.loanUnpaid` 留著當一個沒有後續節點的懸念旗標
+     (跟 mei4「撒謊」分支同一個「先不安排拆穿」的簡化幅度)。 */
+  if(MEI.loan > 0 && day - MEI.loanDay >= 5){
+    const paidBack = ST.calm >= 60;
+    MEI.loan = 0;
+    if(paidBack){
+      say('mei', D.loanRepay, () => { chg('money', D.loanAmount); chg('calm', 6); });
+    } else {
+      MEI.loanUnpaid = true;
+      say('mei', D.loanDodge);
+    }
+    return;
+  }
+  /* mei3・正式交往(2026-08-21)——門檻沿用 quests.js 原文:cool≥25 且
+     calm≥45,同時滿足。門檻沒到就退回 datedTalk 閒聊,後面補系統提示,
+     跟 mei1 那個 22 門檻同一套做法(kc:「要提示」)。 */
+  if(!MEI.together){
+    if(ST.cool >= 25 && ST.calm >= 45){
+      playBeats(D.event3.beats, 0, () => {
+        MEI.together = true;
+        MEI.togetherSinceDay = day;
+        if(D.event3.quiet) toast(D.event3.quiet, 3400);
+      });
+      return;
+    }
+    say('mei', D.datedTalk[Math.random()*D.datedTalk.length|0], () => {
+      toast('（帥潮要到 25、歸屬感要到 45，她才會想清楚跟你的關係——目前 帥潮'
+            + ST.cool + '／歸屬感' + ST.calm + '）', 3200);
+    });
+    return;
+  }
+  /* mei4・她說要去你家(2026-08-21)——「交往滿 7 天」頂替原資料那套沒做的
+     每週維護機制,見 npc-school.js 開頭筆記。滿 7 天前退回 datedTalk 閒聊
+     (共用同一組,不重寫「穩定交往中」的台詞)。 */
+  if(!MEI.visitedHome){
+    if(day - MEI.togetherSinceDay >= 7){
+      say('mei', D.homeHook, () => {
+        openMenu('小美', D.homeBranch.map(b => ({
+          label: b.label, cls:'',
+          run(){
+            MEI.visitedHome = true;
+            if(b.cooling) MEI.cooling = true;
+            playBeats(b.beats, 0, () => {
+              if(b.calm) chg('calm', b.calm);
+              if(b.cool) chg('cool', b.cool);
+              if(b.quiet) toast(b.quiet, 3400);
+            });
+          }
+        })));
+      });
+      return;
+    }
+    say('mei', D.datedTalk[Math.random()*D.datedTalk.length|0]);
+    return;
+  }
+  /* 到此為止——mei4 兩個分支都沒有再往下接新節點,cooling=true 只換閒聊
+     語氣,「撒謊」那支目前也沒有安排後續拆穿的節點,見 homeBranch 筆記。 */
+  say('mei', MEI.cooling
+    ? D.coolingTalk[Math.random()*D.coolingTalk.length|0]
+    : D.datedTalk[Math.random()*D.datedTalk.length|0]);
+}
+/* 觸發條件借用 YUAN.hasTattoo(刺青店真的接進來、換成讀真的完成條件之後,
+   這裡不用跟著改,見 YUAN 那則筆記的先例)。 */
+function talkToJiaoguan(){
+  const D = NpcSchool.JIAOGUAN;
+  if(!YUAN.hasTattoo || JIAOGUAN.confronted){
+    say('jiaoguan', D.idleTalk[Math.random()*D.idleTalk.length|0]);
+    return;
+  }
+  say('jiaoguan', D.hook, () => {
+    openMenu('教官', D.branch.map(b => ({
+      label: b.label, cls:'',
+      run(){
+        JIAOGUAN.confronted = true;
+        playBeats(b.beats, 0, () => {
+          if(b.star) chg('star', b.star);
+          if(b.cool) chg('cool', b.cool);
+          if(b.calm) chg('calm', b.calm);
+          if(b.quiet) toast(b.quiet, 3400);
+        });
+      }
+    })));
+  });
+}
+/* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
+   只剩閒聊),跟阿姨貓咪任務同一個簡化幅度,見 npc-school.js 開頭筆記。 */
+function talkToAren(){
+  const D = NpcSchool.AREN;
+  if(AREN.offered){
+    say('aren', D.afterTalk[Math.random()*D.afterTalk.length|0]);
+    return;
+  }
+  say('aren', D.hook, () => {
+    openMenu('阿仁', D.branch.map(b => ({
+      label: b.label, cls:'',
+      run(){
+        AREN.offered = true;
+        if(b.beats){
+          playBeats(b.beats, 0, () => {
+            if(b.calm) chg('calm', b.calm);
+            if(b.money) chg('money', b.money);
+            if(b.star) chg('star', b.star);
+            if(b.quiet) toast(b.quiet, 3400);
+          });
+        } else {
+          if(b.calm) chg('calm', b.calm);
+          toast(b.line, 2600);
+        }
+      }
+    })));
+  });
+}
+/* 小美哥(2026-08-21)——見 npc-school.js BROTHER 那則長筆記。刺青/知識
+   兩邊獨立判定、效果疊加,不是二選一分支,所以這裡不是 openMenu 選單,
+   是一路 playBeats 播下去,依序插入該插的段落。 */
+function talkToBrother(){
+  const D = NpcSchool.BROTHER;
+  if(!MEI.together){ say('brother', D.idleBefore); return; }
+  if(BROTHER.met){ say('brother', D.idleAfter); return; }
+  BROTHER.met = true;
+  const beats = [...D.hookBeats];
+  if(YUAN.hasTattoo) beats.push(...D.tattooBadBeats);
+  beats.push(...(KNOWLEDGE.rough >= 1 ? D.knowledgeGoodBeats : D.knowledgeBadBeats));
+  beats.push(...D.closeBeats);
+  playBeats(beats, 0, () => {
+    if(YUAN.hasTattoo){ chg('calm', -8); chg('star', -6); }
+    chg('calm', KNOWLEDGE.rough >= 1 ? 6 : -4);
+    toast(D.quiet, 3200);
+  });
 }
 function buyMoto(m){
   openMenu('機車行', [
@@ -3368,7 +3875,24 @@ function talkToWorker(w){
     ]);
   });
 }
+/* 2026-08-21 kc:「對話...都會扣體力」——體力邊界從「只接三種街上小
+   互動」(見 DESIGN_NOTES「stamina」節)擴大到對話/讀書/工作。對話這邊
+   集中在 interactProp() 入口判一次,不進每個 talkToXxx() 各改一份:
+   一段對話(不管裡面播幾句台詞、有沒有選單)只扣一次,不是每句都扣,
+   不然小美約會那種一次播 4~6 句的劇情會扣到很誇張。statue(碑文)跟
+   moto(騎車)不算「對話」,不在這個集合裡——前者是單句 toast 不是真的
+   跟人講話,後者是移動方式。體力歸零直接擋掉,不會進到任何一段對話
+   (kc:「1.」——歸零就擋掉會扣體力的動作),跳一句提示要玩家回家睡覺。
+   數字 2026-08-21 同一天第二輪調過一次:第一版對話 −1 太便宜,一天下來
+   根本扣不光,體力永遠見不了底,「過完一天」這個機制就形同虛設(玩家
+   不需要回家睡覺,天數不會走)——kc 要求對話/讀書/打工三個全部調重,
+   對話 −1→−5、讀書 −5→−10、打工 −20→−40,見下面讀書/打工那兩處。 */
+const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','yuan','mei','jiaoguan','aren','brother','pedestrian']);
 function interactProp(prop){
+  if(DIALOGUE_PROP_TYPES.has(prop.type)){
+    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    chg('stamina', -5);
+  }
   /* 搭話本身還是在街上彈選單(2026-08-20 kc 糾正:「付錢才會換場景」,
      不是走近她講話就先切場景)——talkToWorker() 開場白+選單維持在 3D
      街景上,只有選「付錢,跟她走」才真的觸發 enterMassage() 切進室內,
@@ -3381,6 +3905,10 @@ function interactProp(prop){
   if(prop.type === 'ayi'){ talkToAyi(); return; }
   if(prop.type === 'acheng'){ talkToAcheng(); return; }
   if(prop.type === 'yuan'){ talkToYuan(); return; }
+  if(prop.type === 'mei'){ talkToMei(); return; }
+  if(prop.type === 'jiaoguan'){ talkToJiaoguan(); return; }
+  if(prop.type === 'aren'){ talkToAren(); return; }
+  if(prop.type === 'brother'){ talkToBrother(); return; }
   if(prop.type === 'statue'){
     toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
     return;
@@ -3391,6 +3919,7 @@ function interactProp(prop){
     return;
   }
   if(prop.type === 'pet'){
+    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
     busy = true;
     /* 貓/狗共用摸的動作會摸空——貓矮,狗那份「Petting Animal」動畫伸手的
        高度對不到貓身上(kc:「貓還是完全沒摸到,貓要摸得更低」)。貓走
@@ -3413,6 +3942,7 @@ function interactProp(prop){
       }
     });
   } else if(prop.type === 'play'){
+    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
     chg('mood', 3);
     chg('stamina', -5);
     toast(prop.ref.label + '。' + PLAY_LINES[Math.random()*PLAY_LINES.length|0], 2400);
@@ -3428,6 +3958,7 @@ function interactProp(prop){
     if(cruel) chg('mood', -4);
     toast(pool[Math.random()*pool.length|0], 2200);
   } else {
+    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
     const l = prop.ref;
     busy = true;
     hero.playOnce('pickup', () => {
@@ -3521,11 +4052,13 @@ window.__dbg = {
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
   tuitionQuest: () => TUITION_QUEST, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   KNOWLEDGE, studyGainKnowledge,
-  day: (n) => { if(n != null) day = n; return day; },
+  day: (n) => { if(n != null) day = n; return day; }, dayToDate,
+  lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
   /* 陣頭特價測試開關(2026-08-20)——陣頭音遊本身還沒做,先用這個手動切,
      見 talkToAyi()/ayiBuyMenu() 那則筆記。 */
   joinedTroupe: (v) => { if(v != null) joinedTroupe = v; return joinedTroupe; },
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
+  MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
   indoorCalib(){
     const s = heroIndoor.group.scale.x;
     return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
@@ -3535,7 +4068,8 @@ window.__dbg = {
   place: () => PLACE,
   busy: () => busy,
   dlgOn: () => dlg.on,
-  bounds: () => (PLACE === 'store' ? STORE : PLACE === 'home' ? HOME : BEDROOM),
+  bounds: () => (PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
+               : PLACE === 'school' ? SCHOOL : BEDROOM),
   cam: indoorCamera,
   chg, steal, updateIndoor, openIndoorSpot, startCheckoutShift, getCO: () => CO,
   hire(){ IN.hired = true; return 'hired'; },

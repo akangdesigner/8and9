@@ -69,6 +69,7 @@
   <button class="tool on" id="tBloom">光暈：開</button>
   <button class="tool on" id="tShadow">陰影：開</button>
   <button class="tool" id="tTop">切成俯視</button>
+  <button class="tool" id="tBlueprint">看全圖藍圖</button>
   <button class="tool" onclick="location.reload()">重來</button>
 </div>
 <div id="fps">—</div>
@@ -88,12 +89,12 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
-import { CITY, CAM, buildCity, buildPlayer } from './lib/scene-city3d.js';
+import { CITY, CAM, buildCity, buildPlayer, skyGradient } from './lib/scene-city3d.js';
 
 const app = document.getElementById('app'), hintEl = document.getElementById('hint');
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0d141e);
+scene.background = skyGradient(THREE);
 scene.fog = new THREE.FogExp2(0x0d141e, 0.0058);
 
 const camera = new THREE.PerspectiveCamera(CAM.fov, innerWidth/innerHeight, 0.1, 400);
@@ -287,6 +288,76 @@ document.getElementById('tShadow').onclick = e => {
 document.getElementById('tTop').onclick = e => {
   topDown = !topDown; e.target.classList.toggle('on', topDown);
   e.target.textContent = topDown ? '切回斜視' : '切成俯視'; };
+
+/* 全圖藍圖(2026-08-21):#mm 小地圖那套畫法只夠當 190px 的定位參考,要重塑
+   地圖形狀時需要看整個 bounds 的真實比例——建築 footprint(colliders,
+   {x,z,hw,hd})、doors、landmarks 全部標出來才夠用,不是重畫一次縮小版。
+   蓋一張全螢幕 canvas 疊在畫面上,跟遊戲本身的 renderer 分開,不影響 3D 那層。*/
+let bpCanvas = null;
+function drawBlueprint(){
+  if(!bpCanvas){
+    bpCanvas = document.createElement('canvas');
+    bpCanvas.style.cssText = 'position:fixed;inset:0;z-index:50;background:#12161d;';
+    document.body.appendChild(bpCanvas);
+  }
+  const W = innerWidth, H = innerHeight, PAD = 60;
+  bpCanvas.width = W; bpCanvas.height = H;
+  const ctx = bpCanvas.getContext('2d');
+  ctx.fillStyle = '#12161d'; ctx.fillRect(0, 0, W, H);
+
+  const [bx0, bx1] = CITY.bounds.x, [bz0, bz1] = CITY.bounds.z;
+  const scale = Math.min((W-PAD*2)/(bx1-bx0), (H-PAD*2)/(bz1-bz0));
+  const ox = W/2 - (bx0+bx1)/2*scale, oz = H/2 - (bz0+bz1)/2*scale;
+  const px = x => ox + x*scale, pz = z => oz + z*scale;
+
+  ctx.strokeStyle = '#3b4452'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(px(bx0), pz(bz0), (bx1-bx0)*scale, (bz1-bz0)*scale);
+
+  ctx.strokeStyle = '#40495a'; ctx.lineWidth = Math.max(2, CITY.ROAD_HW*2*scale);
+  CITY.H_ROADS.forEach(r => { ctx.beginPath(); ctx.moveTo(px(bx0-6), pz(r.z)); ctx.lineTo(px(bx1+6), pz(r.z)); ctx.stroke(); });
+  CITY.V_ROADS.forEach(r => { ctx.beginPath(); ctx.moveTo(px(r.x), pz(bz0-6)); ctx.lineTo(px(r.x), pz(bz1+6)); ctx.stroke(); });
+
+  ctx.strokeStyle = '#565f70'; ctx.lineWidth = 3;
+  city.alleys.forEach(a => { ctx.beginPath(); ctx.moveTo(px(a.x), pz(a.z0)); ctx.lineTo(px(a.x), pz(a.z1)); ctx.stroke(); });
+  city.diagAlleys.forEach(a => { ctx.beginPath(); ctx.moveTo(px(a.x0), pz(a.z0)); ctx.lineTo(px(a.x1), pz(a.z1)); ctx.stroke(); });
+
+  ctx.fillStyle = 'rgba(150,160,180,.35)'; ctx.strokeStyle = 'rgba(210,218,235,.55)'; ctx.lineWidth = 1;
+  city.colliders.forEach(c => {
+    const x0 = px(c.x-c.hw), z0 = pz(c.z-c.hd), w = c.hw*2*scale, h = c.hd*2*scale;
+    ctx.fillRect(x0, z0, w, h); ctx.strokeRect(x0, z0, w, h);
+  });
+
+  ctx.font = '12px "Noto Sans TC",sans-serif'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#8b95a5';
+  CITY.H_ROADS.forEach(r => ctx.fillText(r.name, px(bx1)+8, pz(r.z)));
+  CITY.V_ROADS.forEach(r => ctx.fillText(r.name, px(r.x)+6, pz(bz0)-10));
+
+  city.landmarks.forEach(l => {
+    ctx.fillStyle = '#f2d888';
+    ctx.beginPath(); ctx.arc(px(l.x), pz(l.z), 4, 0, 7); ctx.fill();
+    ctx.fillText(l.text, px(l.x)+7, pz(l.z));
+  });
+  city.doors.forEach(d => {
+    ctx.fillStyle = '#6fb2e0';
+    ctx.beginPath(); ctx.arc(px(d.x), pz(d.z), 4, 0, 7); ctx.fill();
+    ctx.fillStyle = '#c7e2f5';
+    ctx.fillText(d.name, px(d.x)+7, pz(d.z)-9);
+  });
+
+  ctx.fillStyle = '#6fe0b0';
+  ctx.beginPath(); ctx.arc(px(hero.group.position.x), pz(hero.group.position.z), 5, 0, 7); ctx.fill();
+
+  ctx.fillStyle = '#5c6470'; ctx.font = '11px sans-serif';
+  ctx.fillText(`bounds x:[${bx0},${bx1}] z:[${bz0},${bz1}]　黃點=landmark　藍點=door　綠點=玩家`, 14, H-16);
+}
+let blueprintOn = false;
+document.getElementById('tBlueprint').onclick = e => {
+  blueprintOn = !blueprintOn;
+  e.target.classList.toggle('on', blueprintOn);
+  if(blueprintOn) drawBlueprint();
+  else if(bpCanvas){ bpCanvas.remove(); bpCanvas = null; }
+};
+addEventListener('resize', () => { if(blueprintOn) drawBlueprint(); });
 </script>
 </body>
 </html>
