@@ -1076,9 +1076,15 @@ export function buildCity(THREE, scene){
      還沒有 shop-school.png,shopFront() 會自動退回素色箱體頂著,之後
      kc 生圖再補,不用改這裡)。門會透過 row() 既有的 doors.push() 自動
      登記,不用另外手動加。 */
+  /* 2026-08-21 kc:「只會有一間機車行」——這排原本 S.moto() 那格是「宏吉
+     機車行」第二間分店,跟中華路那間同名同招牌,是重複的店。拔掉換回 S.sh
+     (拉下鐵門的店面,跟這排其餘沒特別身分的 slot 一致),機車行只剩中華路
+     那唯一一間(門口站著老闆、forSale 那台車也在那,見 buyMoto() 那組
+     筆記)。停在這排門口的機車(parkMoto() 那份清單裡 z=59/z=85 那六台)
+     跟著一起拿掉,見那邊的註解。 */
   row({ axis:'x', at:84-B_LINE, face:1, from:-60, shops:[
     S.sh, S.sh, {kind:'school', id:'school', label:'高中', sign:0x4a7fd8, signKey:'school'},
-    S.sh, S.moto(), S.sh, S.sh, S.sh, S.sh, S.gap ]});
+    S.sh, S.sh, S.sh, S.sh, S.sh, S.sh, S.gap ]});
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
      繞回 FOOD.length/BETEL.length 重複到前面已經出現過的店名(2026-08-14 kc
      抓到「麵店」重複)。FOOD 6 種、BETEL 3 種都已經在前面的排用滿,這裡多出來
@@ -1984,15 +1990,16 @@ export function buildCity(THREE, scene){
      - 後火車站那側(z=59)原本 2 台再加 2 台
      - 後火車站對面(z=85,對稱到馬路另一邊)加 2 台
      沒有一一肉眼核對每個點會不會卡到店面招牌/道具,kc 玩起來覺得哪台卡到
-     再回頭挪。 */
-  /* forSale:兩間機車行門口原本就停在那的第一台(中華路 x=3、後火車站
-     x=-9)標成「可以買」,其餘 10 台維持「別人的車」。 */
+     再回頭挪。
+     2026-08-21:kc「只會有一間機車行」——後火車站那間分店拆了(見上面
+     row() 那則筆記),z=59/z=85 這六台跟著拿掉,不留「門口沒有店卻停著
+     機車行的車」這種對不上的畫面。中華路那 6 台(z=-13/z=13)維持原樣。 */
+  /* forSale:機車行門口原本就停在那的第一台(中華路 x=3)標成「可以買」,
+     其餘 5 台維持「別人的車」。 */
   [
     [3,-13],[9,-13],[21,-13],[27,-13],
-    [3,13],[9,13],
-    [-9,59],[-3,59],[-21,59],[-27,59],
-    [-9,85],[-3,85]
-  ].forEach(([x,z], i) => parkMoto(x, z, i, x === 3 && z === -13 || x === -9 && z === 59));
+    [3,13],[9,13]
+  ].forEach(([x,z], i) => parkMoto(x, z, i, x === 3 && z === -13));
 
   /* 電線杆 + 路燈 */
   H_ROADS.forEach(r => {
@@ -2348,6 +2355,11 @@ const MODELS = {
         parts: { Ch01_Body:'skin', Ch01_Shirt:'hood', Ch01_Pants:'pants',
                   Ch01_Sneakers:'shoe', Ch01_Eyelashes:'eyes' } },
   f2: { idle:'base-human-f2-idle.glb', walk:'base-human-f2-walk.glb',
+        /* sit(2026-08-21,小美教室剪影用)——Mixamo 選同一個 Megan 角色
+           下載「Sitting Idle」轉出來的,骨骼名字前綴(mixamorig2:)跟
+           idle/walk 那兩份核對過是同一份,不是跨角色亂借,不會有 f 那次
+           「Sophie 借 Remy 的坐姿整個扭曲」的問題。 */
+        sit:'base-human-f2-sit.glb',
         parts: { Ch22_Body:'skin', Ch22_Shirt:'hood', Ch22_Pants:'pants',
                   Ch22_Sneakers:'shoe', Ch22_Hair:'hair', Ch22_Eyelashes:'eyes' } },
   /* 2026-08-20 kc 問「有沒有老人跟小孩的」查 Mixamo 的結果:老人不用另外

@@ -295,7 +295,7 @@
           <div class="itemGrid" id="invWearGrid"></div>
         </div>
         <div class="invTabPane" id="paneTrash">
-          <div class="invEmpty">沒有雜物。</div>
+          <div class="itemGrid" id="invTrash"></div>
         </div>
       </div>
       <div class="invCol invMid">
@@ -610,7 +610,9 @@ function openInventory(){
   });
   const qHost = document.getElementById('invQuests');
   qHost.innerHTML = '';
+  let anyDoc = false;
   if(TUITION_QUEST && !TUITION_QUEST.paid){
+    anyDoc = true;
     /* 2026-08-21 kc:「有明確繳交期限」——原本只顯示「還剩幾天」,補上真的
        日期(dayToDate()),「還剩幾天」留著當補充,不是取代——兩個一起看
        比較直覺(截止日 9/30、還剩幾天)。 */
@@ -623,9 +625,24 @@ function openInventory(){
     el.innerHTML = `<div class="ic">🧾</div><div class="lb">註冊單</div>`;
     el.onclick = () => showItemDetail(el, qHost, detail);
     qHost.appendChild(el);
-  } else {
-    qHost.innerHTML = '<div class="invEmpty">沒有需要保留的文件。</div>';
   }
+  /* 機車分期收據(2026-08-21,kc:「做成物品、收據之類的」)——跟註冊單同一
+     格式(itemCard+showItemDetail),放進同一個「文件」分頁,不是另開分頁。
+     這裡原本是 if/else 互斥(有註冊單就不顯示空清單提示,沒有就顯示),兩張
+     文件現在可能同時存在,改用 anyDoc 累加旗標判斷,跟下面知識分頁的
+     anyKnowledge 同一招。 */
+  if(MOTO_LOAN.active){
+    anyDoc = true;
+    const detail = `機車行分期收據:尾款還欠 <span class="amt">$${MOTO_LOAN.balance}</span><br>` +
+      `每週扣款:$${MOTO_LOAN.weekly}<br>` +
+      `下次扣款:${dayToDate(MOTO_LOAN.nextDueDay)}(回家睡覺自動扣)`;
+    const el = document.createElement('div');
+    el.className = 'itemCard';
+    el.innerHTML = `<div class="ic">🧾</div><div class="lb">機車分期</div>`;
+    el.onclick = () => showItemDetail(el, qHost, detail);
+    qHost.appendChild(el);
+  }
+  if(!anyDoc) qHost.innerHTML = '<div class="invEmpty">沒有需要保留的文件。</div>';
   /* 知識(2026-08-19,kc:「為何沒加入物品欄」):KNOWLEDGE 三個等級只要
      count>0 就各開一格,跟標籤/文件同一套 itemCard+showItemDetail 模式。
      count 用 .badge 那個右上角小標籤顯示(跟穿搭分頁「+3 帥潮」那個徽章
@@ -648,6 +665,20 @@ function openInventory(){
     kHost.appendChild(el);
   });
   if(!anyKnowledge) kHost.innerHTML = '<div class="invEmpty">還沒有累積任何知識。</div>';
+  /* 雜物分頁(2026-08-21,kc:day3 硬碰硬那個選項要給塑膠項鍊)——這個分頁
+     原本只是靜態「沒有雜物。」,沒有真的資料,第一件真的塞進來的雜物就是
+     這條項鍊。跟標籤/文件/知識同一套 itemCard+showItemDetail 模式,`TRASH`
+     是純陣列,`item.trashItem`(見 applyStoryChoice())push 進去。 */
+  const tHost = document.getElementById('invTrash');
+  tHost.innerHTML = '';
+  if(TRASH.length === 0) tHost.innerHTML = '<div class="invEmpty">沒有雜物。</div>';
+  TRASH.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'itemCard';
+    el.innerHTML = `<div class="ic">${t.icon}</div><div class="lb">${t.name}</div>`;
+    el.onclick = () => showItemDetail(el, tHost, t.detail);
+    tHost.appendChild(el);
+  });
   renderWearTab();
   syncPanelStats();
   invOverlay.classList.add('on');
@@ -1162,6 +1193,24 @@ const clientNPC = buildNPC(THREE, scene, {
   hood:'#33383f', pants:'#26241f', shoe:'#3a3430'
 });
 NPCS.push(clientNPC);
+
+/* 機車行老闆(2026-08-21,kc:「幫我抓一個人當機車行老闆,他會站在門口」)——
+   純裝飾,跟 clientNPC 同一個等級,沒有獨立的 nearProp/對話狀態機。「跟
+   老闆談車」這句台詞本來就已經接在 buyMoto()(走近 forSale 那台車觸發),
+   這裡只是幫那句話配一個真人站在旁邊,不改互動邏輯、不改觸發點。
+   站在中華路那間宏吉機車行門口(shopFront kind:'moto' 中心 x=0),forSale
+   那台車停在 x=3。座標/朝向是截圖核對過的最終值,不是隨手訂的第一版:
+   第一版 x=-3/rotationY=Math.PI 截圖出來是背對街道站在店裡面,改成
+   x=-1(貼近門口中央)、rotationY=0(面向街道/玩家)才對。
+   2026-08-21 同一天,kc 追加「只會有一間機車行」——原本後火車站那間同名
+   分店已經拆掉(見 scene-city3d.js row() 那則筆記),機車行只剩這一間,
+   不用再考慮要不要幫第二間也放老闆。 */
+const motoBoss = buildNPC(THREE, scene, {
+  x:-1, z:-13.2, rotationY:0, rig:'m3',
+  skin:'#b98a63', hair:'#3a3a3a',
+  hood:'#4a5560', pants:'#26241f', shoe:'#1c1c1c'
+});
+NPCS.push(motoBoss);
 
 /* 圓環雕像(2026-08-20,kc 看到 Girlscout 小孩骨架轉出來全身單色像「泥像」
    當場生的點子)——擺在西園街⇄中華路那個圓環(scene-city3d.js roundabout()
@@ -2818,11 +2867,26 @@ function sleep(){
     document.getElementById('city').style.display = '';
     wlabelsEl.style.display = '';
     hero.group.position.set(returnTo.x, .3, returnTo.z);
-    syncHUD();
     if(skippedSchool) chg('star', -3);
-    toast(skippedSchool
-      ? '你回去睡了一覺，體力補滿了。\n（今天沒去學校，風評 −3）'
-      : '你回去睡了一覺，體力補滿了。', 3400);
+    /* 機車分期扣款(2026-08-21)——見上面 MOTO_LOAN 那則長筆記:day 每次
+       sleep() 才 +1,一次最多跨一天,不會一次錯過兩個到期日,不用 while。 */
+    let loanMsg = '';
+    if(MOTO_LOAN.active && day >= MOTO_LOAN.nextDueDay){
+      const pay = Math.min(MOTO_LOAN.weekly, MOTO_LOAN.balance);
+      chg('money', -pay);
+      MOTO_LOAN.balance -= pay;
+      MOTO_LOAN.nextDueDay += 7;
+      if(MOTO_LOAN.balance <= 0){
+        MOTO_LOAN.active = false;
+        loanMsg = '\n機車分期扣完最後一筆，收據可以丟了。';
+      } else {
+        loanMsg = `\n機車行來收分期，扣了 $${pay}（還欠 $${MOTO_LOAN.balance}）。`;
+      }
+    }
+    syncHUD();
+    toast('你回去睡了一覺，體力補滿了。'
+      + (skippedSchool ? '\n（今天沒去學校，風評 −3）' : '')
+      + loanMsg, 3800);
   });
 }
 function enterIndoor(door){
@@ -2875,6 +2939,7 @@ function enterIndoor(door){
 }
 function leaveIndoor(){
   pendingTheft = 0;   // 安全走出超商——見 steal() 那句「你走出去之前，那段路特別長」
+  const wasHome = PLACE === 'home';
   fade(city.whereAmI(returnTo.x, returnTo.z), () => {
     MODE = 'city';
     document.getElementById('indoor').classList.remove('on');
@@ -2882,6 +2947,16 @@ function leaveIndoor(){
     wlabelsEl.style.display = '';
     hero.group.position.set(returnTo.x, .3, returnTo.z);
     advanceTime(1);
+    /* MOM_THEFT 揭曉點,見上面那則長筆記——只在「家」的門口出去、
+       而且至少過了一天(day > 設定當下那天)才觸發,同一天走出去不算。 */
+    if(wasHome && MOM_THEFT > 0 && day > MOM_THEFT_DAY){
+      const amt = Math.min(MOM_THEFT, ST.money);
+      MOM_THEFT = 0;
+      if(amt > 0){
+        chg('money', -amt);
+        toast(`你摸了一下口袋，錢包裡少了 $${amt}。\n你想起那天的事。`, 3800);
+      }
+    }
   });
 }
 /* 越式按摩店(2026-08-20)——巷子那位 ALLEY_WORKER 站在街上,但真正談的
@@ -2959,6 +3034,20 @@ function leaveBedroom(){
    =================================================================== */
 const seenStoryDays = new Set();      // 'bet-6'、'drink-15' 這種 key,防止同一天重複觸發
 const knownTruths = new Set();        // story-bet.js 的 TRUTHS 編號,目前沒有獨立 UI 顯示,先記著
+/* 媽媽線「拒絕給錢」的後果(2026-08-21,kc 糾正 day10/14 原本的 debt 欄位):
+ * kc 原話「拒絕的話就不會給他錢啊」——debt 只是憑空扣錢,邏輯上玩家沒有
+ * 「借」到那筆錢,不該背債;kc 接著提案「隔天從家門出去後會發現少錢,
+ * 被媽媽偷走了」——改成**延遲揭曉的偷竊**,不是當場扣錢:選了拒絕分支
+ * 只記金額+當下的 day(MOM_THEFT/MOM_THEFT_DAY),要等**隔天**(day 真的
+ * 往前跳過,不是選完當下)玩家從家裡「門口」那個 spot 走出去(leaveIndoor()
+ * 那段)才真的扣錢+跳 toast。story-bet.js 的 day10「那筆錢她還是弄到了。
+ * 你不知道從哪裡。」這句舊台詞不用改——這個延遲設計剛好讓那句話後面接上
+ * 「原來是從你這裡」的反轉,不是新加的巧合。同一天發生兩次拒絕(理論上
+ * 目前 bet 節點間隔至少 4 天,不會撞在一起)用累加、不是覆蓋,避免漏算。 */
+let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
+/* 雜物(2026-08-21,kc:day3 硬碰硬選項要給一條塑膠項鍊)——`{name,icon,detail}`
+ * 的純陣列,消費端是角色面板「雜物」分頁的 openInventory(),見那段筆記。 */
+const TRASH = [];
 /* 主動找爸爸(2026-08-19,kc:「跟他講話可以了解他的近況」):跟
    story-drink.js 按天觸發的節點是兩回事——那邊是「他的事找上你」,
    這裡是「你自己想看看他現在怎樣」,純觀察,不開分支、不扣/加任何指標,
@@ -2966,10 +3055,11 @@ const knownTruths = new Set();        // story-bet.js 的 TRUTHS 編號,目前�
    對話」的內容(問他話、他回答)——story-drink.js 的節點才是真的對話,
    這裡重複寫等於提前爆雷/稀釋掉那幾句台詞的重量。
    **「近況」要跟著劇情進度變(kc 提醒的)**:按 seenStoryDays 裡
-   `drink-N` 記到哪一階,換不同那組句子。**目前只做到第 9 天**(kc 這輪
-   要求「之後的劇情先不做」,story-drink.js 也只寫到第 9 天),14/20/26
-   那三階連同對應的節點一起被拿掉了,git log 找得到那版——之後真的接上
-   那幾天的節點,再把對應階的句子一起補回來,不要只接節點漏了這裡。 */
+   `drink-N` 記到哪一階,換不同那組句子。
+   **2026-08-21 補完到第 26 天**(kc:「爸之後的繼續做」,見 story-drink.js
+   開頭那則筆記)——15/20/26 這三階是這輪新寫的,舊版(git log 找得到那個
+   合併前的版本)沒有 DAD_CHECKIN_LINES 這套系統,沒有舊句子可以撿,不是
+   漏補。 */
 const DAD_CHECKIN_LINES = {
   /* 第4天前(2026-08-19 kc 補的內容):「我是你老子,你給我錢是應該的」——
      理所當然討錢的調調,在第4天那個節點真的發生之前就先埋一句。 */
@@ -2977,10 +3067,18 @@ const DAD_CHECKIN_LINES = {
   /* 第4~8天(kc:「第4~9天會發酒瘋」):第4天節點已經發生過,他喝更多、
      更常鬧——純觀察,不是新的暴力事件,那條線只有第4天那次真的動手。 */
   4: ['他喝到一半,開始罵些聽不懂的話。', '他又在講那句「我是你老子」,你已經數不清第幾次了。'],
-  9: ['他手邊那罐,不知道今天是第幾罐。', '你進門那幾秒,還是習慣先繞一下。']
+  9: ['他手邊那罐,不知道今天是第幾罐。', '你進門那幾秒,還是習慣先繞一下。'],
+  /* 第15~19天:「他睡在地上」節點發生過之後,純觀察他喝到斷片這件事
+     開始留下痕跡,不是新的事件。 */
+  15: ['客廳的燈這幾天常常不開,你進門會先看一眼他還在不在椅子上。', '他椅子旁邊有一件外套,聞起來有酒味,沒人洗。'],
+  /* 第20~25天:「他記得」(他堅持已經還你錢,但沒有)節點發生過之後,
+     你已經懶得跟他的記憶爭,純觀察那種放棄感。 */
+  20: ['他又提了一次「上次的事」,你已經懶得糾正他。', '你開始習慣不跟他確認任何事——反正他會記得不一樣的版本。'],
+  /* 第26天之後:「你數過了」節點發生過之後,數錢已經變成反射動作。 */
+  26: ['你進門先數錢,已經變成反射動作,你自己都沒發現。', '他坐在客廳,你們兩個都沒有開口。']
 };
 function dadCheckinLines(){
-  const stages = [9, 4];
+  const stages = [26, 20, 15, 9, 4];
   const s = stages.find(d => seenStoryDays.has('drink-'+d)) ?? 0;
   return DAD_CHECKIN_LINES[s];
 }
@@ -2988,14 +3086,38 @@ function dadCheckinLines(){
    跟爸爸那組同一個等級——純觀察,不開分支、不扣分。分階跟著 story-bet.js
    的 `bet-N`(第3天「兩千」節點)走,目前只有兩階:節點發生前/發生後,
    之後那五個節點(6/10/14/18/22)先不補,理由跟爸爸那邊一樣——等真的要
-   做那幾天的近況再一起補。 */
+   做那幾天的近況再一起補。
+   **2026-08-21 kc 加碼:「你不給他錢他就不會跟你講閒聊話,你只會看到狀態;
+   如果你有給他錢他會有一點點基本關心」**——拆成 `status`(純觀察,不管
+   有沒有給過錢都看得到,對應 kc 說的「狀態」)跟 `talk`(她真的開口,
+   MOM_GIVEN>0 才會出現在候選池裡)兩組。`MOM_GIVEN` 是 story-bet.js
+   day6/10/14 那三個「給她」分支專用的旗標(`item.gave`,applyStoryChoice()
+   收到就 +1),不是 knownTruths 的替代——day18/22 那兩個「truth」分支
+   (敲門/打開來看)不是給錢,不該算進來,所以另外開一個欄位,不要借用
+   `truth`。`talk` 裡刻意留一句偏冷淡的(她本來的個性不會因為給一次錢
+   整個變溫柔)＋一句「一點點基本關心」——量level 比照 day6 給錢分支
+   「你那時候也是這樣」那種若有似無的溫度,不要寫成真的噓寒問暖。 */
+let MOM_GIVEN = 0;
 const MOM_CHECKIN_LINES = {
-  0: ['她在滑手機,螢幕上是骰子的畫面。', '「養小孩是你爸的事,又不是只有我一個人的責任。」她講得像在講別人的事。'],
-  3: ['她又在滑那個 app,輸了兩把,她沒有停。', '「你這麼大了,不需要我一直顧吧。」她說得很輕描淡寫。']
+  0: {
+    status: ['她在滑手機,螢幕上是骰子的畫面。'],
+    talk: [
+      '「養小孩是你爸的事,又不是只有我一個人的責任。」她講得像在講別人的事。',
+      '「有沒有吃飯。」她眼睛還黏在螢幕上,聲音倒是認真的。'
+    ]
+  },
+  3: {
+    status: ['她又在滑那個 app,輸了兩把,她沒有停。'],
+    talk: [
+      '「你這麼大了,不需要我一直顧吧。」她說得很輕描淡寫。',
+      '「錢還夠用嗎。」她問,但沒有要聽答案的樣子。'
+    ]
+  }
 };
 function momCheckinLines(){
   const s = seenStoryDays.has('bet-3') ? 3 : 0;
-  return MOM_CHECKIN_LINES[s];
+  const stage = MOM_CHECKIN_LINES[s];
+  return MOM_GIVEN > 0 ? stage.status.concat(stage.talk) : stage.status;
 }
 /* 註冊單債務(2026-08-18,媽媽把兩千拿去「投資」、另外塞一張一千塊註冊單
  * 給主角那段):跟 knownTruths 同一個等級——**先記狀態,沒有獨立 UI**,
@@ -3052,6 +3174,9 @@ function applyStoryChoice(item){
   if(item.money) chg('money', item.money);
   if(item.moneyAll) chg('money', -ST.money);
   if(item.debt) chg('money', -item.debt);
+  if(item.theft){ MOM_THEFT += item.theft; MOM_THEFT_DAY = day; }
+  if(item.gave) MOM_GIVEN++;
+  if(item.trashItem) TRASH.push(item.trashItem);
   if(item.truth) knownTruths.add(item.truth);
 }
 /* 規則 1(DESIGN_NOTES「家裡的拉扯」):「他主動來找你,你躲不掉」——不是
@@ -3149,6 +3274,22 @@ tuneInputs.ArmY  .addEventListener('input', e => { RIDE_POSE.armY   = +e.target.
    一聲就改。騎沒買的車扣風評的量比照 steal() 被當場抓到那組(-1),不是
    偷完脫身被抓的重罰組(-2),見 mountMoto() 那段。 */
 const MOTO_PRICE = 1800;
+/* 分期付款(2026-08-21,kc 第三版:「做成收據,每個禮拜扣一次錢」)——
+   第一版(尾款當場變一次性負數欠款)不是 kc 要的,他要的是真的分期:訂金
+   付完之後尾款掛在一張「收據」上(角色面板「文件」分頁,跟註冊單
+   TUITION_QUEST 同一格式,見下面 openInventory() 那段),之後每週自動
+   扣一次,扣到 0 收據自動消失。
+   利差留著(第二版調降過,見上一版註解,利差本身是 kc 認可的,只是份量
+   要輕):總額 $1950 − 訂金 $600 = 尾款 $1350,切成 6 週、每週 $225 剛好
+   整除,不留零頭。
+   結算時機點用 `day`(跟 MEI 的 5 天期借款、教官的上學出席同一套「靠既有
+   day 計數比對,不用另開 setInterval/setTimeout 那種真實時間計時器」)——
+   但 MEI 那筆是「玩家下次找她才結算」,這筆刻意選在 `sleep()`(回家睡覺
+   才算過一天,這遊戲唯一的「一天結束」入口,見 DESIGN_NOTES 同一句話)
+   主動扣款,不用玩家跑一趟機車行——比較貼近真實分期「不用你提醒它自己
+   到期會扣錢」的感覆,細節見 sleep() 那段新增的區塊。 */
+const MOTO_DOWNPAYMENT = 600, MOTO_INSTALLMENT_TOTAL = 1950, MOTO_WEEKLY = 225;
+const MOTO_LOAN = { active:false, balance:0, weekly:MOTO_WEEKLY, nextDueDay:null };
 
 /* 相機防穿牆(kc 之前就遇過):建築/招牌都是 add() 直接掛在 scene 底下的
    Mesh,角色跟 NPC 是 Group,只抓 scene.children 裡 isMesh 的那層、不遞迴,
@@ -3828,6 +3969,11 @@ function talkToBrother(){
   });
 }
 function buyMoto(m){
+  /* 已經有一張分期收據還沒繳完的時候不能再開一張——MOTO_LOAN 是單一物件
+     不是陣列,兩張分期同時掛著會互相蓋掉到期日/餘額。這裡跟哪一台 forSale
+     車無關(現在只剩中華路這一間機車行,見 scene-city3d.js row() 那則
+     筆記),但邏輯本身不寫死「只會有一間」,之後真的多開一間也不用改。 */
+  const busyLoan = MOTO_LOAN.active;
   openMenu('機車行', [
     { label:'付錢買下這台', cost:'$'+MOTO_PRICE, cls: ST.money<MOTO_PRICE?'bad':'',
       run(){
@@ -3836,7 +3982,18 @@ function buyMoto(m){
         toast('這台現在是你的了。', 2000);
         mountMoto(m);
       } },
-    { label:'先騎騎看(不買)', cls:'risk', run: () => mountMoto(m) },
+    { label:'分期付款', cost: busyLoan ? '上一台還沒繳完,不能再分期' : '訂金 $'+MOTO_DOWNPAYMENT+'　尾款分 6 週還',
+      cls: (busyLoan || ST.money<MOTO_DOWNPAYMENT) ? 'bad' : '',
+      run(){
+        if(busyLoan){ toast('「你上一台的錢都還沒還完，先別急。」', 2400); return; }
+        if(ST.money < MOTO_DOWNPAYMENT){ toast('連訂金都不夠,老闆搖搖頭。', 2000); return; }
+        chg('money', -MOTO_DOWNPAYMENT); m.owned = true;
+        MOTO_LOAN.active = true;
+        MOTO_LOAN.balance = MOTO_INSTALLMENT_TOTAL - MOTO_DOWNPAYMENT;
+        MOTO_LOAN.nextDueDay = day + 7;
+        toast('訂金付了,車牽走——尾款收據收好,以後每週回家睡覺會自動扣一次。', 3200);
+        mountMoto(m);
+      } },
     { label:'算了', cls:'back', run(){} }
   ]);
 }
@@ -4050,7 +4207,9 @@ window.__dbg = {
   DAD_TWEAK, SHADOW_TWEAK, tweakDad: tweakDadPanel, tweakStall: tweakStallPanel,
   STATUE_PED_TWEAK, tweakStatuePeds: tweakStatuePedsPanel,
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
-  tuitionQuest: () => TUITION_QUEST, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
+  tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
+  momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
+  momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
   KNOWLEDGE, studyGainKnowledge,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
   lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
@@ -4127,6 +4286,22 @@ window.__dbg = {
     return 'spawned';
   },
   momTick(dt){ if(this._mom) this._mom.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
+  /* 2026-08-21:小美教室剪影截圖用,跟 spawnDad/spawnMom 同一招,rig 換
+     'f2'(Megan)——顏色抄她在公園站的那個 NPCS buildNPC() 呼叫(見
+     game.html 那段 MEI/buildNPC),不是另外瞎湊,兩邊要是同一個人。
+     借的是新下載的 base-human-f2-sit.glb(見 scene-city3d.js MODELS.f2.sit
+     那段筆記)。截完就可以刪。 */
+  spawnMei(rotY){
+    if(this._mei) indoorScene.remove(this._mei.group);
+    this._mei = buildNPC(THREE, indoorScene, {
+      rig:'f2', rotationY: rotY||0, pose:'sit',
+      skin:'#dcae86', hair:'#3a2e26', hood:'#f2f0ea', pants:'#28304a', shoe:'#3a3a3a'
+    });
+    this._mei.group.position.set(640, 200, 0);
+    this._mei.group.scale.setScalar(INDOOR_HERO_SCALE);
+    return 'spawned';
+  },
+  meiTick(dt){ if(this._mei) this._mei.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
   state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
                   pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] }),
   ridePose(patch){ if(patch) Object.assign(RIDE_POSE, patch); return { ...RIDE_POSE }; },

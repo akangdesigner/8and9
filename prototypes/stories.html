@@ -141,10 +141,11 @@ const costHTML = f => {
   if (f.calm)     b.push(`<span class="c">歸屬感 ${f.calm>0?'+':''}${f.calm}</span>`);
   if (f.full)     b.push(`<span class="c">飽足 ${f.full>0?'+':''}${f.full}</span>`);
   if (f.debt)     b.push(`<span class="d">債 +${f.debt}</span>`);
+  if (f.theft)    b.push(`<span class="d">隔天出門發現少 $${f.theft}（玩家看不到,揭曉前是暗的）</span>`);
   return b.join('　') || '—';
 };
 
-const beatsHTML = bs => bs.map(b => b.toast
+const beatsHTML = bs => (bs || []).map(b => b.toast
   ? `<div class="toast">${b.text || b.toast}</div>`
   : `<div class="beat ${b.who}">${NAME[b.who] ? `<div class="who">${NAME[b.who]}</div>` : ''}<div class="txt">${b.text}</div></div>`
 ).join('');
