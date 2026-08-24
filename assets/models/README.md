@@ -6,7 +6,7 @@
 
 ## 現在有幾副骨架
 
-`scene-city3d.js` 的 `MODELS` registry 註冊了五副,對應五組檔名前綴:
+`scene-city3d.js` 的 `MODELS` registry 註冊了六副,對應六組檔名前綴:
 
 | rig id | 來源(Mixamo 角色) | 用在誰 | 檔名前綴 |
 |---|---|---|---|
@@ -15,12 +15,21 @@
 | `m2` | Leonard(男性,短髮)| 阿源——跟主角同性別但要換髮型,髮型是模型內建固定形狀換不了造型,只能整套換一個來源模型 | `base-human-m2-` |
 | `m3` | Brian(男性,光頭)| 超商排隊客人/行人湊數,2026-08-20 | `base-human-m3-` |
 | `f2` | Megan(女性,短髮)| 超商排隊客人/行人湊數,2026-08-20 | `base-human-f2-` |
+| `m4` | Bryce(男性,Teen 分類,蓬髮)| 校門口改管那群人的頭(新角色,2026-08-24) | `base-human-m4-` |
 
 `m3`/`f2` 是 2026-08-20 為了「排隊客人/行人只有 3 副骨架,肉眼容易抓到重複」
 這個待辦補的(見 `docs/DESIGN_NOTES.md` 那節),流程跟前三副完全一樣,只是
 從 Mixamo 的「Casual」分類裡挑的——目的是要跟既有三副在體型/髮型上明顯不同,
 不是隨便挑。Brian 是光頭,沒有獨立的 Hair mesh,`MODELS.m3.parts` 沒有
 `hair` 這個 key,不是漏接。
+
+`m4` 是 2026-08-24 為了新角色補的——kc 明確要求「去找別的骨架」,不要跟
+前五副共用同一個身體。Bryce 是 Mixamo 唯一標成「Teen」分類的男生角色,
+挑他是因為頭髮比 Remy/Leonard/Brian 明顯蓬鬆有層次、體型是青少年比例,
+不是隨便選的。部件名字是 `Ch42_Body1`/`Ch42_Shirt`/`Ch42_Shorts`/
+`Ch42_Sneakers`/`Ch42_Hair1`/`Ch42__Eyelashes`(分開的,像 Remy/Leonard,
+不是 Sophie 那種整套衣服黏一起換不開),`sit` 動畫是 Mixamo「Sitting Idle」
+(椅子坐姿,雙手放膝上)。
 
 每副都是「免費帳號登入下載,兩個各自獨立的動畫(Idle、Walking——Walking 記得勾
 **In Place**,不然動畫會帶著角色自己位移,跟遊戲自己算的座標打架)。下載設定:

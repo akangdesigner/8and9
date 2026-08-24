@@ -2352,6 +2352,10 @@ const MODELS = {
      外觀會重複」那節。Brian 是光頭造型,沒有獨立 Hair mesh(部件裡本來就
      沒有,不是漏接),parts 沒有 hair 這個 key。 */
   m3: { idle:'base-human-m3-idle.glb', walk:'base-human-m3-walk.glb',
+        /* sit(2026-08-24,阿仁教室背影用)——Mixamo 選同一個 Brian 角色下載
+           「Sitting Idle」轉出來的,骨骼名字前綴(mixamorig12:)跟 idle/walk
+           核對過是同一份。 */
+        sit:'base-human-m3-sit.glb',
         parts: { Ch01_Body:'skin', Ch01_Shirt:'hood', Ch01_Pants:'pants',
                   Ch01_Sneakers:'shoe', Ch01_Eyelashes:'eyes' } },
   f2: { idle:'base-human-f2-idle.glb', walk:'base-human-f2-walk.glb',
@@ -2371,7 +2375,16 @@ const MODELS = {
      像其他角色皮膚/衣服分開換色。先加進 registry 讓 kc 肉眼看外觀決定要不要
      正式收,不是定案。 */
   kid: { idle:'base-human-kid-idle.glb', walk:'base-human-kid-walk.glb',
-         parts: { GirlScout:'skin' } }
+         parts: { GirlScout:'skin' } },
+  /* 2026-08-24:新角色(校門口改管那群人的頭,還沒命名)專用——kc 要求「去找
+     別的骨架」,不要跟現有五副共用。Mixamo 唯一標「Teen」分類的男生角色
+     Bryce,頭髮比 Remy/Leonard/Brian 蓬鬆有層次,體型也是青少年比例,不是
+     借用成人角色。sit 動畫是 Mixamo「Sitting Idle」(椅子坐姿,手放膝上,
+     跟 f2 那顆同名動畫是同一種姿勢,不是地板盤腿那種)。 */
+  m4: { idle:'base-human-m4-idle.glb', walk:'base-human-m4-walk.glb',
+        sit:'base-human-m4-sit.glb',
+        parts: { Ch42_Body1:'skin', Ch42_Shirt:'hood', Ch42_Shorts:'pants',
+                  Ch42_Sneakers:'shoe', Ch42_Hair1:'hair', Ch42__Eyelashes:'eyes' } }
 };
 
 /* 快取:每個 glb 只 fetch+parse 一次,buildPlayer 跟 buildNPC(2026-08-12 起
@@ -2807,8 +2820,12 @@ export function buildNPC(THREE, scene, opts){
   const M = {
     skin: new THREE.MeshStandardMaterial({ color:opts.skin,  roughness:.85 }),
     hair: new THREE.MeshStandardMaterial({ color:opts.hair,  roughness:.9 }),
-    hood: new THREE.MeshStandardMaterial({ color:opts.hood,  roughness:.9 }),
-    pants:new THREE.MeshStandardMaterial({ color:opts.pants, roughness:.9 }),
+    /* 2026-08-24 kc 抓到坐姿腋下露出一塊背景色——布料網格在那個姿勢角度
+       折疊,露出背面,預設 FrontSide 會被剔掉變透空。改 DoubleSide 讓背面
+       也畫出來,擋住那個洞;只加在 hood/pants(衣物,才會折疊到露背面),
+       skin/hair/shoe 沒遇到這個問題不用跟著改。 */
+    hood: new THREE.MeshStandardMaterial({ color:opts.hood,  roughness:.9, side:THREE.DoubleSide }),
+    pants:new THREE.MeshStandardMaterial({ color:opts.pants, roughness:.9, side:THREE.DoubleSide }),
     shoe: new THREE.MeshStandardMaterial({ color:opts.shoe,  roughness:.9 }),
     eyes: new THREE.MeshStandardMaterial({ color:0x1a1512,   roughness:.4 })
   };

@@ -58,8 +58,11 @@
   }
 
   /* 學生座位:一整排排到後面當背景(數量湊「教室感」,不是每張都能互動),
-     真正能互動的是 DESK 那個獨立座標(見下面 SPOTS)。 */
-  const DESK_ROWS = 3, DESK_COLS = 4;
+     真正能互動的是 DESK 那個獨立座標(見下面 SPOTS)。
+     2026-08-24 kc 抓到動線問題:原本 3 排時最後一排椅子影子畫到 y≈320,
+     跟 DESK 桌面(y=306 起)幾乎貼死,門口走到座位那條路視覺上像在穿課桌。
+     縮成 2 排,最後一排結束在 y≈286,DESK 前面空出一條乾淨地板。 */
+  const DESK_ROWS = 2, DESK_COLS = 4;
   function deskRows(g) {
     const { px, alp } = tools(g);
     const rowY0 = 224, rowGap = 34, colX0 = 70, colGap = 118;
@@ -76,8 +79,11 @@
   }
 
   /* 自己的座位:獨立畫在前排、靠近鏡頭,跟其他座位拉開視覺重量,對應
-     SPOTS 裡的 'desk' 互動點(上課／偷玩手遊)。 */
-  const DESK = { x: 300, y: 320, w: 70 };
+     SPOTS 裡的 'desk' 互動點(上課／偷玩手遊)。
+     2026-08-24 kc 抓到動線問題:x=300 疊在背景第三欄課桌(x=306~352)上,
+     改成落在欄與欄之間本來就有的空隙(欄距 118、桌寬 46,空隙 72px 綽綽
+     有餘)。見下面 DESK_ROWS 那則筆記,兩處是同一個問題的兩個維度。 */
+  const DESK = { x: 235, y: 320, w: 70 };
   function desk(g) {
     const { px, alp } = tools(g);
     const { x, y, w } = DESK;

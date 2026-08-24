@@ -237,19 +237,6 @@
   #keys b { color:#9aa3b0; }
   #fps { position:fixed; right:14px; bottom:12px; z-index:6; font-size:11px; color:#5c6470; }
 
-  /* 騎機車姿勢即時調整面板——暫時重新加回來給 kc 自己錄一段調整過程,
-     錄完會拔掉,不是要留著當正式功能。 */
-  #tune { position:fixed; right:14px; top:100px; z-index:6; width:220px;
-          background:rgba(9,12,17,.88); border:1px solid rgba(120,134,158,.3);
-          border-radius:5px; padding:10px 12px; backdrop-filter:blur(4px);
-          opacity:0; pointer-events:none; transition:opacity .2s; }
-  #tune.on { opacity:1; pointer-events:auto; }
-  #tune .cap { font-size:11px; letter-spacing:.14em; color:#8b94a3; margin-bottom:6px; }
-  #tune .row { margin-bottom:7px; }
-  #tune .row label { display:flex; justify-content:space-between; font-size:11.5px;
-                      color:#c8cfda; margin-bottom:2px; }
-  #tune .row label span.v { color:#f2d888; font-variant-numeric:tabular-nums; }
-  #tune .row input[type=range] { width:100%; }
 </style>
 </head>
 <body>
@@ -332,21 +319,6 @@
 <div id="hint"></div>
 <div id="toast"></div>
 <div id="wlabels"></div>
-<div id="tune">
-  <div class="cap">騎乘姿勢調整</div>
-  <div class="row"><label>座墊前後 <span class="v" id="tvOffset"></span></label>
-    <input type="range" id="tOffset" min="-2" max="2" step="0.05"></div>
-  <div class="row"><label>座墊高度 <span class="v" id="tvSeatY"></span></label>
-    <input type="range" id="tSeatY" min="0" max="2" step="0.05"></div>
-  <div class="row"><label>大腿張開 <span class="v" id="tvSplay"></span></label>
-    <input type="range" id="tSplay" min="0" max="1" step="0.05"></div>
-  <div class="row"><label>手臂 X <span class="v" id="tvArmX"></span></label>
-    <input type="range" id="tArmX" min="-1.5" max="1.5" step="0.05"></div>
-  <div class="row"><label>手臂 Z <span class="v" id="tvArmZ"></span></label>
-    <input type="range" id="tArmZ" min="-1.5" max="1.5" step="0.05"></div>
-  <div class="row"><label>手臂 Y <span class="v" id="tvArmY"></span></label>
-    <input type="range" id="tArmY" min="-1.5" max="1.5" step="0.05"></div>
-</div>
 <div id="float"></div>
 
 <div id="dialog">
@@ -826,7 +798,6 @@ const dlgEl = document.getElementById('dialog'), dTx = document.getElementById('
 const dName = document.getElementById('dName'), dCaret = document.getElementById('dCaret');
 const portC = document.getElementById('portrait').getContext('2d');
 const menuEl = document.getElementById('menu'), hintEl = document.getElementById('hint');
-const tuneEl = document.getElementById('tune');
 
 /* mom/dad:2026-08-17 接「家裡的拉扯」——沒有真人照片,沿用 pc 分支那套
  * SF.person() 像素小人放大畫法,顏色直接借 scene-home.js 的 P 色票
@@ -858,6 +829,8 @@ const WHO = {
      「3D 街上的角色」),跟 mom/dad 同一套「沒有模型只有 WHO 頭像」做法。
      灰髮示意年紀。 */
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
+  /* 阿凱(2026-08-24)——見上面 KAI 那則筆記,染髮跟 kaiNPC 那組 buildNPC 顏色同步。 */
+  kai:      { name:'阿凱', opt:{ face:'F', skin:'#c9976e', hair:'#d4a03c', top:'#1c1c1c', topD:'#141414', pants:'#2b2b2b' } },
   /* 收銀小遊戲的客人(2026-08-19)——沒有固定角色設定,顏色隨便挑一組跟
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
@@ -885,7 +858,15 @@ const PORTRAIT_IMGS = {
   worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=2'),
   acheng: loadPortraitImg('../assets/bg/acheng-portrait.png?v=2'),
   ayi:    loadPortraitImg('../assets/bg/ayi-portrait.png?v=1'),
-  yuan:   loadPortraitImg('../assets/bg/yuan-portrait.png?v=1')
+  yuan:   loadPortraitImg('../assets/bg/yuan-portrait.png?v=1'),
+  /* 學校三人(2026-08-24)——先試過拿 3D 模型近拍當大頭貼,kc 抓到「沒有
+     眼球」(骨架轉檔時原廠臉部貼圖被剝掉,只剩 Eyelashes 那個獨立 mesh,
+     見跟 kc 的對話紀錄),改回跟店員/爸媽同一套 AI 生真人照片。阿仁刻意
+     生成光頭,呼應他在遊戲裡本來就是禿頭(骨架 m3/Brian 沒有 Hair mesh),
+     不是巧合。 */
+  mei:    loadPortraitImg('../assets/bg/mei-portrait.png?v=1'),
+  aren:   loadPortraitImg('../assets/bg/aren-portrait.png?v=1'),
+  kai:    loadPortraitImg('../assets/bg/kai-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
@@ -1083,6 +1064,14 @@ const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
                     loanAsked:false, loan:0, loanDay:null, loanUnpaid:false };
 const JIAOGUAN = { x:43, z:-18.5, confronted:false };
 const AREN     = { x:45, z:-22,   offered:false };
+/* 阿凱(2026-08-24 新角色)——校門口改管那群人的頭,story-school.js day13
+   「排氣管」那一幕(校門口那排車,比誰的車聲大)現在還是無名的「他們」,
+   這個角色把那群人變成一張臉。骨架用新補的 m4(Bryce,見 assets/models/
+   README.md「m4」那節),不跟現有五副共用。站在中華路機車行(motoBoss
+   旁邊,見那則筆記),呼應「改管」跟「帥潮」那條指標。這輪只接了場景裡
+   站著+打招呼,day13 那段劇情分支還沒真的接進來(跟阿源當初「頭像先接,
+   互動分支之後補」同一個節奏,不是漏做)。 */
+const KAI      = { x:6, z:-13, talked:false };
 /* 小美哥(2026-08-21)——站在後火車站的人行道上,那個 gap 空地,不用蓋新
    建築。座標跟其他街上固定 NPC 同一套(阿姨/阿成那種常數座標量距離,不用
    讀 group.position)。z 第一版用 57,結果太貼近建築(鏡頭會卡進牆面貼圖
@@ -1173,7 +1162,16 @@ const NPCS = [
   buskerNPC,
   buildNPC(THREE, scene, {                             // 小美・隔壁班(見上面 MEI 那則筆記),站在公園草地上
     x:MEI.x, z:MEI.z, rotationY:Math.PI*.4, rig:'f2',
-    skin:'#dcae86', hair:'#3a2e26', hood:'#f2f0ea', pants:'#28304a', shoe:'#3a3a3a'
+    skin:'#dcae86', hair:'#3a2e26', hood:'#f2f0ea', pants:'#28304a', shoe:'#3a3a3a',
+    /* 2026-08-24 kc 要求「明顯一點」——先試過「改造制服」(領口沒扣好+領帶
+       鬆垂)那個方向,貼上去之後鏡射變成一條斜跨胸口的斜紋,讀起來不像鬆開
+       的制服,kc 當場改方向要「女性化性感」。第二版換成裙裝+露腿+及膝襪的
+       三段式漸層貼圖(上衣下擺也露腰),色系統一走粉色碎花——碎花是刻意選的
+       (不是隨手配色):鏡射貼到左右腿/左右邊的範圍不對稱,方向性強的圖案
+       (格紋、直條紋)會讓兩邊看起來像穿不同衣服,均勻不分方向的小碎花圖案
+       不管貼歪多少都還是同一個花色,貼歪也看不出來。`char-mei-shirt.png`/
+       `char-mei-skirt.png` 兩個檔名沒有換過,內容已經是第二版。 */
+    tex:{ hood:'char-mei-shirt.png', pants:'char-mei-skirt.png' }
   }),
   buildNPC(THREE, scene, {                             // 教官・巡邏(見上面 JIAOGUAN 那則筆記)
     x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*1.1, rig:'m2',
@@ -1181,7 +1179,13 @@ const NPCS = [
   }),
   buildNPC(THREE, scene, {                             // 阿仁・蹺課常客(見上面 AREN 那則筆記)
     x:AREN.x, z:AREN.z, rotationY:Math.PI*.6, rig:'m3',
-    skin:'#c9976e', hair:'#2c2420', hood:'#f2f0ea', pants:'#28304a', shoe:'#4a4038'
+    skin:'#c9976e', hair:'#2c2420', hood:'#f2f0ea', pants:'#28304a', shoe:'#4a4038',
+    /* 2026-08-24——跟小美同一輪「明顯一點」的要求,男生版走「制服穿得很
+       隨便」:領口沒扣、露出裡面鬆垮的深藍布料,呼應「學校是學店」那條
+       (見 DESIGN_NOTES),不是隨便挑的花色。這裡不用擔心鏡射貼歪的問題
+       (跟小美裙子那次不同)——歪一點看起來就是皺巴巴穿不整齊,反而更貼
+       這個人設。 */
+    tex:{ hood:'char-aren-shirt.png', pants:'char-aren-pants.png' }
   }),
   buildNPC(THREE, scene, {                             // 小美哥・後火車站巡邏(見上面 BROTHER 那則筆記)
     x:BROTHER.x, z:BROTHER.z, rotationY:Math.PI*.5, rig:'m2',
@@ -1232,6 +1236,16 @@ const motoBoss = buildNPC(THREE, scene, {
   hood:'#4a5560', pants:'#26241f', shoe:'#1c1c1c'
 });
 NPCS.push(motoBoss);
+
+/* 阿凱(見上面 KAI 那則筆記)——站在機車行旁邊,跟老闆/forSale 車拉開一點
+   距離不要疊在一起。染髮呼應「改管/帥潮」那群人的視覺印象,跟刺青一樣是
+   寫實的次文化標記,不是拿來嘲笑的醜化(見 CLAUDE.md 基準線)。 */
+const kaiNPC = buildNPC(THREE, scene, {
+  x:KAI.x, z:KAI.z, rotationY:-Math.PI*.3, rig:'m4',
+  skin:'#c9976e', hair:'#d4a03c', hood:'#1c1c1c', pants:'#2b2b2b', shoe:'#e8e4d8',
+  tex:{ hood:'char-kai-shirt.png', pants:'char-kai-pants.png' }
+});
+NPCS.push(kaiNPC);
 
 /* 圓環雕像(2026-08-20,kc 看到 Girlscout 小孩骨架轉出來全身單色像「泥像」
    當場生的點子)——擺在西園街⇄中華路那個圓環(scene-city3d.js roundabout()
@@ -3333,32 +3347,8 @@ const tmp = new THREE.Vector3();
    不夠快再調。 */
 let ridingMoto = null;
 const MOTO_MULT = 3.2;
-let MOTO_SEAT_OFFSET = 0.75;    // 2026-08-17 定案值(正值 = 往後輪方向)。暫時改回 let
-                                 // 給 #tune 面板拖,錄完會改回 const。
-let MOTO_SEAT_Y = 0.95;         // 同上,座墊高度。
-
-/* 騎乘姿勢調整面板 wiring——暫時的,見上面 #tune 那段 CSS 註解。 */
-let tunePanelSynced = false;
-const tuneInputs = {
-  Offset: document.getElementById('tOffset'), SeatY: document.getElementById('tSeatY'),
-  Splay:  document.getElementById('tSplay'),  ArmX:  document.getElementById('tArmX'),
-  ArmZ:   document.getElementById('tArmZ'),   ArmY:  document.getElementById('tArmY')
-};
-function syncTunePanel(){
-  tuneInputs.Offset.value = MOTO_SEAT_OFFSET;
-  tuneInputs.SeatY.value  = MOTO_SEAT_Y;
-  tuneInputs.Splay.value  = RIDE_POSE.thighSplay;
-  tuneInputs.ArmX.value   = RIDE_POSE.armX;
-  tuneInputs.ArmZ.value   = RIDE_POSE.armZ;
-  tuneInputs.ArmY.value   = RIDE_POSE.armY;
-  Object.keys(tuneInputs).forEach(k => tuneInputs[k].dispatchEvent(new Event('input')));
-}
-tuneInputs.Offset.addEventListener('input', e => { MOTO_SEAT_OFFSET = +e.target.value; document.getElementById('tvOffset').textContent = MOTO_SEAT_OFFSET.toFixed(2); });
-tuneInputs.SeatY .addEventListener('input', e => { MOTO_SEAT_Y      = +e.target.value; document.getElementById('tvSeatY').textContent  = MOTO_SEAT_Y.toFixed(2); });
-tuneInputs.Splay .addEventListener('input', e => { RIDE_POSE.thighSplay = +e.target.value; document.getElementById('tvSplay').textContent = RIDE_POSE.thighSplay.toFixed(2); });
-tuneInputs.ArmX  .addEventListener('input', e => { RIDE_POSE.armX   = +e.target.value; document.getElementById('tvArmX').textContent   = RIDE_POSE.armX.toFixed(2); });
-tuneInputs.ArmZ  .addEventListener('input', e => { RIDE_POSE.armZ   = +e.target.value; document.getElementById('tvArmZ').textContent   = RIDE_POSE.armZ.toFixed(2); });
-tuneInputs.ArmY  .addEventListener('input', e => { RIDE_POSE.armY   = +e.target.value; document.getElementById('tvArmY').textContent   = RIDE_POSE.armY.toFixed(2); });
+const MOTO_SEAT_OFFSET = 0.75;   // 2026-08-17 定案值(正值 = 往後輪方向)
+const MOTO_SEAT_Y = 0.95;        // 同上,座墊高度
 /* 買機車(2026-08-17,kc 要求「只有機車行能買,騎別人的扣風評」)——
    MOTO_PRICE 是我先湊的數字,沒跟 kc 對過,價位刻意訂得比現在身上的錢
    ($63)高一大截,呼應這遊戲「想翻身但每條路都關著」的基準線(見
@@ -3530,6 +3520,8 @@ function updateCity(dt){
       nearProp = { type:'aren', ref:AREN };
     if(!nearProp && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 3.2)
       nearProp = { type:'brother', ref:BROTHER };
+    if(!nearProp && Math.hypot(pos.x-KAI.x, pos.z-KAI.z) < 3.2)
+      nearProp = { type:'kai', ref:KAI };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
        讀 npc.group.position。純背景路人,不記名字、不分支對話,一句隨機
@@ -3596,6 +3588,7 @@ function updateCity(dt){
                       : nearProp.type === 'jiaoguan' ? '按 <b>空白鍵</b> 找教官'
                       : nearProp.type === 'aren' ? '按 <b>空白鍵</b> 找阿仁'
                       : nearProp.type === 'brother' ? '按 <b>空白鍵</b> 跟他說話'
+                      : nearProp.type === 'kai' ? '按 <b>空白鍵</b> 找阿凱'
                       : nearProp.type === 'pedestrian' ? '按 <b>空白鍵</b> 打聲招呼'
                       : '按 <b>空白鍵</b> 撿起垃圾';
     hintEl.classList.add('on');
@@ -3603,10 +3596,6 @@ function updateCity(dt){
     hintEl.innerHTML = '按 <b>空白鍵</b> 下車';
     hintEl.classList.add('on');
   } else if(MODE === 'city') hintEl.classList.remove('on');
-
-  if(ridingMoto && !tunePanelSynced){ syncTunePanel(); tunePanelSynced = true; }
-  else if(!ridingMoto) tunePanelSynced = false;
-  tuneEl.classList.toggle('on', !!ridingMoto);
 }
 
 /* 2026-08-14 街上補了一隻貓(scene-city3d.js 的 placePet())——原本三句台詞
@@ -4047,8 +4036,8 @@ function talkToAren(){
    是一路 playBeats 播下去,依序插入該插的段落。 */
 function talkToBrother(){
   const D = NpcSchool.BROTHER;
-  if(!MEI.together){ say('brother', D.idleBefore); return; }
-  if(BROTHER.met){ say('brother', D.idleAfter); return; }
+  if(!MEI.together){ say('brother', D.idleBefore[Math.random()*D.idleBefore.length|0]); return; }
+  if(BROTHER.met){ say('brother', D.idleAfter[Math.random()*D.idleAfter.length|0]); return; }
   BROTHER.met = true;
   const beats = [...D.hookBeats];
   if(YUAN.hasTattoo) beats.push(...D.tattooBadBeats);
@@ -4059,6 +4048,35 @@ function talkToBrother(){
     chg('calm', KNOWLEDGE.rough >= 1 ? 6 : -4);
     toast(D.quiet, 3200);
   });
+}
+/* 阿凱(2026-08-24 新角色,見上面 KAI 那則筆記)——閒聊句比照爸媽的
+   DAD_CHECKIN_LINES/dadCheckinLines() 模式(依天數分桶、隨機抽一句),
+   2026-08-24 kc 要求「比照爸媽 閒聊」補上。差異:爸媽的 stage 是靠
+   seenStoryDays 判斷對應劇情節點是否已播過,阿凱目前沒有接 story-school.js
+   的任何節點(day13「排氣管」那段還是無名的「他們」,見前一則筆記),
+   所以這裡改用最單純的「day 數字門檻」分桶——這是我選的小參數,
+   10/20 兩個門檻沒有特別意義,不喜歡可以再調。story-school.js day13
+   那段劇情分支仍然還沒真的接進來。 */
+const KAI_CHECKIN_LINES = {
+  0: ['「車行老闆說我車聲太吵了啦——他自己不也是幹這行的。」'],
+  10: ['他蹲在車旁邊,見你過來就笑了一下:「嘿嘿,準備幹一票大的,看好了。」',
+       '「最近在盤一個東西,」他壓低聲音,「到時候你就知道了。」'],
+  20: ['「東西快齊了,」他把玩著手上的扳手,「你等我消息就對了。」',
+       '他這幾天話變少,見你只是點個頭,眼神卻藏不住興奮。']
+};
+function kaiCheckinLines(){
+  const stages = [20, 10, 0];
+  const s = stages.find(d => day >= d) ?? 0;
+  return KAI_CHECKIN_LINES[s];
+}
+function talkToKai(){
+  if(!KAI.talked){
+    KAI.talked = true;
+    say('kai', '「喔,新面孔。」\n\n他指了指停在旁邊那台車。\n\n「改管改到這樣,你聽聽這聲音。」');
+    return;
+  }
+  const lines = kaiCheckinLines();
+  say('kai', lines[Math.floor(Math.random()*lines.length)]);
 }
 function buyMoto(m){
   /* 已經有一張分期收據還沒繳完的時候不能再開一張——MOTO_LOAN 是單一物件
@@ -4097,8 +4115,21 @@ function buyMoto(m){
    toast 帶過,跟這遊戲寫「偷東西」的做法(steal() 也是不演犯案過程)是
    同一個分寸。 */
 const WORKER_PRICE = 500;
+/* 2026-08-24 kc 要求「都補」閒聊句——原本開場白是單一固定字串,每次靠近
+   都重播一模一樣的句子,不管談過幾次。改成依 w.talked 分兩桶隨機抽,
+   跟阿姨/阿成 talk[] 同一套邏輯,menu 本身選項不變。 */
+const WORKER_TALK = {
+  before: ['「怎樣,要不要陪你走一段?」\n\n她看你一眼,沒有堆笑臉,就是在問。'],
+  after: [
+    '「又是你。」她說,語氣沒什麼起伏。',
+    '她靠在牆上,看你走近,沒有多說什麼,等你先開口。',
+    '「今天要不要陪我走一段。」她說得比上次隨便一點。'
+  ]
+};
 function talkToWorker(w){
-  say('worker', '「怎樣,要不要陪你走一段?」\n\n她看你一眼,沒有堆笑臉,就是在問。', () => {
+  const pool = w.talked ? WORKER_TALK.after : WORKER_TALK.before;
+  const line = pool[Math.random()*pool.length|0];
+  say('worker', line, () => {
     openMenu('巷子裡', [
       { label:'付錢,跟她走', cost:'$'+WORKER_PRICE, cls: ST.money<WORKER_PRICE?'bad':'',
         run(){
@@ -4158,6 +4189,7 @@ function interactProp(prop){
   if(prop.type === 'jiaoguan'){ talkToJiaoguan(); return; }
   if(prop.type === 'aren'){ talkToAren(); return; }
   if(prop.type === 'brother'){ talkToBrother(); return; }
+  if(prop.type === 'kai'){ talkToKai(); return; }
   if(prop.type === 'statue'){
     toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
     return;
@@ -4310,6 +4342,7 @@ window.__dbg = {
   joinedTroupe: (v) => { if(v != null) joinedTroupe = v; return joinedTroupe; },
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
+  KAI, talkToKai,
   indoorCalib(){
     const s = heroIndoor.group.scale.x;
     return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
@@ -4383,17 +4416,44 @@ window.__dbg = {
      game.html 那段 MEI/buildNPC),不是另外瞎湊,兩邊要是同一個人。
      借的是新下載的 base-human-f2-sit.glb(見 scene-city3d.js MODELS.f2.sit
      那段筆記)。截完就可以刪。 */
-  spawnMei(rotY){
+  spawnMei(rotY, texOverride){
     if(this._mei) indoorScene.remove(this._mei.group);
     this._mei = buildNPC(THREE, indoorScene, {
       rig:'f2', rotationY: rotY||0, pose:'sit',
-      skin:'#dcae86', hair:'#3a2e26', hood:'#f2f0ea', pants:'#28304a', shoe:'#3a3a3a'
+      skin:'#dcae86', hair:'#3a2e26', hood:'#f2f0ea', pants:'#28304a', shoe:'#3a3a3a',
+      tex: texOverride || { hood:'char-mei-shirt.png' }   // 見上面街上 NPC 那則 2026-08-24 筆記,兩邊要同一件衣服
     });
     this._mei.group.position.set(640, 200, 0);
     this._mei.group.scale.setScalar(INDOOR_HERO_SCALE);
     return 'spawned';
   },
   meiTick(dt){ if(this._mei) this._mei.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
+  /* 2026-08-24:阿仁/阿凱教室背影截圖用,跟 spawnMei 同一招。顏色抄街上
+     那兩組 buildNPC 呼叫(AREN/kaiNPC),截完就可以刪。 */
+  spawnAren(rotY, texOverride){
+    if(this._aren) indoorScene.remove(this._aren.group);
+    this._aren = buildNPC(THREE, indoorScene, {
+      rig:'m3', rotationY: rotY||0, pose:'sit',
+      skin:'#c9976e', hair:'#2c2420', hood:'#f2f0ea', pants:'#28304a', shoe:'#4a4038',
+      tex: texOverride || { hood:'char-aren-shirt.png', pants:'char-aren-pants.png' }
+    });
+    this._aren.group.position.set(640, 200, 0);
+    this._aren.group.scale.setScalar(INDOOR_HERO_SCALE);
+    return 'spawned';
+  },
+  arenTick(dt){ if(this._aren) this._aren.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
+  spawnKai(rotY, texOverride){
+    if(this._kai) indoorScene.remove(this._kai.group);
+    this._kai = buildNPC(THREE, indoorScene, {
+      rig:'m4', rotationY: rotY||0, pose:'sit',
+      skin:'#c9976e', hair:'#d4a03c', hood:'#1c1c1c', pants:'#2b2b2b', shoe:'#e8e4d8',
+      tex: texOverride || { hood:'char-kai-shirt.png', pants:'char-kai-pants.png' }
+    });
+    this._kai.group.position.set(640, 200, 0);
+    this._kai.group.scale.setScalar(INDOOR_HERO_SCALE);
+    return 'spawned';
+  },
+  kaiTick(dt){ if(this._kai) this._kai.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
   state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
                   pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] }),
   ridePose(patch){ if(patch) Object.assign(RIDE_POSE, patch); return { ...RIDE_POSE }; },
