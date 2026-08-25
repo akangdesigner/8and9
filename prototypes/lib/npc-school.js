@@ -319,5 +319,21 @@
     ]
   };
 
-  root.NpcSchool = { MEI, JIAOGUAN, AREN, BROTHER };
+  /* ── 導師 ── 講台上,平時只是背景裡「還在試的老師,學校剩沒幾個了」
+   * (story-school.js day28「導師找你」節點的人設引用)。這輪只做 A(平時
+   * 找他講話的閒聊),日常態度是懶得理你、把你趕回座位,不是真的兇——
+   * 跟阿源/小美那種會累積好感/劇情的 NPC 不同層級,老師這條線不掛任何
+   * 指標,純氣氛用。day28 那個節點(叫到走廊)還沒接,見 game.html
+   * talkToTeacher() 的筆記,之後接上再讓這個閒聊池跟著切換語氣。 */
+  const TEACHER = {
+    id:'teacher', name:'老師',
+    idleTalk:[
+      '「幹嘛。回座位坐好。」',
+      '「上課時間找我聊天？」他指了指座位。',
+      '「有事下課再說。」他看都沒看你，已經轉頭在看別排。',
+      '「坐好。」就這兩個字，他已經在想別的事。'
+    ]
+  };
+
+  root.NpcSchool = { MEI, JIAOGUAN, AREN, BROTHER, TEACHER };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

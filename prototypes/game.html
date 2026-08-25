@@ -344,6 +344,7 @@
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
 <script src="lib/npc-temple.js"></script>
+<script src="lib/story-motoboss.js"></script>
 <script src="lib/npc-school.js"></script>
 <script src="../src/tags.js"></script>
 <script type="importmap">
@@ -824,6 +825,11 @@ const WHO = {
   aren:     { name:'阿仁', opt:{ face:'F', skin:'#c9976e', hair:'#2c2420', top:'#f2f0ea', topD:'#d8d4c8', pants:'#28304a' } },
   /* 小美哥(2026-08-21)——警察制服深藍,跟其他角色的便服拉開差異。 */
   brother:  { name:'小美哥', opt:{ face:'F', skin:'#c2a17e', hair:'#1c1c1c', top:'#2b3a52', topD:'#1e2a3c', pants:'#1c2430' } },
+  /* 老師(2026-08-25)——沒有單獨的頭像照片(教室背景照 school-classroom.png
+     裡他已經在講台上,但那是遠景合圖,不能裁大頭貼用,見 PORTRAIT_IMGS
+     acheng/worker 那則筆記的先例:沒照片先退回 SF.person() 像素小人),
+     淺灰藍襯衫+深色長褲,呼應那張背景照片裡的穿著。 */
+  teacher:  { name:'老師', opt:{ face:'F', skin:'#c2a17e', hair:'#3a3a3a', top:'#9aa0a6', topD:'#7a828a', pants:'#2c2c30' } },
   /* 阿伯(2026-08-21)——TROUPE 這輪第一次真的被消費(rejectRep/兵器/規矩/
      出陣那幾段他開口),沒有 3D 模型(體型跟現有骨架差太多,見 DESIGN_NOTES
      「3D 街上的角色」),跟 mom/dad 同一套「沒有模型只有 WHO 頭像」做法。
@@ -831,6 +837,10 @@ const WHO = {
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
   /* 阿凱(2026-08-24)——見上面 KAI 那則筆記,染髮跟 kaiNPC 那組 buildNPC 顏色同步。 */
   kai:      { name:'阿凱', opt:{ face:'F', skin:'#c9976e', hair:'#d4a03c', top:'#1c1c1c', topD:'#141414', pants:'#2b2b2b' } },
+  /* 旺鴻(機車行老闆,2026-08-25)——顏色跟街上那具 motoBoss buildNPC() 同步,
+     沒有真人照片(先退回 SF.person() 像素小人),見下面 PORTRAIT_IMGS 那則
+     筆記的先例(worker/bo 都是這樣先接資料再補照片)。 */
+  motoboss: { name:'旺鴻', opt:{ face:'F', skin:'#b98a63', hair:'#3a3a3a', top:'#4a5560', topD:'#38414a', pants:'#26241f' } },
   /* 收銀小遊戲的客人(2026-08-19)——沒有固定角色設定,顏色隨便挑一組跟
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
@@ -1021,6 +1031,11 @@ const BUSKER_POS = { x: -84+20, z: 4 };
    active=接了任務、taskDone=貓摸過了但還沒回報、done=回報完拿到獎勵
    (終態,offer 不會再出現)。 */
 const AYI = { x:-22, z:-93.5, visits:0, seenEvents:{}, catQuest:{ active:false, taskDone:false, done:false } };
+/* 旺鴻・機車行老闆(2026-08-25)——跟 AYI/ACHENG 同一套 visits/seenEvents
+   機制,座標對齊上面 motoBoss buildNPC() 那具 3D 角色(x:-1, z:-13.2)。
+   資料(talk[]/events[])在 lib/story-motoboss.js,消費方式見下面
+   talkToMotoBoss()。設計討論見 docs/DESIGN_NOTES.md「機車行老闆・旺鴻」。 */
+const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{} };
 /* 阿成・廟口乾麵攤(2026-08-20,kc:「他是最照顧你的人,一直跟他聊天會加
    歸屬感,他會推薦你陣頭」)——跟 AYI 同一套 visits/seenEvents 機制,站在
    「廟口乾麵」攤子後方,取代掉原本站那個位置的路人佔位。
@@ -1770,20 +1785,64 @@ const BEDROOM_COLLIDERS_PHOTO = [];
 const BEDROOM_WALK_TWEAK = { spawnPx: 148, minPx: 148, maxPx: 388 };
 let HOME = HOME_FALLBACK, HOME_COLLIDERS = HOME_COLLIDERS_FALLBACK;
 let BEDROOM = BEDROOM_FALLBACK, BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_FALLBACK;
-/* 教室(2026-08-21)——只有灰模,還沒有照片版(scene-school.js 的
-   shop-school.png 也還沒生),所以不像 HOME/BEDROOM 那樣有 FALLBACK/PHOTO
-   兩組互換,先只有一組。之後 kc 生完教室照片,照 HOME_PHOTO/BEDROOM_PHOTO
-   的先例再補一個 SCHOOL_PHOTO + Image().onload 切換,這裡不用重寫。
-   沒有碰撞框(桌椅只是背景裝飾,不擋路),inBlocked() 對未知 PLACE 本來就
-   回傳 []。 */
+/* 教室(2026-08-21)——原本只有灰模,還沒有照片版。2026-08-25 kc 生出
+   教室照片(`school-classroom.png`,1672×941,跟 home-living.png 同規格),
+   照 HOME_PHOTO/BEDROOM_PHOTO 的先例補上 SCHOOL_PHOTO + Image().onload
+   切換,FALLBACK 留著當圖片載入失敗時的備援。
+   FALLBACK(灰模)沒有碰撞框(桌椅只是背景裝飾,不擋路)——PHOTO 版
+   2026-08-25 同一天補了(kc:「能走的路只有課桌椅中間的十字跟門往下走
+   才對,要處理碰撞」),見下面 SCHOOL_COLLIDERS_PHOTO。 */
+const SCHOOL_COLLIDERS_FALLBACK = [];
 const SCHOOL_FALLBACK = {
   walkN: SceneSchool.WALK_N, walkS: SceneSchool.WALK_S,
   spots: [
     { id:'door', name:'走廊', x:SceneSchool.W-68, w:60, y0:SceneSchool.WALK_N, y1:SceneSchool.WALK_S },
-    { id:'desk', name:'座位', x:SceneSchool.DESK.x-10, w:SceneSchool.DESK.w+20, y0:SceneSchool.WALK_N, y1:SceneSchool.WALK_S }
+    { id:'desk', name:'座位', x:SceneSchool.DESK.x-10, w:SceneSchool.DESK.w+20, y0:SceneSchool.WALK_N, y1:SceneSchool.WALK_S },
+    /* 老師(2026-08-25)——講台在 BOARD 正下方置中(見 scene-school.js
+       board() 的 px2 算法,podium 落在 x≈286~354),這裡抓寬一點連人一起
+       蓋到。 */
+    { id:'teacher', name:'老師', x:280, w:80, y0:SceneSchool.WALK_N, y1:SceneSchool.WALK_S }
   ]
 };
-let SCHOOL = SCHOOL_FALLBACK;
+/* 照片座標(2026-08-25,肉眼在 school-classroom.png 上拉格線量的,同一招
+   換算公式:logical = native * (640/1672)。門在右側牆上(原圖
+   x:1330~1490),跟灰模版「往右走到走廊」的方向一致。
+   walkN/walkS 沒有照片裡真的量到的地板線精算,抓一段「主角站著不會整個人
+   疊進桌椅堆裡」的合理範圍,跟 HOME_PHOTO(110)/BEDROOM_PHOTO(145)同一個
+   量級。
+   **v2(2026-08-25 同一天,kc 換圖)**:kc 說「先用這張圖,後面的部分我
+   額外給你,這樣你好做碰撞跟透視」——新圖把女生那組桌椅、跟原本右側靠門
+   那張沒人坐的空桌椅都拿掉了,只留橘髮男生+光頭男生兩張桌子跟中間講台
+   老師,構圖乾淨很多(前景/兩側大片開放地板)。kc 明講後面會另外給素材
+   疊圖(照 dad-drunk.png/clerk-front.png 那套獨立圖層的先例,不是全部
+   烤進一張背景照片),之後接手時碰撞/透視才能一塊一塊分開處理,不用
+   整張圖重量。
+   'desk'(主角座位)這格**沒有拿掉**——上課/偷玩手遊那個核心互動
+   (`openIndoorSpot()` 的 PLACE==='school' 分支)還在,只是暫時沒有對應
+   的桌椅圖(等 kc 給那塊素材再疊上去),座標先留在原位置沒有新的參考點
+   可以重量,之後 kc 給素材時再一起核對調整。 */
+const SCHOOL_PHOTO = {
+  walkN: 230, walkS: 345,
+  spots: [
+    { id:'door', name:'走廊', x:509, w:61,  y0:230, y1:345 },
+    { id:'desk', name:'座位', x:375, w:170, y0:230, y1:345 },   // 視覺素材待補,見上面 v2 筆記
+    /* 老師(2026-08-25 v2 重量):講台原圖 x:725~975,換算 x≈278~373。 */
+    { id:'teacher', name:'老師', x:278, w:95, y0:230, y1:345 }
+  ]
+};
+/* 碰撞(2026-08-25,kc 抓到「人太小隻、走的路是整塊矩形,會直接穿過橫向
+   課桌椅」,同一天又回報「課桌椅中間是可以人走過穿過去的」,擋框改成只蓋
+   桌面本身那塊實心範圍,不含椅背/椅腳)。
+   **v2(換圖後重量)**:新圖只剩橘髮男生+光頭男生兩張獨立桌子,女生那組
+   拿掉了,兩塊擋框直接對應這兩張桌子,不用再切「兩人共用一塊」那組。
+   桌子跟講台之間本來就有留白(原圖量出來各約 25px 淨空,不是刻意切的
+   走道),不用像 v1 那樣特地留一條「教師走道」的縫——正面直接走得到
+   講台。 */
+const SCHOOL_COLLIDERS_PHOTO = [
+  { x0:182, x1:268, pyBack:191, pyFront:237 },   // 橘髮男生那張桌子(桌面本身)
+  { x0:383, x1:471, pyBack:191, pyFront:237 }    // 光頭男生那張桌子(桌面本身)
+];
+let SCHOOL = SCHOOL_FALLBACK, SCHOOL_COLLIDERS = SCHOOL_COLLIDERS_FALLBACK;
 
 /* naturalWidth(不是 complete!)——圖片 404 時 complete 一樣會變 true,
    naturalWidth 才分得出「真的載入成功」還是「找不到檔案」。跟超商
@@ -1801,6 +1860,105 @@ homeBedroomImg.onload = () => {
   paintBedroomBackdrop();
 };
 homeBedroomImg.src = '../assets/bg/home-bedroom.png?v=4';
+/* 教室照片(2026-08-25)——同一招:naturalWidth 載入成功才把 SCHOOL 綁定
+   換成 SCHOOL_PHOTO,失敗(圖還沒生/檔名打錯)就留在 SCHOOL_FALLBACK 灰模。 */
+const schoolClassroomImg = new Image();
+schoolClassroomImg.onload = () => {
+  if(schoolClassroomImg.naturalWidth){ SCHOOL = SCHOOL_PHOTO; SCHOOL_COLLIDERS = SCHOOL_COLLIDERS_PHOTO; }
+  paintSchoolBackdrop();
+};
+schoolClassroomImg.src = '../assets/bg/school-classroom.png?v=2';
+/* 小美座位 + 主角空位(2026-08-25,kc 給的綠幕疊圖,見上面 SCHOOL_PHOTO
+   v2 那則筆記——「後面的部分我額外給你,這樣你好做碰撞跟透視」)。跟
+   dad-drunk.png 同一套「綠幕截圖→tools/green-to-alpha.py 去背→疊圖」
+   管線,只是這次來源不是 3D 模型截圖,是直接生的寫實圖(跟教室背景照片
+   同一個美術方向——DESIGN_NOTES「小美教室剪影截圖」那則待辦原本想走
+   3D 模型截圖那條路,這次 kc 換了做法直接給寫實去背圖,那則待辦筆記
+   還沒回頭更新)。兩張圖來自同一張綠幕圖裁成兩半:`mei-desk.png` 是
+   小美坐著那半(v2 拿掉女生那組桌椅後,這裡用獨立疊圖補回來,好處是
+   位置/縮放可以跟主角分開算,不用再烤進背景照片),`school-empty-desk.png`
+   是空桌椅那半(SPOTS 'desk' 那格終於有圖可以疊,之前只是空地板)。
+   **第一版位置/大小是亂猜的,kc 直接抓到「原本的位置不是這樣」+「綠幕
+   根本沒清掉」**,回頭附上最一開始那張教室原圖(四人都在的版本,v2
+   拿掉女生+空桌椅之前的樣子)當基準要求「先清綠幕、放桌面」。
+   **去背**:見上面 green-to-alpha.py 的羽化更新(4px 邊緣漸層,不再是
+   硬邊二值化),頭髮絲那類細節不會有鋸齒/殘留綠邊。
+   **位置(v3,2026-08-25 第三輪)**:不再用「桌寬比例反推」這種間接換算
+   (v2 那版算法沒錯,但沒有真的比對過原圖,位置感覺還是不對)——改成
+   直接拿最一開始那張教室原圖(kc 附的參考圖)當基準肉眼量兩塊的落地
+   範圍:小美原本坐的位置(含桌椅)native x:195~620、底部 y:900;
+   主角空位原本的位置 native x:995~1410、底部 y:941(照片下緣裁掉的
+   位置,原本那張空桌椅就是頂到畫面底部)。兩張疊圖各自縮放到剛好填滿
+   這兩個原生範圍(不是憑桌寬比例反推),換算成 canvas px(×1280/1672):
+   小美 x:149 bottom:689 w:325;空位 x:762 bottom:720 w:318。本機用
+   Python 疊過一次確認跟原圖幾乎重合,kc 之後真的玩起來如果還是覺得
+   位置不對,__dbg.tweakSchool() 面板還在,可以直接滑桿現場調。
+   **「綠幕根本沒清掉」的真正根因(同一輪抓到)**:本機拿 PIL
+   `alpha_composite()` 核對兩張圖看起來完全乾淨,kc 截的瀏覽器畫面卻有
+   綠邊——canvas `drawImage()` 把裁圖從原始尺寸(680/535px)縮到疊圖
+   實際大小(325/318px,超過 2 倍縮小)是用未預乘 alpha 的雙線性內插,
+   會把「alpha=0 的全透明像素裡藏著的原始鮮綠色 RGB」內插進旁邊的人物
+   像素——PIL 的 alpha_composite() 正確處理 alpha 不會露出這個底色,
+   兩邊合成邏輯不同,本機核對不出瀏覽器縮放才會冒出來的問題。修法在
+   `tools/green-to-alpha.py`(color extension,v3):非完全不透明的像素
+   RGB 一律換成離它最近的完全不透明像素顏色,不管透明度多少,底下都不再
+   藏著綠色。**v3 的坑**:一開始對整張圖全域套用外推,結果整片背景被切成
+   「離哪顆前景像素最近」的 Voronoi 色塊,直接打開 PNG 看到一圈圈放射狀
+   花紋(kc:「打開我看」→ 看到「煙火」,直接被電——不管 alpha 對不對,
+   檔案本身就是壞的)。v4 改成只在輪廓外圍一圈窄帶內套用外推,窄帶以外
+   全部換成單一中性灰,不再有花紋。
+   **v5(kc 換了張淺綠背景的參考圖重生)**:換圖同時抓到「桌子後面椅背
+   跟抽屜中間那個縫還是綠的」——那個縫是家具鏤空、露出背景色的獨立小
+   區域,不連到畫面邊界,`green-to-alpha.py` 原本只挖邊界連通分量的
+   邏輯挖不到。改成不限邊界連通,只要色度判斷是綠幕就挖(這批素材人物
+   沒穿綠色,不會誤挖)。兩張圖用新參考圖(跟舊圖同一個構圖,裁切座標
+   照抄)重新裁切+去背,尺寸微調(670×1000 / 550×660,舊版是
+   680×1015 / 535×665,裁切窗口幾乎沒變,位置/大小數字沿用不用重算),
+   `?v=5`,PNG 本身跟合成後都核對過乾淨,檔案也更新到 `~/Desktop/`。
+   **v8(2026-08-25,kc 自己去背後直接給檔案)**:程式這邊拿 `green-to-alpha.py`
+   修到 v9/v10 還在書頁邊緣留一圈很淡的白色雜點沒抓到根因(見 git 歷史/
+   對話紀錄),kc 直接自己處理好一張已經帶 alpha 的合成圖丟過來,裁切
+   窗口跟座標系統跟先前完全一樣(同一個構圖),裁成兩半直接部署,沒有再
+   跑 `green-to-alpha.py`。本機核對過(縮放合成到 school-classroom.png
+   上,zoom 進書頁/髮際線邊緣)乾淨,沒有殘留雜點。
+   **v9(同一天,kc:「色調好像不太統一,可以統一風格嗎」)**:v8 是綠幕
+   攝影棚打光,偏亮、偏白、偏冷;教室背景照是室內日光燈,偏暗、偏黃、
+   偏濁。本機拿兩張圖裡同一種木頭課桌(疊圖 vs 背景照裡光頭男生那張)
+   量顏色統計值,先試過完整套用「均值/標準差」色彩轉移(Reinhard 那套)
+   ——數學上對,結果過頭:木頭桌椅整個變成詭異的暗紅色,頭髮也跟著偏紅。
+   改成簡單很多的版本:整體降低亮度(×0.82)+ 疊一層淡淡的暖色
+   (rgb 255,200,140,強度 12%,乘法混色不是直接蓋),兩個數字都是肉眼
+   核對過的,不是量出來的精確解。
+   **v10(同一天,kc:「可調暗一點嗎沒統一啊」)**:v9 的 ×0.82 不夠——
+   量過才發現還差一大截(疊圖木頭桌 168/153/141,背景照木頭桌只有
+   95/80/65,將近打對折)。改回照數字算,不是肉眼猜:三個色版分開算
+   倍率(R×0.4605、G×0.4184、B×0.3543,從 v8 原始疊圖的桌面色反推,
+   純乘法無偏移,不會有 v9 一開始 Reinhard 那版的偏紅問題),量出來
+   跟背景照桌面色幾乎重合(94/80/64 vs 目標 95/80/65)。
+   **v11(同一天,kc:「改用這張圖」)**:kc 換了張新的參考圖(construction
+   跟 v8 那張同一個構圖,一樣自己去背過,alpha 完整),裁切窗口/座標系統
+   照抄不用重量。這張圖光看縮圖比較暗(黑色暈影背景),但實測桌面色量出來
+   還是偏亮(172/150/135),跟 v10 同一個坑——**縮圖看起來暗不代表主體
+   本身夠暗**,量了才準,不要被暈影背景騙。同一招重新反推倍率
+   (R×0.5488、G×0.5359、B×0.4812)套用,量出來貼target(94/80/64)。
+   去背品質也核對過(全圖掃描 0~3 顆殘留綠色像素,書頁/髮際線邊緣
+   zoom 檢查過沒有雜點)。 */
+const meiDeskImg = new Image(); meiDeskImg.src = '../assets/bg/mei-desk.png?v=11';
+const meiDeskCrop = { x:0, y:0, w:670, h:1000 };
+/* 位置/大小定案(2026-08-25,kc 自己在 __dbg.tweakSchool() 滑桿面板上
+   拉出來的最終值,不是估的)。
+   `brightness`/`r`/`g`/`b`(2026-08-25,kc:「我要自己調亮度跟 RGB」)——
+   色調每次都要我寫 Python 腳本量顏色、猜倍率、重新存檔重整頁,來回好幾輪
+   太慢。改成 canvas `filter`(CSS filter 語法,支援 `brightness()` 疊
+   一個 SVG feColorMatrix 做逐色版增益)即時套用在畫這兩張疊圖的當下,
+   不用重新處理 PNG 檔案——滑桿一拉下一幀直接生效,見下面
+   `schoolPropFilter()`。100 是「不調整,維持原圖」的基準值。 */
+/* 亮度/RGB 定案(2026-08-25,kc 自己在滑桿面板上拉出來的最終值)——只調了
+   亮度(160/150),紅/綠/藍維持 100 不變。 */
+const MEI_DESK_TWEAK = { x:270, bottom:720, w:252, brightness:160, r:100, g:100, b:100 };
+const schoolEmptyDeskImg = new Image(); schoolEmptyDeskImg.src = '../assets/bg/school-empty-desk.png?v=11';
+const schoolEmptyDeskCrop = { x:0, y:0, w:550, h:660 };
+const SCHOOL_DESK_TWEAK = { x:734, bottom:720, w:220, brightness:150, r:100, g:100, b:100 };
 
 /* 爸媽疊圖(2026-08-17起):跟店員(clerk-front/back.png)同一招——3D 骨架
  * 模型(buildNPC,rig 'm',opts.pose:'sit' 借坐姿動畫)截綠幕背影,程式碼
@@ -1886,6 +2044,31 @@ function drawFloorShadow(ctx, x, bottom, w){
   ctx.arc(0, 0, ew/2, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
+}
+/* 教室疊圖的亮度/色版滑桿(2026-08-25,見上面 MEI_DESK_TWEAK 那則筆記)——
+   canvas `filter` 屬性可以疊多個濾鏡函式,`brightness()` 是內建的,逐色版
+   增益(單獨調 R/G/B)內建濾鏡沒有對應函式,借一個 inline SVG
+   feColorMatrix(對角矩陣,只縮放 R/G/B,不動 A)用 data URI 當
+   `url(...)` 濾鏡接上去——不用真的建立 DOM 裡的 <svg>,字串現串現丟給
+   `ctx.filter` 瀏覽器就會解析。tweak 物件的 r/g/b/brightness 都是
+   百分比,100 = 原圖不變。
+   兩個坑,都是本機用假 canvas 現場測出來的,不是查文件查到的:
+   1) data URI 不能寫 `image/svg+xml;utf8,`——`utf8` 不是合法的 MIME
+      參數格式(應該是 `;charset=utf-8` 或乾脆不寫),寫了 Chrome 會直接
+      判定濾鏡載入失敗,套用結果是整張圖變全透明黑([0,0,0,0]),不是
+      忽略那段濾鏡繼續套用其他部分。
+   2) `url(...)` 濾鏡跟內建 `brightness()` 疊在同一個 filter 字串時,
+      **順序會影響能不能用**——`url(...) brightness()` 正常,反過來
+      `brightness() url(...)` 一樣整張變全透明黑。原因不明(可能是
+      Chrome 內部把 url() 濾鏡跟後面的內建濾鏡函式編譯成一條 pipeline
+      時,url() 濾鏡要在最前面才解析得動),照這個順序寫就好,不用深究
+      為什麼。 */
+function schoolPropFilter(tweak){
+  const { r, g, b, brightness } = tweak;
+  if(r === 100 && g === 100 && b === 100 && brightness === 100) return 'none';
+  const m = [r/100,0,0,0,0, 0,g/100,0,0,0, 0,0,b/100,0,0, 0,0,0,1,0].join(' ');
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg'><filter id='f'><feColorMatrix type='matrix' values='${m}'/></filter></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}#f") brightness(${brightness}%)`;
 }
 function paintHomeBackdrop(){
   gbg.clearRect(0,0,1280,720);
@@ -1985,6 +2168,58 @@ function tweakBedroomPanel(){
     });
   });
 }
+/* 教室滑桿面板(2026-08-25,kc:「你給我滑感讓我調整主角大小」,同一天
+   又追加小美座位/主角空位兩張疊圖要調位置)——跟 tweakDadPanel() 同一套
+   多組(groups)寫法,一個面板裡塞三組滑桿。角色大小那組不用重畫(
+   renderIndoor3D() 每幀都重新從 SCHOOL_HERO_TWEAK 算 scale);疊圖那兩組
+   理論上也不用重畫,因為 renderIndoorForeground() 每幀都重新從
+   MEI_DESK_TWEAK/SCHOOL_DESK_TWEAK 讀值畫,跟 DAD_TWEAK 那組"改完要手動
+   呼叫 paintHomeBackdrop()"的舊寫法不一樣——那邊是歷史包袱,這裡沒有。 */
+const SCHOOL_HERO_ROWS = [
+  ['nearPx','近(靠鏡頭/門口)', 150, 600],
+  ['farPx','遠(靠黑板/講台)', 150, 600]
+];
+const SCHOOL_PROP_ROWS = [
+  ['x','x 位置', 0, 1280],
+  ['bottom','底部高度(y)', 200, 720],
+  ['w','整體寬度', 40, 400],
+  ['brightness','亮度(%)', 30, 200],
+  ['r','紅(%)', 30, 200],
+  ['g','綠(%)', 30, 200],
+  ['b','藍(%)', 30, 200]
+];
+function tweakSchoolPanel(){
+  const old = document.getElementById('schoolHeroPanel');
+  if(old){ old.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'schoolHeroPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:220px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
+  const groups = [
+    ['角色大小(近/遠透視)', SCHOOL_HERO_TWEAK, SCHOOL_HERO_ROWS],
+    ['小美座位疊圖', MEI_DESK_TWEAK, SCHOOL_PROP_ROWS],
+    ['主角空位疊圖', SCHOOL_DESK_TWEAK, SCHOOL_PROP_ROWS]
+  ];
+  panel.innerHTML = groups.map(([title, obj, rows], gi) =>
+    `<div style="font-weight:bold;margin:${gi?'12px':'0'} 0 6px">${title}</div>` +
+    rows.map(([key,label,min,max]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="schtweak_${gi}_${key}_v">${obj[key]}</span><br>
+       <input type="range" id="schtweak_${gi}_${key}" min="${min}" max="${max}" step="2" value="${obj[key]}" style="width:100%">
+       </div>`
+    ).join('')
+  ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakSchool()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  groups.forEach(([, obj, rows], gi) => {
+    rows.forEach(([key]) => {
+      const input = document.getElementById(`schtweak_${gi}_${key}`);
+      const out = document.getElementById(`schtweak_${gi}_${key}_v`);
+      input.addEventListener('input', () => {
+        obj[key] = +input.value;
+        out.textContent = input.value;
+      });
+    });
+  });
+}
 /* 攤子遮雨簾滑桿(2026-08-19,kc:「到底難在哪裡你給我滑桿我調整遮雨
    高度」)——跟上面 tweakDadPanel() 同一招,但這裡沒有 2D 疊圖可以重畫,
    直接即時改 3D 場景裡 city.stallValance 那批 mesh 的 scale.y/position.y。
@@ -2026,14 +2261,18 @@ function paintBedroomBackdrop(){
     gbg.restore();
   }
 }
-/* 教室(2026-08-21)——還沒有照片(shop-school.png 都還沒生了,教室照片
-   更不用說),先固定畫灰模,沒有 img.complete 判斷那段。之後真的生了
-   教室照片,照 paintBedroomBackdrop() 的先例補一個 Image()/onload。 */
+/* 教室(2026-08-25 補照片版)——跟 paintBedroomBackdrop() 同一招,圖載入
+   成功畫照片,否則退回灰模。 */
 function paintSchoolBackdrop(){
   gbg.clearRect(0,0,1280,720);
-  gbg.save(); gbg.scale(SC,SC);
-  SceneSchool.renderBackground(gbg, { vignette:true, deskFront:true });
-  gbg.restore();
+  if(schoolClassroomImg.complete && schoolClassroomImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(schoolClassroomImg, 0,0,1280,720);
+  } else {
+    gbg.save(); gbg.scale(SC,SC);
+    SceneSchool.renderBackground(gbg, { vignette:true, deskFront:true });
+    gbg.restore();
+  }
 }
 
 /* 身高:畫面固定,不管站多遠(kc 2026-08-12 定案,見 DESIGN_NOTES)。
@@ -2046,18 +2285,32 @@ function paintSchoolBackdrop(){
    不用再調」的,原封不動留著;客廳/房間share 同一批照片(home-living.png/
    home-bedroom.png,同一次生圖,鏡頭比例假設相同),用新量出來的門框比例
    校正——168cm 換算 296px(算式:門框量出來約 200cm 高、460 原生 px,
-   乘 720/941 換成畫布 px 除以 200 得每公分畫布 px,再乘 168)。 */
+   乘 720/941 換成畫布 px 除以 200 得每公分畫布 px,再乘 168)。
+   **教室是例外(2026-08-25)**——kc 玩起來要求「往下走要慢慢變大」,固定
+   常數這條「畫面固定不管站多遠」的規則在這個場景明確被推翻了。教室的
+   構圖跟其他室內不一樣:鏡頭沒有校平,照片本身有真的透視,玩家往南
+   (靠近鏡頭、IN.py 變大)會視覺上變大才對。改成 school 不查這張表,
+   直接在 renderIndoor3D() 用 `schoolHeroPx(IN.py)` 按深度插值,見那邊
+   跟下面 SCHOOL_HERO_TWEAK 的說明。 */
 const HERO_TARGET_PX = {
   store: 106 * 1.3 * SC,   // 275.6,定案不再調
   home: 296,
-  bedroom: 320,   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
-  /* 教室(2026-08-21)——還沒有真照片可以量,先借房間那個數字(場景規格
-     是同一套 640×360/depthScale 公式,尺度先假設接近),真照片生出來再
-     肉眼核對調整,不用等這個數字才能先讓場景動起來。 */
-  school: 320
+  bedroom: 320   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
 };
 const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad/spawnMom 那些除錯用的定格截圖工具用,跟超商比例校正
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
+/* 教室深度縮放(2026-08-25,kc:「可以處理透視嗎,往下走會慢慢變大」)——
+   IN.py 在 SCHOOL.walkN(遠、靠黑板/講台)時吃 farPx,在 SCHOOL.walkS
+   (近、靠鏡頭/門口)時吃 nearPx,中間線性插值。nearPx 沿用 kc 已經覺得
+   「站在門口大小差不多對」的 420(前一輪滑桿調過的起始值);farPx 借
+   scene-school.js 那組還沒用上的 `depthScale()` 比例(0.76~1.0)反推
+   ——420*0.76≈319,湊整數 320(剛好是這個場景一開始借房間那組舊值,
+   純巧合)。都還沒真的核對過,__dbg.tweakSchool() 滑桿兩個數字都能拉。 */
+const SCHOOL_HERO_TWEAK = { nearPx: 420, farPx: 320 };
+function schoolHeroPx(py){
+  const t = Math.max(0, Math.min(1, (py - SCHOOL.walkN) / (SCHOOL.walkS - SCHOOL.walkN)));
+  return SCHOOL_HERO_TWEAK.farPx + t * (SCHOOL_HERO_TWEAK.nearPx - SCHOOL_HERO_TWEAK.farPx);
+}
 
 const heroIndoor = buildPlayer(THREE, indoorScene);
 /* 越式按摩室內的第二個角色(2026-08-20,kc:「那個人物模型要進來啊,
@@ -2081,7 +2334,7 @@ const MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,�
    的 px 判斷式(碰撞、Y-sort 遮擋)天生共用同一套數字,不會再脫鉤。 */
 function renderIndoor3D(dt){
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
-  heroIndoor.group.scale.setScalar((HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store) / PLAYER.height);
+  heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
@@ -2120,7 +2373,8 @@ const IN = { px:150, py:320, face:'F', walkT:0, moving:false, near:null,
 function inBlocked(x,y){
   const colliders = PLACE==='store' ? FIXTURE_COLLIDERS
     : PLACE==='home' ? HOME_COLLIDERS
-    : PLACE==='bedroom' ? BEDROOM_COLLIDERS : [];
+    : PLACE==='bedroom' ? BEDROOM_COLLIDERS
+    : PLACE==='school' ? SCHOOL_COLLIDERS : [];
   return colliders.some(c =>
     x > c.x0-COLLIDE_PAD && x < c.x1+COLLIDE_PAD &&
     y > c.pyBack-COLLIDE_PAD && y < c.pyFront+COLLIDE_PAD);
@@ -2262,6 +2516,7 @@ function openIndoorSpot(id){
      但有被教官抓到的風險,細節見 playPhoneInClass()。 */
   if(PLACE === 'school'){
     if(id === 'door'){ leaveIndoor(); return; }
+    else if(id === 'teacher'){ talkToTeacher(); return; }
     else if(id === 'desk'){
       openMenu('座位', [
         { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
@@ -2835,6 +3090,15 @@ function updateIndoor(dt){
   if(keys['d']||keys['arrowright']) dx += 1;
   if(keys['w']||keys['arrowup'])    dy -= 1;
   if(keys['s']||keys['arrowdown'])  dy += 1;
+  /* 教室禁止斜走(2026-08-25,kc:「主角橫著走之後只有正面往老師的方向
+     才能前後走,不然會撞到其他角色的圖」)——小美/主角空位那兩張疊圖是
+     平面去背貼紙,只有側面(L/R)姿態的碰撞框沒有另外量過,斜著走
+     (同時按住左右+上下)會用正面的深度移動疊到側面站姿的位置,視覺上
+     整個人陷進疊圖裡。最簡單的擋法是不讓斜走發生:有 dx 就把 dy 歸零,
+     逼玩家鬆開左右鍵、單獨按上下鍵(這樣按下去 IN.face 才會轉回
+     'F'/'B',跟「正面才能走」那句話是同一件事的兩種講法)。其他場景
+     (store/home/bedroom)不受影響,那些沒有這批側面疊圖的問題。 */
+  if(PLACE === 'school' && dx) dy = 0;
   /* 客廳/房間只能轉面、不能走深度(2026-08-19),見 DESIGN_NOTES「客廳
      第三版:只能轉面、不能走深度」。房間是這輪新加的——kc 截圖抓到走到
      深處人會浮在地板上方(固定鏡頭高度的正交鏡頭,沒有真的跟著照片的
@@ -2893,6 +3157,24 @@ function updateIndoor(dt){
 function inHotZone(px, py){
   return py < STORE.hot.y && px > STORE.hot.x && px < STORE.hot.x + STORE.hot.w;
 }
+/* 教室橫排課桌椅遮擋(2026-08-25,kc:「當穿過橫向的課桌椅,前景會擋掉
+   本人才對」)——照 coDrawClerkClip() 那招最簡單的版本,直接從 c2dbg
+   (已經合成好的教室背景)裁一塊貼回 c2df,不用像鮮食櫃那樣另外做
+   上緣漸層的 hotCutBuf(這裡沒有「一半露出來一半被擋住」的中間態,
+   碰撞框已經把兩張桌子擋成不能走進去,只有走近講台那段玩家真的走得到
+   「視覺上比桌椅更深」的位置,矩形整塊裁最簡單)。
+   `SCHOOL_DESKROW_CLIP`(canvas px)蓋住兩個學生+講台老師整排,從頭頂到
+   椅腳。觸發門檻只看 IN.py——碰撞已經把兩張桌子的深度鎖在 237 以南,
+   IN.py 真的小於 245 只可能發生在桌子兩側/中間的開放地板(走去講台或
+   繞去門那邊),此時排/老師的圖層本來就該蓋過玩家。
+   **v2(2026-08-25 同一天,kc 換圖後重量)**:新圖沒有女生那組跟原本的
+   空桌椅,x 範圍照兩張桌子+講台的新座標重抓(native x400~1260 抓一點
+   margin,換算成 canvas px)。 */
+const SCHOOL_DESKROW_CLIP = { x:306, y:138, w:658, h:444 };
+const SCHOOL_DESKROW_OCCLUDE_PY = 245;
+function inSchoolDeskZone(px, py){
+  return py < SCHOOL_DESKROW_OCCLUDE_PY && px > 150 && px < 482;
+}
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
   const hotHit = PLACE === 'store' && (
@@ -2906,6 +3188,35 @@ function renderIndoorForeground(){
   }
   /* 上班時玩家下半身被櫃檯擋住,見上面 coDrawClerkClip() 的說明。 */
   if(PLACE === 'store' && CO) coDrawClerkClip();
+  if(PLACE === 'school' && inSchoolDeskZone(IN.px, IN.py)){
+    const r = SCHOOL_DESKROW_CLIP;
+    g2f.imageSmoothingEnabled = true;
+    g2f.drawImage(c2dbg, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h);
+  }
+  /* 小美座位/主角空位疊圖(2026-08-25)——照 dad-drunk.png 那段的先例,
+     每幀都畫、不判斷玩家站哪,c2df 天生蓋過玩家的 3D 頭像那一層。畫在
+     上面那塊「橫排課桌椅遮擋」之後——遮擋那塊是從 c2dbg 裁的舊背景
+     (不含這兩張新疊圖),順序上兩張疊圖要後畫才不會被裁圖蓋掉。 */
+  if(PLACE === 'school'){
+    if(meiDeskImg.complete && meiDeskImg.naturalWidth){
+      const mw = MEI_DESK_TWEAK.w, mh = mw * (meiDeskCrop.h/meiDeskCrop.w);
+      g2f.imageSmoothingEnabled = true;
+      drawFloorShadow(g2f, MEI_DESK_TWEAK.x, MEI_DESK_TWEAK.bottom, mw);
+      g2f.filter = schoolPropFilter(MEI_DESK_TWEAK);
+      g2f.drawImage(meiDeskImg, meiDeskCrop.x,meiDeskCrop.y,meiDeskCrop.w,meiDeskCrop.h,
+        MEI_DESK_TWEAK.x, MEI_DESK_TWEAK.bottom-mh, mw, mh);
+      g2f.filter = 'none';
+    }
+    if(schoolEmptyDeskImg.complete && schoolEmptyDeskImg.naturalWidth){
+      const ew = SCHOOL_DESK_TWEAK.w, eh = ew * (schoolEmptyDeskCrop.h/schoolEmptyDeskCrop.w);
+      g2f.imageSmoothingEnabled = true;
+      drawFloorShadow(g2f, SCHOOL_DESK_TWEAK.x, SCHOOL_DESK_TWEAK.bottom, ew);
+      g2f.filter = schoolPropFilter(SCHOOL_DESK_TWEAK);
+      g2f.drawImage(schoolEmptyDeskImg, schoolEmptyDeskCrop.x,schoolEmptyDeskCrop.y,schoolEmptyDeskCrop.w,schoolEmptyDeskCrop.h,
+        SCHOOL_DESK_TWEAK.x, SCHOOL_DESK_TWEAK.bottom-eh, ew, eh);
+      g2f.filter = 'none';
+    }
+  }
   /* 爸爸+椅子畫在這裡,不是背景層(2026-08-19):客廳鎖深度只剩一條走道,
      kc 不要碰撞框擋路,只要「圖層蓋在玩家上面」的視覺效果——不用判斷
      玩家站在哪,每幀都畫,c2df 天生比玩家的 3D 頭像高一層,自動蓋過去。 */
@@ -3508,6 +3819,8 @@ function updateCity(dt){
       nearProp = { type:'ayi', ref:AYI };
     if(!nearProp && Math.hypot(pos.x-ACHENG.x, pos.z-ACHENG.z) < 4.5)
       nearProp = { type:'acheng', ref:ACHENG };
+    if(!nearProp && Math.hypot(pos.x-MOTOBOSS.x, pos.z-MOTOBOSS.z) < 3.2)
+      nearProp = { type:'motoboss', ref:MOTOBOSS };
     if(!nearProp && Math.hypot(pos.x-YUAN.x, pos.z-YUAN.z) < 3.2)
       nearProp = { type:'yuan', ref:YUAN };
     /* 學校三人(2026-08-21)——固定站點,跟阿姨/阿成/阿源同一套,半徑用
@@ -3583,6 +3896,7 @@ function updateCity(dt){
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
                       : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
+                      : nearProp.type === 'motoboss' ? '按 <b>空白鍵</b> 找老闆'
                       : nearProp.type === 'yuan' ? '按 <b>空白鍵</b> 找阿源'
                       : nearProp.type === 'mei' ? '按 <b>空白鍵</b> 找小美'
                       : nearProp.type === 'jiaoguan' ? '按 <b>空白鍵</b> 找教官'
@@ -4031,6 +4345,17 @@ function talkToAren(){
     })));
   });
 }
+/* 老師(2026-08-25)——見 npc-school.js TEACHER 那則筆記,這輪只做平時
+ * 講台閒聊,隨機抽句,不掛任何指標、不扣體力(kc 糾正:「閒聊不會扣體力」
+ * ——跟 dad/mom 近況同一層級,是隨口被趕回去,不是 DIALOGUE_PROP_TYPES
+ * 那種算數的「找人講話」)。
+ * story-school.js day28「導師找你」還沒接——那個節點寫的是「他把你叫到
+ * 走廊」,自然掛點是這間教室的門(kc 說的「走廊」出口),不是找他講話就會
+ * 演,之後要做的話是在 id==='door' 那支插一個 day===28 攔截,不是這裡。 */
+function talkToTeacher(){
+  const D = NpcSchool.TEACHER;
+  say('teacher', D.idleTalk[Math.random()*D.idleTalk.length|0]);
+}
 /* 小美哥(2026-08-21)——見 npc-school.js BROTHER 那則長筆記。刺青/知識
    兩邊獨立判定、效果疊加,不是二選一分支,所以這裡不是 openMenu 選單,
    是一路 playBeats 播下去,依序插入該插的段落。 */
@@ -4078,28 +4403,49 @@ function talkToKai(){
   const lines = kaiCheckinLines();
   say('kai', lines[Math.floor(Math.random()*lines.length)]);
 }
+/* 旺鴻(機車行老闆,2026-08-25 kc 要求)——買車現在要先跟他對話,不是走到
+   forSale 車旁邊直接跳選單(見上面 interactProp() 'moto'/'motoboss' 兩條
+   分支的改動)。對話本體借 talkToStallVendor() 那套(跟阿姨/阿成同一條路:
+   先跑 events[] 故事節點,沒有觸發中事件就退回 talk[] 隨機閒聊),對完話
+   才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
+function talkToMotoBoss(){
+  const m = city.motos.find(mm => mm.forSale);
+  talkToStallVendor(MOTOBOSS, StoryMotoBoss, 'motoboss', () => {
+    if(m && !m.owned) buyMoto(m);
+  });
+}
+/* 風評 ≥10 打七折(2026-08-25 kc:「老闆是善的代表」)——沿用 talkToStallVendor
+   旁邊 openStallMenu() 那套「自己人價」七折邏輯,只是門檻換成風評而不是
+   有沒有跳陣頭。折數/門檻都是先湊的數字,沒跟 kc 對過。 */
+const MOTOBOSS_REP_DISCOUNT_MIN = 10;
 function buyMoto(m){
   /* 已經有一張分期收據還沒繳完的時候不能再開一張——MOTO_LOAN 是單一物件
      不是陣列,兩張分期同時掛著會互相蓋掉到期日/餘額。這裡跟哪一台 forSale
      車無關(現在只剩中華路這一間機車行,見 scene-city3d.js row() 那則
      筆記),但邏輯本身不寫死「只會有一間」,之後真的多開一間也不用改。 */
   const busyLoan = MOTO_LOAN.active;
+  const discount = ST.star >= MOTOBOSS_REP_DISCOUNT_MIN;
+  const price = discount ? Math.round(MOTO_PRICE * .7) : MOTO_PRICE;
+  const down = discount ? Math.round(MOTO_DOWNPAYMENT * .7) : MOTO_DOWNPAYMENT;
+  const total = discount ? Math.round(MOTO_INSTALLMENT_TOTAL * .7) : MOTO_INSTALLMENT_TOTAL;
+  const weekly = Math.round((total - down) / 6);
   openMenu('機車行', [
-    { label:'付錢買下這台', cost:'$'+MOTO_PRICE, cls: ST.money<MOTO_PRICE?'bad':'',
+    { label: discount ? '付錢買下這台(老實人價)' : '付錢買下這台', cost:'$'+price, cls: ST.money<price?'bad':'',
       run(){
-        if(ST.money < MOTO_PRICE){ toast('錢不夠,老闆看了你一眼。', 2000); return; }
-        chg('money', -MOTO_PRICE); m.owned = true;
-        toast('這台現在是你的了。', 2000);
+        if(ST.money < price){ toast('錢不夠,老闆看了你一眼。', 2000); return; }
+        chg('money', -price); m.owned = true;
+        toast(discount ? '「你這個人可以,算你便宜一點。」這台現在是你的了。' : '這台現在是你的了。', 2400);
         mountMoto(m);
       } },
-    { label:'分期付款', cost: busyLoan ? '上一台還沒繳完,不能再分期' : '訂金 $'+MOTO_DOWNPAYMENT+'　尾款分 6 週還',
-      cls: (busyLoan || ST.money<MOTO_DOWNPAYMENT) ? 'bad' : '',
+    { label:'分期付款', cost: busyLoan ? '上一台還沒繳完,不能再分期' : '訂金 $'+down+'　尾款分 6 週還',
+      cls: (busyLoan || ST.money<down) ? 'bad' : '',
       run(){
         if(busyLoan){ toast('「你上一台的錢都還沒還完，先別急。」', 2400); return; }
-        if(ST.money < MOTO_DOWNPAYMENT){ toast('連訂金都不夠,老闆搖搖頭。', 2000); return; }
-        chg('money', -MOTO_DOWNPAYMENT); m.owned = true;
+        if(ST.money < down){ toast('連訂金都不夠,老闆搖搖頭。', 2000); return; }
+        chg('money', -down); m.owned = true;
         MOTO_LOAN.active = true;
-        MOTO_LOAN.balance = MOTO_INSTALLMENT_TOTAL - MOTO_DOWNPAYMENT;
+        MOTO_LOAN.balance = total - down;
+        MOTO_LOAN.weekly = weekly;
         MOTO_LOAN.nextDueDay = day + 7;
         toast('訂金付了,車牽走——尾款收據收好,以後每週回家睡覺會自動扣一次。', 3200);
         mountMoto(m);
@@ -4167,7 +4513,7 @@ function talkToWorker(w){
    根本扣不光,體力永遠見不了底,「過完一天」這個機制就形同虛設(玩家
    不需要回家睡覺,天數不會走)——kc 要求對話/讀書/打工三個全部調重,
    對話 −1→−5、讀書 −5→−10、打工 −20→−40,見下面讀書/打工那兩處。 */
-const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','yuan','mei','jiaoguan','aren','brother','pedestrian']);
+const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','mei','jiaoguan','aren','brother','pedestrian']);
 function interactProp(prop){
   if(DIALOGUE_PROP_TYPES.has(prop.type)){
     if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
@@ -4184,6 +4530,7 @@ function interactProp(prop){
      這裡刻意留白,不重複講。 */
   if(prop.type === 'ayi'){ talkToAyi(); return; }
   if(prop.type === 'acheng'){ talkToAcheng(); return; }
+  if(prop.type === 'motoboss'){ talkToMotoBoss(); return; }
   if(prop.type === 'yuan'){ talkToYuan(); return; }
   if(prop.type === 'mei'){ talkToMei(); return; }
   if(prop.type === 'jiaoguan'){ talkToJiaoguan(); return; }
@@ -4195,7 +4542,10 @@ function interactProp(prop){
     return;
   }
   if(prop.type === 'moto'){
-    if(prop.ref.forSale && !prop.ref.owned) buyMoto(prop.ref);
+    /* 2026-08-25 kc:「要付錢買應該是要跟機車行老闆對話」——forSale 那台
+       車不再直接跳買車選單,改走 talkToMotoBoss()(先對話,對完話才開
+       buyMoto() 選單),跟走到旺鴻本人旁邊觸發同一條路徑。 */
+    if(prop.ref.forSale && !prop.ref.owned) talkToMotoBoss();
     else mountMoto(prop.ref);
     return;
   }
@@ -4331,6 +4681,7 @@ window.__dbg = {
   DAD_TWEAK, SHADOW_TWEAK, tweakDad: tweakDadPanel, tweakStall: tweakStallPanel,
   STATUE_PED_TWEAK, tweakStatuePeds: tweakStatuePedsPanel,
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
+  tweakSchool: tweakSchoolPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
@@ -4342,7 +4693,7 @@ window.__dbg = {
   joinedTroupe: (v) => { if(v != null) joinedTroupe = v; return joinedTroupe; },
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
-  KAI, talkToKai,
+  KAI, talkToKai, talkToTeacher,
   indoorCalib(){
     const s = heroIndoor.group.scale.x;
     return { FIXTURE_COLLIDERS, heroPos: heroIndoor.group.position.toArray(), heroScale: s,
