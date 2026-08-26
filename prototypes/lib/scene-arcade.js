@@ -133,14 +133,16 @@
   /* 這三個矩形/圓心是 renderCloseup() 底下三段畫法算出來的同一組數字,
      另外匯出給 game.html 的 agDrawSpin() 用——轉輪閃爍/球轉動的動畫要疊在
      跟靜態色塊「同一個位置」上,不能自己另外猜一組座標,兩邊會對不齊。
-     CLOSEUP_SLOT_SCREEN 還是對灰模色塊算的(slot 還在等 kc 生那三張
-     不同轉輪結果的照片,見 DESIGN_NOTES)。CLOSEUP_ROULETTE_WHEEL
-     2026-08-26 這輪改成對真的 arcade-roulette.png 量的(1536×1024,
-     game.html 的 agDrawIdle() 用等比縮放置中貼進 640×420 畫布,scale≈
-     .41、offsetX≈5——輪盤本體肉眼量原圖大約 cx:777,cy:577,r:305,換算
-     成畫布座標後的結果)。 */
+     CLOSEUP_SLOT_SCREEN 是對灰模色塊算的,slot 這輪已經改用真照片切換
+     (見 game.html 的 agDrawSpin()/ARCADE_SLOT_IMG),這組數字不再被用到,
+     留著只是還沒清。CLOSEUP_ROULETTE_WHEEL 2026-08-26 第二輪換了張更
+     居中的輪盤特寫(kc:「換了一張更居中、數字更清楚的」,1254×1254 正方形,
+     跟第一版 1536×1024 的構圖不一樣,座標重新量過)——game.html 的
+     agDrawIdle() 用等比縮放置中貼進 640×420 畫布,scale≈.335、
+     offsetX≈110;輪盤本體肉眼量原圖大約 cx:627,cy:627,r:400(數字圈
+     那一圈,不含最外層木框),換算成畫布座標後的結果。 */
   const CLOSEUP_SLOT_SCREEN = { x:218, y:66, w:204, h:140 };
-  const CLOSEUP_ROULETTE_WHEEL = { cx:324, cy:237, r:125 };
+  const CLOSEUP_ROULETTE_WHEEL = { cx:320, cy:210, r:134 };
   const CLOSEUP_PUSHER_GLASS = { x:180, y:52, w:280, h:170 };
   function renderCloseup(g, kind) {
     const { px, alp } = tools(g);

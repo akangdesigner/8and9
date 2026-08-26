@@ -2127,8 +2127,13 @@ schoolClassroomImg.src = '../assets/bg/school-classroom.png?v=2';
    色塊(見 agDrawIdle())。roulette/pusher 各一張,slot 是三張(摃龜/
    小賺/中大獎,三張轉輪視窗內容不同,見下面 agSlotTier 那則筆記)。 */
 const ARCADE_MACHINE_IMG = { roulette: new Image(), pusher: new Image() };
-ARCADE_MACHINE_IMG.roulette.src = '../assets/tex/arcade-roulette.png';
-ARCADE_MACHINE_IMG.pusher.src = '../assets/tex/arcade-pusher.png';
+/* ?v=2(2026-08-26)——kc 換了一張更居中、數字更清楚的輪盤特寫,同一個
+   檔名重存,記得往上加版號破快取。 */
+ARCADE_MACHINE_IMG.roulette.src = '../assets/tex/arcade-roulette.png?v=2';
+/* ?v=2(2026-08-26)——kc 把這張從外觀正面照換成第一人稱視角,同一個
+   檔名重存,瀏覽器快取會咬著舊版不放(這個坑這個專案踩過很多次了,見
+   shop-home.png/clerk-front.png 那幾則筆記),記得往上加版號。 */
+ARCADE_MACHINE_IMG.pusher.src = '../assets/tex/arcade-pusher.png?v=2';
 /* 吃角子老虎的三張結果照(2026-08-26,kc 選的「B」方案——單張照片沒辦法
    演出轉輪跳動,生 2~3 張同一台機器、只有轉輪視窗內容不同的照片,轉動
    時在這幾張之間切換,停在跟真正擲骰結果對應的那張上)。`agSlotTier`
@@ -3762,14 +3767,16 @@ function agDrawSpin(){
     agCtx.fillStyle = '#f2e9d0';
     agCtx.beginPath(); agCtx.arc(bx, by, 8, 0, Math.PI*2); agCtx.fill();
   } else if(A.kind === 'pusher-drop'){
-    /* 一枚代幣從畫面上緣掉進投幣口(2026-08-26,kc:「我想要有投錢下去推
-       的感覺」)——沒有真的投幣口座標可以量(還在等 kc 生第一人稱視角的
-       照片),先抓畫布正上方中間一路落到畫面偏上 1/3 處,純粹給「有東西
-       掉進去了」的感覺,不用等真的照片再回來調這幾個數字。 */
+    /* 一枚代幣掉進投幣口(2026-08-26,kc:「我想要有投錢下去推的感覺」)
+       ——第一人稱視角照片生出來後這輪重新對真的投幣口位置量過(原本是
+       瞎猜的座標)。`arcade-pusher.png`(1448×1086)等比縮放置中貼進
+       640×420 畫布,scale≈.387、offsetX≈40;投幣口(畫面右下角「代幣
+       入口」那塊)肉眼在原圖量大約 x:1014,y:977,換算成畫布座標
+       ≈(432,378)。代幣從畫面右上方一路滑進投幣口,終點對齊那個位置。 */
     const ease = Math.min(1, A.t/A.dur);
-    const y = 10 + (150-10)*ease;
+    const x = 520 + (432-520)*ease, y = 210 + (378-210)*ease;
     agCtx.fillStyle = '#e8c85a';
-    agCtx.beginPath(); agCtx.arc(agCanvas.width/2, y, 9, 0, Math.PI*2); agCtx.fill();
+    agCtx.beginPath(); agCtx.arc(x, y, 9, 0, Math.PI*2); agCtx.fill();
     agCtx.strokeStyle = '#8a6b28'; agCtx.lineWidth = 1.5; agCtx.stroke();
   } else if(A.kind === 'pusher-payout'){
     /* 中獎的代幣滑落(2026-08-26,同一輪)——五枚代幣分別延遲一點時間
