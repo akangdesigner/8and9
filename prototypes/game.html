@@ -4077,8 +4077,19 @@ const PLAY_LINES = [
    不是騎乘中持續扣(kc 明確選過,跟 fullness 那種持續消耗不一樣)。量比照
    steal() 當場被抓到那組(-1,不是脫身後被抓的重罰 -2),見上面 MOTO_PRICE
    的說明。m.owned 的車(跟機車行買下的那台)騎不扣分。 */
+/* 兜風加情緒(2026-08-26,kc:「騎機車兜風也會加情緒」)——只認自己的車
+   (m.owned),別人的車已經扣風評,不應該再疊加一份好處。不做逐幀累加
+   (那要另外接一個計時器,量級跟這遊戲其他環境互動不對稱),改成「上車
+   位置→下車位置」直線距離門檻,超過 MOTO_JOYRIDE_MIN_DIST 才算真的兜了
+   一圈,不是原地上下車骗獎勵——跟摸貓狗/長椅同一個「單一動作、單一
+   結算點」的層級,只是結算點放在下車,不是上車(上車那一刻還不知道
+   玩家會不會真的騎去哪裡)。沒有每日次數限制,跟功德箱/隨地小便同一個
+   「不特別防刷,反正要花真的遊玩時間騎過去」的態度。 */
+const MOTO_JOYRIDE_MIN_DIST = 15, MOTO_JOYRIDE_MOOD = 5;
+let motoMountPos = null;
 function mountMoto(m){
   ridingMoto = m; m.ridden = true;
+  motoMountPos = { x: hero.group.position.x, z: hero.group.position.z };
   hintEl.classList.remove('on');
   if(m.owned){
     toast('騎上自己的車。', 1600);
@@ -4090,9 +4101,15 @@ function mountMoto(m){
 function dismountMoto(){
   const m = ridingMoto; if(!m) return;
   const pos = hero.group.position;
+  let joyrode = false;
+  if(m.owned && motoMountPos && Math.hypot(pos.x-motoMountPos.x, pos.z-motoMountPos.z) >= MOTO_JOYRIDE_MIN_DIST){
+    chg('mood', MOTO_JOYRIDE_MOOD);
+    joyrode = true;
+  }
+  motoMountPos = null;
   m.x = pos.x; m.z = pos.z;                     // 車停在下車當下的位置,不是彈回原地
   m.ridden = false; ridingMoto = null;
-  toast('把車停好,下車走路。', 1600);
+  toast(joyrode ? '騎了一圈,風吹過來整個人鬆一點。把車停好,下車走路。' : '把車停好,下車走路。', 1600);
 }
 /* 跟機車行買車(2026-08-17)——m.forSale 那台才會走這條,其餘車(包括這台
    買下之前)按空白鍵直接是 mountMoto(),見下面 interactProp() 那段判斷。
