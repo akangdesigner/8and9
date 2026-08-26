@@ -2573,7 +2573,7 @@ function buy(price, feed, mood, line){
    再賭了」這種說教式收尾——這遊戲的規矩是講到這裡就停,讓玩家自己接。
    接在正常結果 toast 之後跳第二則(比照書架線索那套「先講結果、再跳
    獨立提示句」的節奏),不跟第一則擠在同一個 toast 裡。 */
-const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false };
+const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false, momConfronted: false };
 function gambleResolve(cost, resolveFn){
   if(ST.money < cost){ toast('你身上不夠。', 2000); return; }
   chg('money', -cost);
@@ -2670,6 +2670,35 @@ function openIndoorSpot(id){
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
     else if(id === 'mom'){
+      /* 遊藝場迴響(2026-08-26,kc:「觸發這句話後下次跟媽媽講話,媽媽會說
+         怎麼,你最近也去遊藝場嗎?是不是很上頭啊?這樣,然後你會有回話的
+         選項」)——只在 ARCADE_GAMBLE.momEchoShown(輸到 $500 那個「想起
+         媽媽」的鉤子,見上面 gambleResolve() 那則筆記)觸發過、而且這句
+         還沒問過(momConfronted)時攔在最前面,問完一次就不再問,不是
+         每次找媽媽都被念。三個回話選項照 kc 這輪明確要求的方向寫——
+         「很多劇情都是有回話選項的,可以影響數值」,不是純觀賞 toast:
+         嗆回去傷感情,搪塞沒有真的觸碰到,誠實反而換到她少見的一句真話
+         (「別像我一樣」呼應她自己也在賭這件事,不是「你不該賭博」那種
+         說教)。 */
+      if(ARCADE_GAMBLE.momEchoShown && !ARCADE_GAMBLE.momConfronted){
+        ARCADE_GAMBLE.momConfronted = true;
+        say('mom', '「怎麼，你最近也去遊藝場嗎？是不是很上頭啊？」', () => {
+          openMenu('媽媽', [
+            { label:'「你自己還不是天天在賭。」', run(){
+                chg('calm', -6);
+                say('mom', '她愣了一下，沒說話，轉頭去看電視。');
+              } },
+            { label:'「還好，就去晃晃而已。」', run(){
+                say('mom', '「喔。」她也沒再多問。');
+              } },
+            { label:'「⋯對啊。可能有點上頭。」', run(){
+                chg('calm', 6);
+                say('mom', '她沉默了幾秒，才說：「別像我一樣。」');
+              } }
+          ]);
+        });
+        return;
+      }
       const lines = momCheckinLines();
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
