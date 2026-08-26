@@ -2819,10 +2819,17 @@ function showSlotBets(){
 const ROULETTE_WHEEL_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 const ROULETTE_RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 /* 0 號在照片上大約在正上方(肉眼量的,跟其他座標一樣先抓大概)——沿順
-   時針排列,index 每 +1 角度加一格(37 格平分一圈)。 */
+   時針排列,index 每 +1 角度加一格(37 格平分一圈)。
+   **2026-08-26,kc 截圖抓到「好像有幾格有錯」**——結算算出 22,球卻停在
+   18 的位置(18 在順序裡排在 22 後面一格)。整體角度往順時針多轉了
+   一格,`OFFSET` 往回減一格(-9.73°)校正。這張輪盤是 AI 生的,每格
+   間距不保證完全均勻,校正這一格之後如果個別號碼還是有一兩格誤差,
+   是圖本身格子沒切得很整齊,不是算法錯——精算到每一格都對只能重新
+   量圖,先用這個整體校正頂著。 */
+const ROULETTE_ANGLE_OFFSET = -Math.PI/2 - (2*Math.PI/37);
 function rouletteNumberAngle(n){
   const i = ROULETTE_WHEEL_ORDER.indexOf(n);
-  return -Math.PI/2 + i * (2*Math.PI/37);
+  return ROULETTE_ANGLE_OFFSET + i * (2*Math.PI/37);
 }
 function rouletteColorName(n){ return n === 0 ? '綠' : ROULETTE_RED.has(n) ? '紅' : '黑'; }
 /* 押注選項改成五個(2026-08-26,kc:「選項改成壓紅 壓黑 壓奇數 壓偶數
