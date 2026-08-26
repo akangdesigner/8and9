@@ -991,11 +991,18 @@ const agEl = document.getElementById('arcadeGame'), agCap = document.getElementB
 const agCanvas = document.getElementById('agCanvas'), agCtx = agCanvas.getContext('2d');
 const agBarEl = document.getElementById('agBar'), agBarPin = document.getElementById('agBarPin');
 const agBody = document.getElementById('agBody'), agActions = document.getElementById('agActions');
+/* 三張機台特寫比例不一樣(roulette 1536×1024 接近畫布本身的 3:2,pusher
+   1254×1254 是正方形)——直接拉伸貼滿畫布會把正方形那張橫向壓扁,改成
+   等比縮放置中(跟畫布比例對不上的方向留黑邊,黑邊本來就融進面板深色
+   背景,不會很突兀)。 */
 function agDrawIdle(kind){
   const img = ARCADE_MACHINE_IMG[kind];
   agCtx.clearRect(0,0,agCanvas.width,agCanvas.height);
-  if(img.complete && img.naturalWidth) agCtx.drawImage(img, 0,0, agCanvas.width, agCanvas.height);
-  else SceneArcade.renderCloseup(agCtx, kind);
+  if(img.complete && img.naturalWidth){
+    const s = Math.min(agCanvas.width/img.naturalWidth, agCanvas.height/img.naturalHeight);
+    const w = img.naturalWidth*s, h = img.naturalHeight*s;
+    agCtx.drawImage(img, (agCanvas.width-w)/2, (agCanvas.height-h)/2, w, h);
+  } else SceneArcade.renderCloseup(agCtx, kind);
 }
 function openArcadeGame(kind, cap){
   busy = true;
@@ -1003,7 +1010,7 @@ function openArcadeGame(kind, cap){
   agCap.textContent = cap;
   agBody.textContent = '';
   agActions.innerHTML = '';
-  agBarEl.style.display = kind === 'pusher' ? 'block' : 'none';
+  agBarEl.style.display = 'none';   // pusher 也先藏著,真的按下「投 $20」才出現,見 showPusherBets()
   agDrawIdle(kind);
 }
 function closeArcadeGame(){ agEl.classList.remove('on'); busy = false; }
@@ -2792,10 +2799,11 @@ function showRouletteBets(){
   agButton('走開', '', 'back', closeArcadeGame);
 }
 function showPusherBets(){
-  agBody.textContent = '按空白鍵卡時機'; agActions.innerHTML = '';
+  agBody.textContent = ''; agActions.innerHTML = ''; agBarEl.style.display = 'none';
   agButton('投 $20', '$20', ST.money<20?'bad':'', () => {
     if(ST.money < 20){ toast('你身上不夠。', 2000); return; }
     agActions.innerHTML = ''; agBody.textContent = '按空白鍵卡時機';
+    agBarEl.style.display = 'block'; agBarPin.style.left = '0%';
     startPusherGame();
   });
   agButton('走開', '', 'back', closeArcadeGame);
