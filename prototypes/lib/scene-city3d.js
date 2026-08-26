@@ -1052,7 +1052,12 @@ export function buildCity(THREE, scene){
     betel:()=>{ const n = nBetel++ % BETEL.length;
       return { kind:'betel', sign:0x5ce08a, text:BETEL[n], signKey:'betel-'+n, bodyIdx:n }; },
     net:()=>({kind:'net',sign:0x4fc8f0,text:'網咖',signKey:'net'}),
-    arcade:()=>({kind:'arcade',sign:0xff4fa0,text:'遊藝場',signKey:'arcade'}),
+    /* id/label(2026-08-26)——遊藝場原本純外觀(顧場子任務只用得到門口
+       座標當視覺地標),這輪 kc 要求「裡面可以走進去玩小遊戲」,補上 id
+       讓 row() 那段既有的 `if(s.id) doors.push(...)` 自動把它算進
+       city.doors,跟 store/home/school 走同一條 enterIndoor() 路徑,不用
+       另外開一套進場機制。 */
+    arcade:()=>({kind:'arcade',sign:0xff4fa0,text:'遊藝場',signKey:'arcade',id:'arcade',label:'遊藝場'}),
     moto:()=>({kind:'moto',sign:0x3f8fd8,text:'機車行',signKey:'moto'}),
     drug:()=>({kind:'drug',sign:0x35b06a,text:'藥局',signKey:'drug'})
   };
@@ -1074,22 +1079,301 @@ export function buildCity(THREE, scene){
      S.betel/S.drug 混搭,沒有 id,不是任務相關的固定店家),刪掉不影響
      其他劇情/任務邏輯。之後要重新決定廟口路這一段要不要蓋房子、蓋多遠,
      跟圍牆一起再議。 */
-  /* 後火車站:暗的那一條。同一個坑,at 也是寫死的舊路口(72),街道骨架
-     收緊後路本身挪到 84,這裡跟著改成 84-B_LINE。
-     2026-08-21 kc:「學校也要建2d場景,跟家一樣重要」——原本 x=-36 那個
-     S.gap 空地換成學校門面,跟 tattoo/store/home 同一套(kind:'school'
-     還沒有 shop-school.png,shopFront() 會自動退回素色箱體頂著,之後
-     kc 生圖再補,不用改這裡)。門會透過 row() 既有的 doors.push() 自動
-     登記,不用另外手動加。 */
-  /* 2026-08-21 kc:「只會有一間機車行」——這排原本 S.moto() 那格是「宏吉
-     機車行」第二間分店,跟中華路那間同名同招牌,是重複的店。拔掉換回 S.sh
-     (拉下鐵門的店面,跟這排其餘沒特別身分的 slot 一致),機車行只剩中華路
-     那唯一一間(門口站著老闆、forSale 那台車也在那,見 buyMoto() 那組
-     筆記)。停在這排門口的機車(parkMoto() 那份清單裡 z=59/z=85 那六台)
-     跟著一起拿掉,見那邊的註解。 */
-  row({ axis:'x', at:84-B_LINE, face:1, from:-60, shops:[
-    S.sh, S.sh, {kind:'school', id:'school', label:'高中', sign:0x4a7fd8, signKey:'school'},
-    S.sh, S.sh, S.sh, S.sh, S.sh, S.sh, S.gap ]});
+  /* ===== 後火車站:商業大樓區 + 學校 + 火車站(2026-08-26,kc:「這區應該是
+     商業大樓區,而非住宅區,然後學校跟火車站不應該是這種死板的方塊,應該要
+     跟公園一樣獨立設計」+「這三塊就是最後那一整排」)=====
+     整條街原本用 row() 那套「箱體 3~5 層+鐵捲門/店面貼圖」的住宅店面美術
+     (跟中華路同一套,學校原本也只是這排裡的一格,還沒補 shop-school.png
+     就退回素色箱體)。整排拆掉換成 backStation():辦公大樓(玻璃帷幕,材質
+     色調做出效果,不用等貼圖)+ 學校(圍牆+校門,獨立輪廓)+ 火車站(全新
+     地標,原本只是路名沒有真的建築)。跟 park() 同一套「灰模+材質」做法,
+     不找外部模型(見 DESIGN_NOTES「美術管線」)。
+     佈局(沿用原本這排的 z 基準 84-B_LINE=62.5,face=1 面朝 +z 那側的
+     人行道/馬路):
+     - 學校中心維持在 x=-36(city.doors 'school' 這個 id、門口座標大家已經
+       在用,不搬家),深度維持一般建築的 DEPTH(57~68),避免跟 x=-36 那條
+       直巷 alley() 的既有終點(z:57)打架——這條巷子本來就是「走到這排
+       建築背牆為止」,沒有多留深度給它。
+     - x≈48 那格維持空地——小美哥(BROTHER)固定站位在那(見 game.html
+       BROTHER 定義),不要蓋房子擋住他,也是斜巷 alleyDiag() 的終點
+       (12,27)→(48,57)。
+     - 火車站擺中段(x≈4,整條街視覺焦點)。
+     - 其餘範圍蓋辦公大樓,5 棟,高度用索引錯開(45/55/65 個單位,約
+       15~22 樓),比原本店面(17~27 個單位,2~4 樓)高得多才有大樓感。
+     一樓大廳/校名牌/站名牌這類「一眼認出是什麼」的字卡,先用純色色塊
+     佔位,之後 kc 生圖再補(跟其他店家先例一致,這輪先告訴 kc 需要哪幾張
+     圖,不硬等)。 */
+  (function backStation(){
+    const rowZ = 84 - B_LINE, front = rowZ + DEPTH/2;   // 62.5 / 68——沿用原本這排的基準跟街面線
+
+    /* 辦公大樓(2026-08-26 v3,方向整個重來)——先後踩過兩個坑,都是 kc
+       糾正的:
+       1.「為何大門口會發光」——一樓大廳暖光原本是 M.glassLit(招牌級亮度)
+         疊一顆強 lampSpot,玩家走近就過曝死白,後來改貼真照片解決。
+       2.「你要給真實比例,不然上面會貼不到」——照片只貼了裙樓(8 個單位),
+         上面塔樓段還是素色,晚上幾乎全黑,大樓像是裙樓以上直接消失;
+         改成裙樓貼「入口」裁圖、塔樓貼「單層樓窗花」裁圖重複拼貼,結果
+         kc 再次打回票:「要整棟大樓懂嗎,不然上面沒圖啊,就跟之前住宅區
+         一樣」——重複拼貼一小塊窗花,讀起來跟 M.wall 那種磚牆貼圖重複
+         鋪滿是同一個「假」問題,不是真的在看一棟大樓。
+       改成跟學校同一套做法:每棟樓用**一張涵蓋整棟正面**的完整照片,不
+       裁、不重複拼貼。原本 5 棟細長塔樓(寬 10、高 45~65,寬高比
+       1:4.5~1:6.5)這種比例 AI 生不出來,改成 3 棟比較寬的樓(寬 14~18、
+       統一高度 50,寬高比落在 1:2.8~1:3.6,比較接近生圖工具的直式比例
+       上限),數量少但量體更實在。三棟各自一張不同材質的整棟大樓照片
+       (kc 還沒生完,先用素色佔位,圖到了再換,見下面 TOWERS 那個表)。
+       三個位置卡在學校(x:-48~-24)、火車站(x:-8~16)、小美哥固定站位
+       (x≈48 那格,不能蓋房子擋住他)這三個既有地標中間,見各自 x/w
+       旁邊的間隙備註。 */
+    /* 三張整棟大樓照片(2026-08-26,kc 生的)——1/2 已經到位,都是去背
+       RGBA(前兩張同一棟深藍灰玻璃帷幕,一張白底一張去背,用去背那張;
+       第三張古銅色帷幕),材質要開 transparent 不然去背邊緣會出現黑邊。
+       第三棟(淺灰石材)kc 還沒生,file 指到一個目前不存在的檔名,圖片
+       404 會靜默失敗、維持素色佔位,之後補圖不用改這裡的程式碼。 */
+    const TOWERS = [
+      { x:-58, w:18, file:'office-tower-1.png', color:0x8a97a0 },   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面(整棟樓風格)還沒生,先素色佔位
+      { x:-16, w:14, file:'office-tower-2.png', sideFile:'office-tower-2-side.png?v=2', color:0xb08858 },   // 學校跟火車站中間,只有 16 寬的窄縫,樓也窄一點——古銅色帷幕,側面 v2(2026-08-26,kc:「他是大樓二」,原本以為 v2 那張是大樓一,修正)
+      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材,正面圖還沒生,先素色佔位,側面已經有
+    ];
+    TOWERS.forEach(cfg => {
+      const h = 50, w = cfg.w, d = DEPTH;
+      const towerSideA = std({ color:cfg.color, roughness:.7 });   // +x 面
+      const towerSideB = std({ color:cfg.color, roughness:.7 });   // -x 面(跟 A 鏡射,見下面說明)
+      /* transparent:true 拿掉了(2026-08-26,kc:「你貼圖比例真的有破圖,
+         你貼超過」)——底部那條深藍色不是位置貼歪,是去背照片(office-
+         tower-1/2.png 是 RGBA)邊緣殘留的半透明像素在 transparent:true
+         材質上直接跟場景背景色(深藍夜空)混色穿透。這幾張圖本來就是
+         「整棟樓填滿畫面」的構圖,沒有真的需要透明的地方,材質改成不透明
+         (忽略 alpha 通道),邊緣殘留的半透明像素只會顯示自己的 RGB 顏色,
+         不會透到背景。 */
+      const towerFront = std({ color:cfg.color, roughness:.7 });
+      new THREE.ImageLoader().load(TEX_DIR + cfg.file, img => {
+        const t = new THREE.Texture(img);
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        const targetAspect = w/h, ia = img.width/img.height;
+        if(ia > targetAspect){ const r = targetAspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2,0); }
+        else { const r = ia/targetAspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+        t.needsUpdate = true;
+        towerFront.map = t; towerFront.color.setHex(0xffffff); towerFront.needsUpdate = true;
+      }, undefined, () => {});   // 圖還沒生的話載入會 404,靜默失敗,維持素色佔位
+      /* 側面(2026-08-26 v2,kc:「側面完全沒貼準,側面貼圖不能用重複的
+         也要一樣高度,不然一樓會對不起來」)——v1 是正方形純材質重複拼貼
+         (跟學校側牆同一招),結果側面樓層高度、一樓入口高度都跟正面那張
+         「真實整棟樓照片」對不上,轉角處接不起來。改成跟正面同一招:
+         kc 拿正面照片當參考重生了「同一棟樓的側面」(樓層數/一樓入口
+         高度比例對齊正面),裁切不拉伸、不重複,side 面寬深比是 d:h
+         (11:50,三棟大樓深度一樣所以比例都一樣)。
+         **v3(同一天,kc:「你要水平翻轉再貼,不然前後會顛倒」)**——
+         BoxGeometry 的 +x/-x 兩個側面 UV 方向天生相反,同一張材質不做
+         任何調整直接指定給兩側,會有一側把照片裡「入口/大廳那端」貼到
+         建築的後段去(前後顛倒)。改成兩側各自一顆材質,B 面(-x)在
+         裁完之後額外把 repeat.x 取負、offset.x 對應補上 1,做水平翻轉,
+         這樣兩側看到的入口端都對齊建築真正的正面(rowZ+DEPTH/2 那端),
+         不會一側對一側不對。 */
+      if(cfg.sideFile){
+        new THREE.ImageLoader().load(TEX_DIR + cfg.sideFile, img => {
+          const targetAspect = d/h, ia = img.width/img.height;
+          let r, off;
+          if(ia > targetAspect){ r = targetAspect/ia; off = (1-r)/2; }
+          else { r = 1; off = 0; }   // ia<=targetAspect 這批圖用不到(現有側面圖都偏窄長),先只處理寬邊裁切這條路徑
+          const ry = ia > targetAspect ? 1 : (ia/targetAspect);
+          const offy = ia > targetAspect ? 0 : (1-ry)/2;
+
+          const tA = new THREE.Texture(img);
+          tA.colorSpace = THREE.SRGBColorSpace; tA.anisotropy = 4;
+          tA.repeat.set(r, ry); tA.offset.set(off, offy);
+          tA.needsUpdate = true;
+          towerSideA.map = tA; towerSideA.color.setHex(0xffffff); towerSideA.needsUpdate = true;
+
+          const tB = new THREE.Texture(img);
+          tB.colorSpace = THREE.SRGBColorSpace; tB.anisotropy = 4;
+          tB.repeat.set(-r, ry); tB.offset.set(off + r, offy);   // 水平翻轉:repeat.x 取負,offset 補償
+          tB.needsUpdate = true;
+          towerSideB.map = tB; towerSideB.color.setHex(0xffffff); towerSideB.needsUpdate = true;
+        }, undefined, () => {});
+      }
+      add(box(w,h,d, [towerSideA,towerSideB,towerSideA,towerSideA,towerFront,towerSideA]), cfg.x, h/2, rowZ);
+      solid(cfg.x, rowZ, w/2, d/2);
+      /* 「一樓大廳暖光」那塊獨立道具(2026-08-26,kc:「這板子是幹啥的」)
+         ——整棟樓改貼真照片之後,照片本身就有大廳暖光的畫面,這塊卡片
+         變成純粹擋在照片前面的多餘東西,直接刪掉。 */
+    });
+
+    /* 學校:x:[-48,-24](24 寬,兩個店面格的量體),z 維持一般建築深度
+       57~68(理由見上面「佈局」筆記,不要跟直巷 alley() 打架)。矮圍牆
+       沿輪廓走,街面那一側(z=front)留 4 寬的校門缺口,跟 park() 的
+       hedgeSeg()/入口留白同一套做法。教學大樓退到後段(z 偏小,離街遠
+       一點),前段留校門內的空地。 */
+    (function school(){
+      const x0=-48, x1=-24, z0=rowZ-DEPTH/2, z1=front, gateW=6, gx=-36;   // gateW 4→6(2026-08-26,kc:「門寬一點」)
+      const fenceH = 2.4;
+      /* 矮牆顏色(2026-08-26,kc 給的校門設計示意圖「矮牆(淺灰)」swatch)——
+         原本 0xb8b2a2 偏米黃,換成示意圖標的淺灰,跟門柱/橫樑那組灰階
+         一致。 */
+      const fence = std({ color:0xc4c4c0, roughness:.9 });
+      const fenceSeg = (w,d,x,z) => { add(box(w,fenceH,d, fence), x, fenceH/2, z); solid(x,z,w/2,d/2); };
+      fenceSeg(x1-x0, .4, (x0+x1)/2, z0);                       // 後牆
+      fenceSeg(.4, z1-z0, x0, (z0+z1)/2);                       // 西牆
+      fenceSeg(.4, z1-z0, x1, (z0+z1)/2);                       // 東牆
+      const sideW = (x1-x0-gateW)/2;
+      fenceSeg(sideW, .4, x0+sideW/2, z1);                      // 校門左半
+      fenceSeg(sideW, .4, x1-sideW/2, z1);                      // 校門右半
+
+      const bW=20, bH=26, bD=7, bz=z0+bD/2+1.2;
+      /* 教學大樓外牆貼圖(2026-08-26,kc 生的照片,1086×1448≈0.75:1,跟
+         建築正面 20×26≈0.769:1 幾乎同一個比例,裁切量很小)。只有正面
+         (+z,BoxGeometry 材質陣列 index4)貼照片,其餘五面維持素色,理由
+         跟 row() 店面箱體側面同一條——貼圖被拉伸貼滿六面,側面會糊成一圈
+         怪異拉伸感。跟 alleyWallMaterial() 同一招:材質先建好占位(素色),
+         圖異步載入完成才套 map,不卡場景初始化。
+         **v2(同一天,kc:「大樓貼圖就是純大樓,植物是用真的3d素材」)**——
+         這張照片下緣烤了一截草地+灌木叢進去,直接貼滿整面牆會讓灌木變成
+         貼在牆上的平面貼紙。裁掉下緣約 15%(repeat.y/offset.y),只用
+         上面純建築立面那段,真正的灌木改用下面 bushLine() 補(跟 park()
+         那圈籬笆灌木同一套技法,見 feedback_bush_billboard_technique
+         那則記憶——3 片 60° 卡片,不是兩片十字)。下次生這張圖的 prompt
+         要明講「純建築,不要草地/灌木/前景雜物」,不用再裁。 */
+      /* **v3(同一天,kc:「側面是不是也要貼圖」)**——這棟是獨立地標,不像
+         一般排屋兩側被鄰居擋住,側面(±x,材質陣列 index0/1)真的看得到,
+         值得貼。
+         **v4(同一天,kc:「很怪,感覺側面要是純材質圖」)**——v3 那版是從
+         正面照片裁一條窄的貼上去,裁到窗戶/陽台的局部碎片,拼不成一面
+         合理的側牆,看起來很怪。改成真正的「純材質」磁磚貼圖,均勻連續
+         的米白色磚紋,沒有窗戶/陽台這類具體建築細節,本來就是設計來重複
+         拼貼的,用 RepeatWrapping 真的貼滿側面(不是裁一塊塞滿,是讓紋理
+         重複),side 寬深比 bD:bH=7:26,repeat 抓 (1,4) 大致對到磚紋本身
+         的密度,看起來像磁磚牆材質本身,不是某張照片的局部。
+         **v5(同一天,kc 換了一版磚紋更明顯的貼圖重生)**——同一個檔名
+         覆蓋(`school-wall-side.png?v=2`,1086×1448),接法不用改,只是
+         破一下快取。 */
+      const schoolWallSide = std({ color:0xb8b2a4, roughness:.9 });
+      const schoolWallFront = std({ color:0xb8b2a4, roughness:.9 });
+      const schoolWallSideX = std({ color:0xffffff, roughness:.9 });
+      new THREE.ImageLoader().load(TEX_DIR + 'school-wall.png', img => {
+        const t = new THREE.Texture(img);
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        t.repeat.set(1,.85); t.offset.set(0,.15);   // 裁掉下緣 15%(草地/灌木那截)
+        t.needsUpdate = true;
+        schoolWallFront.map = t; schoolWallFront.color.setHex(0xffffff); schoolWallFront.needsUpdate = true;
+      }, undefined, () => {});
+      new THREE.ImageLoader().load(TEX_DIR + 'school-wall-side.png?v=2', img => {
+        const ts = new THREE.Texture(img);
+        ts.colorSpace = THREE.SRGBColorSpace; ts.anisotropy = 4;
+        ts.wrapS = ts.wrapT = THREE.RepeatWrapping; ts.repeat.set(1,4);
+        ts.needsUpdate = true;
+        schoolWallSideX.map = ts; schoolWallSideX.needsUpdate = true;
+      }, undefined, () => {});
+      add(box(bW,bH,bD, [schoolWallSideX,schoolWallSideX,schoolWallSide,schoolWallSide,schoolWallFront,schoolWallSide]), gx, bH/2, bz);
+      solid(gx, bz, bW/2, bD/2);
+      bushLine(gx-bW/2+1.5, bz+bD/2+.3, gx+bW/2-1.5, bz+bD/2+.3);   // 大樓正面地面真的灌木叢,不是烤進貼圖裡那截
+      /* 校門(2026-08-26,kc:「學校前面的板子應該改做成一個校門」)——原本
+         只是一塊立牌,改成真的校門:兩根門柱夾住校門缺口,上面一根橫樑,
+         校名牌掛在橫樑上(貼圖見下面)。
+         **v2(同一天,kc:「門太低矮了啦,而且招牌太小又卡在裡面」)**——
+         postH 4.2→7(角色身高約 4 個單位,原本的門柱只比人高一點點)。
+         **v3(同一天,kc 給了一張校門設計示意圖+一張去背的新招牌圖)**——
+         照示意圖五個標號重做:①橫樑維持,顏色改成示意圖標的「水泥橫樑
+         (淺灰)」;②門柱加粗(postW .9→1.3)、顏色改成「米白色磁磚」
+         那個色調(跟教學大樓貼圖色調呼應,不是重貼同一張會露餡的照片,
+         只是顏色一致);③新增雙開鐵門,填滿校門缺口,顏色「鐵門(深綠灰)」
+         ——玩家不需要真的走過門柱之間那個缺口(city.doors 的觸發點在
+         z1+2.4,已經在鐵門外側的人行道上),鐵門做實心不影響互動;
+         ④矮牆延伸維持(見上面 fence 那則筆記,顏色也對到「矮牆(淺灰)」);
+         ⑤細節質感(磁磚污漬/鏽蝕)這輪不做程序化風化,交給貼圖本身的
+         寫實感撐。招牌換成 kc 重生的去背版(`school-sign.png?v=2`,RGBA
+         透明背景,2170×725≈3:1,套 transparent 材質才不會把黑底一起
+         貼上去)。 */
+      const gatePost = std({ color:0xe8e2d4, roughness:.9 });      // 米白色磁磚色調
+      const postH = 7, postW = 1.3;
+      [gx-gateW/2, gx+gateW/2].forEach(px => {
+        add(box(postW,postH,postW, gatePost), px, postH/2, z1-.3);
+        solid(px, z1-.3, postW/2, postW/2);
+      });
+      add(box(gateW+postW,.7,postW, std({ color:0xb4b4ae, roughness:.85 })), gx, postH+.35, z1-.3);   // 橫樑,水泥淺灰
+
+      /* 雙開鐵門(2026-08-26 v4,kc:「你沒有做鐵門啊」)——v3 那版是一整塊
+         實心色板,跟旁邊矮牆同一個調調,遠看看不出是「門」,讀起來就是
+         牆的延伸。改成真的欄杆結構:上下橫桿夾一排直鐵條,中間留缝隙,
+         才有鐵柵門該有的「看得穿」視覺特徵。寬度改抓兩根門柱內側的淨空
+         (gateW-postW),v3 那版寬度算錯,伸進了門柱本體裡。
+         **v5(同一天,kc:「門寬一點,是雙門的感覺」)**——gateW 4→6(見上面
+         宣告那行);v4 那版雖然叫「雙開鐵門」,視覺上其實是一整排連續的
+         鐵條,看不出「兩扇門」的接縫。改成真的兩片獨立門葉,各自有自己的
+         上下橫桿+4 根鐵條,中間留一根較粗的直桿當接合處,兩片之間再留一條
+         窄縫——這樣才讀得出「兩扇門在中間合起來」,不是一整排等距鐵條。 */
+      const gateDoor = std({ color:0x3c4a44, roughness:.55, metalness:.25 });
+      const gInner = gateW - postW, gz = z1-.15, gy0 = .2, gy1 = postH-.6;
+      const leafW = gInner/2 - .15, leafGap = .3, barPerLeaf = 4;
+      [-1,1].forEach(side => {
+        const lc = gx + side*(leafW/2 + leafGap/2);
+        add(box(leafW,.18,.16, gateDoor), lc, gy0+.09, gz, false, true);   // 這扇門的底橫桿
+        add(box(leafW,.18,.16, gateDoor), lc, gy1-.09, gz, false, true);   // 這扇門的頂橫桿
+        for(let i=1;i<=barPerLeaf;i++){
+          const bx = lc - leafW/2 + leafW*i/(barPerLeaf+1);
+          add(box(.1,gy1-gy0-.2,.1, gateDoor), bx, (gy0+gy1)/2, gz, false, true);
+        }
+      });
+      add(box(.18,gy1-gy0,.2, gateDoor), gx, (gy0+gy1)/2, gz, false, true);   // 中縫接合處,比一般鐵條粗
+      solid(gx, gz, gInner/2, .15);
+
+      /* 校名招牌貼圖(2026-08-26,kc 重生的去背版,2170×725≈3:1,RGBA
+         透明背景——material 要開 transparent,不然黑底會一起貼上去)。
+         **v4(同一天,kc:「招牌太裡面」)**——門柱加粗(postW→1.3)之後
+         橫樑跟著變厚,前緣推到 z1+.35,原本招牌 z1+.2 反而被吃進橫樑
+         深度裡面,看起來卡在裡面。往前推到 z1+.6,清楚露在橫樑正面外。
+         **v5(同一天,kc:「招牌要滿版」)**——用 PIL 量過這張去背圖,實際
+         招牌內容只佔畫布 (63,96)-(2107,665)(2170×725 裡面),四周留了
+         一圈透明邊,直接貼滿整面板子會讓招牌看起來縮在中間、四周有一圈
+         空白,不是滿版。用 repeat/offset 裁掉那圈透明邊,只取真正有內容
+         的範圍貼滿板子。 */
+      const schoolSignMat = std({ color:0xffffff, roughness:.5, transparent:true });
+      new THREE.ImageLoader().load(TEX_DIR + 'school-sign.png?v=2', img => {
+        const t = new THREE.Texture(img);
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        t.repeat.set(.942,.785); t.offset.set(.029,.083);
+        t.needsUpdate = true;
+        schoolSignMat.map = t; schoolSignMat.needsUpdate = true;
+      }, undefined, () => {});
+      add(box(gateW+1.4,1.8,.15, schoolSignMat), gx, postH+.35, z1+.6, false, true);   // 校名牌,橫跨兩根柱子、貼在橫樑正面外側
+      const pole = std({ color:0xaaaaaa, roughness:.4, metalness:.3 });
+      add(box(.18,7,.18, pole), gx-3, 3.5, z1-2);                // 旗桿
+      buildTree(x0+2.5, z1-2, .8, 2);
+      buildTree(x1-2.5, z1-2, .8, 3);
+      lampSpots.push({ x:gx, y:4, z:z1-1, c:0xfff2d8, i:14, r:14 });
+      landmarks.push({ x:gx, y:bH+1, z:bz, text:'高中' });
+      doors.push({ id:'school', name:'高中', x:gx, z:z1+2.4 });   // 沿用 row() 原本算出來的門口座標(-36, 70.4)
+    })();
+
+    /* 火車站:全新地標,x:[-8,16](24 寬),z 一樣維持一般深度 57~68。
+       站體矮而寬(跟辦公大樓的瘦高塔樓反過來),前面伸出一片雨遮棚架
+       撐出「月台/廣場」的意象,兩根柱子撐棚頂。 */
+    (function trainStation(){
+      const cx=4, z0=rowZ-DEPTH/2, hallD=9, hallZ=z0+hallD/2;
+      const hallW=20, hallH=14;
+      /* 站體主牆(2026-08-26,kc:「另一邊為何還是住宅區」)——原本用
+         M.wallC,那顆材質雖然調成灰色但貼的還是跟住宅店面共用的 T.wall
+         磚牆照片,遠看還是「住宅感」。換成純色無貼圖的淺灰混凝土色調,
+         跟辦公大樓的玻璃帷幕放在一起才讀得出「新開發區」不是老公寓。 */
+      add(box(hallW,hallH,hallD, std({ color:0xa8aca8, roughness:.8 })), cx, hallH/2, hallZ);
+      solid(cx, hallZ, hallW/2, hallD/2);
+      /* 站體正面整片玻璃帷幕(跟辦公大樓同一顆材質,拉出「這一帶都是新
+         開發區」的一致感),站名牌純色卡片佔位。 */
+      const faceZ = hallZ + hallD/2 + .05;
+      add(box(hallW-2,hallH-3,.3, M.glassOff), cx, hallH/2, faceZ, false, true);
+      add(box(10,1.8,.2, std({ color:0x1c3a52, roughness:.5 })), cx, hallH-1.5, faceZ+.1, false, true);
+      /* 雨遮棚架:從站體前緣一路撐到接近人行道,M.tin 屋頂+ alumFrame 柱子。 */
+      const canopyZ0 = faceZ, canopyZ1 = front - .5, canopyLen = canopyZ1-canopyZ0;
+      add(box(hallW+2,.4,canopyLen, M.tin), cx, 6.6, (canopyZ0+canopyZ1)/2, false, true);
+      [-hallW/2+1.2, hallW/2-1.2].forEach(dx => {
+        add(box(.3,6.6,.3, M.alumFrame), cx+dx, 3.3, canopyZ1-.6);
+        solid(cx+dx, canopyZ1-.6, .2, .2);
+      });
+      /* 強度砍下來,理由同上面辦公大樓 towerLobbyGlow 那則筆記——玩家走近
+         棚架下面很容易貼到這顆燈,i:20/r:20 太強會過曝。 */
+      lampSpots.push({ x:cx, y:5, z:(canopyZ0+canopyZ1)/2, c:0xdce8f2, i:7, r:10 });
+      landmarks.push({ x:cx, y:hallH+1, z:hallZ, text:'火車站' });
+    })();
+  })();
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
      繞回 FOOD.length/BETEL.length 重複到前面已經出現過的店名(2026-08-14 kc
      抓到「麵店」重複)。FOOD 6 種、BETEL 3 種都已經在前面的排用滿,這裡多出來
