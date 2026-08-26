@@ -341,6 +341,7 @@
 <script src="lib/scene-home.js"></script>
 <script src="lib/scene-bedroom.js"></script>
 <script src="lib/scene-school.js"></script>
+<script src="lib/scene-arcade.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
 <script src="lib/npc-temple.js"></script>
@@ -1049,7 +1050,7 @@ const ALTAR = { x:0, z:-92 };
    機制,座標對齊上面 motoBoss buildNPC() 那具 3D 角色(x:-1, z:-13.2)。
    資料(talk[]/events[])在 lib/story-motoboss.js,消費方式見下面
    talkToMotoBoss()。設計討論見 docs/DESIGN_NOTES.md「機車行老闆・旺鴻」。 */
-const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{} };
+const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{}, newsConfronted:false };
 /* 阿成・廟口乾麵攤(2026-08-20,kc:「他是最照顧你的人,一直跟他聊天會加
    歸屬感,他會推薦你陣頭」)——跟 AYI 同一套 visits/seenEvents 機制,站在
    「廟口乾麵」攤子後方,取代掉原本站那個位置的路人佔位。
@@ -1090,9 +1091,21 @@ const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:fals
    三人兩兩間距 4+,不會互相搶到同一個互動判定範圍(3.2)。 */
 const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
                     together:false, togetherSinceDay:null, visitedHome:false, cooling:false,
-                    loanAsked:false, loan:0, loanDay:null, loanUnpaid:false };
+                    loanAsked:false, loan:0, loanDay:null, loanUnpaid:false,
+                    helpedDay:-1,   // 教室「幫她解題目」的每日一次旗標,見下面 openIndoorSpot() mei 分支
+                    kissed:false, kissedDay:null, apologized:false };   // 偷親後續,見 talkToMei() 開頭那段攔截
 const JIAOGUAN = { x:43, z:-18.5, confronted:false };
 const AREN     = { x:45, z:-22,   offered:false };
+/* 導師的清寒補助(2026-08-26,kc:「書架上有廣告可以去找老師申請清寒家庭
+   補助」)——狀態放這裡,跟其他學校角色的旗標放一起,見下面 talkToTeacher()
+   的判斷跟 lookAtBookshelf()。 */
+const TEACHER_STATE = { aidApplied:false };
+/* 書架線索(2026-08-26,kc:「裡面會有一些廣告或新聞,比如可以去找老師申請
+   清寒家庭補助,然後新聞就是旺宏老闆之前做過的壞事,讀完新聞後可以回去
+   問老闆」)——前兩次翻書架固定翻到這兩樣東西,不是隨機(順序:先補助
+   公告,再舊剪報),翻完兩次才退回原本 lookAtBookshelf() 那組環境調味
+   idleTalk 隨機池。 */
+const BOOKSHELF_CLUES = { tuitionAdFound:false, motoNewsFound:false };
 /* 公園長椅・散心(2026-08-26,kc:「情緒不好可以去公園散心啊」)——小公園
    本來就有兩張長椅(`scene-city3d.js` park() 的 `addProp('bench',...)`),
    純裝飾沒接互動。挑東側那張(x1-2.5,cz+3,算出來是 63.5,-18.5),不挑
@@ -1917,27 +1930,66 @@ const SCHOOL_FALLBACK = {
    的桌椅圖(等 kc 給那塊素材再疊上去),座標先留在原位置沒有新的參考點
    可以重量,之後 kc 給素材時再一起核對調整。 */
 const SCHOOL_PHOTO = {
-  walkN: 230, walkS: 345,
+  /* walkN(2026-08-26)——kc 肉眼核對:一般地板(走廊、書櫃前那片空地)
+     北邊界是 265,不是整排統一收窄(先前一輪誤判成「講台前面整片都要
+     收窄」,kc 糾正:只有阿仁/黃毛那兩張課桌椅前面要單獨擋,不是整個
+     walkN 一起推)。 */
+  walkN: 265, walkS: 345,
+  /* 2026-08-26(kc:「多幾個互動點,三個同學都可以,還有左上方的書架」)——
+     新增 aren/mei/kai/bookshelf 四格。
+     **v2(同一天,kc 抓到「小美跟黃毛判定好怪」)**:第一版照 x(左右)切
+     小美/黃毛,但這兩張桌子其實是「同一直排的前後座」(黃毛在後排靠黑板,
+     小美在前排靠鏡頭),x 範圍幾乎完全重疊(那張桌子 182-268、小美疊圖
+     落地範圍 135-266)——照 x 切必打架。改成照 y(深度)切,跟碰撞線
+     對齊:288 以北算後排位置(被課桌椅碰撞擋住的地方),288 以南算小美
+     (她實際坐的疊圖位置)。阿仁/座位那組是同一叢桌子的同一個毛病
+     (阿仁桌子 383-471 跟主角空位疊圖落地範圍 367-477 也幾乎重疊),一起
+     改成同一套 y 切法,不然遲早會踩到一樣的坑。
+     **v3(同一天,kc:「他好像叫阿凱」)**——教室背景照裡橘髮那個男生原來
+     不是無名路人,是已經接進遊戲的阿凱(校門口改管群體的頭,街上有
+     3D 模型+大頭貼+talkToKai()),v2 那組臨時取的「黃毛」WHO/對話整個
+     刪掉,這格直接接阿凱既有的閒聊(kaiCheckinLines()/入學時的開場白)。
+     阿凱那條線的台詞是照他站在街上、旁邊停著改管機車寫的(「你聽聽這聲音」
+     那種),搬進教室context 上會有點兜不攏(教室裡沒有車),這輪先接上
+     互動不改台詞,要不要另外寫一套「在教室裡的阿凱」台詞之後再說。 */
   spots: [
     { id:'door', name:'走廊', x:509, w:61,  y0:230, y1:345 },
-    { id:'desk', name:'座位', x:375, w:170, y0:230, y1:345 },   // 視覺素材待補,見上面 v2 筆記
+    { id:'bookshelf', name:'書架', x:60,  w:70,  y0:230, y1:345 },
+    { id:'kai', name:'阿凱', x:145, w:123, y0:230, y1:296 },
+    { id:'mei', name:'小美', x:135, w:131, y0:297, y1:345 },
     /* 老師(2026-08-25 v2 重量):講台原圖 x:725~975,換算 x≈278~373。 */
-    { id:'teacher', name:'老師', x:278, w:95, y0:230, y1:345 }
+    { id:'teacher', name:'老師', x:278, w:95, y0:230, y1:345 },
+    { id:'aren', name:'阿仁', x:383, w:88, y0:230, y1:296 },
+    { id:'desk', name:'座位', x:367, w:110, y0:297, y1:345 }   // 視覺素材待補,見上面 v2 筆記
   ]
 };
-/* 碰撞(2026-08-25,kc 抓到「人太小隻、走的路是整塊矩形,會直接穿過橫向
-   課桌椅」,同一天又回報「課桌椅中間是可以人走過穿過去的」,擋框改成只蓋
-   桌面本身那塊實心範圍,不含椅背/椅腳)。
-   **v2(換圖後重量)**:新圖只剩橘髮男生+光頭男生兩張獨立桌子,女生那組
-   拿掉了,兩塊擋框直接對應這兩張桌子,不用再切「兩人共用一塊」那組。
-   桌子跟講台之間本來就有留白(原圖量出來各約 25px 淨空,不是刻意切的
-   走道),不用像 v1 那樣特地留一條「教師走道」的縫——正面直接走得到
-   講台。 */
+/* 前排課桌椅碰撞(2026-08-26,kc 肉眼核對定案)——阿仁、黃毛那兩張課桌椅
+   只能走到 py:288(長方形擋框,x 範圍沿用原本兩張桌子的座標),超過這條線
+   就是疊進桌椅裡;教室其他地方(走廊、書櫃前、講台正中央那條走道)維持
+   一般的 walkN:265,不用跟著收窄。 */
 const SCHOOL_COLLIDERS_PHOTO = [
-  { x0:182, x1:268, pyBack:191, pyFront:237 },   // 橘髮男生那張桌子(桌面本身)
-  { x0:383, x1:471, pyBack:191, pyFront:237 }    // 光頭男生那張桌子(桌面本身)
+  { x0:182, x1:268, pyBack:191, pyFront:288 },   // 黃毛(橘髮)那張桌子
+  { x0:383, x1:471, pyBack:191, pyFront:288 }    // 阿仁(光頭)那張桌子
 ];
 let SCHOOL = SCHOOL_FALLBACK, SCHOOL_COLLIDERS = SCHOOL_COLLIDERS_FALLBACK;
+
+/* 遊藝場(2026-08-26,kc:「遊藝場先做,裡面可以玩一些小遊戲,可以加情緒」
+   +「真的賭博,情緒一定＋ 金錢賭」)——只有灰模,還沒有照片版(跟 store/
+   home/school 當初一樣,先卡位,圖之後再疊,見 scene-arcade.js 檔頭那則
+   筆記)。FALLBACK 沒有碰撞框——三台機台純視覺裝飾,不擋路,跟
+   SCHOOL_COLLIDERS_FALLBACK 當初也是空陣列同一個道理(照片版量出真的
+   機台範圍再補)。 */
+const ARCADE_COLLIDERS_FALLBACK = [];
+const ARCADE_FALLBACK = {
+  walkN: SceneArcade.WALK_N, walkS: SceneArcade.WALK_S,
+  spots: [
+    { id:'door',     name:'門口',       x:0,   w:60,  y0:SceneArcade.WALK_N, y1:SceneArcade.WALK_S },
+    { id:'slot',     name:'吃角子老虎', x:70,  w:110, y0:SceneArcade.WALK_N, y1:SceneArcade.WALK_S },
+    { id:'roulette', name:'俄羅斯輪盤', x:255, w:170, y0:SceneArcade.WALK_N, y1:SceneArcade.WALK_S },
+    { id:'pusher',   name:'推幣機',     x:450, w:110, y0:SceneArcade.WALK_N, y1:SceneArcade.WALK_S }
+  ]
+};
+let ARCADE = ARCADE_FALLBACK, ARCADE_COLLIDERS = ARCADE_COLLIDERS_FALLBACK;
 
 /* naturalWidth(不是 complete!)——圖片 404 時 complete 一樣會變 true,
    naturalWidth 才分得出「真的載入成功」還是「找不到檔案」。跟超商
@@ -2283,6 +2335,13 @@ const SCHOOL_PROP_ROWS = [
   ['g','綠(%)', 30, 200],
   ['b','藍(%)', 30, 200]
 ];
+/* 前排邊界(2026-08-26)——SCHOOL_PHOTO.walkN 本身就是即時讀值(bounds.walkN
+   每幀從 SCHOOL 讀),滑桿直接改這個物件的 walkN 就會生效,不用另外包一層
+   tweak 物件。230=舊邊界(可以疊進老師/課桌椅),345=walkS(貼到門口那條線,
+   會整個走不進教室)。 */
+const SCHOOL_WALK_ROWS = [
+  ['walkN','前排邊界(越大越擋、越靠近門)', 230, 345]
+];
 function tweakSchoolPanel(){
   const old = document.getElementById('schoolHeroPanel');
   if(old){ old.remove(); return; }
@@ -2291,6 +2350,7 @@ function tweakSchoolPanel(){
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:220px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
   const groups = [
     ['角色大小(近/遠透視)', SCHOOL_HERO_TWEAK, SCHOOL_HERO_ROWS],
+    ['前排邊界', SCHOOL_PHOTO, SCHOOL_WALK_ROWS],
     ['小美座位疊圖', MEI_DESK_TWEAK, SCHOOL_PROP_ROWS],
     ['主角空位疊圖', SCHOOL_DESK_TWEAK, SCHOOL_PROP_ROWS]
   ];
@@ -2369,6 +2429,15 @@ function paintSchoolBackdrop(){
     gbg.restore();
   }
 }
+/* 遊藝場(2026-08-26)——目前沒有照片版,永遠畫灰模,結構留著跟其他
+   paint*Backdrop() 一致,以後真的生了照片再照 paintSchoolBackdrop() 那套
+   naturalWidth 判斷加一行 if/else,不用整個函式重寫。 */
+function paintArcadeBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  gbg.save(); gbg.scale(SC,SC);
+  SceneArcade.renderBackground(gbg, { vignette:true });
+  gbg.restore();
+}
 
 /* 身高:畫面固定,不管站多遠(kc 2026-08-12 定案,見 DESIGN_NOTES)。
    正交鏡頭下世界單位跟畫面 px 是固定的 1:1,不用再像透視鏡頭那樣每幀用
@@ -2390,7 +2459,8 @@ function paintSchoolBackdrop(){
 const HERO_TARGET_PX = {
   store: 106 * 1.3 * SC,   // 275.6,定案不再調
   home: 296,
-  bedroom: 320   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
+  bedroom: 320,   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
+  arcade: 296   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
 };
 const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad/spawnMom 那些除錯用的定格截圖工具用,跟超商比例校正
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
@@ -2400,8 +2470,11 @@ const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
    「站在門口大小差不多對」的 420(前一輪滑桿調過的起始值);farPx 借
    scene-school.js 那組還沒用上的 `depthScale()` 比例(0.76~1.0)反推
    ——420*0.76≈319,湊整數 320(剛好是這個場景一開始借房間那組舊值,
-   純巧合)。都還沒真的核對過,__dbg.tweakSchool() 滑桿兩個數字都能拉。 */
-const SCHOOL_HERO_TWEAK = { nearPx: 420, farPx: 320 };
+   純巧合)。都還沒真的核對過,__dbg.tweakSchool() 滑桿兩個數字都能拉。
+   **farPx(2026-08-26)**:kc 說「遠景人稍微調大一點點,給我滑感」——太小
+   走到最遠處會整個人縮太扁,近/遠對比不夠明顯反而看不出走位有變化,
+   320→350(+9%,跟房間那次「稍微調大」的調法同一個量級)。 */
+const SCHOOL_HERO_TWEAK = { nearPx: 420, farPx: 350 };
 function schoolHeroPx(py){
   const t = Math.max(0, Math.min(1, (py - SCHOOL.walkN) / (SCHOOL.walkS - SCHOOL.walkN)));
   return SCHOOL_HERO_TWEAK.farPx + t * (SCHOOL_HERO_TWEAK.nearPx - SCHOOL_HERO_TWEAK.farPx);
@@ -2469,7 +2542,7 @@ function inBlocked(x,y){
   const colliders = PLACE==='store' ? FIXTURE_COLLIDERS
     : PLACE==='home' ? HOME_COLLIDERS
     : PLACE==='bedroom' ? BEDROOM_COLLIDERS
-    : PLACE==='school' ? SCHOOL_COLLIDERS : [];
+    : PLACE==='school' ? SCHOOL_COLLIDERS : PLACE==='arcade' ? ARCADE_COLLIDERS : [];
   return colliders.some(c =>
     x > c.x0-COLLIDE_PAD && x < c.x1+COLLIDE_PAD &&
     y > c.pyBack-COLLIDE_PAD && y < c.pyFront+COLLIDE_PAD);
@@ -2485,6 +2558,19 @@ function buy(price, feed, mood, line){
   chg('money', -price); if(feed) chg('full', feed); if(mood) chg('mood', mood);
   advanceTime(3); if(line) toast(line);
   return true;
+}
+/* 遊藝場賭博(2026-08-26)——見 openIndoorSpot() PLACE==='arcade' 那段筆記。
+   `roll` 先扣注金,呼叫端的 `resolveFn()` 回傳這一把的結果(`payout`/
+   `mood`/`line`),中獎才把 payout 加回去——三台機台共用同一套流程,差別
+   只在 resolveFn 內部的機率/賠率。情緒固定加,不看 payout 是不是 0,是
+   kc 明確要求的「情緒一定＋」。 */
+function gambleResolve(cost, resolveFn){
+  if(ST.money < cost){ toast('你身上不夠。', 2000); return; }
+  chg('money', -cost);
+  const r = resolveFn();
+  if(r.payout) chg('money', r.payout);
+  chg('mood', r.mood);
+  toast(r.line + (r.payout ? `\n（拿回 $${r.payout}）` : ''), 3000);
 }
 /* 結帳(2026-08-24 kc:「買東西要加入去結帳的流程」)——鮮食櫃/貨架/飲料櫃
  * 選了東西不再當場扣錢,先進 `IN.basket`(拿在手上),真正的金錢/飽足/情緒
@@ -2612,6 +2698,31 @@ function openIndoorSpot(id){
   if(PLACE === 'school'){
     if(id === 'door'){ leaveIndoor(); return; }
     else if(id === 'teacher'){ talkToTeacher(); return; }
+    else if(id === 'aren'){ talkToAren(); return; }
+    /* 小美(2026-08-26,kc:「可以幫小美解題目 會增加歸屬感 也可以約他出去玩
+       （直接跳轉到公園）」)——教室context 專用選單,跟街上那具 3D 小美的
+       talkToMei()(約會/借錢完整那條線)分開放,「閒聊」選項才接回原本那條,
+       沒有拿掉舊功能。兩個新選項沒有卡 MEI.met/cool 門檻(她是同班同學,
+       教室裡本來就認識,街上那條「帥潮不夠會被嫌棄」的初遇門檻在這裡不
+       適用),kc 沒提就先不腦補加。 */
+    else if(id === 'mei'){
+      openMenu('小美', [
+        { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '歸屬感 +4',
+          cls: MEI.helpedDay===day ? 'bad' : '',
+          run:() => {
+            if(MEI.helpedDay === day){ toast('今天已經幫過她了，明天再來。', 2200); return; }
+            MEI.helpedDay = day;
+            chg('calm', 4);
+            say('mei', '「這題...喔，謝啦。」她把答案抄到練習本上。');
+          } },
+        { label:'約她出去玩', run: warpToParkWithMei },
+        { label:'閒聊', run: talkToMei },
+        { label:'不要', cls:'back', run(){} }
+      ]);
+      return;
+    }
+    else if(id === 'kai'){ talkToKai(); return; }
+    else if(id === 'bookshelf'){ lookAtBookshelf(); return; }
     else if(id === 'desk'){
       openMenu('座位', [
         /* 讀書扣情緒(2026-08-26,kc:「讀書工作本身會扣情緒」)——見
@@ -2625,6 +2736,68 @@ function openIndoorSpot(id){
         { label:'偷玩手遊', cost:'體力 −5　1 小時　看教官', cls:'risk', run: playPhoneInClass },
         { label:'不要', cls:'back', run(){} }
       ]);
+    }
+    return;
+  }
+  /* 遊藝場(2026-08-26,kc:「裡面有 2d 場景 可以去跟機台對話玩遊戲 吃角子
+     老虎 俄羅斯輪盤 推幣機之類」+「真的賭博,情緒一定＋ 金錢賭」)——三台
+     機台共用 gambleResolve() 那個「扣注金→擲骰→結果」的小函式,不做即時
+     操作型的小遊戲(跟收銀那種真的有手感操作的不同層級,這裡是選單+RNG,
+     比照功德箱/買機車那類互動)。情緒不管輸贏都固定加(呼應「賭癮爽的是
+     玩的當下,不是贏錢那一刻」),金錢期望值刻意做負(真賭場邏輯,玩家
+     長期玩會慢慢輸)。三台數字都是這輪自己抓的小的可逆參數,不喜歡跟我
+     說一聲就改。 */
+  if(PLACE === 'arcade'){
+    if(id === 'door'){ leaveIndoor(); return; }
+    else if(id === 'slot'){
+      openMenu('吃角子老虎', [
+        { label:'拉一次', cost:'$50', cls: ST.money<50?'bad':'', run:() => {
+            gambleResolve(50, () => {
+              const r = Math.random();
+              if(r < .05) return { payout:500, mood:6, line:'三顆金磚排成一線——中大獎了！' };
+              if(r < .20) return { payout:100, mood:6, line:'兩顆對上，小賺一筆。' };
+              return { payout:0, mood:6, line:'轉輪停下，什麼都沒對上。' };
+            });
+          } },
+        { label:'走開', cls:'back', run(){} }
+      ]);
+      return;
+    }
+    else if(id === 'roulette'){
+      openMenu('俄羅斯輪盤', [
+        { label:'押紅／黑', cost:'$100', cls: ST.money<100?'bad':'', run:() => {
+            gambleResolve(100, () => {
+              const win = Math.random() < 18/37;
+              return win
+                ? { payout:200, mood:8, line:'球停在你押的顏色上，莊家推了兩倍籌碼過來。' }
+                : { payout:0, mood:8, line:'球彈進另一色的格子，籌碼被收走了。' };
+            });
+          } },
+        { label:'押單一號碼', cost:'$100', cls: ST.money<100?'bad':'', run:() => {
+            gambleResolve(100, () => {
+              const win = Math.random() < 1/37;
+              return win
+                ? { payout:3600, mood:8, line:'球停在你押的那個號碼上——你自己都愣住了。' }
+                : { payout:0, mood:8, line:'球停在別的號碼，你押的那格空的。' };
+            });
+          } },
+        { label:'走開', cls:'back', run(){} }
+      ]);
+      return;
+    }
+    else if(id === 'pusher'){
+      openMenu('推幣機', [
+        { label:'投 $20', cost:'$20', cls: ST.money<20?'bad':'', run:() => {
+            gambleResolve(20, () => {
+              const win = Math.random() < .5;
+              return win
+                ? { payout:30, mood:4, line:'一小疊代幣被推下來，落進出幣口。' }
+                : { payout:0, mood:4, line:'那疊代幣晃了一下，還是沒掉下來。' };
+            });
+          } },
+        { label:'走開', cls:'back', run(){} }
+      ]);
+      return;
     }
     return;
   }
@@ -3187,7 +3360,7 @@ function updateIndoor(dt){
   }
 
   const bounds = PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
-               : PLACE === 'school' ? SCHOOL : BEDROOM;
+               : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE : BEDROOM;
 
   let dx=0, dy=0;
   if(keys['a']||keys['arrowleft'])  dx -= 1;
@@ -3393,16 +3566,16 @@ function sleep(){
   });
 }
 function enterIndoor(door){
-  if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school'){
+  if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade'){
     toast(door.name + ' 的室內場景還沒做。（刺青店在 tattoo-room.html,還沒接進來）', 3600);
     return;
   }
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
   walkIn = { x: door.x, z: door.z, done(){
-    fade(door.id === 'store' ? '超商' : door.id === 'school' ? '學校' : '家', () => {
+    fade(door.id === 'store' ? '超商' : door.id === 'school' ? '學校' : door.id === 'arcade' ? '遊藝場' : '家', () => {
       MODE = 'indoor';
-      PLACE = door.id === 'store' ? 'store' : door.id === 'school' ? 'school' : 'home';
+      PLACE = door.id === 'store' ? 'store' : door.id === 'school' ? 'school' : door.id === 'arcade' ? 'arcade' : 'home';
       document.getElementById('city').style.display = 'none';
       wlabelsEl.style.display = 'none';   // 進門後停止更新,不然殘留位置疊在室內畫面上
       document.getElementById('indoor').classList.add('on');
@@ -3430,6 +3603,12 @@ function enterIndoor(door){
         document.getElementById('where').textContent = '學校';
         paintSchoolBackdrop();
         lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
+      } else if(PLACE === 'arcade'){
+        /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
+           scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
+        IN.px = ARCADE.spots.find(s=>s.id==='door').x + 30; IN.py = ARCADE.walkS; IN.face = 'F';
+        document.getElementById('where').textContent = '遊藝場';
+        paintArcadeBackdrop();
       } else {
         IN.px = 90; IN.py = HOME.walkS; IN.face = 'F';
         document.getElementById('where').textContent = '家';
@@ -3460,6 +3639,25 @@ function leaveIndoor(){
         toast(`你摸了一下口袋，錢包裡少了 $${amt}。\n你想起那天的事。`, 3800);
       }
     }
+  });
+}
+/* 約小美出去公園(2026-08-26,kc:「約他出去玩，直接跳轉到公園」)——跟
+   leaveIndoor() 幾乎同一套淡出/切場景邏輯,差別只在傳送點不是 returnTo
+   (校門口),是公園裡小美站的位置附近(MEI.x/z,街上那具 3D 小美就站在
+   這裡,見上面 MEI 定義)。這裡只負責「跳去公園」,不重複發獎勵——到了
+   公園真的要不要約會(花錢、cool/calm 加成)還是走 talkToMei() 原本那條
+   街上戀愛線,街上直接找她互動就會觸發,兩邊不疊加。z+3 是隨手挑的偏移
+   (不要跟她的 3D 模型疊在同一個點),沒有實測過確切落點,玩起來覺得
+   卡怪跟我說要往哪調。沒有加蹺課代價(kc 沒提,先不腦補加懲罰)。 */
+function warpToParkWithMei(){
+  fade(city.whereAmI(MEI.x, MEI.z + 3), () => {
+    MODE = 'city';
+    document.getElementById('indoor').classList.remove('on');
+    document.getElementById('city').style.display = '';
+    wlabelsEl.style.display = '';
+    hero.group.position.set(MEI.x, .3, MEI.z + 3);
+    advanceTime(1);
+    toast('你們蹺課，直接去了公園。', 2600);
   });
 }
 /* 越式按摩店(2026-08-20)——巷子那位 ALLEY_WORKER 站在街上,但真正談的
@@ -4341,6 +4539,30 @@ function talkToYuan(){
    branch),沒有硬套同一個共用函式。 */
 function talkToMei(){
   const D = NpcSchool.MEI;
+  /* 偷親後續(2026-08-26,kc 設計)——擋在最前面,蓋掉平常那整條 met/dated/
+     together 進度判斷,直到道歉流程走完。當天找她只有一句冷淡的話,沒有
+     選單;隔天(day > kissedDay)才會給「跟她道歉」的選項,道歉那段才會
+     聽到她講她爸的事。kc 明確要求「揭露創傷」跟「偷親當下」分開兩幕,
+     不要讓道歉/揭露看起來是偷親直接換來的獎勵。apologized=true 之後這段
+     攔截就不會再擋,恢復平常的互動判斷(不影響 met/dated/together 進度,
+     這條線這輪只到這裡,沒有安排後續)。 */
+  if(MEI.kissed && !MEI.apologized){
+    if(day === MEI.kissedDay){
+      say('mei', '她轉過頭，沒有看你，也沒有說話。');
+      return;
+    }
+    openMenu('小美', [
+      { label:'跟她道歉', run(){
+          playBeats(D.kissApologyBeats, 0, () => {
+            MEI.apologized = true;
+            chg('calm', 4);
+            toast(D.kissApologyQuiet, 3600);
+          });
+        } },
+      { label:'先不要', cls:'back', run(){} }
+    ]);
+    return;
+  }
   if(!MEI.met){
     /* 2026-08-21 kc 糾正:帥潮不夠不是「她沒看到你」,是「她嫌棄你」,
        而且玩家要能看到門檻數字,不是自己瞎猜——跟 TROUPE(陣頭)那種刻意
@@ -4361,7 +4583,12 @@ function talkToMei(){
     return;
   }
   if(!MEI.dated){
-    openMenu('小美', [
+    /* 偷親(2026-08-26,kc 設計)——「不是情侶時」的條件用 !MEI.together
+       表達會更準,但這個選單只有在 !MEI.dated 階段才會跳出來(dated 之後
+       她的互動走 loan/together 那條自動 beats,不再有這種選單),所以卡在
+       這裡等於同時滿足兩個條件,不用重複判斷。kissed 只會發生一次,
+       !MEI.kissed 擋掉選項重複出現。 */
+    const items = [
       { label:'約她(河堤＋鹽酥雞)', cost:'$'+D.dateCost, cls: ST.money<D.dateCost?'bad':'',
         run(){
           if(ST.money < D.dateCost){ toast('錢不夠,你含糊帶過這件事。', 2000); return; }
@@ -4369,9 +4596,17 @@ function talkToMei(){
           chg('money', -D.dateCost); chg('cool', 3);
           playBeats(D.dateBeats, 0, () => { chg('calm', 12); toast(D.dateQuiet, 3400); });
         } },
-      { label:'先聊聊就好', cls:'', run(){ say('mei', D.metTalk[Math.random()*D.metTalk.length|0]); } },
-      { label:'走掉', cls:'back', run(){} }
-    ]);
+      { label:'先聊聊就好', cls:'', run(){ say('mei', D.metTalk[Math.random()*D.metTalk.length|0]); } }
+    ];
+    if(!MEI.kissed) items.push({ label:'在她沒注意時吻了她', cls:'risk', run(){
+      MEI.kissed = true; MEI.kissedDay = day;
+      playBeats(D.kissBeats, 0, () => {
+        chg('star', -5); chg('calm', -8); chg('mood', 10);
+        toast(D.kissQuiet, 3400);
+      });
+    } });
+    items.push({ label:'走掉', cls:'back', run(){} });
+    openMenu('小美', items);
     return;
   }
   /* 「借我一下」(2026-08-21)——約過一次會之後,下一次找她一次性觸發,
@@ -4521,7 +4756,70 @@ function talkToAren(){
  * 演,之後要做的話是在 id==='door' 那支插一個 day===28 攔截,不是這裡。 */
 function talkToTeacher(){
   const D = NpcSchool.TEACHER;
+  /* 清寒補助(2026-08-26,見上面 TEACHER_STATE 那則筆記)——讀過書架那張
+     公告(BOOKSHELF_CLUES.tuitionAdFound)才會冒出來,問過一次就核准入帳,
+     不是每月都要來領一次(沒做那套時間/資源分配的系統,跟 mei3「交往後
+     每週維護」同一個簡化幅度)。$1000 是我先抓的小的可逆數字,不喜歡
+     跟我說要多少。 */
+  if(BOOKSHELF_CLUES.tuitionAdFound && !TEACHER_STATE.aidApplied){
+    TEACHER_STATE.aidApplied = true;
+    playBeats([
+      { who:'pc',      text:'「老師，我想申請清寒家庭補助。」' },
+      { who:'teacher', text:'他愣了一下，翻了翻抽屜，找出一疊表格。' },
+      { who:'teacher', text:'「早該來申請了。」他邊蓋章邊說，沒有多問什麼。' },
+      { who:'teacher', text:'「下個月會撥下來，先去忙你的。」' }
+    ], 0, () => {
+      chg('money', 1000);
+      toast('補助申請下來了。（$+1000）', 3000);
+    });
+    return;
+  }
   say('teacher', D.idleTalk[Math.random()*D.idleTalk.length|0]);
+}
+/* 書架(2026-08-26,kc:「多幾個互動點...還有左上方的書架」)——不掛指標,
+   純環境調味/線索入口,不是人用 toast() 不開對話框(沒有頭像可畫),見
+   npc-school.js BOOKSHELF 那則筆記。教室原本橘髮那個同學(v2 一度取名
+   「黃毛」現場編的閒聊)2026-08-26 同一天 kc 認出「他好像叫阿凱」——
+   是已經接進遊戲的既有角色,那組 WHO/talkToClassmate() 已經拿掉,教室
+   'kai' 那格直接接他既有的 talkToKai(),見上面 SCHOOL_PHOTO.spots v3
+   那則筆記。
+   **v2(同一天,kc:「我不喜歡這種,我希望讓他直接有選單,選要翻社會新聞區
+   政府公告區小說區等等,沒特別設定才是環境閒聊」)**——原本是「按一次跳
+   一個固定 toast,自動照順序翻」,改成開選單讓玩家自己選要翻哪一區:
+   社會新聞區/政府公告區各自第一次選中才會翻到對應線索(BOOKSHELF_CLUES
+   那兩個旗標,跟之前一樣一次性),之後再選同一區、或選小說區,一律退回
+   NpcSchool.BOOKSHELF.idleTalk 那組純環境調味隨機句——「沒特別設定」的
+   意思照 kc 原話,不是每一區都要有專屬線索。
+   **v3(同一天,kc:「要不要回去問他可以是跳出來的獨立提示句子,然後旺鴻
+   的新聞要是真正的新聞才對,公告也比照辦理」)**——兩處都拆成兩則 toast:
+   先跳整篇新聞/公告本文(照真的報紙/公文格式寫,不是一句話帶過),那則
+   淡出之後才跳「要不要回去問他/找老師」這句獨立提示,不是黏在同一則
+   toast 裡用括號附註。第二則的 setTimeout 延遲跟第一則的顯示時間對齊,
+   不會疊在一起搶畫面。 */
+function lookAtBookshelf(){
+  const D = NpcSchool.BOOKSHELF;
+  openMenu('書架', [
+    { label:'社會新聞區', run(){
+        if(!BOOKSHELF_CLUES.motoNewsFound){
+          BOOKSHELF_CLUES.motoNewsFound = true;
+          toast('【中華路收保護費案　三嫌到案】\n\n（記者　林○○／中華路報導）中華路一帶多間店家上月接連接獲不明人士恐嚇取財，要求按月繳交「保護費」，不從即揚言砸店。警方獲報後埋伏跟監，前日將三名嫌犯當場逮捕，主嫌供稱姓名「旺鴻」，年僅二十出頭，訊後依恐嚇取財罪嫌移送法辦。\n\n你盯著那個名字看了很久——跟機車行老闆同名同姓，年紀也對得上。', 5600);
+          setTimeout(() => toast('要不要回去問問旺鴻？', 2600), 5800);
+          return;
+        }
+        toast(D.idleTalk[Math.random()*D.idleTalk.length|0], 3000);
+      } },
+    { label:'政府公告區', run(){
+        if(!BOOKSHELF_CLUES.tuitionAdFound){
+          BOOKSHELF_CLUES.tuitionAdFound = true;
+          toast('【公告】清寒家庭子女助學金申請須知\n\n一、申請資格：本校在學學生，家庭經濟因素符合低收入戶／中低收入戶標準，或經導師認定確有清寒事實者。\n二、應備文件：申請表、戶籍謄本、低收入戶證明（或導師推薦函）。\n三、受理窗口：輔導室。\n\n你把公告看了一遍，截止日期那一欄被撕掉了一半，只看得到「本學期」三個字。', 5600);
+          setTimeout(() => toast('要不要找老師問問看？', 2600), 5800);
+          return;
+        }
+        toast(D.idleTalk[Math.random()*D.idleTalk.length|0], 3000);
+      } },
+    { label:'小說區', run(){ toast(D.idleTalk[Math.random()*D.idleTalk.length|0], 3000); } },
+    { label:'算了', cls:'back', run(){} }
+  ]);
 }
 /* 小美哥(2026-08-21)——見 npc-school.js BROTHER 那則長筆記。刺青/知識
    兩邊獨立判定、效果疊加,不是二選一分支,所以這裡不是 openMenu 選單,
@@ -4576,6 +4874,41 @@ function talkToKai(){
    先跑 events[] 故事節點,沒有觸發中事件就退回 talk[] 隨機閒聊),對完話
    才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
 function talkToMotoBoss(){
+  /* 舊剪報揭露(2026-08-26,kc:「新聞就是旺宏老闆之前做過的壞事，讀完新聞
+     後可以回去問老闆」)——攔在 talkToStallVendor() 那套訪問次數劇情最
+     前面,只演一次。內容照 lib/story-motoboss.js 檔頭那則筆記的基準線寫:
+     不是「壞人洗白」的獵奇爽點,是他自己坦承、不閃躲,也不用可憐博同情。
+     沒有接 onBuyMenu——這場對話夠重,不適合演完直接跳進殺價選單,讓
+     玩家自己決定要不要再開一次選單買車。
+     **結尾選擇(同一天,kc:「這種任務完成的對話可以選擇要怎麼回應會影響
+     數值」)**——兩個方向都不是嘴巴上嗆出來,是玩家自己心裡怎麼看這件事:
+     被觸動/覺得他不容易(風評 +6),還是心裡瞧不起、覺得他也就這樣
+     (風評 −6)。數字對稱,是我先抓的小的可逆參數。 */
+  if(BOOKSHELF_CLUES.motoNewsFound && !MOTOBOSS.newsConfronted){
+    MOTOBOSS.newsConfronted = true;
+    playBeats([
+      { who:'pc',       text:'「我在舊報紙上看到你的名字——收保護費那個案子。」' },
+      { who:'motoboss', text:'他手上的動作停了一下。' },
+      { who:'motoboss', text:'「你去哪挖到那個的。」他沒有生氣，語氣很平。' },
+      { who:'pc',       text:'你沒有回答。' },
+      { who:'motoboss', text:'「對，是我。」他繼續轉螺絲。「那時候誰家開店，我們就去收，不繳，就砸。」' },
+      { who:'motoboss', text:'「我不會替自己講什麼理由——那時候的我，就是那種人。」' },
+      { who:'motoboss', text:'「後來出事，蹲了幾年，出來才開這間店。」' },
+      { who:'motoboss', text:'他抬起頭看你，眼神沒有閃躲。「你要是因為這樣不想再來，我不會怪你。」' }
+    ], 0, () => {
+      openMenu('機車行', [
+        { label:'「這樣還能重新開始，我覺得很不容易。」', run(){
+            chg('star', 6);
+            toast('你心裡有點觸動——原來真的有人能從那樣的日子走出來。（風評 +6）', 3400);
+          } },
+        { label:'（心裡覺得他也不過如此）', cls:'risk', run(){
+            chg('star', -6);
+            toast('你沒說出口，但心裡覺得他也就這樣，靠著裝老實混口飯吃。（風評 −6）', 3400);
+          } }
+      ]);
+    });
+    return;
+  }
   const m = city.motos.find(mm => mm.forSale);
   talkToStallVendor(MOTOBOSS, StoryMotoBoss, 'motoboss', () => {
     if(m && !m.owned) buyMoto(m);
@@ -4915,7 +5248,7 @@ window.__dbg = {
   busy: () => busy,
   dlgOn: () => dlg.on,
   bounds: () => (PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
-               : PLACE === 'school' ? SCHOOL : BEDROOM),
+               : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE : BEDROOM),
   cam: indoorCamera,
   chg, steal, updateIndoor, openIndoorSpot, startCheckoutShift, getCO: () => CO,
   hire(){ IN.hired = true; return 'hired'; },
