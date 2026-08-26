@@ -3866,3 +3866,41 @@ kc 生了 `arcade-interior.png`(1672×941,跟其他室內同規格)——門在�
 下面的時機條跟「按空白鍵卡時機」提示就先顯示出來,視覺上像遊戲已經
 開始了但指示條沒在動——改成 `openArcadeGame()`/`showPusherBets()` 一律
 先把 `#agBar` 藏起來,真的按下「投 $20」才顯示+開始跑。
+
+### ✅ 吃角子老虎三張結果照接上了 + 推幣機加投錢/中獎演出(2026-08-26,第五輪)
+
+kc 生完三張轉輪結果照(摃龜/小賺/中大獎,方案 B 那組),接法:
+`ARCADE_SLOT_IMG`(三張 `Image()`)+ `agSlotTier` 記著「現在該顯示哪一
+張」。`agDrawSpin()` 的 slot 分支整段換掉——原本是「畫底圖+疊色塊」,
+現在是三張真照片之間快速隨機切換(每幀重挑),最後 250ms 鎖定成跟
+`outcome.tier` 一致的那張、鎖定後保持顯示,跟 `gambleResolve()` 真正的
+結算文字對得上。`showSlotBets()` 一開面板/「再玩一次」都重置
+`agSlotTier='lose'`,不會殘留上一把的畫面。瀏覽器裡按過幾次「拉一次」,
+畫面閃爍的照片跟最後鎖定的結果一致(截圖核對過中大獎/小賺兩種),`node
+--check` 過語法。
+
+同一輪 kc 回饋推幣機「很沒有帶入感,應該要是第一人稱,而且我想要有
+投錢下去推的感覺」——**第一人稱視角要重生照片**(提示詞已經在聊天裡
+給 kc,還沒生出來,先記著等下一輪接,存的時候直接覆蓋
+`assets/tex/arcade-pusher.png` 就會自動套用,不用改程式),**投錢的
+感覺這輪先用動畫做**:
+
+- **`startPusherDrop()`**:按下「投 $20」後不是直接跳時機條,先跑
+  450ms 的代幣掉落動畫(`agDrawSpin()` 的 `'pusher-drop'` 分支,一枚
+  代幣從畫布上緣落到偏上 1/3 處)——沒有真的投幣口座標可以量(等第一
+  人稱照片生出來再回頭調這幾個數字),先抓大概的位置給「有東西掉進去
+  了」的感覺。
+- **`startPusherPayout(win, onDone)`**:`resolvePusherLockIn()` 算完
+  結果之後,中獎才會跑 650ms 的代幣滑落演出(`'pusher-payout'` 分支,
+  五枚代幣分批往下滑、越滑越大模擬靠近鏡頭),沒中獎直接跳過(沒有
+  代幣可以演)。
+- `agDrawSpin()` 因為多了 `'pusher-drop'`/`'pusher-payout'` 兩個不是
+  真的機台種類的 kind 值,`agDrawIdle()` 呼叫那行改成
+  `A.kind.startsWith('pusher') ? 'pusher' : A.kind`,不然會拿這兩個
+  字串去查 `ARCADE_MACHINE_IMG['pusher-drop']`(undefined)。
+
+這兩段動畫沒有在瀏覽器裡逐一等到播完驗證(這個環境的 Chrome MCP 分頁
+反覆卡在 `document.hidden` 導致 rAF 暫停,見這條 session 前面幾輪踩過
+的同一個環境限制,不是程式邏輯的問題)——邏輯讀過、`node --check` 過,
+slot 那組三張照片切換是有截圖核對過的,pusher 這兩段新演出交給 kc
+自己在瀏覽器裡試。
