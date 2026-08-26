@@ -1005,7 +1005,15 @@ function updateWorldLabels(){
    沒有裝對話的」(街頭藝人沒有進 PEDESTRIANS 陣列,按空白鍵沒有反應,
    確實是「沒裝對話的」那個),搬去 -84+20(=-64,4),離雕像那組拉開到
    17+ 個單位,`__dbg.near()` 核對過附近沒有東西。 */
-const BUSKER_POS = { x: -84+20, z: 4 };
+/* 2026-08-26 第二次搬家(kc 截圖指定):搬進中華路遊藝場/阿美檳榔中間那個
+   凹進去的小空間(row() index7 那格 S.gap,x=12 那條巷口)——`__dbg.near()`
+   核對過招牌貼圖(sign-arcade.png 在 x=0、sign-betel-1.png 在 x=24),
+   確認就是這格。這個凹室用 `__dbg.city.blocked()` 逐格量過,乾淨範圍大約
+   x:[7,13]×z:[16,29.5](靠街那側 z=16 是巷口,z=29.5 是後牆),比原本開闊
+   的圓環人行道窄很多——BUSKER_POS 選 (10,23)(凹室的置中點,兩側各留
+   3 個單位到牆),下面圍觀路人的偏移量也跟著等比縮小(見那三行的筆記),
+   不然舊的偏移量(最大到 ±3.2/3.5)會直接疊進牆裡。 */
+const BUSKER_POS = { x: 10, z: 23 };
 
 /* 阿姨挪去顧鴨頭攤(2026-08-20,kc:「把阿姨調整過來」)——她原本是廟埕
    一個獨立站點(x:6,z:-86),人設是「鹹酥雞攤」,但鹹酥雞那個 3D 攤位
@@ -1520,12 +1528,17 @@ const PEDESTRIANS = [
      一樣按空白鍵打招呼(共用 PEDESTRIAN_LINES 池,不寫專屬台詞——他們
      只是聽眾,沒有各自要透露的資訊,跟圓環雕像旁那兩隻的用意不同)。
      rotationY 用 Math.atan2(dx,dz)(跟 buildNPC() 裡 patrol/idle 轉向
-     同一個公式)算出來面向 BUSKER_POS,不是隨便抓的角度。 */
-  buildNPC(THREE, scene, { x:BUSKER_POS.x+3.2, z:BUSKER_POS.z-1.5, rotationY:-Math.PI*.3605, rig:'f',
+     同一個公式)算出來面向 BUSKER_POS,不是隨便抓的角度——offset 等比縮小
+     不影響角度(atan2 只吃方向,跟長度無關),三個 rotationY 數字沿用舊值
+     沒有重算。
+     2026-08-26 搬進中華路那個窄凹室(見上面 BUSKER_POS 第二次搬家筆記)後
+     等比縮小:凹室兩側只有 ±3 個單位淨空,原本最大到 ±3.2/3.5 的偏移量
+     會直接疊進牆裡,三組都乘 0.6875(取最大分量 3.2→2.2,留 0.8 緩衝)。 */
+  buildNPC(THREE, scene, { x:BUSKER_POS.x+2.2, z:BUSKER_POS.z-1.0, rotationY:-Math.PI*.3605, rig:'f',
     skin:'#c9a077', hair:'#241f1c', hood:'#5c4a3a', pants:'#333333', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:BUSKER_POS.x-1.5, z:BUSKER_POS.z-3.2, rotationY:Math.PI*.1395, rig:'m3',
+  buildNPC(THREE, scene, { x:BUSKER_POS.x-1.0, z:BUSKER_POS.z-2.2, rotationY:Math.PI*.1395, rig:'m3',
     skin:'#c2a17e', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:BUSKER_POS.x+1.0, z:BUSKER_POS.z+3.5, rotationY:-Math.PI*.9114, rig:'f2',
+  buildNPC(THREE, scene, { x:BUSKER_POS.x+0.7, z:BUSKER_POS.z+2.4, rotationY:-Math.PI*.9114, rig:'f2',
     skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' })
 ];
 NPCS.push(...PEDESTRIANS);
