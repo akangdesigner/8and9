@@ -2809,17 +2809,52 @@ function showSlotBets(){
   });
   agButton('走開', '', 'back', closeArcadeGame);
 }
+/* 真的算出球停在哪個號碼上(2026-08-26,kc:「你的球沒有真的停在不同
+   地方,而且沒有真的判定」)——之前 agDrawSpin() 的球角度是寫死的
+   `3.2*2π*ease`,不管押什麼、輸贏,每次動畫最後都轉到同一個角度停下,
+   跟結果完全沒關係。這輪改成真的照歐式輪盤的號碼順序算出球實際落在
+   哪一格,球的終點角度直接對應那個號碼在照片上的實際位置——順序/紅黑
+   都是真的輪盤規則(不是隨便編的),`arcade-roulette.png` 裡看得到的
+   號碼排列(3,26,0,32,15...)跟這個順序對得上。 */
+const ROULETTE_WHEEL_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const ROULETTE_RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+/* 0 號在照片上大約在正上方(肉眼量的,跟其他座標一樣先抓大概)——沿順
+   時針排列,index 每 +1 角度加一格(37 格平分一圈)。 */
+function rouletteNumberAngle(n){
+  const i = ROULETTE_WHEEL_ORDER.indexOf(n);
+  return -Math.PI/2 + i * (2*Math.PI/37);
+}
+function rouletteColorName(n){ return n === 0 ? '綠' : ROULETTE_RED.has(n) ? '紅' : '黑'; }
 /* 押注選項改成五個(2026-08-26,kc:「選項改成壓紅 壓黑 壓奇數 壓偶數
    壓0」)——原本「押紅／黑」含糊指同一個按鈕,拆成真的紅/黑/奇/偶四個
    各自獨立的「賠率相同注」(真實輪盤的 even-money 外圍注,18/37 中,
-   賠 2 倍,見下面共用陣列),0 維持原本「押單一號碼」那個特例(1/37 中,
-   賠 36 倍——0 本身不算奇偶/紅黑,是唯一沒被前四個涵蓋到的格子)。 */
+   賠 2 倍),0 維持原本「押單一號碼」那個特例(1/37 中,賠 36 倍)。
+   `qualifies(n)` 判斷某個號碼算不算中——中獎時從符合條件的號碼裡隨機挑
+   一個真的落點,沒中就從不符合的號碼裡挑,球一定落在跟結算文字一致的
+   號碼上。 */
 const ROULETTE_EVEN_MONEY_BETS = [
-  { label:'押紅', winLine:'球停在紅色的格子上，莊家推了兩倍籌碼過來。', loseLine:'球彈進黑色的格子，籌碼被收走了。' },
-  { label:'押黑', winLine:'球停在黑色的格子上，莊家推了兩倍籌碼過來。', loseLine:'球彈進紅色的格子，籌碼被收走了。' },
-  { label:'押奇數', winLine:'球停在奇數格，莊家推了兩倍籌碼過來。', loseLine:'球停在偶數格，籌碼被收走了。' },
-  { label:'押偶數', winLine:'球停在偶數格，莊家推了兩倍籌碼過來。', loseLine:'球停在奇數格，籌碼被收走了。' }
+  { label:'押紅', qualifies:n => ROULETTE_RED.has(n) },
+  { label:'押黑', qualifies:n => n !== 0 && !ROULETTE_RED.has(n) },
+  { label:'押奇數', qualifies:n => n !== 0 && n % 2 === 1 },
+  { label:'押偶數', qualifies:n => n !== 0 && n % 2 === 0 }
 ];
+/* 下注→骰出真的落點號碼→算出對應角度→跑演出→演出跑完才真的結算
+   (gambleResolve 拿到的 line 這輪也帶上實際號碼/顏色,不是只講「中/沒
+   中」的空話)。spins 是額外轉的整圈數,帶一點隨機讓每次視覺上轉的圈數
+   不完全一樣。 */
+function spinRouletteTo(betLabel, win, winLine, loseLine, payout){
+  const pool = ROULETTE_WHEEL_ORDER.filter(n => win ? qualifiesFor(betLabel, n) : !qualifiesFor(betLabel, n));
+  const number = pool[Math.random()*pool.length|0];
+  const spins = 3 + Math.floor(Math.random()*2);
+  const outcome = { payout: win ? payout : 0, mood:8, number,
+    line: (win ? winLine : loseLine) + `（${number} ${rouletteColorName(number)}）`,
+    finalAngle: spins*2*Math.PI + rouletteNumberAngle(number) };
+  startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
+}
+function qualifiesFor(betLabel, n){
+  if(betLabel === '押0') return n === 0;
+  return ROULETTE_EVEN_MONEY_BETS.find(b => b.label === betLabel).qualifies(n);
+}
 function showRouletteBets(){
   agBody.textContent = ''; agActions.innerHTML = '';
   ROULETTE_EVEN_MONEY_BETS.forEach(b => {
@@ -2827,20 +2862,14 @@ function showRouletteBets(){
       if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
       agActions.innerHTML = ''; agBody.textContent = '';
       const win = Math.random() < 18/37;
-      const outcome = win
-        ? { payout:200, mood:8, line:b.winLine }
-        : { payout:0, mood:8, line:b.loseLine };
-      startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
+      spinRouletteTo(b.label, win, '球停在你押的格子上，莊家推了兩倍籌碼過來。', '球彈進別的格子，籌碼被收走了。', 200);
     });
   });
   agButton('押0', '$100', ST.money<100?'bad':'', () => {
     if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
     agActions.innerHTML = ''; agBody.textContent = '';
     const win = Math.random() < 1/37;
-    const outcome = win
-      ? { payout:3600, mood:8, line:'球穩穩停在 0——你自己都愣住了。' }
-      : { payout:0, mood:8, line:'球停在別的格子，你押的 0 沒中。' };
-    startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
+    spinRouletteTo('押0', win, '球穩穩停在 0——你自己都愣住了。', '球停在別的格子，你押的 0 沒中。', 3600);
   });
   agButton('走開', '', 'back', closeArcadeGame);
 }
@@ -3776,11 +3805,16 @@ function agDrawSpin(){
     /* 球從外圈滑軌慢慢滑進內側號碼格(2026-08-26,kc:「軌跡會是從外圍
        慢慢往內滑落才是正邏輯」)——半徑從 rOuter 線性滑向 rInner,跟角度
        的 easeOut 分開算,角度負責「轉速變慢」,半徑負責「往內滑落」,
-       兩個真實世界裡本來就是同時但各自獨立發生的效果。 */
+       兩個真實世界裡本來就是同時但各自獨立發生的效果。
+       **同一天下一輪,kc:「球沒有真的停在不同地方,而且沒有真的判定」**
+       ——角度終點原本是寫死的 `3.2*2π`,不管結果一律轉到同一個地方停。
+       改成讀 `A.outcome.finalAngle`(spinRouletteTo() 算好、真的對應到
+       骰出來那個號碼在照片上的角度),球每次都停在跟結算文字一致的
+       真實位置上。 */
     const W = SceneArcade.CLOSEUP_ROULETTE_WHEEL;
     const t = Math.min(1, A.t/A.dur);
     const ease = 1 - Math.pow(1 - t, 3);
-    const angle = 3.2 * 2*Math.PI * ease;
+    const angle = (A.outcome ? A.outcome.finalAngle : 3.2*2*Math.PI) * ease;
     const r = W.rOuter + (W.rInner - W.rOuter) * t;
     const bx = W.cx + Math.cos(angle)*r, by = W.cy + Math.sin(angle)*r*.82;
     agCtx.fillStyle = '#f2e9d0';
