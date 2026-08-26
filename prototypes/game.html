@@ -996,7 +996,8 @@ const agBody = document.getElementById('agBody'), agActions = document.getElemen
    等比縮放置中(跟畫布比例對不上的方向留黑邊,黑邊本來就融進面板深色
    背景,不會很突兀)。 */
 function agDrawIdle(kind){
-  const img = kind === 'slot' ? ARCADE_SLOT_IMG[agSlotTier] : ARCADE_MACHINE_IMG[kind];
+  const img = kind !== 'slot' ? ARCADE_MACHINE_IMG[kind]
+    : agSlotTier === 'lose' ? ARCADE_SLOT_IMG.lose[agSlotLoseIdx] : ARCADE_SLOT_IMG[agSlotTier];
   agCtx.clearRect(0,0,agCanvas.width,agCanvas.height);
   if(img.complete && img.naturalWidth){
     const s = Math.min(agCanvas.width/img.naturalWidth, agCanvas.height/img.naturalHeight);
@@ -2134,17 +2135,23 @@ ARCADE_MACHINE_IMG.roulette.src = '../assets/tex/arcade-roulette.png?v=2';
    檔名重存,瀏覽器快取會咬著舊版不放(這個坑這個專案踩過很多次了,見
    shop-home.png/clerk-front.png 那幾則筆記),記得往上加版號。 */
 ARCADE_MACHINE_IMG.pusher.src = '../assets/tex/arcade-pusher.png?v=2';
-/* 吃角子老虎的三張結果照(2026-08-26,kc 選的「B」方案——單張照片沒辦法
-   演出轉輪跳動,生 2~3 張同一台機器、只有轉輪視窗內容不同的照片,轉動
-   時在這幾張之間切換,停在跟真正擲骰結果對應的那張上)。`agSlotTier`
-   記著「現在該顯示哪一張」,平常(面板剛開)是 'lose',演出中在三個
-   之間閃爍(agDrawSpin()),停下來鎖定成跟 outcome.tier 一致的那張,
-   之後保持顯示那張直到下一次「拉一次」重新開始。 */
-const ARCADE_SLOT_IMG = { lose: new Image(), small: new Image(), jackpot: new Image() };
-ARCADE_SLOT_IMG.lose.src = '../assets/tex/arcade-slot-lose.png';
+/* 吃角子老虎的結果照(2026-08-26,kc 選的「B」方案——單張照片沒辦法
+   演出轉輪跳動,生同一台機器、只有轉輪視窗內容不同的照片,轉動時在這
+   幾張之間切換,停在跟真正擲骰結果對應的那張上)。`agSlotTier` 記著
+   「現在該顯示哪一種結果」,平常(面板剛開)是 'lose',演出中在三種
+   之間閃爍(agDrawSpin()),停下來鎖定成跟 outcome.tier 一致的那種,
+   之後保持顯示直到下一次「拉一次」重新開始。
+   **lose 這輪改成陣列(2026-08-26 第二輪,kc:「我只是希望沒中獎多一張
+   照片」)**——摃龜不只一種畫面,`agSlotLoseIdx` 記著這次閃爍/停下來
+   選中陣列裡的第幾張,每次真的顯示 lose 都重新隨機選一張,不是固定
+   同一張。small/jackpot 目前只有一張,先不用陣列。 */
+const ARCADE_SLOT_IMG = { lose: [new Image(), new Image()], small: new Image(), jackpot: new Image() };
+ARCADE_SLOT_IMG.lose[0].src = '../assets/tex/arcade-slot-lose.png';
+ARCADE_SLOT_IMG.lose[1].src = '../assets/tex/arcade-slot-lose-2.png';
 ARCADE_SLOT_IMG.small.src = '../assets/tex/arcade-slot-small.png';
 ARCADE_SLOT_IMG.jackpot.src = '../assets/tex/arcade-slot-jackpot.png';
 let agSlotTier = 'lose';
+let agSlotLoseIdx = 0;
 /* 小美座位 + 主角空位(2026-08-25,kc 給的綠幕疊圖,見上面 SCHOOL_PHOTO
    v2 那則筆記——「後面的部分我額外給你,這樣你好做碰撞跟透視」)。跟
    dad-drunk.png 同一套「綠幕截圖→tools/green-to-alpha.py 去背→疊圖」
@@ -2796,7 +2803,7 @@ function agShowResult(r, replay){
   agButton('走開', '', 'back', closeArcadeGame);
 }
 function showSlotBets(){
-  agSlotTier = 'lose';   // 面板剛開/走開重進都退回中立的預設畫面,不留著上一把的結果
+  agSlotTier = 'lose'; agSlotLoseIdx = Math.random()*ARCADE_SLOT_IMG.lose.length|0;   // 面板剛開/走開重進都退回中立的預設畫面,不留著上一把的結果
   agBody.textContent = ''; agActions.innerHTML = '';
   agButton('拉一次', '$50', ST.money<50?'bad':'', () => {
     if(ST.money < 50){ toast('你身上不夠。', 2000); return; }
@@ -2820,16 +2827,15 @@ const ROULETTE_WHEEL_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,1
 const ROULETTE_RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 /* 0 號在照片上大約在正上方(肉眼量的,跟其他座標一樣先抓大概)——沿順
    時針排列,index 每 +1 角度加一格(37 格平分一圈)。
-   **2026-08-26,kc 截圖抓到「好像有幾格有錯」**——結算算出 22,球卻停在
-   18 的位置(18 在順序裡排在 22 後面一格)。整體角度往順時針多轉了
-   一格,`OFFSET` 往回減一格(-9.73°)校正。這張輪盤是 AI 生的,每格
-   間距不保證完全均勻,校正這一格之後如果個別號碼還是有一兩格誤差,
-   是圖本身格子沒切得很整齊,不是算法錯——精算到每一格都對只能重新
-   量圖,先用這個整體校正頂著。 */
-const ROULETTE_ANGLE_OFFSET = -Math.PI/2 - (2*Math.PI/37);
+   **2026-08-26,kc 先抓到「好像有幾格有錯」,這輪又糾正回來**:「把偏移
+   拿掉,因為原本蠻準的,只是你要一格一格校正」——上一輪只憑一個資料點
+   (22 顯示在 18 的位置)就整體平移一格,反而把其他本來準的號碼帶偏了。
+   這張輪盤是 AI 生的,每格間距不保證完全均勻,真的要準只能一格一格
+   量,不是套一個整體偏移就能修好——先退回沒有偏移的版本,個別號碼的
+   誤差之後要修再拿圖仔細量。 */
 function rouletteNumberAngle(n){
   const i = ROULETTE_WHEEL_ORDER.indexOf(n);
-  return ROULETTE_ANGLE_OFFSET + i * (2*Math.PI/37);
+  return -Math.PI/2 + i * (2*Math.PI/37);
 }
 function rouletteColorName(n){ return n === 0 ? '綠' : ROULETTE_RED.has(n) ? '紅' : '黑'; }
 /* 押注選項改成五個(2026-08-26,kc:「選項改成壓紅 壓黑 壓奇數 壓偶數
@@ -3801,6 +3807,7 @@ function agDrawSpin(){
     const settling = (A.dur - A.t) < 250;
     const tier = A.outcome && A.outcome.tier;
     agSlotTier = settling ? tier : ['lose','small','jackpot'][Math.random()*3|0];
+    if(agSlotTier === 'lose') agSlotLoseIdx = Math.random()*ARCADE_SLOT_IMG.lose.length|0;
     agDrawIdle('slot');
     return;
   }
