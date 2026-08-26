@@ -1031,6 +1031,12 @@ const BUSKER_POS = { x: -84+20, z: 4 };
    active=接了任務、taskDone=貓摸過了但還沒回報、done=回報完拿到獎勵
    (終態,offer 不會再出現)。 */
 const AYI = { x:-22, z:-93.5, visits:0, seenEvents:{}, catQuest:{ active:false, taskDone:false, done:false } };
+/* 功德箱(2026-08-26)——kc 要的「可以選擇偷東西」互動鋪到廟裡:丟錢進去
+   風評+,伸手拿裡面的錢風評-。借用既有的供桌當實體位置(不新蓋模型),
+   座標抄 scene-city3d.js temple() 供桌的 solid(0,z+16,2.6,1.8),z=-108
+   算出來是 (0,-92);供桌本身的碰撞範圍會把玩家擋在外圍,半徑用 4.5(跟
+   AYI/ACHENG 攤位同一個理由——正常站的位置本來就摸不到 3.2 那麼近)。 */
+const ALTAR = { x:0, z:-92 };
 /* 旺鴻・機車行老闆(2026-08-25)——跟 AYI/ACHENG 同一套 visits/seenEvents
    機制,座標對齊上面 motoBoss buildNPC() 那具 3D 角色(x:-1, z:-13.2)。
    資料(talk[]/events[])在 lib/story-motoboss.js,消費方式見下面
@@ -1079,6 +1085,13 @@ const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
                     loanAsked:false, loan:0, loanDay:null, loanUnpaid:false };
 const JIAOGUAN = { x:43, z:-18.5, confronted:false };
 const AREN     = { x:45, z:-22,   offered:false };
+/* 公園長椅・散心(2026-08-26,kc:「情緒不好可以去公園散心啊」)——小公園
+   本來就有兩張長椅(`scene-city3d.js` park() 的 `addProp('bench',...)`),
+   純裝飾沒接互動。挑東側那張(x1-2.5,cz+3,算出來是 63.5,-18.5),不挑
+   西側那張(46,-18.5)是因為離 JIAOGUAN(43,-18.5)只差 3,兩個互動半徑
+   (3.2)會疊到。單一動作沒有選單,跟摸貓狗同一個層級,情緒 +6(比摸狗
+   +4 高一點,散心是玩家專程走過去的行動,不是路過順手)。 */
+const BENCH = { x:63.5, z:-18.5 };
 /* 阿凱(2026-08-24 新角色)——校門口改管那群人的頭,story-school.js day13
    「排氣管」那一幕(校門口那排車,比誰的車聲大)現在還是無名的「他們」,
    這個角色把那群人變成一張臉。骨架用新補的 m4(Bryce,見 assets/models/
@@ -1294,6 +1307,14 @@ const clientNPC = buildNPC(THREE, scene, {
   hood:'#33383f', pants:'#26241f', shoe:'#3a3430'
 });
 NPCS.push(clientNPC);
+
+/* 隨地小便(2026-08-26)——kc 要的「不只是偷東西」那類小事件之一,借同一條
+   巷子(alley(-24,-27,-51))裡跟 ALLEY_WORKER(z:-38)拉開距離的另一端,
+   z:-48,純環境互動,不加新模型。動機寫成「公廁要收費、懶得繞路」,呼應
+   這個遊戲一貫的「窮到連小事都要算計」基調,不是拿來搞笑用的——跟
+   CLAUDE.md 那條基準線同一個道理。deterministic,沒有被抓到的機率(跟
+   偷東西那個「有風險」的質感刻意分開,這裡單純是代價,不是策略)。 */
+const PISS_SPOT = { x:-24, z:-48 };
 
 /* 機車行老闆(2026-08-21,kc:「幫我抓一個人當機車行老闆,他會站在門口」)——
    純裝飾,跟 clientNPC 同一個等級,沒有獨立的 nearProp/對話狀態機。「跟
@@ -2580,9 +2601,12 @@ function openIndoorSpot(id){
     else if(id === 'teacher'){ talkToTeacher(); return; }
     else if(id === 'desk'){
       openMenu('座位', [
-        { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
+        /* 讀書扣情緒(2026-08-26,kc:「讀書工作本身會扣情緒」)——見
+           DESIGN_NOTES「情緒會影響什麼」那節,情緒 −5 跟結帳算錯同一個
+           量級,是苦差事但不到讓人不想讀書的地步。 */
+        { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
-          chg('stamina', -10); advanceTime(60);
+          chg('stamina', -10); chg('mood', -5); advanceTime(60);
           studyGainKnowledge();
         } },
         { label:'偷玩手遊', cost:'體力 −5　1 小時　看教官', cls:'risk', run: playPhoneInClass },
@@ -2697,6 +2721,11 @@ const CHECKOUT_ITEMS = [
 const CO_CUSTOMERS_PER_SHIFT = 5;
 const CO_TIME_PER_CUSTOMER = 10000;   // 毫秒,「有時間壓力」是 kc 定的,10 秒先抓一個量級
 const CO_WRONG_MONEY = -20, CO_WRONG_MOOD = -5;   // 算錯:扣錢(收銀機短少自己補)+ 扣情緒(被罵),kc 2026-08-19 定案
+/* 上班本身耗情緒(2026-08-26,kc:「讀書工作本身會扣情緒」)——不分算對算錯,
+   每接一位客人都扣一點,見 coResolve()。算錯那筆(CO_WRONG_MOOD)疊在這筆
+   上面,不是取代——一整班 5 位客人全對也會扣 10 情緒(工作本來就累),
+   算錯的那幾位額外更痛。 */
+const CO_BASE_MOOD = -2;
 const CO_RIGHT_WAGE = 35;                          // 算對一筆的錢,不是真的照時薪算,先抓一個感覺對的數字
 
 /* 排隊位置(640×360 邏輯座標,跟 IN.px/IN.py 同一套,見 renderIndoor3D()
@@ -2992,6 +3021,7 @@ function coResolve(correct){
   dlgEl.classList.remove('on');
   document.getElementById('coTimerTrack').classList.remove('on');
   document.getElementById('coOpts').innerHTML = '';   // 逾時也可能發生在選項還沒點的時候,順手清掉
+  chg('mood', CO_BASE_MOOD);   // 不分對錯,見上面 CO_BASE_MOOD 那則筆記
   if(correct){
     /* 算對不再當場給錢(2026-08-19 第九輪,kc 要求「上班結束後店員會跟你
        對話核發工資」)——工資改成下班時店員一次結清(見 coEndShift()),
@@ -3884,6 +3914,14 @@ function updateCity(dt){
       nearProp = { type:'worker', ref:ALLEY_WORKER };
     if(!nearProp && Math.hypot(pos.x-STATUE.x, pos.z-STATUE.z) < 3.2)
       nearProp = { type:'statue', ref:STATUE };
+    if(!nearProp && Math.hypot(pos.x-PISS_SPOT.x, pos.z-PISS_SPOT.z) < 3.2)
+      nearProp = { type:'piss', ref:PISS_SPOT };
+    /* 供桌本身的 solid() 碰撞會擋住正中央,半徑用 4.5(理由同 AYI/ACHENG,
+       見上面 ALTAR 那則筆記)。 */
+    if(!nearProp && Math.hypot(pos.x-ALTAR.x, pos.z-ALTAR.z) < 4.5)
+      nearProp = { type:'altar', ref:ALTAR };
+    if(!nearProp && Math.hypot(pos.x-BENCH.x, pos.z-BENCH.z) < 3.2)
+      nearProp = { type:'bench', ref:BENCH };
     /* 阿姨(2026-08-20)——固定站點,跟 STATUE/ALLEY_WORKER 同一套用常數座標
        量距離,不用像 PEDESTRIANS 那樣讀會變動的 group.position。 */
     /* 阿姨/阿成互動半徑用 4.5,不是其他 3.2 那批(貓/垃圾/雕像這些站在
@@ -3970,6 +4008,9 @@ function updateCity(dt){
                           : '按 <b>空白鍵</b> 騎上去')
                       : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
+                      : nearProp.type === 'altar' ? '按 <b>空白鍵</b> 靠近功德箱'
+                      : nearProp.type === 'piss' ? '按 <b>空白鍵</b> 解決一下'
+                      : nearProp.type === 'bench' ? '按 <b>空白鍵</b> 坐下來休息一下'
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
                       : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
                       : nearProp.type === 'motoboss' ? '按 <b>空白鍵</b> 找老闆'
@@ -4610,9 +4651,17 @@ function talkToWorker(w){
    不需要回家睡覺,天數不會走)——kc 要求對話/讀書/打工三個全部調重,
    對話 −1→−5、讀書 −5→−10、打工 −20→−40,見下面讀書/打工那兩處。 */
 const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','mei','jiaoguan','aren','brother','pedestrian']);
+/* 情緒見底不想回話(2026-08-26,kc:「情緒低落的話會不想回話,提示想先
+   散散心之類的」)——照體力=0 攔對話那套一模一樣的做法加一道情緒關卡,
+   見 DESIGN_NOTES「情緒會影響什麼」那節。15 是這輪自己抓的門檻:預設值
+   60,單筆扣分多半 −3~−8,要見底到這裡通常要好幾筆負面事件疊加,不會
+   隨便撞到。攔住的只有「跟人對話」類互動(這個 Set),街上小互動(摸貓狗/
+   撿垃圾/買東西吃)不受影響——這些正是玩家用來回血的管道,擋住就矛盾了。 */
+const MOOD_TALK_MIN = 15;
 function interactProp(prop){
   if(DIALOGUE_PROP_TYPES.has(prop.type)){
     if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    if(ST.mood <= MOOD_TALK_MIN){ toast('你現在沒什麼力氣講話，先去做點讓自己開心一點的事吧。', 2600); return; }
     chg('stamina', -5);
   }
   /* 搭話本身還是在街上彈選單(2026-08-20 kc 糾正:「付錢才會換場景」,
@@ -4635,6 +4684,39 @@ function interactProp(prop){
   if(prop.type === 'kai'){ talkToKai(); return; }
   if(prop.type === 'statue'){
     toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
+    return;
+  }
+  /* 功德箱(2026-08-26)——見上面 ALTAR 那則筆記。丟錢/拿錢兩個方向都是
+     deterministic,沒有被抓包的風險判定(跟超商 steal() 那種「有人看店」
+     的抓包機制是不同精神——這裡單純是「做了會被記住」,不是「做了可能
+     被抓」)。金額數字是這輪自己抓的,不喜歡跟我說一聲就改。 */
+  if(prop.type === 'altar'){
+    openMenu('功德箱', [
+      { label:'丟錢進去', cost:'$50', cls: ST.money<50?'bad':'', run(){
+          if(ST.money < 50){ toast('你身上不夠五十。', 2000); return; }
+          chg('money', -50); chg('star', 1);
+          toast('你把零錢投進去，聽見銅板落底的聲音。', 2400);
+        } },
+      { label:'順手拿一把', run(){
+          chg('money', 80); chg('star', -2);
+          toast('你把手伸進去，摸到幾張皺皺的鈔票。', 2400);
+        } },
+      { label:'走開', cls:'back', run(){} }
+    ]);
+    return;
+  }
+  /* 隨地小便(2026-08-26)——見上面 PISS_SPOT 那則筆記,單一動作沒有選單,
+     跟撿垃圾同一個「直接觸發」層級。 */
+  if(prop.type === 'piss'){
+    chg('star', -1);
+    toast('公廁要收清潔費，五塊。你摸了摸口袋，找了個牆角解決。', 2600);
+    return;
+  }
+  /* 公園長椅・散心(2026-08-26)——見上面 BENCH 那則筆記,單一動作,跟摸貓狗
+     同一個層級,不特別擋體力(坐著休息不是體力活)。 */
+  if(prop.type === 'bench'){
+    chg('mood', 6);
+    toast('你在長椅上坐了一會，看公園裡的人來來去去。', 2600);
     return;
   }
   if(prop.type === 'moto'){
