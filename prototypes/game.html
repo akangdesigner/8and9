@@ -2564,13 +2564,29 @@ function buy(price, feed, mood, line){
    `mood`/`line`),中獎才把 payout 加回去——三台機台共用同一套流程,差別
    只在 resolveFn 內部的機率/賠率。情緒固定加,不看 payout 是不是 0,是
    kc 明確要求的「情緒一定＋」。 */
+/* 「想起媽媽」的鉤子(2026-08-26,kc 確認要加)——只認**累計淨輸掉多少**,
+   贏的局不會拿去抵銷之前輸的(這是「你已經賠了多少」的量尺,不是「現在
+   身上盈虧多少」,一把大獎不該把這個記憶洗掉)。門檻 $500 是抓的小的
+   可逆數字,一整局遊戲只跳這一次(`momEchoShown`),不是每次超過門檻都
+   跳——這是一個瞬間的自我察覺,跳太多次會變成說教式的重複提醒,違反
+   基準線(不要居高臨下)。台詞照 kc 原話,不加碼延伸,不寫「你決定不要
+   再賭了」這種說教式收尾——這遊戲的規矩是講到這裡就停,讓玩家自己接。
+   接在正常結果 toast 之後跳第二則(比照書架線索那套「先講結果、再跳
+   獨立提示句」的節奏),不跟第一則擠在同一個 toast 裡。 */
+const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false };
 function gambleResolve(cost, resolveFn){
   if(ST.money < cost){ toast('你身上不夠。', 2000); return; }
   chg('money', -cost);
   const r = resolveFn();
   if(r.payout) chg('money', r.payout);
   chg('mood', r.mood);
+  const net = cost - r.payout;
+  if(net > 0) ARCADE_GAMBLE.netLoss += net;
   toast(r.line + (r.payout ? `\n（拿回 $${r.payout}）` : ''), 3000);
+  if(!ARCADE_GAMBLE.momEchoShown && ARCADE_GAMBLE.netLoss >= 500){
+    ARCADE_GAMBLE.momEchoShown = true;
+    setTimeout(() => toast('你想起媽媽也是這樣。', 3200), 3200);
+  }
 }
 /* 結帳(2026-08-24 kc:「買東西要加入去結帳的流程」)——鮮食櫃/貨架/飲料櫃
  * 選了東西不再當場扣錢,先進 `IN.basket`(拿在手上),真正的金錢/飽足/情緒
@@ -5226,6 +5242,7 @@ window.__dbg = {
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
+  ARCADE_GAMBLE,
   KNOWLEDGE, studyGainKnowledge,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
   lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
