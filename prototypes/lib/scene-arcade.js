@@ -123,5 +123,49 @@
     }
   }
 
-  root.SceneArcade = { W, H, P, FLOOR_TOP, WALK_N, WALK_S, SLOT, ROULETTE, PUSHER, renderBackground };
+  /* 機台特寫(2026-08-26,kc:「互動應該要彈出一個大框框,要寫實的感覺」)——
+     game.html 新增的 #arcadeGame 大面板還沒有真的照片時,用這個畫一個放大
+     版的色塊機台頂著,跟 renderBackground() 那組小尺寸色塊是同一套顏色/
+     造型,只是佔滿整個 640×420 的特寫畫布,不是縮在房間一角。真的照片
+     生出來之後(game.html 那邊的 naturalWidth 判斷)這個函式就不會再被
+     呼叫,不用先刪掉。 */
+  const CW = 640, CH = 420;
+  /* 這三個矩形/圓心是 renderCloseup() 底下三段畫法算出來的同一組數字,
+     另外匯出給 game.html 的 agDrawSpin() 用——轉輪閃爍/球轉動的動畫要疊在
+     跟靜態色塊「同一個位置」上,不能自己另外猜一組座標,兩邊會對不齊。 */
+  const CLOSEUP_SLOT_SCREEN = { x:218, y:66, w:204, h:140 };
+  const CLOSEUP_ROULETTE_WHEEL = { cx:320, cy:240, r:82 };
+  const CLOSEUP_PUSHER_GLASS = { x:180, y:52, w:280, h:170 };
+  function renderCloseup(g, kind) {
+    const { px, alp } = tools(g);
+    px(0, 0, CW, CH, '#0d0a0d');
+    if (kind === 'slot') {
+      const w = 260, h = 380, x = (CW - w) / 2, y = (CH - h) / 2;
+      px(x - 14, y - 14, w + 28, h + 28, P.slotBodyD);
+      px(x, y, w, h, P.slotBody);
+      px(x + 28, y + 46, w - 56, 140, P.slotScreen);
+      [0, 1, 2].forEach(i => px(x + 42 + i * 58, y + 74, 42, 86, ['#e8c85a', '#e85a5a', '#5ae87a'][i]));
+      px(x + 34, y + h - 100, w - 68, 58, P.slotBodyD);
+      alp(.5, () => px(x + 46, y + h - 88, w - 92, 9, '#f2d98a'));
+    } else if (kind === 'roulette') {
+      const w = 460, h = 220, x = (CW - w) / 2, y = (CH - h) / 2 + 30;
+      px(x - 16, y - 16, w + 32, h + 40, P.rouletteRim);
+      px(x, y, w, h, P.rouletteFelt);
+      const cx = x + w / 2, cy = y + h / 2, r = 82;
+      px(cx - r, cy - r * .5, r * 2, r, P.rouletteWheel);
+      alp(.6, () => px(cx - r + 14, cy - r * .5 + 9, r * 2 - 28, 9, '#c8a840'));
+    } else if (kind === 'pusher') {
+      const w = 320, h = 380, x = (CW - w) / 2, y = (CH - h) / 2;
+      px(x - 16, y - 16, w + 32, h + 32, P.pusherBodyD);
+      px(x, y, w, h, P.pusherBody);
+      px(x + 20, y + 32, w - 40, 170, P.pusherGlass);
+      for (let r = 0; r < 3; r++)
+        for (let c = 0; c < 5; c++)
+          px(x + 32 + c * 48, y + 52 + r * 42, 36, 28, P.coin);
+      px(x + 30, y + h - 100, w - 60, 56, P.pusherBodyD);
+    }
+  }
+
+  root.SceneArcade = { W, H, P, FLOOR_TOP, WALK_N, WALK_S, SLOT, ROULETTE, PUSHER, renderBackground, renderCloseup, CW, CH,
+    CLOSEUP_SLOT_SCREEN, CLOSEUP_ROULETTE_WHEEL, CLOSEUP_PUSHER_GLASS };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

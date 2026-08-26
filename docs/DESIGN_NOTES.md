@@ -3758,9 +3758,73 @@ kc 定案:「真的賭博,情緒一定＋ 金錢賭」——情緒不管輸贏�
     超過門檻都提醒,跳多次會變成說教式重複,違反基準線。台詞照 kc 原話,
     沒有加碼延伸(不寫「你決定不要再賭了」這種說教式收尾)。瀏覽器裡逼出
     輸錢觸發過,確認只跳一次、之後再輸也不會重複跳。
+  - **✅ 這個鉤子接回媽媽線(同一天,kc:「觸發這句話後下次跟媽媽講話,
+    媽媽會說怎麼,你最近也去遊藝場嗎?是不是很上頭啊,然後你會有回話的
+    選項,我希望有很多劇情都是有回話選項的,可以影響數值」)**——
+    `openIndoorSpot()` 的 `'mom'` 分支攔在 `momCheckinLines()` 隨機閒聊
+    最前面:`ARCADE_GAMBLE.momEchoShown` 觸發過、且還沒問過(新增的
+    `momConfronted`)才會攔,問完一次就退回正常閒聊,不會每次找媽媽都
+    被念。三個回話選項(照 kc 這輪明確要求的方向——**很多劇情都該有
+    回話選項、影響數值,不是純觀賞 toast**)都改歸屬感:嗆回去(「你自己
+    還不是天天在賭。」)−6、搪塞(「還好,就去晃晃而已。」)不動、誠實
+    (「⋯對啊。可能有點上頭。」)+6 換到她少見的一句真話「別像我一樣」
+    ——呼應她自己也在賭這件事,不是「你不該賭博」那種說教。**這條「多做
+    有回話選項的劇情」是 kc 這輪講的通則,不是只管這一個節點**,以後設計
+    新對話節點優先考慮做成選項而不是單向 toast,見下面待辦。
+
+    瀏覽器裡完整測過:開場白/三選項文字對、選誠實選項歸屬感 55→61、
+    再找媽媽一次正確退回隨機閒聊沒有重複問。
 
 在瀏覽器裡用 `__dbg.goto('arcade')`+`__dbg.enter('arcade')` 走過整個
 進場流程,三台機台都用 `__dbg.openIndoorSpot()` 各自測過中獎/摃龜兩種
 結果(金錢/情緒數字都對得上),身上錢不夠時選單正確擋下(不會扣成負
 的),`__dbg.state()` 核對過每一步的金錢/情緒變化,離開門口也測過
 正常淡出回街上、站的位置就是遊藝場門口。
+
+### ✅ 機台改成「真的遊戲」+ 獨立的大框框(2026-08-26,同一天再兩輪)
+
+kc:「遊戲內容照你說的做」(採用討論當下提的分層方案——slot/roulette 純
+視覺演出、pusher 真的看手感,見上面提案原文)之後,又補一句「互動是
+應該要彈出一個大框框才不不是這種感覺,是要寫實的感覺所以都要生圖片」
+——原本三台都還是借用跟功德箱/買機車同一套小小一條的 `openMenu()`,
+kc 覺得份量不夠、也不夠寫實。
+
+- **新的 DOM/CSS**:`#arcadeGame`——全螢幕暗底+置中大面板,跟 `#dialog`
+  同一套深色卡片視覺語言(邊框/陰影/字距抄同一份數值,不是另外發明
+  風格)。面板裡由上到下:機台特寫畫布(`agCanvas`)、pusher 專用的時機條
+  (`#agBar`,平常 `display:none`)、結果文字(`agBody`)、下注/離開按鈕
+  (`agActions`,樣式照抄 `#menu button`)。取代原本三台的 `openMenu()`
+  呼叫,`openIndoorSpot()` 那三個分支現在只是 `openArcadeGame(kind,cap)`
+  +`showXxxBets()`。
+- **真的遊戲怎麼接進大面板**:`ARCADE_ANIM` 這個狀態機沒有變,只是把
+  演出畫的目標從房間裡的小色塊(`g2f`,房間前景層)換成面板的
+  `agCanvas`——`agDrawSpin()` 取代原本的 `drawArcadeAnim()`,座標吃
+  `scene-arcade.js` 新匯出的 `CLOSEUP_SLOT_SCREEN`/`CLOSEUP_ROULETTE_WHEEL`
+  ,跟畫靜態機台的 `renderCloseup()` 共用同一組數字,轉輪閃爍/球轉動才會
+  疊在特寫圖正確的位置上,不是自己另外猜一組座標。pusher 的時機條改成
+  真的 DOM 元素(`#agBarPin` 的 `style.left`),不是畫在 canvas 上——面板
+  z-index 比原本房間裡的 `#hint` 高,原本 pusher 進行中借用 `#hint`
+  顯示「按空白鍵卡時機」的做法在大面板底下會被蓋住看不到,改成寫進
+  `agBody`。
+- **「再玩一次」**:結算完(`agShowResult(r, replay)`)會給「再玩一次」
+  (呼叫同一個 `showXxxBets`,回到下注選擇畫面,不是直接重骰)跟「走開」
+  兩個按鈕,不用關掉面板再重新走一次 `openIndoorSpot()`。`gambleResolve()`
+  這輪改成有 `return r`(原本無回傳值)——面板要拿這個結果物件把文字
+  寫進 `agBody`,不能只靠原本飄過去的 `toast()`。
+- **ESC 關面板**:跟 `menu`/`inventory` 同一個習慣,但 `ARCADE_ANIM.active`
+  (演出/pusher 小遊戲進行中)時擋住——這時候玩家已經按下注,錢會在
+  演出跑完或鎖定當下才真的扣,ESC 逃掉會卡在一個 cb() 永遠不會被呼叫
+  的半吊子狀態。
+- **真的照片還沒生**:`ARCADE_MACHINE_IMG`(`slot`/`roulette`/`pusher`
+  三個 `Image()`)已經建好指向 `assets/tex/arcade-<kind>.png`,`agDrawIdle()`
+  用 `naturalWidth` 判斷,圖還沒生就退回 `SceneArcade.renderCloseup()`
+  的放大版色塊(跟 `renderBackground()` 那組小色塊同一套顏色/造型,只是
+  佔滿整個 640×420 特寫畫布)。三張圖的 GPT 提示詞已經在聊天裡給 kc,
+  沒有寫進這份文件或 `assets/tex/PROMPTS.md`(見 [[feedback_prompts_in_chat_not_md]]
+  這條既有的規矩)——圖生完存到對應檔名就會自動切換,不用再動程式。
+  房間背景本身(`arcade-interior.png`)也還沒生,同一批一起等 kc 生圖。
+
+只做了 load-time console 檢查跟用 `__dbg` 把角色定位站到遊藝場裡面
+(kc 要求「移動到場景內」方便他自己接手測),沒有逐一點按驗證三台
+新流程——這輪照 [[feedback_dont_self_test_hand_off]] 的規矩,實際操作
+留給 kc 自己在瀏覽器裡試。

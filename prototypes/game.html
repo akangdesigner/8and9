@@ -197,6 +197,41 @@
   #menu button.risk { border-left-color:#a2564c; }
   #menu button.back { border-left-color:#39424f; color:#97a0ad; font-size:14px; }
 
+  /* 遊藝場機台的「大框框」(2026-08-26,kc:「互動是應該要彈出一個大框框,
+     要寫實的感覺」)——原本三台機台跟其他一般互動點共用 #menu 那個小小
+     一條清單,kc 覺得不夠份量,改成獨立的全螢幕暗底+置中大面板,中間是
+     機台特寫畫布(agCanvas,真的照片生出來前先用 SceneArcade.renderCloseup()
+     的放大版色塊頂著),下面才是下注/結果的文字跟按鈕——跟 #dialog 的
+     深色卡片同一套視覺語言(邊框/陰影/字距都抄同一份數值),不是另外發明
+     一套風格。 */
+  #arcadeGame { position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+                background:rgba(4,5,8,.86); z-index:9; }
+  #arcadeGame.on { display:flex; }
+  #arcadeGame .agPanel { width:min(720px,90%); background:linear-gradient(180deg,rgba(14,18,26,.97),rgba(9,12,18,.98));
+    border:2px solid #55617a; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.6); padding:20px 26px 24px; }
+  #arcadeGame .agCap { font-size:13px; letter-spacing:.24em; color:#d8b24a; margin-bottom:12px; text-align:center; }
+  #arcadeGame canvas { display:block; width:100%; height:auto; border-radius:4px; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+  /* 推幣機的時機條(2026-08-26)——只有 pusher 那台會顯示(game.html
+     openArcadeGame() 依 kind 切換 display),track 本身是一條窄長橫條,
+     sweet 那塊是視覺上標出「準」的範圍,跟 resolvePusherLockIn() 的
+     dist<=.12 判定對齊(寬度 24% 置中,算式見那個函式旁邊的註解)。 */
+  #arcadeGame .agBar { position:relative; height:14px; background:#1a1420; border-radius:7px;
+    margin:14px 6px 4px; overflow:hidden; display:none; }
+  #arcadeGame .agBarSweet { position:absolute; left:38%; width:24%; top:0; bottom:0; background:#3a7a4a; }
+  #arcadeGame .agBarPin { position:absolute; top:-3px; bottom:-3px; width:5px; background:#f2e9d0;
+    border-radius:2px; left:0%; }
+  #arcadeGame .agBody { text-align:center; font-size:15px; color:#e8ecf1; min-height:22px;
+    margin:14px 4px; white-space:pre-line; letter-spacing:.03em; }
+  #arcadeGame .agActions { display:flex; flex-direction:column; gap:7px; }
+  #arcadeGame .agActions button { text-align:left; background:rgba(12,16,23,.95); color:#dfe4ea;
+    border:1px solid #3d4757; border-left:3px solid #55617a; padding:9px 15px;
+    font-size:15.5px; font-family:inherit; letter-spacing:.04em; cursor:pointer; border-radius:3px;
+    transition:all .13s; display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  #arcadeGame .agActions button:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; transform:translateX(3px); }
+  #arcadeGame .agActions button .cost { font-size:12.5px; color:#8d96a4; white-space:nowrap; }
+  #arcadeGame .agActions button.bad { color:#8c7a72; } #arcadeGame .agActions button.bad .cost { color:#a2564c; }
+  #arcadeGame .agActions button.back { border-left-color:#39424f; color:#97a0ad; font-size:14px; }
+
   #float { position:fixed; inset:0; pointer-events:none; z-index:7; }
   .fl { position:absolute; font-size:16px; letter-spacing:.06em; font-weight:600;
         text-shadow:0 2px 10px rgba(0,0,0,.9); animation:rise 1.5s ease-out both; }
@@ -330,6 +365,15 @@
   </div>
 </div>
 <div id="menu"></div>
+<div id="arcadeGame">
+  <div class="agPanel">
+    <div class="agCap" id="agCap"></div>
+    <canvas id="agCanvas" width="640" height="420"></canvas>
+    <div class="agBar" id="agBar"><div class="agBarSweet"></div><div class="agBarPin" id="agBarPin"></div></div>
+    <div class="agBody" id="agBody"></div>
+    <div class="agActions" id="agActions"></div>
+  </div>
+</div>
 <div id="fade"><div class="place" id="fPlace"></div></div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
@@ -937,6 +981,39 @@ function openMenu(cap, items){
     menuEl.appendChild(b);
   });
   menuEl.classList.add('on');
+}
+
+/* 遊藝場機台的大面板(2026-08-26,見上面 #arcadeGame 那段 CSS 筆記)——
+   跟 openMenu()/closeMenu() 是平行的一套,不共用同一個 DOM,因為這裡多了
+   機台特寫畫布跟(pusher 專用的)時機條,openMenu() 那個小清單塞不下。
+   busy=true 的邏輯照舊——面板開著的時候跟開一般選單一樣鎖住室內移動。 */
+const agEl = document.getElementById('arcadeGame'), agCap = document.getElementById('agCap');
+const agCanvas = document.getElementById('agCanvas'), agCtx = agCanvas.getContext('2d');
+const agBarEl = document.getElementById('agBar'), agBarPin = document.getElementById('agBarPin');
+const agBody = document.getElementById('agBody'), agActions = document.getElementById('agActions');
+function agDrawIdle(kind){
+  const img = ARCADE_MACHINE_IMG[kind];
+  agCtx.clearRect(0,0,agCanvas.width,agCanvas.height);
+  if(img.complete && img.naturalWidth) agCtx.drawImage(img, 0,0, agCanvas.width, agCanvas.height);
+  else SceneArcade.renderCloseup(agCtx, kind);
+}
+function openArcadeGame(kind, cap){
+  busy = true;
+  agEl.classList.add('on');
+  agCap.textContent = cap;
+  agBody.textContent = '';
+  agActions.innerHTML = '';
+  agBarEl.style.display = kind === 'pusher' ? 'block' : 'none';
+  agDrawIdle(kind);
+}
+function closeArcadeGame(){ agEl.classList.remove('on'); busy = false; }
+function agButton(label, cost, cls, run){
+  const b = document.createElement('button');
+  if(cls) b.className = cls;
+  b.innerHTML = '<span>'+label+'</span><span class="cost">'+(cost||'')+'</span>';
+  b.onclick = run;
+  agActions.appendChild(b);
+  return b;
 }
 
 /* ===================================================================
@@ -2015,6 +2092,16 @@ schoolClassroomImg.onload = () => {
   paintSchoolBackdrop();
 };
 schoolClassroomImg.src = '../assets/bg/school-classroom.png?v=2';
+/* 遊藝場機台特寫(2026-08-26)——這三張不是場景背景,是 #arcadeGame 那個
+   大面板裡的機台照片,沒有 naturalWidth 就退回 SceneArcade.renderCloseup()
+   的放大色塊(見 agDrawIdle())。三張圖還沒生,先建好 Image() 物件跟路徑,
+   kc 生完圖存到對應檔名就會自動生效,不用再動這裡的程式。 */
+const ARCADE_MACHINE_IMG = {
+  slot: new Image(), roulette: new Image(), pusher: new Image()
+};
+ARCADE_MACHINE_IMG.slot.src = '../assets/tex/arcade-slot.png';
+ARCADE_MACHINE_IMG.roulette.src = '../assets/tex/arcade-roulette.png';
+ARCADE_MACHINE_IMG.pusher.src = '../assets/tex/arcade-pusher.png';
 /* 小美座位 + 主角空位(2026-08-25,kc 給的綠幕疊圖,見上面 SCHOOL_PHOTO
    v2 那則筆記——「後面的部分我額外給你,這樣你好做碰撞跟透視」)。跟
    dad-drunk.png 同一套「綠幕截圖→tools/green-to-alpha.py 去背→疊圖」
@@ -2575,7 +2662,7 @@ function buy(price, feed, mood, line){
    獨立提示句」的節奏),不跟第一則擠在同一個 toast 裡。 */
 const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false, momConfronted: false };
 function gambleResolve(cost, resolveFn){
-  if(ST.money < cost){ toast('你身上不夠。', 2000); return; }
+  if(ST.money < cost){ toast('你身上不夠。', 2000); return null; }
   chg('money', -cost);
   const r = resolveFn();
   if(r.payout) chg('money', r.payout);
@@ -2587,6 +2674,7 @@ function gambleResolve(cost, resolveFn){
     ARCADE_GAMBLE.momEchoShown = true;
     setTimeout(() => toast('你想起媽媽也是這樣。', 3200), 3200);
   }
+  return r;   // 給 #arcadeGame 大面板用來把結果文字寫進 agBody,不是只靠 toast 飄過去
 }
 /* 機台真的有演出/操作了(2026-08-26,kc:「遊戲內容照你說的做」,見討論
    當下提的分層方案)——slot/roulette 是純視覺演出,轉輪/輪盤跑完固定時間
@@ -2602,7 +2690,7 @@ function gambleResolve(cost, resolveFn){
 const ARCADE_ANIM = { active:false, kind:null, t:0, dur:0, cb:null, barPos:0, barDir:1, outcome:null };
 /* slot/roulette 的 outcome 在開始演出**之前**就先擲骰決定好(見下面
    openIndoorSpot() 的 'slot'/'roulette' 分支),存在 ARCADE_ANIM.outcome——
-   drawArcadeAnim() 收尾那幾百毫秒要顯示「對上的顏色」,跟最後真正
+   agDrawSpin() 收尾那幾百毫秒要顯示「對上的顏色」,跟最後真正
    gambleResolve() 用的是同一份結果,不是動畫演一套、結算另外骰一次。 */
 function startArcadeSpin(kind, dur, outcome, onDone){
   ARCADE_ANIM.active = true; ARCADE_ANIM.kind = kind; ARCADE_ANIM.t = 0; ARCADE_ANIM.dur = dur;
@@ -2619,7 +2707,7 @@ function resolvePusherLockIn(){
   if(!ARCADE_ANIM.active || ARCADE_ANIM.kind !== 'pusher') return;
   const pos = ARCADE_ANIM.barPos;
   ARCADE_ANIM.active = false; busy = false;
-  gambleResolve(20, () => {
+  const r = gambleResolve(20, () => {
     const dist = Math.abs(pos - .5);
     const tier = dist <= .12 ? 'great' : dist <= .3 ? 'ok' : 'bad';
     const chance = tier === 'great' ? .8 : tier === 'ok' ? .45 : .15;
@@ -2629,6 +2717,61 @@ function resolvePusherLockIn(){
     return { payout, mood:4,
       line: tier === 'great' ? '卡得正準——一整排代幣被推下來了。' : '一小疊代幣被推下來，落進出幣口。' };
   });
+  agShowResult(r, showPusherBets);
+}
+/* #arcadeGame 大面板的下注畫面(2026-08-26)——每台機台一個 showXxxBets()
+   函式,負責畫出「下注選項」那一頁;結果出來後 agShowResult() 提供
+   「再玩一次」(呼叫同一個 showXxxBets)/「走開」兩個按鈕,不用另外
+   重新走一次 openIndoorSpot()。 */
+function agShowResult(r, replay){
+  agActions.innerHTML = '';
+  agBody.textContent = r ? (r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '')) : '';
+  if(r) agButton('再玩一次', '', '', replay);
+  agButton('走開', '', 'back', closeArcadeGame);
+}
+function showSlotBets(){
+  agBody.textContent = ''; agActions.innerHTML = '';
+  agButton('拉一次', '$50', ST.money<50?'bad':'', () => {
+    if(ST.money < 50){ toast('你身上不夠。', 2000); return; }
+    agActions.innerHTML = ''; agBody.textContent = '';
+    const rr = Math.random();
+    const outcome = rr < .05 ? { payout:500, mood:6, line:'三顆金磚排成一線——中大獎了！', tier:'jackpot' }
+                   : rr < .20 ? { payout:100, mood:6, line:'兩顆對上，小賺一筆。', tier:'small' }
+                   : { payout:0, mood:6, line:'轉輪停下，什麼都沒對上。', tier:'lose' };
+    startArcadeSpin('slot', 1100, outcome, () => agShowResult(gambleResolve(50, () => outcome), showSlotBets));
+  });
+  agButton('走開', '', 'back', closeArcadeGame);
+}
+function showRouletteBets(){
+  agBody.textContent = ''; agActions.innerHTML = '';
+  agButton('押紅／黑', '$100', ST.money<100?'bad':'', () => {
+    if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
+    agActions.innerHTML = ''; agBody.textContent = '';
+    const win = Math.random() < 18/37;
+    const outcome = win
+      ? { payout:200, mood:8, line:'球停在你押的顏色上，莊家推了兩倍籌碼過來。' }
+      : { payout:0, mood:8, line:'球彈進另一色的格子，籌碼被收走了。' };
+    startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
+  });
+  agButton('押單一號碼', '$100', ST.money<100?'bad':'', () => {
+    if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
+    agActions.innerHTML = ''; agBody.textContent = '';
+    const win = Math.random() < 1/37;
+    const outcome = win
+      ? { payout:3600, mood:8, line:'球停在你押的那個號碼上——你自己都愣住了。' }
+      : { payout:0, mood:8, line:'球停在別的號碼，你押的那格空的。' };
+    startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
+  });
+  agButton('走開', '', 'back', closeArcadeGame);
+}
+function showPusherBets(){
+  agBody.textContent = '按空白鍵卡時機'; agActions.innerHTML = '';
+  agButton('投 $20', '$20', ST.money<20?'bad':'', () => {
+    if(ST.money < 20){ toast('你身上不夠。', 2000); return; }
+    agActions.innerHTML = ''; agBody.textContent = '按空白鍵卡時機';
+    startPusherGame();
+  });
+  agButton('走開', '', 'back', closeArcadeGame);
 }
 /* 結帳(2026-08-24 kc:「買東西要加入去結帳的流程」)——鮮食櫃/貨架/飲料櫃
  * 選了東西不再當場扣錢,先進 `IN.basket`(拿在手上),真正的金錢/飽足/情緒
@@ -2836,58 +2979,13 @@ function openIndoorSpot(id){
      說一聲就改。 */
   if(PLACE === 'arcade'){
     if(id === 'door'){ leaveIndoor(); return; }
-    /* 三台機台「做真的遊戲」(2026-08-26,kc)——slot/roulette 先擲骰決定
-       outcome,再交給 startArcadeSpin() 跑一段固定時間的純視覺演出(轉輪/
-       輪盤),演出跑完才呼叫 gambleResolve()(機率不受演出影響,見上面
-       ARCADE_ANIM 那則筆記);pusher 沒有預先擲骰,是真的看操作
-       (startPusherGame() 開始跑指示條,玩家按空白鍵鎖定時機,
-       resolvePusherLockIn() 才骰,見那個函式)。 */
-    else if(id === 'slot'){
-      openMenu('吃角子老虎', [
-        { label:'拉一次', cost:'$50', cls: ST.money<50?'bad':'', run:() => {
-            if(ST.money < 50){ toast('你身上不夠。', 2000); return; }
-            const r = Math.random();
-            const outcome = r < .05 ? { payout:500, mood:6, line:'三顆金磚排成一線——中大獎了！', tier:'jackpot' }
-                           : r < .20 ? { payout:100, mood:6, line:'兩顆對上，小賺一筆。', tier:'small' }
-                           : { payout:0, mood:6, line:'轉輪停下，什麼都沒對上。', tier:'lose' };
-            startArcadeSpin('slot', 1100, outcome, () => gambleResolve(50, () => outcome));
-          } },
-        { label:'走開', cls:'back', run(){} }
-      ]);
-      return;
-    }
-    else if(id === 'roulette'){
-      openMenu('俄羅斯輪盤', [
-        { label:'押紅／黑', cost:'$100', cls: ST.money<100?'bad':'', run:() => {
-            if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
-            const win = Math.random() < 18/37;
-            const outcome = win
-              ? { payout:200, mood:8, line:'球停在你押的顏色上，莊家推了兩倍籌碼過來。' }
-              : { payout:0, mood:8, line:'球彈進另一色的格子，籌碼被收走了。' };
-            startArcadeSpin('roulette', 1400, outcome, () => gambleResolve(100, () => outcome));
-          } },
-        { label:'押單一號碼', cost:'$100', cls: ST.money<100?'bad':'', run:() => {
-            if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
-            const win = Math.random() < 1/37;
-            const outcome = win
-              ? { payout:3600, mood:8, line:'球停在你押的那個號碼上——你自己都愣住了。' }
-              : { payout:0, mood:8, line:'球停在別的號碼，你押的那格空的。' };
-            startArcadeSpin('roulette', 1400, outcome, () => gambleResolve(100, () => outcome));
-          } },
-        { label:'走開', cls:'back', run(){} }
-      ]);
-      return;
-    }
-    else if(id === 'pusher'){
-      openMenu('推幣機', [
-        { label:'投 $20', cost:'$20', cls: ST.money<20?'bad':'', run:() => {
-            if(ST.money < 20){ toast('你身上不夠。', 2000); return; }
-            startPusherGame();
-          } },
-        { label:'走開', cls:'back', run(){} }
-      ]);
-      return;
-    }
+    /* 三台機台改走 #arcadeGame 大面板(2026-08-26,kc:「互動是應該要彈出
+       一個大框框」),不再用小小一條 openMenu() 清單——openArcadeGame()
+       開面板+畫機台特寫,showXxxBets() 畫下注選項,詳細流程見那幾個函式
+       旁邊的筆記。 */
+    else if(id === 'slot'){ openArcadeGame('slot', '吃角子老虎'); showSlotBets(); return; }
+    else if(id === 'roulette'){ openArcadeGame('roulette', '俄羅斯輪盤'); showRouletteBets(); return; }
+    else if(id === 'pusher'){ openArcadeGame('pusher', '推幣機'); showPusherBets(); return; }
     return;
   }
   if(id === 'door'){
@@ -3396,21 +3494,22 @@ function updateIndoor(dt){
      跟下一段對話中間有一小段 busy/dlg.on 都是 false 的空檔,那段空檔方向鍵
      還是會動,所以要在這裡明講擋掉,不是繞個彎湊巧擋住)。 */
   if(PLACE === 'massage') return;
-  /* 機台演出/推幣機小遊戲進行中(2026-08-26)——整段搶走輸入,跟 walkTarget
+  /* 機台演出/推幣機小遊戲進行中(2026-08-26,第二輪改成畫在 #arcadeGame
+     大面板,見上面 agDrawSpin() 那則筆記)——整段搶走輸入,跟 walkTarget
      那段同一個精神。pusher 的指示條每幀來回跑(ping-pong,0~1 之間),
-     slot/roulette 只是單純倒數計時,時間到才呼叫 cb()(真正的
-     gambleResolve())。pusher 的「按空白鍵鎖定」攔在 keydown 那邊
-     (resolvePusherLockIn()),不是這裡——這裡只負責指示條本身的移動。 */
+     直接改 #agBarPin 的 style.left(DOM 元素,不是畫在 canvas 上);
+     slot/roulette 是倒數計時,每幀呼叫 agDrawSpin() 重畫一次,時間到才
+     呼叫 cb()(真正的 gambleResolve())。pusher 的「按空白鍵鎖定」攔在
+     keydown 那邊(resolvePusherLockIn()),不是這裡。 */
   if(ARCADE_ANIM.active){
     if(ARCADE_ANIM.kind === 'pusher'){
       ARCADE_ANIM.barPos += ARCADE_ANIM.barDir * dt * .0016;
       if(ARCADE_ANIM.barPos >= 1){ ARCADE_ANIM.barPos = 1; ARCADE_ANIM.barDir = -1; }
       else if(ARCADE_ANIM.barPos <= 0){ ARCADE_ANIM.barPos = 0; ARCADE_ANIM.barDir = 1; }
-      hintEl.innerHTML = '按 <b>空白鍵</b> 卡時機';
-      hintEl.classList.add('on');
+      agBarPin.style.left = (ARCADE_ANIM.barPos*100) + '%';
     } else {
       ARCADE_ANIM.t += dt;
-      hintEl.classList.remove('on');
+      agDrawSpin();
       if(ARCADE_ANIM.t >= ARCADE_ANIM.dur){
         const cb = ARCADE_ANIM.cb; ARCADE_ANIM.active = false; ARCADE_ANIM.cb = null; busy = false;
         cb && cb();
@@ -3564,15 +3663,17 @@ const SCHOOL_DESKROW_OCCLUDE_PY = 245;
 function inSchoolDeskZone(px, py){
   return py < SCHOOL_DESKROW_OCCLUDE_PY && px > 150 && px < 482;
 }
-/* 遊藝場機台演出(2026-08-26)——畫在 c2df(前景層),每幀蓋過 c2dbg 那張
-   靜態背景上原本畫死的機台圖案。座標吃 scene-arcade.js 的 SLOT/ROULETTE/
-   PUSHER 物件(邏輯 640 座標)乘 SC 換算成這張畫布的原生 px,跟 dad-drunk
-   那段疊圖同一個換算方式。 */
-function drawArcadeAnim(){
+/* 遊藝場機台演出(2026-08-26 第二輪,改成畫在 #arcadeGame 大面板的
+   agCanvas 上,不是房間裡的小色塊——kc 要求互動要彈成大框框、有真的
+   演出感)。座標吃 scene-arcade.js 匯出的 CLOSEUP_* 那組,跟
+   renderCloseup() 畫靜態機台用的是同一份數字,轉輪閃爍/球轉動才會疊在
+   正確的位置上。pusher 的時機條是 DOM 元素(#agBarPin),不在這裡畫,見
+   updateIndoor() 那段直接改 style.left。 */
+function agDrawSpin(){
+  agDrawIdle(ARCADE_ANIM.kind);   // 先畫一次靜態機台當底,再疊演出效果上去
   const A = ARCADE_ANIM;
   if(A.kind === 'slot'){
-    const SL = SceneArcade.SLOT;
-    const sx = (SL.x+8)*SC, sy = (SL.y+14)*SC, sw = (SL.w-16)*SC, sh = 46*SC;
+    const S = SceneArcade.CLOSEUP_SLOT_SCREEN;
     const settling = (A.dur - A.t) < 250;   // 最後 250ms 鎖定顏色,呼應真正的 outcome
     const tier = A.outcome && A.outcome.tier;
     const palette = ['#e8c85a','#e85a5a','#5ae87a'];
@@ -3581,23 +3682,15 @@ function drawArcadeAnim(){
          : tier === 'small' ? ['#e8c85a','#e8c85a','#5ae87a']
          : ['#e8c85a','#e85a5a','#5ae87a'])
       : [0,1,2].map(() => palette[Math.random()*palette.length|0]);
-    g2f.fillStyle = '#160910'; g2f.fillRect(sx, sy, sw, sh);
-    cols.forEach((c,i) => { g2f.fillStyle = c; g2f.fillRect(sx+(4+i*16)*SC, sy+10*SC, 10*SC, 26*SC); });
+    agCtx.fillStyle = '#160910'; agCtx.fillRect(S.x, S.y, S.w, S.h);
+    cols.forEach((c,i) => { agCtx.fillStyle = c; agCtx.fillRect(S.x+8+i*66, S.y+18, 42, 90); });
   } else if(A.kind === 'roulette'){
-    const RL = SceneArcade.ROULETTE;
-    const cx = (RL.x+RL.w/2)*SC, cy = (RL.y+RL.h/2)*SC, r = 26*SC;
+    const W = SceneArcade.CLOSEUP_ROULETTE_WHEEL;
     const ease = 1 - Math.pow(1 - Math.min(1, A.t/A.dur), 3);
     const angle = 3.2 * 2*Math.PI * ease;
-    const bx = cx + Math.cos(angle)*r, by = cy + Math.sin(angle)*r*.5;
-    g2f.fillStyle = '#f2e9d0';
-    g2f.beginPath(); g2f.arc(bx, by, 4*SC, 0, Math.PI*2); g2f.fill();
-  } else if(A.kind === 'pusher'){
-    const PU = SceneArcade.PUSHER;
-    const bx = PU.x*SC, by = (PU.y+PU.h+18)*SC, bw = PU.w*SC, bh = 10*SC;
-    g2f.fillStyle = '#1a1420'; g2f.fillRect(bx, by, bw, bh);
-    g2f.fillStyle = '#3a7a4a'; g2f.fillRect(bx+bw*.38, by, bw*.24, bh);   // sweet spot,跟 resolvePusherLockIn() 的 dist<=.12 對齊
-    const ix = bx + A.barPos*bw;
-    g2f.fillStyle = '#f2e9d0'; g2f.fillRect(ix-3*SC, by-4*SC, 6*SC, bh+8*SC);
+    const bx = W.cx + Math.cos(angle)*W.r, by = W.cy + Math.sin(angle)*W.r*.5;
+    agCtx.fillStyle = '#f2e9d0';
+    agCtx.beginPath(); agCtx.arc(bx, by, 8, 0, Math.PI*2); agCtx.fill();
   }
 }
 function renderIndoorForeground(){
@@ -3651,7 +3744,6 @@ function renderIndoorForeground(){
     drawFloorShadow(g2f, DAD_TWEAK.x, DAD_TWEAK.bottom, dw);
     g2f.drawImage(dadDrunkImg, dadCrop.x,dadCrop.y,dadCrop.w,dadCrop.h, DAD_TWEAK.x, DAD_TWEAK.bottom-dh, dw, dh);
   }
-  if(PLACE === 'arcade' && ARCADE_ANIM.active) drawArcadeAnim();
   g2f.imageSmoothingEnabled = false;
   g2f.globalAlpha = .5;
   g2f.drawImage(grain, 0,0,LW,LH, 0,0,c2df.width,c2df.height);
@@ -4096,6 +4188,12 @@ addEventListener('keydown', e => {
   }
   if(k === 'escape' && menuEl.classList.contains('on')) closeMenu();
   if(k === 'escape' && invOverlay.classList.contains('on')) closeInventory();
+  /* ESC 關掉遊藝場大面板(2026-08-26)——跟 menu/inventory 同一個習慣,但
+     機台演出/推幣機小遊戲進行中(ARCADE_ANIM.active)不能用 ESC 逃掉——
+     這時候玩家已經按下「拉一次/投 $20」,金錢會在演出跑完(slot/roulette)
+     或鎖定當下(pusher)才真的扣,ESC 跳出去會留在一個演出演到一半、
+     cb() 卻永遠不會被呼叫的卡死狀態。 */
+  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active) closeArcadeGame();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
