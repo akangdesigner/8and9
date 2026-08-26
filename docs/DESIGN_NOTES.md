@@ -3828,3 +3828,27 @@ kc 覺得份量不夠、也不夠寫實。
 (kc 要求「移動到場景內」方便他自己接手測),沒有逐一點按驗證三台
 新流程——這輪照 [[feedback_dont_self_test_hand_off]] 的規矩,實際操作
 留給 kc 自己在瀏覽器裡試。
+
+### ✅ 遊藝場室內照片(2026-08-26,同一天第三輪)
+
+kc 生了 `arcade-interior.png`(1672×941,跟其他室內同規格)——門在左側
+(粉紅霓虹管)、三台機台一字排開靠牆(吃角子老虎/俄羅斯輪盤/推幣機由
+左至右),中間留一條淨空走道,右牆一塊「開心娛樂」霓虹招牌,構圖完全
+照提示詞來的。接法比照 `paintSchoolBackdrop()`:`ARCADE_PHOTO`+
+`ARCADE_COLLIDERS_PHOTO`(先留空,機台都貼牆站在走道範圍外,跟
+`SCHOOL_COLLIDERS_FALLBACK` 當初一樣的道理,真的穿模再補)+
+`arcadeInteriorImg` 的 `naturalWidth` 判斷。座標肉眼在圖上抓比例量的
+(換算公式跟 `HOME_PHOTO` 同一套:`logical = native * (640/1672)`),沒有
+拉格線精算。
+
+在瀏覽器裡用 `__dbg.setIndoor(px,300,'F')` 把角色分別站到三個機台前
+(px 210/300/535)截圖核對,三個提示文字(吃角子老虎/俄羅斯輪盤/推幣機)
+都準確對到畫面上對應的機台,不用再調。
+
+吃角子老虎的機台特寫也生了一張(kc 問「這樣你能做真的老虎機跳動嗎」,
+討論出兩條路——單張照片疊模糊效果 vs 生 2~3 張不同轉輪結果的照片做
+真的切換,kc 選了後者,加碼版的三張照片提示詞已經在聊天裡給 kc,
+還沒生出來,先記在這裡等下一輪接:分別存
+`assets/tex/arcade-slot-lose.png`/`arcade-slot-small.png`/
+`arcade-slot-jackpot.png`,生完要把轉輪視窗那塊裁出來,轉動時在三張
+裁圖間切換,停在跟 `gambleResolve()` 真正結果對應的那張上。

@@ -2066,7 +2066,30 @@ const ARCADE_FALLBACK = {
     { id:'pusher',   name:'推幣機',     x:450, w:110, y0:SceneArcade.WALK_N, y1:SceneArcade.WALK_S }
   ]
 };
+/* 遊藝場照片版(2026-08-26,kc 生的 arcade-interior.png,1672×941,跟其他
+   室內同規格)——構圖是 kc 指定的:門在左側、三台機台一字排開靠牆(吃
+   角子老虎/俄羅斯輪盤/推幣機由左至右),中間留一條淨空走道。座標肉眼在
+   圖上抓比例量的(換算公式跟 HOME_PHOTO 同一套:logical = native *
+   (640/1672)),沒有像 school 那樣拉格線精算,玩起來覺得哪裡對不齊再
+   調。碰撞框先留空——機台都貼牆站在走道範圍外(跟 kc 指定的「淨空走道」
+   一致),跟 SCHOOL_COLLIDERS_FALLBACK 當初一樣的道理,真的穿模再補。 */
+const ARCADE_COLLIDERS_PHOTO = [];
+const ARCADE_PHOTO = {
+  walkN: 235, walkS: 350,
+  spots: [
+    { id:'door',     name:'門口',       x:32,  w:77,  y0:235, y1:350 },
+    { id:'slot',     name:'吃角子老虎', x:173, w:83,  y0:235, y1:350 },
+    { id:'roulette', name:'俄羅斯輪盤', x:294, w:160, y0:235, y1:350 },
+    { id:'pusher',   name:'推幣機',     x:483, w:112, y0:235, y1:350 }
+  ]
+};
 let ARCADE = ARCADE_FALLBACK, ARCADE_COLLIDERS = ARCADE_COLLIDERS_FALLBACK;
+const arcadeInteriorImg = new Image();
+arcadeInteriorImg.onload = () => {
+  if(arcadeInteriorImg.naturalWidth){ ARCADE = ARCADE_PHOTO; ARCADE_COLLIDERS = ARCADE_COLLIDERS_PHOTO; }
+  paintArcadeBackdrop();
+};
+arcadeInteriorImg.src = '../assets/bg/arcade-interior.png?v=1';
 
 /* naturalWidth(不是 complete!)——圖片 404 時 complete 一樣會變 true,
    naturalWidth 才分得出「真的載入成功」還是「找不到檔案」。跟超商
@@ -2516,14 +2539,18 @@ function paintSchoolBackdrop(){
     gbg.restore();
   }
 }
-/* 遊藝場(2026-08-26)——目前沒有照片版,永遠畫灰模,結構留著跟其他
-   paint*Backdrop() 一致,以後真的生了照片再照 paintSchoolBackdrop() 那套
-   naturalWidth 判斷加一行 if/else,不用整個函式重寫。 */
+/* 遊藝場(2026-08-26 補照片版)——跟 paintSchoolBackdrop() 同一招,圖載入
+   成功畫照片,否則退回灰模。 */
 function paintArcadeBackdrop(){
   gbg.clearRect(0,0,1280,720);
-  gbg.save(); gbg.scale(SC,SC);
-  SceneArcade.renderBackground(gbg, { vignette:true });
-  gbg.restore();
+  if(arcadeInteriorImg.complete && arcadeInteriorImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(arcadeInteriorImg, 0,0,1280,720);
+  } else {
+    gbg.save(); gbg.scale(SC,SC);
+    SceneArcade.renderBackground(gbg, { vignette:true });
+    gbg.restore();
+  }
 }
 
 /* 身高:畫面固定,不管站多遠(kc 2026-08-12 定案,見 DESIGN_NOTES)。
