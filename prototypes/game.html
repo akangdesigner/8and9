@@ -214,12 +214,33 @@
   /* 推幣機的時機條(2026-08-26)——只有 pusher 那台會顯示(game.html
      openArcadeGame() 依 kind 切換 display),track 本身是一條窄長橫條,
      sweet 那塊是視覺上標出「準」的範圍,跟 resolvePusherLockIn() 的
-     dist<=.12 判定對齊(寬度 24% 置中,算式見那個函式旁邊的註解)。 */
+     dist 判定對齊(算式見那個函式旁邊的註解)。
+     **2026-08-26 第二輪,kc 兩個回饋**:「硬幣要真的硬幣而且要對準,
+     然後難度太簡單」——
+     1. `agBarPin` 原本是一條 5px 窄條,用純色塊表示指針,跟「代幣」
+        兩個字對不上,改成真的畫成一枚硬幣(圓形+內圈的金色漸層+外緣
+        描邊)。原本用 `left:X%` 定位,硬幣的左邊緣會卡在目標位置上
+        (不是硬幣中心對準),改成 `transform:translate(-50%,-50%)` 讓
+        硬幣的圓心真的對準指示條當下的位置,不再偏移半個硬幣寬度。
+        `overflow:hidden` 也拿掉(硬幣圓形比原本的窄條高,原本的
+        overflow:hidden 會把硬幣上下切掉一截)。
+     2. sweet spot 寬度從 24%(對應 resolvePusherLockIn() 的 dist<=.12,
+        即左右各 12%)縮到 10%(對應 dist<=.05),連帶指示條速度也調快
+        (見 updateIndoor() 那段 `ARCADE_ANIM.barPos` 位移量),兩件事
+        一起讓「卡準」變成真的要盯著看、抓時機,不是隨便按都差不多。
+     **第三輪,kc 直接傳了一張真的十元硬幣照片(2026-08-26)**——原本
+     `agBarPin` 是 CSS 漸層畫的假硬幣,換成真照片(`arcade-coin.png`)
+     當背景圖,`background-size:cover`+`border-radius:50%` 裁成圓形;
+     漸層那層留著疊在圖片下面當退路(圖真的載不出來時還看得到一個
+     金色圓,不會變空白),兩層 background 疊圖片在上、漸層在下即可。 */
   #arcadeGame .agBar { position:relative; height:14px; background:#1a1420; border-radius:7px;
-    margin:14px 6px 4px; overflow:hidden; display:none; }
-  #arcadeGame .agBarSweet { position:absolute; left:38%; width:24%; top:0; bottom:0; background:#3a7a4a; }
-  #arcadeGame .agBarPin { position:absolute; top:-3px; bottom:-3px; width:5px; background:#f2e9d0;
-    border-radius:2px; left:0%; }
+    margin:22px 6px 12px; display:none; }
+  #arcadeGame .agBarSweet { position:absolute; left:45%; width:10%; top:0; bottom:0; background:#3a7a4a; }
+  #arcadeGame .agBarPin { position:absolute; top:50%; left:0%; width:22px; height:22px;
+    transform:translate(-50%,-50%);
+    background-image:url('../assets/tex/arcade-coin.png'), radial-gradient(circle at 35% 30%, #fff3c4, #e8c85a 45%, #a8791f 100%);
+    background-size:cover, cover;
+    border:1.5px solid #6b4f18; border-radius:50%; box-shadow:0 1px 4px rgba(0,0,0,.6); }
   #arcadeGame .agBody { text-align:center; font-size:15px; color:#e8ecf1; min-height:22px;
     margin:14px 4px; white-space:pre-line; letter-spacing:.03em; }
   #arcadeGame .agActions { display:flex; flex-direction:column; gap:7px; }
@@ -2150,6 +2171,11 @@ ARCADE_SLOT_IMG.lose[0].src = '../assets/tex/arcade-slot-lose.png';
 ARCADE_SLOT_IMG.lose[1].src = '../assets/tex/arcade-slot-lose-2.png';
 ARCADE_SLOT_IMG.small.src = '../assets/tex/arcade-slot-small.png';
 ARCADE_SLOT_IMG.jackpot.src = '../assets/tex/arcade-slot-jackpot.png';
+/* 推幣機掉落/派彩畫的代幣(2026-08-26,kc 直接傳一張真的十元硬幣照片,
+   取代 drawPusherCoin() 原本純漸層畫的假硬幣)——沒載出來就退回漸層,
+   同一套 naturalWidth 判斷,見 drawPusherCoin()。 */
+const ARCADE_COIN_IMG = new Image();
+ARCADE_COIN_IMG.src = '../assets/tex/arcade-coin.png';
 let agSlotTier = 'lose';
 let agSlotLoseIdx = 0;
 /* 小美座位 + 主角空位(2026-08-25,kc 給的綠幕疊圖,見上面 SCHOOL_PHOTO
@@ -2779,13 +2805,26 @@ function resolvePusherLockIn(){
   ARCADE_ANIM.active = false; busy = false;
   agBarEl.style.display = 'none';
   let win = false;
+  /* 難度調高(2026-08-26 第二輪,kc:「難度太簡單」)——sweet spot 從
+     dist<=.12(對應 CSS 24% 寬)縮到 dist<=.05(對應 10% 寬),ok 這個
+     「還可以」的緩衝帶也從 .3 收到 .2,三檔機率都調低一截(.8→.7,
+     .45→.3,.15→.08),配合 updateIndoor() 那邊調快的指示條速度,真的
+     要盯著看才卡得到,不是隨便按都有四五成機會。
+     **期望值檢查(2026-08-26 第三輪,kc:「檢查一下整體的期望值要是負的,
+     不能鼓勵他們賭博」)**——slot(−20%)、roulette(−2.7%,真實歐式輪盤
+     莊家優勢)本來就是負的,但這裡原本 great 那檔用 .7 機率、45 賠率
+     算出來是 **正**期望值(.7*(45-20)+.3*(-20)=+11.5,練到穩定卡進
+     great 反而長期會賺)——這正是要避免的漏洞,不能讓「練熟手感」變成
+     穩賺。把 great 賠率從 45 調到 25,期望值變成
+     .7*(25-20)+.3*(-20)=-2.5,三檔(great/ok/bad)全部負值,skill 只能
+     「輸得比較少」,不能翻正。 */
   const r = gambleResolve(20, () => {
     const dist = Math.abs(pos - .5);
-    const tier = dist <= .12 ? 'great' : dist <= .3 ? 'ok' : 'bad';
-    const chance = tier === 'great' ? .8 : tier === 'ok' ? .45 : .15;
+    const tier = dist <= .05 ? 'great' : dist <= .2 ? 'ok' : 'bad';
+    const chance = tier === 'great' ? .7 : tier === 'ok' ? .3 : .08;
     win = Math.random() < chance;
     if(!win) return { payout:0, mood:4, line:'那疊代幣晃了一下，還是沒掉下來。' };
-    const payout = tier === 'great' ? 45 : 30;
+    const payout = tier === 'great' ? 25 : 30;
     return { payout, mood:4,
       line: tier === 'great' ? '卡得正準——一整排代幣被推下來了。' : '一小疊代幣被推下來，落進出幣口。' };
   });
@@ -2836,24 +2875,35 @@ function showSlotBets(){
    換算一律除以 `ROULETTE_WHEEL_ORDER.length`,不要哪天陣列又調整了
    角度卻沒跟著變。 */
 const ROULETTE_WHEEL_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,13,30,10,24,5,33,16,20,1,31,14,23,9,29,18,28,7,28,12,35,3,26];
-const ROULETTE_RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+/* 顏色改成「按格子(index)量」,不是按數字查表(2026-08-26,kc:「這邊
+   23 是黑欸」)——`23` 在真實輪盤規則裡是紅的,但這張 AI 生圖的顏色
+   跟真實規則本來就對不上(已經確認號碼順序也對不上,見上面那則筆記),
+   繼續假設「紅黑照真實輪盤規則」只會一直踩到類似的坑。這輪直接寫腳本
+   在 `arcade-roulette.png` 上,對著每一格算出來的座標實際取樣像素顏色
+   (每格在 6 個半徑上取樣、多數決),36 格逐一量出真正的紅/黑,不是
+   查表猜的。只有 idx3(數字 19)取樣結果是 3:3 平手,肉眼在圖上確認過
+   偏紅,人工定為紅——其餘 35 格都有 4:2 以上的明確多數。 */
+const ROULETTE_COLOR_BY_INDEX = ['green','red','black','red','black','red','black','red','black','black','red','black','red','black','red','black','black','black','red','black','black','red','black','red','black','black','black','black','red','black','red','black','red','black','red','black'];
 const ROULETTE_ZERO_ANGLE_DEG = -93.4;
 function rouletteIndexAngle(i){
   return ROULETTE_ZERO_ANGLE_DEG*Math.PI/180 + i * (2*Math.PI/ROULETTE_WHEEL_ORDER.length);
 }
-function rouletteColorName(n){ return n === 0 ? '綠' : ROULETTE_RED.has(n) ? '紅' : '黑'; }
+function rouletteColorNameAt(idx){
+  const c = ROULETTE_COLOR_BY_INDEX[idx];
+  return c === 'green' ? '綠' : c === 'red' ? '紅' : '黑';
+}
 /* 押注選項改成五個(2026-08-26,kc:「選項改成壓紅 壓黑 壓奇數 壓偶數
    壓0」)——原本「押紅／黑」含糊指同一個按鈕,拆成真的紅/黑/奇/偶四個
    各自獨立的「賠率相同注」(真實輪盤的 even-money 外圍注,18/37 中,
    賠 2 倍),0 維持原本「押單一號碼」那個特例(1/37 中,賠 36 倍)。
-   `qualifies(n)` 判斷某個號碼算不算中——中獎時從符合條件的號碼裡隨機挑
-   一個真的落點,沒中就從不符合的號碼裡挑,球一定落在跟結算文字一致的
-   號碼上。 */
+   `qualifies(idx, n)` 判斷某一格算不算中——紅/黑吃 `ROULETTE_COLOR_BY_INDEX`
+   (按格子,見上面那則筆記),奇/偶吃數字本身(這個沒有顏色那種問題,
+   單雙就是數字的數學性質,不受這張圖畫錯顏色影響)。 */
 const ROULETTE_EVEN_MONEY_BETS = [
-  { label:'押紅', qualifies:n => ROULETTE_RED.has(n) },
-  { label:'押黑', qualifies:n => n !== 0 && !ROULETTE_RED.has(n) },
-  { label:'押奇數', qualifies:n => n !== 0 && n % 2 === 1 },
-  { label:'押偶數', qualifies:n => n !== 0 && n % 2 === 0 }
+  { label:'押紅', qualifies:(idx,n) => ROULETTE_COLOR_BY_INDEX[idx] === 'red' },
+  { label:'押黑', qualifies:(idx,n) => ROULETTE_COLOR_BY_INDEX[idx] === 'black' },
+  { label:'押奇數', qualifies:(idx,n) => n !== 0 && n % 2 === 1 },
+  { label:'押偶數', qualifies:(idx,n) => n !== 0 && n % 2 === 0 }
 ];
 /* 下注→骰出真的落點的「格子」(index,不是數字)→算出對應角度→跑演出
    →演出跑完才真的結算(gambleResolve 拿到的 line 這輪也帶上實際號碼/
@@ -2864,18 +2914,19 @@ const ROULETTE_EVEN_MONEY_BETS = [
 function spinRouletteTo(betLabel, win, winLine, loseLine, payout){
   const pool = ROULETTE_WHEEL_ORDER
     .map((n,i) => i)
-    .filter(i => win ? qualifiesFor(betLabel, ROULETTE_WHEEL_ORDER[i]) : !qualifiesFor(betLabel, ROULETTE_WHEEL_ORDER[i]));
+    .filter(i => win ? qualifiesFor(betLabel, i) : !qualifiesFor(betLabel, i));
   const idx = pool[Math.random()*pool.length|0];
   const number = ROULETTE_WHEEL_ORDER[idx];
   const spins = 3 + Math.floor(Math.random()*2);
   const outcome = { payout: win ? payout : 0, mood:8, number,
-    line: (win ? winLine : loseLine) + `（${number} ${rouletteColorName(number)}）`,
+    line: (win ? winLine : loseLine) + `（${number} ${rouletteColorNameAt(idx)}）`,
     finalAngle: spins*2*Math.PI + rouletteIndexAngle(idx) };
   startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
 }
-function qualifiesFor(betLabel, n){
+function qualifiesFor(betLabel, idx){
+  const n = ROULETTE_WHEEL_ORDER[idx];
   if(betLabel === '押0') return n === 0;
-  return ROULETTE_EVEN_MONEY_BETS.find(b => b.label === betLabel).qualifies(n);
+  return ROULETTE_EVEN_MONEY_BETS.find(b => b.label === betLabel).qualifies(idx, n);
 }
 function showRouletteBets(){
   agBody.textContent = ''; agActions.innerHTML = '';
@@ -3638,7 +3689,11 @@ function updateIndoor(dt){
      keydown 那邊(resolvePusherLockIn()),不是這裡。 */
   if(ARCADE_ANIM.active){
     if(ARCADE_ANIM.kind === 'pusher'){
-      ARCADE_ANIM.barPos += ARCADE_ANIM.barDir * dt * .0016;
+      /* 難度調高(2026-08-26 第二輪)——速度從 .0016 提到 .0026(+62%),
+         配合 resolvePusherLockIn() 縮小的 sweet spot,兩件事一起做才
+         真的變難,只調其中一個(縮小範圍但速度不變,或加快但範圍不變)
+         效果都不夠明顯。 */
+      ARCADE_ANIM.barPos += ARCADE_ANIM.barDir * dt * .0026;
       if(ARCADE_ANIM.barPos >= 1){ ARCADE_ANIM.barPos = 1; ARCADE_ANIM.barDir = -1; }
       else if(ARCADE_ANIM.barPos <= 0){ ARCADE_ANIM.barPos = 0; ARCADE_ANIM.barDir = 1; }
       agBarPin.style.left = (ARCADE_ANIM.barPos*100) + '%';
@@ -3843,31 +3898,56 @@ function agDrawSpin(){
     agCtx.fillStyle = '#f2e9d0';
     agCtx.beginPath(); agCtx.arc(bx, by, 8, 0, Math.PI*2); agCtx.fill();
   } else if(A.kind === 'pusher-drop'){
-    /* 一枚代幣掉進投幣口(2026-08-26,kc:「我想要有投錢下去推的感覺」)
-       ——第一人稱視角照片生出來後這輪重新對真的投幣口位置量過(原本是
-       瞎猜的座標)。`arcade-pusher.png`(1448×1086)等比縮放置中貼進
-       640×420 畫布,scale≈.387、offsetX≈40;投幣口(畫面右下角「代幣
-       入口」那塊)肉眼在原圖量大約 x:1014,y:977,換算成畫布座標
-       ≈(432,378)。代幣從畫面右上方一路滑進投幣口,終點對齊那個位置。 */
+    /* 一枚代幣掉進投幣口(2026-08-26,kc:「我想要有投錢下去推的感覺」,
+       同一天第二輪 kc 又糾正「對準是指對準代幣入口」+ 附了投幣口特寫
+       截圖)——這輪照那張截圖 + 第一人稱正圖重新精量:投幣口(「代幣
+       入口」金屬面板上那條深色縫)在原圖大約 x:1090,y:955(圖
+       1448×1086),換算成畫布座標(scale≈.387、offsetX≈40)
+       ≈(462,369)。代幣從畫面右上方一路滑進投幣口,終點對齊這個
+       校正過的位置(比上一版量得更準,原本量到 432,378 偏了一點)。
+       **同一天第三輪,kc:「硬幣本身太小顆」**——半徑 9→16,payout 那
+       五枚也從 6→11(順便把間距從 25→30px 撐開一點,不然變大顆後
+       疊太緊)。 */
     const ease = Math.min(1, A.t/A.dur);
-    const x = 520 + (432-520)*ease, y = 210 + (378-210)*ease;
-    agCtx.fillStyle = '#e8c85a';
-    agCtx.beginPath(); agCtx.arc(x, y, 9, 0, Math.PI*2); agCtx.fill();
-    agCtx.strokeStyle = '#8a6b28'; agCtx.lineWidth = 1.5; agCtx.stroke();
+    const x = 540 + (462-540)*ease, y = 220 + (369-220)*ease;
+    drawPusherCoin(x, y, 16);
   } else if(A.kind === 'pusher-payout'){
-    /* 中獎的代幣滑落(2026-08-26,同一輪)——五枚代幣分別延遲一點時間
-       開始往下滑、越滑越大(靠近鏡頭的錯覺),只有中獎才會呼叫到這裡
-       (見 startPusherPayout() 的 !win 分支直接跳過)。 */
+    /* 中獎的代幣滑落(2026-08-26,kc 兩輪回饋修正):
+       1.「硬幣要真的硬幣」——色塊圓改成真的硬幣畫法(drawPusherCoin(),
+         金色放射漸層+外緣描邊),跟時機條上那顆硬幣指針同一套畫法。
+       2.「推下來是從上面平台推掉下面,不是推到機器外」——原本演出是
+         代幣往下滑、越滑越大(模擬滑出機器朝向鏡頭），跟真實機構不符:
+         推幣機是上層代幣被推板推過一個階梯狀護欄,掉落到下層那堆代幣
+         上,全程都還在機器裡面,不會滑出畫面。這裡改成短距離掉落——
+         起點是中間那條護欄階梯(原圖量出來大約 x:730,y:350,換算
+         畫布座標 ≈(322,135)),終點是下層代幣堆表面(同一個 x,
+         y≈250,只往下掉 115px,不是滑到畫面底部)。 */
     for(let i=0;i<5;i++){
       const t2 = Math.max(0, Math.min(1, (A.t/A.dur)*1.4 - i*0.12));
       if(t2 <= 0) continue;
-      const x = agCanvas.width/2 - 60 + i*30;
-      const y = 260 + (420-260)*t2;
-      const s = 6 + 7*t2;
-      agCtx.fillStyle = '#e8c85a';
-      agCtx.beginPath(); agCtx.arc(x, y, s, 0, Math.PI*2); agCtx.fill();
+      const x = 322 - 60 + i*30;
+      const y = 135 + (250-135)*t2;
+      drawPusherCoin(x, y, 11);
     }
   }
+}
+/* 硬幣畫法共用(2026-08-26,kc:「硬幣要真的硬幣」,同一天第二輪 kc 直接
+   傳了一張真的十元硬幣照片)——優先貼真照片(圓形裁切),没載出來時退回
+   原本放射狀金色漸層+深色外緣描邊。 */
+function drawPusherCoin(x, y, r){
+  agCtx.save();
+  agCtx.beginPath(); agCtx.arc(x, y, r, 0, Math.PI*2); agCtx.clip();
+  if(ARCADE_COIN_IMG.naturalWidth){
+    agCtx.drawImage(ARCADE_COIN_IMG, x-r, y-r, r*2, r*2);
+  } else {
+    const g = agCtx.createRadialGradient(x-r*.3,y-r*.35,r*.15, x,y,r);
+    g.addColorStop(0, '#fff3c4'); g.addColorStop(.55, '#e8c85a'); g.addColorStop(1, '#a8791f');
+    agCtx.fillStyle = g;
+    agCtx.fillRect(x-r, y-r, r*2, r*2);
+  }
+  agCtx.restore();
+  agCtx.strokeStyle = '#6b4f18'; agCtx.lineWidth = 1.2;
+  agCtx.beginPath(); agCtx.arc(x, y, r, 0, Math.PI*2); agCtx.stroke();
 }
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
