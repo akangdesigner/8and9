@@ -2588,6 +2588,48 @@ function gambleResolve(cost, resolveFn){
     setTimeout(() => toast('你想起媽媽也是這樣。', 3200), 3200);
   }
 }
+/* 機台真的有演出/操作了(2026-08-26,kc:「遊戲內容照你說的做」,見討論
+   當下提的分層方案)——slot/roulette 是純視覺演出,轉輪/輪盤跑完固定時間
+   才呼叫 gambleResolve(),機率完全不受這段演出影響(跟功德箱那類選單式
+   互動同一個「決定權在遊戲端」的精神,沒有因為加了動畫就變成玩家能
+   影響機率);pusher 是三台裡唯一真的看手感的——指示條左右來回跑,玩家
+   按空白鍵卡時機,卡得準不准直接改這把的中獎機率。三台共用同一個狀態機
+   `ARCADE_ANIM`,`busy=true` 鎖住室內移動,跑完/操作完才解鎖。
+   `kind==='pusher'` 這支的空白鍵不是「按下去看結果」的觸發鍵那麼簡單——
+   它要在 `updateIndoor()` 早退之前先被 keydown 攔截(見下面 keydown 那段
+   新增的判斷),不然會落進 openIndoorSpot(IN.near) 那條路徑,被
+   `if(busy||dlg.on) return;` 擋掉,空白鍵等於失靈。 */
+const ARCADE_ANIM = { active:false, kind:null, t:0, dur:0, cb:null, barPos:0, barDir:1, outcome:null };
+/* slot/roulette 的 outcome 在開始演出**之前**就先擲骰決定好(見下面
+   openIndoorSpot() 的 'slot'/'roulette' 分支),存在 ARCADE_ANIM.outcome——
+   drawArcadeAnim() 收尾那幾百毫秒要顯示「對上的顏色」,跟最後真正
+   gambleResolve() 用的是同一份結果,不是動畫演一套、結算另外骰一次。 */
+function startArcadeSpin(kind, dur, outcome, onDone){
+  ARCADE_ANIM.active = true; ARCADE_ANIM.kind = kind; ARCADE_ANIM.t = 0; ARCADE_ANIM.dur = dur;
+  ARCADE_ANIM.outcome = outcome; ARCADE_ANIM.cb = onDone; busy = true;
+}
+function startPusherGame(){
+  ARCADE_ANIM.active = true; ARCADE_ANIM.kind = 'pusher'; ARCADE_ANIM.barPos = 0; ARCADE_ANIM.barDir = 1;
+  busy = true;
+}
+/* 推幣機命中判定(2026-08-26)——sweet spot 卡在正中央(0.5)附近,離中心
+   越近中獎機率越高。三段門檻(準/普通/差)是這輪先抓的小的可逆數字,
+   賠率(payout)也跟著分三級,獎勵真的卡準的那一下。 */
+function resolvePusherLockIn(){
+  if(!ARCADE_ANIM.active || ARCADE_ANIM.kind !== 'pusher') return;
+  const pos = ARCADE_ANIM.barPos;
+  ARCADE_ANIM.active = false; busy = false;
+  gambleResolve(20, () => {
+    const dist = Math.abs(pos - .5);
+    const tier = dist <= .12 ? 'great' : dist <= .3 ? 'ok' : 'bad';
+    const chance = tier === 'great' ? .8 : tier === 'ok' ? .45 : .15;
+    const win = Math.random() < chance;
+    if(!win) return { payout:0, mood:4, line:'那疊代幣晃了一下，還是沒掉下來。' };
+    const payout = tier === 'great' ? 45 : 30;
+    return { payout, mood:4,
+      line: tier === 'great' ? '卡得正準——一整排代幣被推下來了。' : '一小疊代幣被推下來，落進出幣口。' };
+  });
+}
 /* 結帳(2026-08-24 kc:「買東西要加入去結帳的流程」)——鮮食櫃/貨架/飲料櫃
  * 選了東西不再當場扣錢,先進 `IN.basket`(拿在手上),真正的金錢/飽足/情緒
  * 變動延後到櫃台按「結帳」才一次算。沒結帳就想走出門口會被擋(見
@@ -2794,15 +2836,21 @@ function openIndoorSpot(id){
      說一聲就改。 */
   if(PLACE === 'arcade'){
     if(id === 'door'){ leaveIndoor(); return; }
+    /* 三台機台「做真的遊戲」(2026-08-26,kc)——slot/roulette 先擲骰決定
+       outcome,再交給 startArcadeSpin() 跑一段固定時間的純視覺演出(轉輪/
+       輪盤),演出跑完才呼叫 gambleResolve()(機率不受演出影響,見上面
+       ARCADE_ANIM 那則筆記);pusher 沒有預先擲骰,是真的看操作
+       (startPusherGame() 開始跑指示條,玩家按空白鍵鎖定時機,
+       resolvePusherLockIn() 才骰,見那個函式)。 */
     else if(id === 'slot'){
       openMenu('吃角子老虎', [
         { label:'拉一次', cost:'$50', cls: ST.money<50?'bad':'', run:() => {
-            gambleResolve(50, () => {
-              const r = Math.random();
-              if(r < .05) return { payout:500, mood:6, line:'三顆金磚排成一線——中大獎了！' };
-              if(r < .20) return { payout:100, mood:6, line:'兩顆對上，小賺一筆。' };
-              return { payout:0, mood:6, line:'轉輪停下，什麼都沒對上。' };
-            });
+            if(ST.money < 50){ toast('你身上不夠。', 2000); return; }
+            const r = Math.random();
+            const outcome = r < .05 ? { payout:500, mood:6, line:'三顆金磚排成一線——中大獎了！', tier:'jackpot' }
+                           : r < .20 ? { payout:100, mood:6, line:'兩顆對上，小賺一筆。', tier:'small' }
+                           : { payout:0, mood:6, line:'轉輪停下，什麼都沒對上。', tier:'lose' };
+            startArcadeSpin('slot', 1100, outcome, () => gambleResolve(50, () => outcome));
           } },
         { label:'走開', cls:'back', run(){} }
       ]);
@@ -2811,20 +2859,20 @@ function openIndoorSpot(id){
     else if(id === 'roulette'){
       openMenu('俄羅斯輪盤', [
         { label:'押紅／黑', cost:'$100', cls: ST.money<100?'bad':'', run:() => {
-            gambleResolve(100, () => {
-              const win = Math.random() < 18/37;
-              return win
-                ? { payout:200, mood:8, line:'球停在你押的顏色上，莊家推了兩倍籌碼過來。' }
-                : { payout:0, mood:8, line:'球彈進另一色的格子，籌碼被收走了。' };
-            });
+            if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
+            const win = Math.random() < 18/37;
+            const outcome = win
+              ? { payout:200, mood:8, line:'球停在你押的顏色上，莊家推了兩倍籌碼過來。' }
+              : { payout:0, mood:8, line:'球彈進另一色的格子，籌碼被收走了。' };
+            startArcadeSpin('roulette', 1400, outcome, () => gambleResolve(100, () => outcome));
           } },
         { label:'押單一號碼', cost:'$100', cls: ST.money<100?'bad':'', run:() => {
-            gambleResolve(100, () => {
-              const win = Math.random() < 1/37;
-              return win
-                ? { payout:3600, mood:8, line:'球停在你押的那個號碼上——你自己都愣住了。' }
-                : { payout:0, mood:8, line:'球停在別的號碼，你押的那格空的。' };
-            });
+            if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
+            const win = Math.random() < 1/37;
+            const outcome = win
+              ? { payout:3600, mood:8, line:'球停在你押的那個號碼上——你自己都愣住了。' }
+              : { payout:0, mood:8, line:'球停在別的號碼，你押的那格空的。' };
+            startArcadeSpin('roulette', 1400, outcome, () => gambleResolve(100, () => outcome));
           } },
         { label:'走開', cls:'back', run(){} }
       ]);
@@ -2833,12 +2881,8 @@ function openIndoorSpot(id){
     else if(id === 'pusher'){
       openMenu('推幣機', [
         { label:'投 $20', cost:'$20', cls: ST.money<20?'bad':'', run:() => {
-            gambleResolve(20, () => {
-              const win = Math.random() < .5;
-              return win
-                ? { payout:30, mood:4, line:'一小疊代幣被推下來，落進出幣口。' }
-                : { payout:0, mood:4, line:'那疊代幣晃了一下，還是沒掉下來。' };
-            });
+            if(ST.money < 20){ toast('你身上不夠。', 2000); return; }
+            startPusherGame();
           } },
         { label:'走開', cls:'back', run(){} }
       ]);
@@ -3352,6 +3396,29 @@ function updateIndoor(dt){
      跟下一段對話中間有一小段 busy/dlg.on 都是 false 的空檔,那段空檔方向鍵
      還是會動,所以要在這裡明講擋掉,不是繞個彎湊巧擋住)。 */
   if(PLACE === 'massage') return;
+  /* 機台演出/推幣機小遊戲進行中(2026-08-26)——整段搶走輸入,跟 walkTarget
+     那段同一個精神。pusher 的指示條每幀來回跑(ping-pong,0~1 之間),
+     slot/roulette 只是單純倒數計時,時間到才呼叫 cb()(真正的
+     gambleResolve())。pusher 的「按空白鍵鎖定」攔在 keydown 那邊
+     (resolvePusherLockIn()),不是這裡——這裡只負責指示條本身的移動。 */
+  if(ARCADE_ANIM.active){
+    if(ARCADE_ANIM.kind === 'pusher'){
+      ARCADE_ANIM.barPos += ARCADE_ANIM.barDir * dt * .0016;
+      if(ARCADE_ANIM.barPos >= 1){ ARCADE_ANIM.barPos = 1; ARCADE_ANIM.barDir = -1; }
+      else if(ARCADE_ANIM.barPos <= 0){ ARCADE_ANIM.barPos = 0; ARCADE_ANIM.barDir = 1; }
+      hintEl.innerHTML = '按 <b>空白鍵</b> 卡時機';
+      hintEl.classList.add('on');
+    } else {
+      ARCADE_ANIM.t += dt;
+      hintEl.classList.remove('on');
+      if(ARCADE_ANIM.t >= ARCADE_ANIM.dur){
+        const cb = ARCADE_ANIM.cb; ARCADE_ANIM.active = false; ARCADE_ANIM.cb = null; busy = false;
+        cb && cb();
+      }
+    }
+    IN.near = null;
+    return;
+  }
   /* 自動走位(2026-08-18,媽媽借錢那段「先說欸→你自動走到她面前→才開口
      借錢」用):`IN.walkTarget` 有值就整段搶走玩家輸入,自己把 IN.px 往
      target.px 推,跟按鍵移動共用同一個每幀步進量(1.35,沒有乘 dt——
@@ -3497,6 +3564,42 @@ const SCHOOL_DESKROW_OCCLUDE_PY = 245;
 function inSchoolDeskZone(px, py){
   return py < SCHOOL_DESKROW_OCCLUDE_PY && px > 150 && px < 482;
 }
+/* 遊藝場機台演出(2026-08-26)——畫在 c2df(前景層),每幀蓋過 c2dbg 那張
+   靜態背景上原本畫死的機台圖案。座標吃 scene-arcade.js 的 SLOT/ROULETTE/
+   PUSHER 物件(邏輯 640 座標)乘 SC 換算成這張畫布的原生 px,跟 dad-drunk
+   那段疊圖同一個換算方式。 */
+function drawArcadeAnim(){
+  const A = ARCADE_ANIM;
+  if(A.kind === 'slot'){
+    const SL = SceneArcade.SLOT;
+    const sx = (SL.x+8)*SC, sy = (SL.y+14)*SC, sw = (SL.w-16)*SC, sh = 46*SC;
+    const settling = (A.dur - A.t) < 250;   // 最後 250ms 鎖定顏色,呼應真正的 outcome
+    const tier = A.outcome && A.outcome.tier;
+    const palette = ['#e8c85a','#e85a5a','#5ae87a'];
+    const cols = settling
+      ? (tier === 'jackpot' ? ['#e8c85a','#e8c85a','#e8c85a']
+         : tier === 'small' ? ['#e8c85a','#e8c85a','#5ae87a']
+         : ['#e8c85a','#e85a5a','#5ae87a'])
+      : [0,1,2].map(() => palette[Math.random()*palette.length|0]);
+    g2f.fillStyle = '#160910'; g2f.fillRect(sx, sy, sw, sh);
+    cols.forEach((c,i) => { g2f.fillStyle = c; g2f.fillRect(sx+(4+i*16)*SC, sy+10*SC, 10*SC, 26*SC); });
+  } else if(A.kind === 'roulette'){
+    const RL = SceneArcade.ROULETTE;
+    const cx = (RL.x+RL.w/2)*SC, cy = (RL.y+RL.h/2)*SC, r = 26*SC;
+    const ease = 1 - Math.pow(1 - Math.min(1, A.t/A.dur), 3);
+    const angle = 3.2 * 2*Math.PI * ease;
+    const bx = cx + Math.cos(angle)*r, by = cy + Math.sin(angle)*r*.5;
+    g2f.fillStyle = '#f2e9d0';
+    g2f.beginPath(); g2f.arc(bx, by, 4*SC, 0, Math.PI*2); g2f.fill();
+  } else if(A.kind === 'pusher'){
+    const PU = SceneArcade.PUSHER;
+    const bx = PU.x*SC, by = (PU.y+PU.h+18)*SC, bw = PU.w*SC, bh = 10*SC;
+    g2f.fillStyle = '#1a1420'; g2f.fillRect(bx, by, bw, bh);
+    g2f.fillStyle = '#3a7a4a'; g2f.fillRect(bx+bw*.38, by, bw*.24, bh);   // sweet spot,跟 resolvePusherLockIn() 的 dist<=.12 對齊
+    const ix = bx + A.barPos*bw;
+    g2f.fillStyle = '#f2e9d0'; g2f.fillRect(ix-3*SC, by-4*SC, 6*SC, bh+8*SC);
+  }
+}
 function renderIndoorForeground(){
   g2f.clearRect(0,0,c2df.width,c2df.height);
   const hotHit = PLACE === 'store' && (
@@ -3548,6 +3651,7 @@ function renderIndoorForeground(){
     drawFloorShadow(g2f, DAD_TWEAK.x, DAD_TWEAK.bottom, dw);
     g2f.drawImage(dadDrunkImg, dadCrop.x,dadCrop.y,dadCrop.w,dadCrop.h, DAD_TWEAK.x, DAD_TWEAK.bottom-dh, dw, dh);
   }
+  if(PLACE === 'arcade' && ARCADE_ANIM.active) drawArcadeAnim();
   g2f.imageSmoothingEnabled = false;
   g2f.globalAlpha = .5;
   g2f.drawImage(grain, 0,0,LW,LH, 0,0,c2df.width,c2df.height);
@@ -3979,6 +4083,10 @@ addEventListener('keydown', e => {
   startBuskerAudio();          // 第一次按鍵才建立 AudioContext,見上面那段註解
   if(k === ' ' || k === 'enter'){
     e.preventDefault();
+    /* 推幣機小遊戲(2026-08-26)——攔在 advanceDialog() 前面,不然這個空白鍵
+       會被 openIndoorSpot(IN.near) 那條路徑吃掉(那邊一開頭就 `if(busy||
+       dlg.on) return;`,pusher 進行中 busy 是 true,空白鍵會直接失效)。 */
+    if(ARCADE_ANIM.active && ARCADE_ANIM.kind === 'pusher'){ resolvePusherLockIn(); return; }
     if(advanceDialog()) return;
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
