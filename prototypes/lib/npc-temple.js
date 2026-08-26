@@ -393,5 +393,37 @@
     ]
   };
 
-  root.NpcTemple = { NPCS, GONE, EMPTY, TROUPE };
+  /* ══ 顧場子 ══════════════════════════════════════════════
+   * 2026-08-26,見 DESIGN_NOTES「顧場子」節——這輪討論從「風評的動盪線」
+   * 收斂出來的第一個具體任務,不是整套動態系統。跟陣頭(TROUPE)無關,
+   * 不用先加入陣頭才能接,解鎖只看歸屬感(見 game.html talkToYuan())。
+   *
+   * 判定不做精算的秒數/距離門檻——kc 原話「主要是如果玩家的視線有看到
+   * 警察就可以回去通報了,來得及啦」,所以整個機制就是「玩家有沒有靠近
+   * 過走動中的小美哥」,不算真的視錐/遮蔽判斷。
+   */
+  const WATCH_JOB = {
+    hookText: '「欸，晚上有空嗎。」\n\n「遊藝場那邊，幫忙看一下有沒有條子在附近晃。」\n\n「看到人往那邊走，你就過來跟我講一聲，不用做別的。」',
+    refuseQuiet: '他沒有再說什麼，轉頭跟旁邊的人講話。',
+    success: {
+      beats: [
+        { who:'yuan', text:'「來了喔。」' },
+        { who:'pc',   text:'你比了個手勢，朝遊藝場那邊看一眼。' },
+        { who:'pc',   text:'阿源動作很快，收東西，人群散了一半。' },
+        { who:'pc',   text:'小美哥走到門口，只看到打烊的鐵門。' }
+      ],
+      quiet:'「算你一份。」他把錢塞進你手裡，沒有數。'
+    },
+    fail: {
+      beats: [
+        { who:'pc',   text:'小美哥走進去，裡面的人來不及全跑。' },
+        { who:'pc',   text:'阿源那邊被抄了一半，他臉很臭。' },
+        { who:'yuan', text:'「你在幹嘛。」' },
+        { who:'pc',   text:'他只說這句，沒有再多說。' }
+      ],
+      quiet:'你站在原地，不知道要往哪裡看。'
+    }
+  };
+
+  root.NpcTemple = { NPCS, GONE, EMPTY, TROUPE, WATCH_JOB };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

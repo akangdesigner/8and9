@@ -1207,6 +1207,67 @@ const NPCS = [
     skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c'
   })
 ];
+/* 小美哥的固定站位是 NPCS 陣列最後一個(上面那具),顧場子任務要暫時
+   讓他「消失」(藏起來,不是移除)、換一具會走路的分身頂上,見下面
+   WATCHJOB 那段。抓 NPCS.length-1 拿引用,比另外拆一個 const 出來、
+   插進陣列宣告中間好維護——陣列本身的宣告順序/排列不用跟著動。 */
+const brotherNPC = NPCS[NPCS.length - 1];
+
+/* 顧場子(2026-08-26)——設計討論見 docs/DESIGN_NOTES.md「顧場子」節,
+   一句話版本:阿源找你在遊藝場(博弈店)附近看有沒有小美哥(警察)過來,
+   看到了跑去跟阿源講就算成功。解鎖只看歸屬感,跟陣頭無關。
+   路線借用 lib/scene-city3d.js 既有的巡邏系統(buildNPC opts.path,
+   PEDESTRIANS 本來就在用,不是新做的移動邏輯)。
+
+   ⚠ 路線**不是**從小美哥平常站的後火車站巡邏點(48,74)走過來——原本
+   想借 scene-city3d.js 的斜巷子 alleyDiag(12,27,48,57)接過去,實際
+   用 __dbg.city.blocked() 逐點核對(2026-08-26 這輪在瀏覽器裡量的)
+   發現這條斜巷子自己的牆穿模判定有 bug:alleyDiag() 兩側牆的碰撞箱是
+   AABB 近似,長度乘上去之後箱體大到把走道中線自己吃掉,巷子中段整條
+   都判定成「撞牆」,長度較短的直巷子 alley() 沒有這個問題(牆體
+   hw/hd 沒有隨 len 一起長)。這是既有巷子系統的既存 bug,不是這次
+   新增的東西,這輪範圍只到繞開它,沒有動 scene-city3d.js 去修根本
+   原因(那是影響全部斜巷子的改動,blast radius 比這個任務大,要修
+   再另外跟 kc 討論)。而且用 BFS 現場量過,後火車站那個街區跟中華路
+   這邊完全沒有短的行人捷徑接通(唯一連得到的路線要繞到地圖東側 x≈79
+   那條大馬路,130+ 單位,太長也太繞,失去「看到人走過來」的緊湊感)。
+   改成小美哥從中華路本身的人行道(z≈10,跟玩家平常走的同一條路)遠處
+   走過來,終點是遊藝場門口——整段路線全程都在玩家熟悉、有燈光的街道
+   上,不會冒出來自一個沒有貼圖的醜陋空地,而且整段都用 __dbg.city.
+   blocked() 每 0.3 單位取樣核對過,乾淨無阻擋。犧牲的是「真的從他
+   後火車站的崗位走來」這個細節,換來路線可靠+畫面好看,這裡我先這樣
+   選,不喜歡跟我說一聲就改。 */
+const WATCHJOB_PATH = [[60, 10], [0, 10], [0, 15]];
+const WATCHJOB = { active:false, spotted:false, resolved:false, walker:null, lastDay:-1 };
+function startWatchJob(){
+  WATCHJOB.active = true; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
+  brotherNPC.group.visible = false;
+  WATCHJOB.walker = buildNPC(THREE, scene, {
+    x:WATCHJOB_PATH[0][0], z:WATCHJOB_PATH[0][1], rotationY:-Math.PI*.5, rig:'m2',
+    skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c',
+    path: WATCHJOB_PATH
+  });
+  NPCS.push(WATCHJOB.walker);
+  toast('你走到遊藝場附近，盯著巷口。', 2800);
+}
+/* success=true(玩家有看到、回去跟阿源講到)/false(小美哥先走到門口)
+   兩邊都收尾同一套:分身 NPC 移除、小美哥固定站位那具恢復顯示、
+   WATCHJOB 狀態歸零(lastDay 卡住同一天不會再被邀約第二次)。 */
+function resolveWatchJob(success){
+  if(WATCHJOB.resolved) return;
+  WATCHJOB.resolved = true; WATCHJOB.active = false; WATCHJOB.lastDay = day;
+  scene.remove(WATCHJOB.walker.group);
+  const idx = NPCS.indexOf(WATCHJOB.walker);
+  if(idx >= 0) NPCS.splice(idx, 1);
+  WATCHJOB.walker = null;
+  brotherNPC.group.visible = true;
+  const D = success ? NpcTemple.WATCH_JOB.success : NpcTemple.WATCH_JOB.fail;
+  playBeats(D.beats, 0, () => {
+    if(success){ chg('money', 1000); chg('calm', 6); chg('mood', 8); }
+    else { chg('money', -300); chg('calm', -6); chg('mood', -8); }
+    toast(D.quiet, 3200);
+  });
+}
 
 /* 中華路⇄廟口路那條巷子(2026-08-17,kc 要求)——kc 原話「這裡是嫖妓專用
    的巷子」。座標對齊 lib/scene-city3d.js 的 alley(-24, -27, -51)那條,
@@ -3735,6 +3796,21 @@ function updateCity(dt){
   hero.animate(dt, moving, run, !!ridingMoto);      // 第 4 參數:騎乘中蓋掉 idle/walk/run,撐坐姿(見 scene-city3d.js)
   NPCS.forEach(n => n.animate(dt, pos));            // pos 給小步待機拿去算轉頭朝向,見 buildNPC 註解
 
+  /* 顧場子(2026-08-26)——見 WATCHJOB 那則長筆記。「看到了沒」不做視錐/
+     遮蔽判斷,單純玩家有沒有靠近過走動中的小美哥(kc:「主要是如果玩家的
+     視線有看到警察就可以回去通報了,來得及啦」)。半徑 16 比一般互動範圍
+     (3.2)寬很多,因為這是「遠遠看到人影」不是「走到面前說話」。走到門口
+     (路徑最後一點)前都沒被看到算沒通報成功,直接判失敗。 */
+  if(WATCHJOB.active && WATCHJOB.walker){
+    const wp = WATCHJOB.walker.group.position;
+    if(!WATCHJOB.spotted && Math.hypot(pos.x-wp.x, pos.z-wp.z) < 16){
+      WATCHJOB.spotted = true;
+      toast('你看到小美哥往遊藝場那邊走了——快去跟阿源說！', 3000);
+    }
+    const door = WATCHJOB_PATH[WATCHJOB_PATH.length-1];
+    if(Math.hypot(wp.x-door[0], wp.z-door[1]) < 1.2) resolveWatchJob(false);
+  }
+
   /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
      dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
      用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
@@ -4096,6 +4172,26 @@ const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
    這輪只接「夠格之後會發生什麼」,「不夠格主動去問會被怎麼拒絕」留給
    之後真的要做陣頭音遊時一起處理。 */
 function talkToYuan(){
+  /* 顧場子(2026-08-26)——見上面 WATCHJOB 那則長筆記+ DESIGN_NOTES「顧場子」節。
+     兩個分支都攔在陣頭/朋友邏輯最前面:回報優先權最高(玩家正是為了這件事
+     跑過來),邀約其次。刻意不卡 joinedTroupe——kc 原話「不想限制大家一定
+     要加陣頭」,解鎖只看歸屬感,兩條線各自獨立門檻,不疊加。 */
+  if(WATCHJOB.active && WATCHJOB.spotted && !WATCHJOB.resolved){
+    resolveWatchJob(true);
+    return;
+  }
+  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && ST.calm >= 80){
+    say('yuan', NpcTemple.WATCH_JOB.hookText, () => {
+      openMenu('阿源', [
+        { label:'好', run(){ startWatchJob(); } },
+        { label:'不要', cls:'back', run(){
+            chg('calm', -3);
+            toast(NpcTemple.WATCH_JOB.refuseQuiet, 2600);
+          } }
+      ]);
+    });
+    return;
+  }
   if(!YUAN.debuted){
     const gate = NpcTemple.TROUPE.need;
     if(ST.cool >= gate.cool && ST.star >= gate.repMin){
@@ -4692,6 +4788,9 @@ window.__dbg = {
      見 talkToAyi()/ayiBuyMenu() 那則筆記。 */
   joinedTroupe: (v) => { if(v != null) joinedTroupe = v; return joinedTroupe; },
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
+  WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
+  spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
+
   MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
   KAI, talkToKai, talkToTeacher,
   indoorCalib(){
