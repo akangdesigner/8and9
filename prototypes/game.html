@@ -2809,24 +2809,37 @@ function showSlotBets(){
   });
   agButton('走開', '', 'back', closeArcadeGame);
 }
+/* 押注選項改成五個(2026-08-26,kc:「選項改成壓紅 壓黑 壓奇數 壓偶數
+   壓0」)——原本「押紅／黑」含糊指同一個按鈕,拆成真的紅/黑/奇/偶四個
+   各自獨立的「賠率相同注」(真實輪盤的 even-money 外圍注,18/37 中,
+   賠 2 倍,見下面共用陣列),0 維持原本「押單一號碼」那個特例(1/37 中,
+   賠 36 倍——0 本身不算奇偶/紅黑,是唯一沒被前四個涵蓋到的格子)。 */
+const ROULETTE_EVEN_MONEY_BETS = [
+  { label:'押紅', winLine:'球停在紅色的格子上，莊家推了兩倍籌碼過來。', loseLine:'球彈進黑色的格子，籌碼被收走了。' },
+  { label:'押黑', winLine:'球停在黑色的格子上，莊家推了兩倍籌碼過來。', loseLine:'球彈進紅色的格子，籌碼被收走了。' },
+  { label:'押奇數', winLine:'球停在奇數格，莊家推了兩倍籌碼過來。', loseLine:'球停在偶數格，籌碼被收走了。' },
+  { label:'押偶數', winLine:'球停在偶數格，莊家推了兩倍籌碼過來。', loseLine:'球停在奇數格，籌碼被收走了。' }
+];
 function showRouletteBets(){
   agBody.textContent = ''; agActions.innerHTML = '';
-  agButton('押紅／黑', '$100', ST.money<100?'bad':'', () => {
-    if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
-    agActions.innerHTML = ''; agBody.textContent = '';
-    const win = Math.random() < 18/37;
-    const outcome = win
-      ? { payout:200, mood:8, line:'球停在你押的顏色上，莊家推了兩倍籌碼過來。' }
-      : { payout:0, mood:8, line:'球彈進另一色的格子，籌碼被收走了。' };
-    startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
+  ROULETTE_EVEN_MONEY_BETS.forEach(b => {
+    agButton(b.label, '$100', ST.money<100?'bad':'', () => {
+      if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
+      agActions.innerHTML = ''; agBody.textContent = '';
+      const win = Math.random() < 18/37;
+      const outcome = win
+        ? { payout:200, mood:8, line:b.winLine }
+        : { payout:0, mood:8, line:b.loseLine };
+      startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
+    });
   });
-  agButton('押單一號碼', '$100', ST.money<100?'bad':'', () => {
+  agButton('押0', '$100', ST.money<100?'bad':'', () => {
     if(ST.money < 100){ toast('你身上不夠。', 2000); return; }
     agActions.innerHTML = ''; agBody.textContent = '';
     const win = Math.random() < 1/37;
     const outcome = win
-      ? { payout:3600, mood:8, line:'球停在你押的那個號碼上——你自己都愣住了。' }
-      : { payout:0, mood:8, line:'球停在別的號碼，你押的那格空的。' };
+      ? { payout:3600, mood:8, line:'球穩穩停在 0——你自己都愣住了。' }
+      : { payout:0, mood:8, line:'球停在別的格子，你押的 0 沒中。' };
     startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
   });
   agButton('走開', '', 'back', closeArcadeGame);
