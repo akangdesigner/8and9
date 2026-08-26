@@ -3760,10 +3760,16 @@ function agDrawSpin(){
      推幣機那張特寫,不能直接拿這兩個字串去查 ARCADE_MACHINE_IMG。 */
   agDrawIdle(A.kind.startsWith('pusher') ? 'pusher' : A.kind);
   if(A.kind === 'roulette'){
+    /* 球從外圈滑軌慢慢滑進內側號碼格(2026-08-26,kc:「軌跡會是從外圍
+       慢慢往內滑落才是正邏輯」)——半徑從 rOuter 線性滑向 rInner,跟角度
+       的 easeOut 分開算,角度負責「轉速變慢」,半徑負責「往內滑落」,
+       兩個真實世界裡本來就是同時但各自獨立發生的效果。 */
     const W = SceneArcade.CLOSEUP_ROULETTE_WHEEL;
-    const ease = 1 - Math.pow(1 - Math.min(1, A.t/A.dur), 3);
+    const t = Math.min(1, A.t/A.dur);
+    const ease = 1 - Math.pow(1 - t, 3);
     const angle = 3.2 * 2*Math.PI * ease;
-    const bx = W.cx + Math.cos(angle)*W.r, by = W.cy + Math.sin(angle)*W.r*.5;
+    const r = W.rOuter + (W.rInner - W.rOuter) * t;
+    const bx = W.cx + Math.cos(angle)*r, by = W.cy + Math.sin(angle)*r*.82;
     agCtx.fillStyle = '#f2e9d0';
     agCtx.beginPath(); agCtx.arc(bx, by, 8, 0, Math.PI*2); agCtx.fill();
   } else if(A.kind === 'pusher-drop'){

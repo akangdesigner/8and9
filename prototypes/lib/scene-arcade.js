@@ -139,10 +139,19 @@
      居中的輪盤特寫(kc:「換了一張更居中、數字更清楚的」,1254×1254 正方形,
      跟第一版 1536×1024 的構圖不一樣,座標重新量過)——game.html 的
      agDrawIdle() 用等比縮放置中貼進 640×420 畫布,scale≈.335、
-     offsetX≈110;輪盤本體肉眼量原圖大約 cx:627,cy:627,r:400(數字圈
-     那一圈,不含最外層木框),換算成畫布座標後的結果。 */
+     offsetX≈110。
+     **2026-08-26 第三輪,kc 截圖抓到球停在木頭區、沒對到號碼格**——
+     原本單一半徑 134 量得太小,球停在號碼圈內側的木頭上。同一輪 kc
+     還指出球的軌跡邏輯不對:「他的軌跡會是從外圍慢慢往內滑落才是正
+     邏輯」(真的輪盤是球先在外圈滑軌快速轉,轉速變慢才掉落、滑進內側
+     的號碼格)——改成 `rOuter`(外圈滑軌,球開始的地方)/`rInner`
+     (號碼格,球停的地方)兩個半徑,`agDrawSpin()` 隨時間從 rOuter
+     線性滑向 rInner,不是固定半徑繞圈。兩個數字照 kc 那張截圖(球位置
+     vs 號碼格位置的比例)重新估的,球位置離中心的距離大約只有號碼格
+     的 83%,原本的 134 上調成 rOuter:210(外圈滑軌)/rInner:160
+     (號碼格,原本 134 的 1.2 倍)。 */
   const CLOSEUP_SLOT_SCREEN = { x:218, y:66, w:204, h:140 };
-  const CLOSEUP_ROULETTE_WHEEL = { cx:320, cy:210, r:134 };
+  const CLOSEUP_ROULETTE_WHEEL = { cx:320, cy:210, rOuter:210, rInner:160 };
   const CLOSEUP_PUSHER_GLASS = { x:180, y:52, w:280, h:170 };
   function renderCloseup(g, kind) {
     const { px, alp } = tools(g);
