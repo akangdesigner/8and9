@@ -2749,7 +2749,10 @@ function gambleResolve(cost, resolveFn){
   chg('mood', r.mood);
   const net = cost - r.payout;
   if(net > 0) ARCADE_GAMBLE.netLoss += net;
-  toast(r.line + (r.payout ? `\n（拿回 $${r.payout}）` : ''), 3000);
+  /* 情緒變化這輪起要在對話匡裡看得到,不只是 HUD 上一閃而過的飄字
+     (2026-08-26,kc:「玩遊戲情緒值會上升,虧錢會略略下降,對話匡要
+     顯示」)——toast()跟agShowResult()(見下面)都補上這行。 */
+  toast(r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '') + `\n（情緒 +${r.mood}）`, 3000);
   if(!ARCADE_GAMBLE.momEchoShown && ARCADE_GAMBLE.netLoss >= 500){
     ARCADE_GAMBLE.momEchoShown = true;
     setTimeout(() => toast('你想起媽媽也是這樣。', 3200), 3200);
@@ -2823,7 +2826,9 @@ function resolvePusherLockIn(){
     const tier = dist <= .05 ? 'great' : dist <= .2 ? 'ok' : 'bad';
     const chance = tier === 'great' ? .7 : tier === 'ok' ? .3 : .08;
     win = Math.random() < chance;
-    if(!win) return { payout:0, mood:4, line:'那疊代幣晃了一下，還是沒掉下來。' };
+    /* 情緒:虧錢那次打折(2026-08-26,kc:「玩遊戲情緒值會上升,虧錢會略略
+       下降」)——4→3,見 spinRouletteTo() 旁邊那則同一輪的筆記。 */
+    if(!win) return { payout:0, mood:3, line:'那疊代幣晃了一下，還是沒掉下來。' };
     const payout = tier === 'great' ? 25 : 30;
     return { payout, mood:4,
       line: tier === 'great' ? '卡得正準——一整排代幣被推下來了。' : '一小疊代幣被推下來，落進出幣口。' };
@@ -2837,7 +2842,7 @@ function resolvePusherLockIn(){
    重新走一次 openIndoorSpot()。 */
 function agShowResult(r, replay){
   agActions.innerHTML = '';
-  agBody.textContent = r ? (r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '')) : '';
+  agBody.textContent = r ? (r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '') + `\n（情緒 +${r.mood}）`) : '';
   if(r) agButton('再玩一次', '', '', replay);
   agButton('走開', '', 'back', closeArcadeGame);
 }
@@ -2848,9 +2853,11 @@ function showSlotBets(){
     if(ST.money < 50){ toast('你身上不夠。', 2000); return; }
     agActions.innerHTML = ''; agBody.textContent = '';
     const rr = Math.random();
+    /* 情緒:虧錢那次打折(2026-08-26,kc:「玩遊戲情緒值會上升,虧錢會略略
+       下降」)——6→4,見 spinRouletteTo() 旁邊那則同一輪的筆記。 */
     const outcome = rr < .05 ? { payout:500, mood:6, line:'三顆金磚排成一線——中大獎了！', tier:'jackpot' }
                    : rr < .20 ? { payout:100, mood:6, line:'兩顆對上，小賺一筆。', tier:'small' }
-                   : { payout:0, mood:6, line:'轉輪停下，什麼都沒對上。', tier:'lose' };
+                   : { payout:0, mood:4, line:'轉輪停下，什麼都沒對上。', tier:'lose' };
     startArcadeSpin('slot', 1100, outcome, () => agShowResult(gambleResolve(50, () => outcome), showSlotBets));
   });
   agButton('走開', '', 'back', closeArcadeGame);
@@ -2918,7 +2925,10 @@ function spinRouletteTo(betLabel, win, winLine, loseLine, payout){
   const idx = pool[Math.random()*pool.length|0];
   const number = ROULETTE_WHEEL_ORDER[idx];
   const spins = 3 + Math.floor(Math.random()*2);
-  const outcome = { payout: win ? payout : 0, mood:8, number,
+  /* 情緒:輸贏都加,但虧錢那次打折(2026-08-26,kc:「玩遊戲情緒值會上升,
+     虧錢會略略下降」)——8→5,不是歸零或倒扣,呼應「賭癮爽在玩的當下」
+     這個原本的設計精神,只是虧錢時那份爽感打個折,不是完全不加。 */
+  const outcome = { payout: win ? payout : 0, mood: win ? 8 : 5, number,
     line: (win ? winLine : loseLine) + `（${number} ${rouletteColorNameAt(idx)}）`,
     finalAngle: spins*2*Math.PI + rouletteIndexAngle(idx) };
   startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
