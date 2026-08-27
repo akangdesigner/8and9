@@ -1166,11 +1166,14 @@ const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{}, newsConfronted:false 
 const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
 /* 算命攤・神棍(2026-08-27,kc:「角落一點,而且他就是一個桌子上面放簽筒
    然後要有個神棍去顧攤」)——座標對齊 scene-city3d.js 那張桌子(x:-50,
-   z:-96),站在桌子北側(z 再往北推 1.6,跟 AYI/ACHENG 站在攤子後方同一個
-   偏移量),面向南邊(玩家從廟埕開闊處走過來那側)。**只放外觀,沒有
-   talk[]/events[] 互動資料**——DESIGN_NOTES「待辦:廟口算命擺攤」還在
-   卡標題階段,kc 交代不要腦補內容,這裡先不接對話。 */
-const FORTUNE = { x:-50, z:-97.6 };
+   z:-96),站在桌子北側,面向南邊(玩家從廟埕開闊處走過來那側)。**只放
+   外觀,沒有 talk[]/events[] 互動資料**——DESIGN_NOTES「待辦:廟口算命
+   擺攤」還在卡標題階段,kc 交代不要腦補內容,這裡先不接對話。
+   z 偏移量(2026-08-27 第二輪,kc 拉桌子滑桿定案桌深 2.95 之後):原本
+   -1.6 是配第一版小桌子(桌深 1.0)算的,桌深變大之後站位會卡進桌子裡,
+   改成「桌深一半 + 0.6 淨空」(跟 scene-city3d.js fortuneStallCollider
+   的 hd = d/2+1.1 同一個量級抓的,人站的位置本來就要在那個碰撞範圍內)。 */
+const FORTUNE = { x:-50, z:-96 - (2.95/2 + .6) };
 
 /* 阿源好朋友門檻(2026-08-20,kc:「他會叫你去刺青並且帶女朋友來,帥潮
    >30 他才會跟你當好朋友,跟學校女生交往也會加值」)——跟阿姨/阿成不同,

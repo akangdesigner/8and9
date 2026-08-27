@@ -1133,7 +1133,7 @@ export function buildCity(THREE, scene){
     const TOWERS = [
       { x:-58, w:18, file:'office-tower-1.png', color:0x8a97a0 },   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面(整棟樓風格)還沒生,先素色佔位
       { x:-16, w:14, file:'office-tower-2.png', sideFile:'office-tower-2-side.png?v=2', color:0xb08858 },   // 學校跟火車站中間,只有 16 寬的窄縫,樓也窄一點——古銅色帷幕,側面 v2(2026-08-26,kc:「他是大樓二」,原本以為 v2 那張是大樓一,修正)
-      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材,正面圖還沒生,先素色佔位,側面已經有
+      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材,正面圖 2026-08-27 補上(kc 拿側面圖當參考生的,樓層對齊)
     ];
     TOWERS.forEach(cfg => {
       const h = 50, w = cfg.w, d = DEPTH;
@@ -2072,7 +2072,9 @@ export function buildCity(THREE, scene){
      再猜一輪,直接把尺寸(w/d/legH)暴露給 game.html 的滑桿面板即時改,
      kc 自己拉到滿意為止。整組(桌面+四腳+籤筒+籤)重蓋比另外算縮放/
      位移代數簡單,一律先清掉舊 mesh 再照最新尺寸重畫一次。 */
-  const FORTUNE_STALL = { x:-50, z:-96, w:1.8, d:1.0, legH:1.5 };
+  /* 最終尺寸(2026-08-27)——kc 自己拉滑桿拉到桌寬 3.45/桌深 2.95/桌高
+     2.20 定案,寫死進預設值,滑桿還留著(方便之後想再調)。 */
+  const FORTUNE_STALL = { x:-50, z:-96, w:3.45, d:2.95, legH:2.2 };
   const fortuneStallCollider = { x:FORTUNE_STALL.x, z:FORTUNE_STALL.z, hw:1.0, hd:1.6 };
   colliders.push(fortuneStallCollider);
   landmarks.push({ x:FORTUNE_STALL.x, y:FORTUNE_STALL.legH+.6, z:FORTUNE_STALL.z, text:'算命攤' });
@@ -2102,6 +2104,26 @@ export function buildCity(THREE, scene){
     fortuneStallCollider.hd = d/2 + 1.1;
   }
   buildFortuneStall();
+  /* 算命攤周邊裝飾(2026-08-27,kc:「附近能不能多加一些裝飾,火把或啥的
+     裝神弄鬼,也可以放一些大樹植物機車都可以」)——火把是新的簡單發光
+     道具(木桿+發光多面體火焰,跟供桌香爐那顆發光小方塊同一招,不用
+     找素材);大樹/灌木/盆栽/機車全部直接呼叫既有函式(buildTree/
+     bushLine/addProp/parkMoto),沒有另外蓋系統。位置貼著西牆那一側,
+     圍出「算命攤自己的角落」,跟鴨頭/乾麵那排的熱鬧感區隔開。 */
+  function mysticTorch(x, z){
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.05,.07,1.8,8),
+        std({ color:0x3a2a1a, roughness:.9 })), x, .9, z, true, false);
+    add(new THREE.Mesh(new THREE.IcosahedronGeometry(.22,0),
+        glow(0xff7a2a,1.8)), x, 1.95, z, false, false);
+    lampSpots.push({ x, y:2.0, z, c:0xff8a3a, i:20, r:14 });
+  }
+  [[-52.3,-95.3],[-47.7,-95.3]].forEach(([tx,tz]) => mysticTorch(tx,tz));
+  buildTree(-57, -99, 1.4, 2);
+  bushLine(-59, -91, -59, -104);
+  addProp('planter', -47, -99.5, 1.0, 1.3, 0x3c5a2e);
+  /* 機車(parkMoto)要等下面 `const motos = []` 先跑過(TDZ,const 不像
+     function 宣告會被 hoist),這裡先留呼叫點的位置註解,實際呼叫挪到
+     那個陣列宣告後面(見下面「算命攤機車」那行)。 */
   function tableSet(x, z){
     add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) => add(box(.14,1.5,.14, M.plastic), x+a*1.05, .75, z+b*1.05));
@@ -2338,6 +2360,9 @@ export function buildCity(THREE, scene){
     [3,-13],[9,-13],[21,-13],[27,-13],
     [3,13],[9,13]
   ].forEach(([x,z], i) => parkMoto(x, z, i, x === 3 && z === -13));
+  /* 算命攤機車(2026-08-27,kc:「也可以放一些...機車都可以」)——停在
+     角落附近,靠西牆那側,不算進上面「機車行門口」那批的清點。 */
+  parkMoto(-56, -90, 6, false);
 
   /* 電線杆 + 路燈 */
   H_ROADS.forEach(r => {
