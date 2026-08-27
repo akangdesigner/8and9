@@ -1265,7 +1265,15 @@ function openArcadeGame(kind, cap){
   agBarEl.style.display = 'none';   // pusher 也先藏著,真的按下「投 $20」才出現,見 showPusherBets()
   agDrawIdle(kind);
 }
-function closeArcadeGame(){ agEl.classList.remove('on'); busy = false; }
+/* momEchoPending 在這裡(不是輸錢當下)才真的說出來,見上面 gambleResolve()
+   那則筆記——大面板先關掉,z-index:8 的對話匡才看得到。 */
+function closeArcadeGame(){
+  agEl.classList.remove('on'); busy = false;
+  if(ARCADE_GAMBLE.momEchoPending){
+    ARCADE_GAMBLE.momEchoPending = false;
+    say('pc', '你想起媽媽也是這樣。');
+  }
+}
 function agButton(label, cost, cls, run){
   const b = document.createElement('button');
   if(cls) b.className = cls;
@@ -3232,7 +3240,7 @@ function buy(price, feed, mood, line){
    再賭了」這種說教式收尾——這遊戲的規矩是講到這裡就停,讓玩家自己接。
    接在正常結果 toast 之後跳第二則(比照書架線索那套「先講結果、再跳
    獨立提示句」的節奏),不跟第一則擠在同一個 toast 裡。 */
-const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false, momConfronted: false };
+const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false, momEchoPending: false, momConfronted: false };
 function gambleResolve(cost, resolveFn){
   if(ST.money < cost){ toast('你身上不夠。', 2000); return null; }
   chg('money', -cost);
@@ -3245,9 +3253,17 @@ function gambleResolve(cost, resolveFn){
      (2026-08-26,kc:「玩遊戲情緒值會上升,虧錢會略略下降,對話匡要
      顯示」)——toast()跟agShowResult()(見下面)都補上這行。 */
   toast(r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '') + `\n（情緒 ${r.mood>0?'+':''}${r.mood}）`, 3000);
+  /* 2026-08-27,kc:「你想起媽媽也是這樣要自言自語的對話匡,比較有感」
+     ——原本用 toast() 飄過去,改成 say('pc', ...) 自言自語對話匡(WHO.pc
+     名字是「你」,本來就是給玩家內心話用的身分)比較有份量。不能在這裡
+     直接呼叫 say()——這時候 #arcadeGame 大面板還開著(z-index:9),
+     #dialog 只有 z-index:8,對話匡會被面板整片遮住,玩家看不到、以為
+     壞掉了。改成先記 momEchoPending,等玩家真的走開、大面板關掉
+     (closeArcadeGame())之後才把這句話說出來,不用去動全站共用的
+     z-index 排序。 */
   if(!ARCADE_GAMBLE.momEchoShown && ARCADE_GAMBLE.netLoss >= 500){
     ARCADE_GAMBLE.momEchoShown = true;
-    setTimeout(() => toast('你想起媽媽也是這樣。', 3200), 3200);
+    ARCADE_GAMBLE.momEchoPending = true;
   }
   return r;   // 給 #arcadeGame 大面板用來把結果文字寫進 agBody,不是只靠 toast 飄過去
 }
@@ -3378,12 +3394,16 @@ const ROULETTE_WHEEL_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,13,30,10,24,
 /* 顏色改成「按格子(index)量」,不是按數字查表(2026-08-26,kc:「這邊
    23 是黑欸」)——`23` 在真實輪盤規則裡是紅的,但這張 AI 生圖的顏色
    跟真實規則本來就對不上(已經確認號碼順序也對不上,見上面那則筆記),
-   繼續假設「紅黑照真實輪盤規則」只會一直踩到類似的坑。這輪直接寫腳本
-   在 `arcade-roulette.png` 上,對著每一格算出來的座標實際取樣像素顏色
-   (每格在 6 個半徑上取樣、多數決),36 格逐一量出真正的紅/黑,不是
-   查表猜的。只有 idx3(數字 19)取樣結果是 3:3 平手,肉眼在圖上確認過
-   偏紅,人工定為紅——其餘 35 格都有 4:2 以上的明確多數。 */
-const ROULETTE_COLOR_BY_INDEX = ['green','red','black','red','black','red','black','red','black','black','red','black','red','black','red','black','black','black','red','black','black','red','black','red','black','black','black','black','red','black','red','black','red','black','red','black'];
+   繼續假設「紅黑照真實輪盤規則」只會一直踩到類似的坑。
+   2026-08-26 那版是寫腳本在 `arcade-roulette.png` 上算座標取樣像素
+   (6 個半徑多數決),結果 2026-08-27 kc 截圖抓到還是有錯:「你黑紅
+   有錯欸,你直接看圖片不要用算的,數字對應的顏色不能錯」——像素取樣
+   腳本在算格子座標時跟真實照片(有真的透視、不是正圓)對不上,偏移
+   到鄰格,取樣到錯的顏色。這輪整個放棄用座標公式算,改成把圖片裁成
+   四塊肉眼看得清楚的局部特寫(頂/左/右/下四段)直接讀,36 格全部
+   重新核對過一次,有 13 格跟舊版不一樣(34/6/27/13(第一個)/36/13
+   (第二個)/30/16/20/1/31/14/9 這些格子紅黑對調)。 */
+const ROULETTE_COLOR_BY_INDEX = ['green','red','black','red','black','red','black','red','black','red','black','red','black','red','black','red','black','black','red','black','red','black','red','black','red','black','red','black','red','black','red','black','red','black','red','black'];
 const ROULETTE_ZERO_ANGLE_DEG = -93.4;
 function rouletteIndexAngle(i){
   return ROULETTE_ZERO_ANGLE_DEG*Math.PI/180 + i * (2*Math.PI/ROULETTE_WHEEL_ORDER.length);
