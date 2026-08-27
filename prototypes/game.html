@@ -5495,10 +5495,15 @@ function completeFortuneQuestAt(target){
 /* 每天限抽一次(2026-08-27,kc:「每天只能抽一次籤」)——FORTUNE.lastDrawDay
    在 drawFortuneSlip() 成功扣錢時寫入,同一天再點「抽籤詩」直接被擋掉,
    不重抽、不再扣錢,跟 ai-linebot 那頁「一天限抽一次」的原始設計同一個
-   精神(那頁後來因為 kc 自己要測試暫時解禁,這裡不用抄那個暫時放行,
-   直接做成正式版)。 */
+   精神。當初寫這裡的時候還說「那頁後來因為 kc 自己要測試暫時解禁,
+   這裡不用抄那個暫時放行」——結果同一天 kc 自己也撞到這個限制,要求
+   「現在測試階段先讓我隨便抽,正式的時候再限制」,還是加了同一種暫時
+   開關,只是留一個明確的旗標方便之後關掉,不是刪掉這條規則。
+   FORTUNE_TEST_UNLIMITED_DRAWS=true 這段是暫時的,收尾前記得改回
+   false,不要留到正式版。 */
+const FORTUNE_TEST_UNLIMITED_DRAWS = true;
 function openFortuneMenu(){
-  const drawnToday = FORTUNE.lastDrawDay === day;
+  const drawnToday = !FORTUNE_TEST_UNLIMITED_DRAWS && FORTUNE.lastDrawDay === day;
   openMenu('算命攤', [
     { label:'抽籤詩', cost: drawnToday ? '今天算過了' : '$20', cls: drawnToday || ST.money<20 ? 'bad' : '',
       run(){

@@ -618,6 +618,27 @@ export function buildCity(THREE, scene){
       buildBush(ax+dx*t+(Math.random()-.5)*.3, az+dz*t+(Math.random()-.5)*.3, .55+Math.random()*.35, variant);
     }
   }
+  /* 雜草區(2026-08-27,kc 看了算命攤北牆那排 bushLine() 截圖:「灌木叢
+     太小,那邊就是雜草區,至少要圍牆一半高,而且要很雜亂」)——跟
+     bushLine() 用同一個 buildBush() 積木,但這裡要的不是修剪整齊的
+     籬笆(公園/校門口那些 bushLine() 用途還是要維持原樣,不要跟著改),
+     是沒人管的雜草叢:尺寸拉大(scale .9~1.8,對應可視高度約 1.4~2.9,
+     templeWall() 的 wallH=3,至少過半);間距壓密(len/.7,比 bushLine()
+     的 len/1.15 更擠,叢與叢重疊);沿線的垂直/水平偏移都放大到 ±1.6
+     (bushLine() 只有 ±.3),讓輪廓歪七扭八不成一直線,不是照著線整齊
+     排一排。 */
+  function weedPatch(ax, az, bx, bz){
+    const dx = bx-ax, dz = bz-az, len = Math.hypot(dx,dz);
+    const steps = Math.max(1, Math.round(len/.7));
+    let prevVariant = 0;
+    for(let i=0; i<=steps; i++){
+      const t = steps ? i/steps : .5;
+      let variant = 1 + Math.floor(Math.random()*4);
+      if(variant === prevVariant) variant = 1 + (variant % 4);
+      prevVariant = variant;
+      buildBush(ax+dx*t+(Math.random()-.5)*1.6, az+dz*t+(Math.random()-.5)*1.6, .9+Math.random()*.9, variant);
+    }
+  }
 
   /* ===== 路口圓環(西園街 ⇄ 中華路)=====
    * kc 覺得整個路網太方正(2026-08-13)——不動路軸線,只在既有十字路口疊一個
@@ -2130,8 +2151,13 @@ export function buildCity(THREE, scene){
      z 抓 -113(離牆面 3 個單位,牆本身碰撞箱 pad 1.2,留出淨空不會卡
      模型),x 置中對齊算命攤(-50),跟桌子隔著一段廟埕空地。這叢灌木
      同時是 game.html BUSH_SPOT 那個跑腿任務的藏劍點,座標要跟這裡的
-     視覺位置對上,兩邊改動時要一起改。 */
-  bushLine(-60, -113, -40, -113);
+     視覺位置對上,兩邊改動時要一起改。
+     同一天再一輪,kc 看截圖回饋「灌木叢太小,那邊就是雜草區,至少要
+     圍牆一半高,而且要很雜亂」——改叫 weedPatch()(不是 bushLine(),
+     那個給公園/校門口那種修剪整齊的籬笆用,不要跟著這裡一起變高變
+     亂),尺寸/密度/亂度都比一般灌木叢誇張,詳細參數見 weedPatch()
+     定義那則筆記。 */
+  weedPatch(-60, -113, -40, -113);
   /* 機車(parkMoto)要等下面 `const motos = []` 先跑過(TDZ,const 不像
      function 宣告會被 hoist),這裡先留呼叫點的位置註解,實際呼叫挪到
      那個陣列宣告後面(見下面「算命攤機車」那行)。 */
