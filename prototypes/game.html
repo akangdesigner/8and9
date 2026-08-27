@@ -253,6 +253,42 @@
   #arcadeGame .agActions button.bad { color:#8c7a72; } #arcadeGame .agActions button.bad .cost { color:#a2564c; }
   #arcadeGame .agActions button.back { border-left-color:#39424f; color:#97a0ad; font-size:14px; }
 
+  /* 算命攤抽籤動畫(2026-08-27,kc:「算命會跳出一段動畫,可以參考xx專案
+     的機器人」)——kc 指的是他自己另一個 side project(ai-linebot,銀髮
+     長輩機器人的「抽籤詩」LIFF 頁,app/silver/fortune/page.tsx)。那頁的
+     節奏值得照抄:搖籤筒(shaking,900ms)→籤筒傾倒+一支籤飄落淡出
+     (popping,500ms)→翻出結果紙。這裡不是重新設計一套,是把那套節奏
+     搬進這個遊戲既有的深色面板語言(跟 #arcadeGame 同一份邊框/陰影/
+     字距數值,不是另外發明一套風格)。籤筒圖(fortune-cup.png)、籤詩紙
+     底圖(fortune-paper.jpg)直接搬那個專案現成的圖檔過來用(kc 自己的
+     素材,兩邊都是他的專案)。 */
+  #fortunePanel { position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+                  background:rgba(4,5,8,.86); z-index:9; }
+  #fortunePanel.on { display:flex; }
+  #fortunePanel .fpPanel { width:min(420px,88%); background:linear-gradient(180deg,rgba(14,18,26,.97),rgba(9,12,18,.98));
+    border:2px solid #55617a; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.6); padding:20px 26px 24px; text-align:center; }
+  #fortunePanel .fpCap { font-size:13px; letter-spacing:.24em; color:#d8b24a; margin-bottom:14px; }
+  #fortunePanel .fpStage img { width:120px; height:120px; object-fit:contain;
+    filter:drop-shadow(0 10px 20px rgba(0,0,0,.5)); }
+  #fortunePanel .fpStage.shaking img { animation:fpShake .3s ease-in-out infinite; }
+  @keyframes fpShake { 0%,100%{ transform:rotate(-13deg) translateX(-6px); } 50%{ transform:rotate(13deg) translateX(6px); } }
+  #fortunePanel .fpStage.tipping img { animation:fpTip .5s ease-out forwards; }
+  @keyframes fpTip { 0%{ transform:rotate(0deg); } 100%{ transform:rotate(22deg); } }
+  #fortunePanel .fpText { margin-top:14px; font-size:14.5px; color:#c7cdd8; letter-spacing:.04em; }
+  /* 結果紙(fpResult)預設藏著,drawFortuneSlip() 播完動畫才切換顯示——
+     跟 agBar 那套「display:none 預設藏,程式判斷才開」同一招。 */
+  #fortunePanel .fpResult { display:none; }
+  #fortunePanel .fpSlip { padding:4px; border:1.5px solid #a82a22; border-radius:6px;
+    background-image:url('../assets/tex/fortune-paper.jpg'); background-size:cover; background-position:center; }
+  #fortunePanel .fpSlipInner { border:2px solid #a82a22; border-radius:4px; padding:18px 14px 14px; }
+  #fortunePanel .fpGrade { font-size:20px; font-weight:900; color:#a82a22; letter-spacing:.15em; margin-bottom:10px; }
+  #fortunePanel .fpVerse { font-size:16px; font-weight:800; color:#2a2018; letter-spacing:.06em; margin-bottom:10px; }
+  #fortunePanel .fpMeaning { font-size:13.5px; color:#4a3c2e; line-height:1.7; }
+  #fortunePanel #fpClose { margin-top:16px; background:rgba(12,16,23,.95); color:#dfe4ea;
+    border:1px solid #3d4757; border-left:3px solid #d8b24a; padding:9px 20px;
+    font-size:14.5px; font-family:inherit; letter-spacing:.06em; cursor:pointer; border-radius:3px; }
+  #fortunePanel #fpClose:hover { background:rgba(32,40,53,.98); color:#fff; }
+
   #float { position:fixed; inset:0; pointer-events:none; z-index:7; }
   .fl { position:absolute; font-size:16px; letter-spacing:.06em; font-weight:600;
         text-shadow:0 2px 10px rgba(0,0,0,.9); animation:rise 1.5s ease-out both; }
@@ -395,6 +431,25 @@
     <div class="agActions" id="agActions"></div>
   </div>
 </div>
+<div id="fortunePanel">
+  <div class="fpPanel">
+    <div class="fpCap">算命攤</div>
+    <div class="fpStage" id="fpStage">
+      <img id="fpCup" src="../assets/tex/fortune-cup.png">
+      <div class="fpText" id="fpText"></div>
+    </div>
+    <div class="fpResult" id="fpResult">
+      <div class="fpSlip">
+        <div class="fpSlipInner">
+          <div class="fpGrade" id="fpGrade"></div>
+          <div class="fpVerse" id="fpVerse"></div>
+          <div class="fpMeaning" id="fpMeaning"></div>
+        </div>
+      </div>
+      <button id="fpClose">收下籤詩</button>
+    </div>
+  </div>
+</div>
 <div id="fade"><div class="place" id="fPlace"></div></div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
@@ -443,6 +498,12 @@ import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGrad
    動作都扣,是動到很多既有系統的大重構,今天先只接這三種新街上互動 +
    睡覺回滿,其餘之後再擴。 */
 const ST = { money:2000, full:42, calm:55, cool:8, mood:60, stamina:100, star:-30 };
+/* 指標上限(2026-08-27,kc:「算命攤道具甚至體力上限增加這種」)——原本
+   chg() 對 full/calm/cool/mood/stamina 一律寫死封頂在 100,這是遊戲第一次
+   出現「上限本身可以被墊高」的道具,所以拆出一張獨立的上限表,chg() 改
+   查這張表而不是寫死的 100。money/star 不在這張表裡(money 本來就沒有
+   上限,star 是雙向 -100~100,邏輯不一樣,維持原本寫死那行不動)。 */
+const ST_MAX = { full:100, calm:100, cool:100, mood:100, stamina:100 };
 let minute = 20*60 + 14, day = 3;
 const DAYS = ['日','一','二','三','四','五','六'];
 /* 日期敘事化(2026-08-21,kc:「第一天是開學第一天是9/1」)——`day` 這個
@@ -750,11 +811,15 @@ document.getElementById('invClose').onclick = closeInventory;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
-  set('pFull', ST.full, ST.full);
-  set('pStamina', ST.stamina, ST.stamina);
-  set('pCalm', ST.calm, ST.calm);
-  set('pCool', ST.cool, ST.cool);
-  set('pMood', ST.mood, ST.mood);
+  /* 上限被墊高之後(見上面 ST_MAX 那則筆記)血條寬度要除以「當前上限」
+     算百分比,不能再直接拿數值當百分比——不然體力上限被算命道具加高後,
+     沒滿的時候血條會看起來比實際還空(110/120 直接當 110% 會被下面的
+     set() 夾回 100%,看起來一直是滿的,量不出還差多少)。 */
+  set('pFull', ST.full, ST.full/ST_MAX.full*100);
+  set('pStamina', ST.stamina, ST.stamina/ST_MAX.stamina*100);
+  set('pCalm', ST.calm, ST.calm/ST_MAX.calm*100);
+  set('pCool', ST.cool, ST.cool/ST_MAX.cool*100);
+  set('pMood', ST.mood, ST.mood/ST_MAX.mood*100);
   document.getElementById('pFull').classList.toggle('low', ST.full <= 25);
   set('pStar', (ST.star > 0 ? '+' : '') + ST.star, null);
   const starI = document.querySelector('#pStar .track i');
@@ -783,7 +848,7 @@ function chg(k, d){
      docs/DESIGN_NOTES.md「通緝改名風評」——中間 0,左邊壞事、右邊好事,
      不再只往一個方向長。其餘指標維持原本 0~100。 */
   if(k === 'star') ST[k] = Math.max(-100, Math.min(100, ST[k]));
-  else if(k !== 'money') ST[k] = Math.max(0, Math.min(100, ST[k]));
+  else if(k !== 'money') ST[k] = Math.max(0, Math.min(ST_MAX[k] ?? 100, ST[k]));
   /* 體力低於 50 又還沒去學校的提醒,見上面 schoolRemindedDay 那則筆記。
      跳在數值飄字之後沒有先後順序上的講究,只是程式碼寫在這裡比較順——
      兩個都是這次 chg() 呼叫的副作用,誰先跳不影響觀感。 */
@@ -907,6 +972,11 @@ const WHO = {
      沒有真人照片(先退回 SF.person() 像素小人),見下面 PORTRAIT_IMGS 那則
      筆記的先例(worker/bo 都是這樣先接資料再補照片)。 */
   motoboss: { name:'旺鴻', opt:{ face:'F', skin:'#b98a63', hair:'#3a3a3a', top:'#4a5560', topD:'#38414a', pants:'#26241f' } },
+  /* 算命攤・神棍(2026-08-27)——顏色跟街上那具 buildNPC() 同步(見
+     game.html NPCS 那段「神棍・算命攤」筆記):灰髮示意年紀,深紫上衣
+     區隔其他攤販的居家色系。沒有真人照片,退回 SF.person() 像素小人,
+     跟 worker/bo/motoboss 同一套先例。 */
+  fortune:  { name:'先生', opt:{ face:'F', skin:'#c2a17e', hair:'#cfcfcf', top:'#3a2452', topD:'#2a1a3c', pants:'#232323' } },
   /* 收銀小遊戲的客人(2026-08-19)——沒有固定角色設定,顏色隨便挑一組跟
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
@@ -1012,6 +1082,10 @@ const agEl = document.getElementById('arcadeGame'), agCap = document.getElementB
 const agCanvas = document.getElementById('agCanvas'), agCtx = agCanvas.getContext('2d');
 const agBarEl = document.getElementById('agBar'), agBarPin = document.getElementById('agBarPin');
 const agBody = document.getElementById('agBody'), agActions = document.getElementById('agActions');
+const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
+const fpTextEl = document.getElementById('fpText'), fpResultEl = document.getElementById('fpResult');
+const fpGradeEl = document.getElementById('fpGrade'), fpVerseEl = document.getElementById('fpVerse'), fpMeaningEl = document.getElementById('fpMeaning');
+document.getElementById('fpClose').onclick = () => { fpEl.classList.remove('on'); busy = false; };
 /* 三張機台特寫比例不一樣(roulette 1536×1024 接近畫布本身的 3:2,pusher
    1254×1254 是正方形)——直接拉伸貼滿畫布會把正方形那張橫向壓扁,改成
    等比縮放置中(跟畫布比例對不上的方向留黑邊,黑邊本來就融進面板深色
@@ -1166,14 +1240,14 @@ const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{}, newsConfronted:false 
 const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
 /* 算命攤・神棍(2026-08-27,kc:「角落一點,而且他就是一個桌子上面放簽筒
    然後要有個神棍去顧攤」)——座標對齊 scene-city3d.js 那張桌子(x:-50,
-   z:-96),站在桌子北側,面向南邊(玩家從廟埕開闊處走過來那側)。**只放
-   外觀,沒有 talk[]/events[] 互動資料**——DESIGN_NOTES「待辦:廟口算命
-   擺攤」還在卡標題階段,kc 交代不要腦補內容,這裡先不接對話。
+   z:-96),站在桌子北側,面向南邊(玩家從廟埕開闊處走過來那側)。
    z 偏移量(2026-08-27 第二輪,kc 拉桌子滑桿定案桌深 2.95 之後):原本
    -1.6 是配第一版小桌子(桌深 1.0)算的,桌深變大之後站位會卡進桌子裡,
    改成「桌深一半 + 0.6 淨空」(跟 scene-city3d.js fortuneStallCollider
-   的 hd = d/2+1.1 同一個量級抓的,人站的位置本來就要在那個碰撞範圍內)。 */
-const FORTUNE = { x:-50, z:-96 - (2.95/2 + .6) };
+   的 hd = d/2+1.1 同一個量級抓的,人站的位置本來就要在那個碰撞範圍內)。
+   met 是第一次互動的開場白旗標,跟劇情內容一起在下面 talkToFortune()
+   那段補上,見那則筆記——「不要腦補」那條到這輪 kc 明確給方向之後解除。 */
+const FORTUNE = { x:-50, z:-96 - (2.95/2 + .6), met:false };
 
 /* 阿源好朋友門檻(2026-08-20,kc:「他會叫你去刺青並且帶女朋友來,帥潮
    >30 他才會跟你當好朋友,跟學校女生交往也會加值」)——跟阿姨/阿成不同,
@@ -4708,6 +4782,10 @@ function updateCity(dt){
       nearProp = { type:'ayi', ref:AYI };
     if(!nearProp && Math.hypot(pos.x-ACHENG.x, pos.z-ACHENG.z) < 4.5)
       nearProp = { type:'acheng', ref:ACHENG };
+    /* 算命攤半徑用 4.5,跟阿姨/阿成同一個理由(站在桌子前緣的正常位置
+       量出來就是這個距離,3.2 那個窄半徑站不到)。 */
+    if(!nearProp && Math.hypot(pos.x-FORTUNE.x, pos.z-FORTUNE.z) < 4.5)
+      nearProp = { type:'fortune', ref:FORTUNE };
     if(!nearProp && Math.hypot(pos.x-MOTOBOSS.x, pos.z-MOTOBOSS.z) < 3.2)
       nearProp = { type:'motoboss', ref:MOTOBOSS };
     if(!nearProp && Math.hypot(pos.x-YUAN.x, pos.z-YUAN.z) < 3.2)
@@ -4788,6 +4866,7 @@ function updateCity(dt){
                       : nearProp.type === 'bench' ? '按 <b>空白鍵</b> 坐下來休息一下'
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
                       : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
+                      : nearProp.type === 'fortune' ? '按 <b>空白鍵</b> 算一下'
                       : nearProp.type === 'motoboss' ? '按 <b>空白鍵</b> 找老闆'
                       : nearProp.type === 'yuan' ? '按 <b>空白鍵</b> 找阿源'
                       : nearProp.type === 'mei' ? '按 <b>空白鍵</b> 找小美'
@@ -4981,6 +5060,103 @@ function talkToAcheng(){
     }
     openStallMenu('阿成的麵攤', '阿成', 45, 16, '「趁熱吃。」', '「自己人,不用跟我客氣。」', extra);
   }, { talkGivesCalm: 2 });
+}
+/* 算命攤(2026-08-27)——kc 給的方向(見 docs/DESIGN_NOTES.md「廟口算命
+   擺攤」節):
+   1. 抽籤詩不是通用安慰台詞,是冷讀術——籤詩內容講的其實是玩家現在
+      最低的那項指標,包裝成命理用語念出來,他觀察的訊號就是遊戲本來
+      就有的那些數值,不是真的通靈。
+   2. 他會賣「算命道具」,是真的補東西的道具(不是純劇情道具),包括
+      一般恢復類(情緒/歸屬感)跟一個特殊的「上限」道具(體力上限永久
+      +10,見上面 ST_MAX 那則筆記,買到上限之後不能再買)。
+   3. 抽籤要有動畫——参考 kc 另一個 side project(ai-linebot 銀髮機器人
+      的「抽籤詩」頁,見 #fortunePanel 那段 CSS 筆記)的搖籤筒→傾倒掉籤
+      →翻出結果紙那套節奏。
+   跟阿姨/阿成不同的是他沒有 events[]/多次拜訪的劇情深度(那批資料要
+   放 npc-temple.js,這輪只做機制沒有寫那麼深的角色故事,先讓玩法跑得
+   起來),met 只控制第一次開場白那一句。 */
+const FORTUNE_ITEMS = [
+  { id:'charm', name:'平安符', cost:50, stat:'mood', amount:20,
+    sell:'「戴著,心裡踏實一點。」', buy:'「拿去,壓壓驚。」' },
+  { id:'string', name:'收驚珠串', cost:80, stat:'calm', amount:20,
+    sell:'「串子這個,睡前握著念一念,人會安一點。」', buy:'「常常摸摸它。」' }
+];
+/* 轉運金牌:唯一會動 ST_MAX 的道具,價格逐次墊高(150→250→400),買滿
+   三次之後不能再買——體力上限永遠往上加是強力效果,不設上限會變成
+   「有錢就無限堆體力」,跟其他指標(補了就會自然掉回來)性質不一樣,
+   需要一個硬性天花板。 */
+const LUCK_PRICES = [150, 250, 400];
+let luckBuys = 0;
+function coldReadPick(){
+  const cands = [
+    { k:'full',    v:ST.full,    verse:'面帶菜色三分飢',   meaning:'你這幾天大概沒好好吃東西，先把這頓解決再想別的。' },
+    { k:'stamina', v:ST.stamina, verse:'印堂發灰勞碌命',   meaning:'你最近太拚了，身體在跟你討時間，不是討錢。' },
+    { k:'calm',    v:ST.calm,    verse:'命宮孤影少人問',   meaning:'你這陣子是不是都自己一個人扛，有些話講出來會輕鬆一點。' },
+    { k:'mood',    v:ST.mood,    verse:'眉頭深鎖心事重',   meaning:'有些氣悶在心裡太久了，不是你想不開，是真的沒地方說。' }
+  ].sort((a,b) => a.v - b.v);
+  const worst = cands[0];
+  if(worst.v >= 70) return { grade:'上籤', verse:'近日運勢平穩向好', meaning:'你這陣子過得比想像中穩，別自己嚇自己。' };
+  return { grade:'中籤', verse:worst.verse, meaning:worst.meaning };
+}
+function drawFortuneSlip(){
+  if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
+  chg('money', -20);
+  busy = true;
+  fpStageEl.style.display = ''; fpResultEl.style.display = 'none';
+  fpStageEl.classList.add('shaking');
+  fpTextEl.textContent = '誠心默念心願，籤筒搖一搖…';
+  fpEl.classList.add('on');
+  setTimeout(() => {
+    fpStageEl.classList.remove('shaking'); fpStageEl.classList.add('tipping');
+    fpTextEl.textContent = '籤詩掉出來了…';
+    setTimeout(() => {
+      const pick = coldReadPick();
+      chg('calm', 4);
+      fpStageEl.classList.remove('tipping');
+      fpStageEl.style.display = 'none'; fpResultEl.style.display = 'block';
+      fpGradeEl.textContent = pick.grade;
+      fpVerseEl.textContent = pick.verse;
+      fpMeaningEl.textContent = pick.meaning + '（歸屬感 +4）';
+    }, 500);
+  }, 900);
+}
+function openFortuneShop(){
+  const items = FORTUNE_ITEMS.map(it => ({
+    label: it.name, cost:'$'+it.cost, cls: ST.money<it.cost?'bad':'',
+    run(){
+      if(ST.money < it.cost){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
+      chg('money', -it.cost); chg(it.stat, it.amount);
+      toast(it.buy + '（' + NAMES[it.stat] + ' +' + it.amount + '）', 2600);
+    }
+  }));
+  if(luckBuys < LUCK_PRICES.length){
+    const price = LUCK_PRICES[luckBuys];
+    items.push({ label:'轉運金牌', cost:'$'+price, cls: ST.money<price?'bad':'',
+      run(){
+        if(ST.money < price){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
+        chg('money', -price); ST_MAX.stamina += 10; luckBuys++; syncHUD();
+        toast('「戴著它，你撐得比別人久一點。」（體力上限 +10）', 2800);
+      } });
+  } else {
+    items.push({ label:'轉運金牌（他手上沒了）', cls:'bad', run(){ toast('「這個你已經有了，別再買了，我也是要賺良心錢的。」', 2600); } });
+  }
+  items.push({ label:'先不用了', cls:'back', run(){} });
+  openMenu('算命攤的道具', items);
+}
+function openFortuneMenu(){
+  openMenu('算命攤', [
+    { label:'抽籤詩', cost:'$20', cls: ST.money<20?'bad':'', run(){ drawFortuneSlip(); } },
+    { label:'看看他在賣什麼', run(){ openFortuneShop(); } },
+    { label:'走開', cls:'back', run(){} }
+  ]);
+}
+function talkToFortune(){
+  if(!FORTUNE.met){
+    FORTUNE.met = true;
+    say('fortune', '「來喔，要不要算一下，看你這陣子過得怎麼樣。」', () => openFortuneMenu());
+    return;
+  }
+  openFortuneMenu();
 }
 /* 阿源好朋友門檻(2026-08-20)——狀態機:
    1. 帥潮 <=30:退回原本的 events[]/talk[] 閒聊(跟 talkToStallVendor 同一套
@@ -5577,7 +5753,7 @@ function talkToWorker(w){
    根本扣不光,體力永遠見不了底,「過完一天」這個機制就形同虛設(玩家
    不需要回家睡覺,天數不會走)——kc 要求對話/讀書/打工三個全部調重,
    對話 −1→−5、讀書 −5→−10、打工 −20→−40,見下面讀書/打工那兩處。 */
-const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','mei','jiaoguan','aren','brother','pedestrian']);
+const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','mei','jiaoguan','aren','brother','pedestrian','fortune']);
 /* 情緒見底不想回話(2026-08-26,kc:「情緒低落的話會不想回話,提示想先
    散散心之類的」)——照體力=0 攔對話那套一模一樣的做法加一道情緒關卡,
    見 DESIGN_NOTES「情緒會影響什麼」那節。15 是這輪自己抓的門檻:預設值
@@ -5602,6 +5778,7 @@ function interactProp(prop){
      這裡刻意留白,不重複講。 */
   if(prop.type === 'ayi'){ talkToAyi(); return; }
   if(prop.type === 'acheng'){ talkToAcheng(); return; }
+  if(prop.type === 'fortune'){ talkToFortune(); return; }
   if(prop.type === 'motoboss'){ talkToMotoBoss(); return; }
   if(prop.type === 'yuan'){ talkToYuan(); return; }
   if(prop.type === 'mei'){ talkToMei(); return; }
