@@ -288,6 +288,21 @@
   #fortunePanel .fpVerse { font-size:16px; font-weight:800; color:#2a2018; letter-spacing:.06em;
     margin-bottom:12px; line-height:1.9; white-space:pre-line; }
   #fortunePanel .fpMeaning { font-size:13.5px; color:#4a3c2e; line-height:1.7; }
+  /* 財運/事業/感情/健康/出行/人際 六格 + 宜/忌(2026-08-27,kc:「我還有
+     宜不宜跟其他的運勢探討」)——上一輪只搬了「四句籤詩+白話解籤」,
+     漏了 ai-linebot 那頁 SLIPS.grid 那組六類運勢+宜忌,這輪照原本的
+     資料形狀補回來,不是重新設計一套新格式。六格用 3 欄 2 排(這個面板
+     比原頁窄,6 欄一排會擠爆),宜/忌另起一排、字級加大一點跟六格區隔
+     (呼應原頁 grid-side 那塊用左邊框隔開的做法,這裡用整排上緣的分隔線
+     代替直排分隔)。 */
+  #fortunePanel .fpGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px 6px;
+    margin-top:12px; padding-top:12px; border-top:1px solid rgba(168,42,34,.4); }
+  #fortunePanel .fpGCell { font-size:12px; line-height:1.5; text-align:center; }
+  #fortunePanel .fpGCell .fpGL { display:block; color:#a82a22; font-weight:800; }
+  #fortunePanel .fpGCell .fpGV { color:#4a3c2e; font-weight:700; }
+  #fortunePanel .fpYiJi { display:flex; justify-content:center; gap:18px;
+    margin-top:10px; padding-top:10px; border-top:1px solid rgba(168,42,34,.4); }
+  #fortunePanel .fpYiJi .fpGCell { font-size:13px; }
   #fortunePanel #fpClose { margin-top:16px; background:rgba(12,16,23,.95); color:#dfe4ea;
     border:1px solid #3d4757; border-left:3px solid #d8b24a; padding:9px 20px;
     font-size:14.5px; font-family:inherit; letter-spacing:.06em; cursor:pointer; border-radius:3px; }
@@ -448,6 +463,8 @@
           <div class="fpGrade" id="fpGrade"></div>
           <div class="fpVerse" id="fpVerse"></div>
           <div class="fpMeaning" id="fpMeaning"></div>
+          <div class="fpGrid" id="fpGrid"></div>
+          <div class="fpYiJi" id="fpYiJi"></div>
         </div>
       </div>
       <button id="fpClose">收下籤詩</button>
@@ -1089,6 +1106,14 @@ const agBody = document.getElementById('agBody'), agActions = document.getElemen
 const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
 const fpTextEl = document.getElementById('fpText'), fpResultEl = document.getElementById('fpResult');
 const fpGradeEl = document.getElementById('fpGrade'), fpVerseEl = document.getElementById('fpVerse'), fpMeaningEl = document.getElementById('fpMeaning');
+const fpGridEl = document.getElementById('fpGrid'), fpYiJiEl = document.getElementById('fpYiJi');
+const GRID_LABELS = [['caiyun','財運'],['shiye','事業'],['ganqing','感情'],['jiankang','健康'],['chuxing','出行'],['renji','人際']];
+function renderFortuneGrid(grid){
+  fpGridEl.innerHTML = GRID_LABELS.map(([k,label]) =>
+    `<div class="fpGCell"><span class="fpGL">${label}</span><span class="fpGV">${grid[k]}</span></div>`).join('');
+  fpYiJiEl.innerHTML = [['yi','宜'],['ji','忌']].map(([k,label]) =>
+    `<div class="fpGCell"><span class="fpGL">${label}</span><span class="fpGV">${grid[k]}</span></div>`).join('');
+}
 /* 收下籤詩之後他會再說一句(kc:「抽完之後算命仙會再跟你講話」)——
    fpPendingFollowUp 是 drawFortuneSlip() 存的那句,關掉結果紙面板之後
    接一段 say() 對話,busy 留到那段對話播完才解鎖(跟其他 say()/dlg 流程
@@ -1320,9 +1345,22 @@ const BOOKSHELF_CLUES = { tuitionAdFound:false, motoNewsFound:false };
    (超商大夜班,暗示打工這條路存在,不直說遊戲機制)、一則性工作者的人情
    採訪(照專案基準線——站在她那邊寫,不是獵奇或討同情,見 CLAUDE.md「這個
    專案的基準線」)、一則副刊小品(心靈雞湯但不說教)、一則戒賭衛教新聞
-   (呼應母親賭博線 story-bet.js,不是對著玩家說教,是新聞本身在講這件事)。 */
+   (呼應母親賭博線 story-bet.js,不是對著玩家說教,是新聞本身在講這件事)。
+   **2026-08-27 補(kc:「打工提示類這種很不錯,多寫一些」)**——原本只有
+   超商大夜班一則,同一類再補五則,涵蓋不同的活法而不是只有超商:加油站
+   (學歷門檻低)、外送(彈性時間但抽成爭議,講兩面不是只講好處)、工地
+   粗工(日薪、吃體力)、手搖飲工讀(教育訓練短、上手快)、資源回收
+   (不需要被錄用、隨到隨做,呼應「連正式打工資格都卡關時還有什麼路」)。
+   都不寫遊戲會不會真的接這些工作類型進機制——現在只有超商收銀那條線
+   (interactProp() 'counter' 分支)是真的能玩,這幾則是鋪陳/暗示,不是
+   承諾之後一定會做,避免玩家點進新聞以為缺人就真的能去應徵。 */
 const SOCIAL_NEWS_ITEMS = [
   '【社會新聞】超商大夜班缺工　業者調高時薪搶人\n\n（記者　報導）受人力短缺影響，市區多家連鎖超商近月調高大夜班時薪，部分分店加碼提供交通津貼。人力業者表示，願意排大夜班的年輕人不多，但只要肯做，收入其實不算差。',
+  '【社會新聞】加油站徵工讀生　業者：不看學歷只看肯不肯做\n\n（記者　報導）多家加油站近期張貼徵人啟事，主打「免經驗、免學歷、當日面試」。業者表示，工作內容單純，只要願意站著、願意跟人應對，隨時都能上工，「這一行不會問你唸到哪，只看你今天有沒有來。」',
+  '【社會新聞】外送平台大戰　接單量創新高　運費抽成惹議\n\n（記者　報導）各大外送平台為搶市占率，近日調高部分尖峰時段的獎勵金，吸引不少人投入。但也有資深外送員在網路社群反映，平台抽成比例逐年上升，「表面上單量變多，實際到手的沒多多少。」業者回應將檢討費率結構。',
+  '【社會新聞】工地缺工荒未解　粗工日薪衝上新高\n\n（記者　報導）營建業缺工問題持續，部分工地粗工日薪已突破行情新高，仲介業者表示「只要吃得了那個苦，工作找上門，不是你去找工作。」不過業界也提醒，粗工多屬日領現金、無勞健保的臨時性質，受傷風險由自己承擔。',
+  '【社會新聞】手搖飲連鎖徵工讀生　三天訓練即可上線\n\n（記者　報導）手搖飲料店為因應開學潮人力缺口，近日加開工讀生職缺，主打「三天教育訓練、時薪另計全勤獎金」。店經理表示，這份工作最看重的不是經驗，而是能不能準時到班、笑臉迎人。',
+  '【社會新聞】資源回收行情看漲　舊貨紙箱都能換現金\n\n（記者　報導）近月國際紙漿與廢鐵價格回升，帶動回收場收購價上揚。業者指出，不少人一早就推著推車來排隊過磅，「不用被誰錄取，東西過磅、錢當場給，這行門檻最低。」',
   '【社會新聞】巷口那盞紅燈——她們的故事沒有你想的那麼簡單\n\n（記者　特稿）「大家都覺得我們過得很爽，」阿霞（化名）苦笑著說，「沒人問過我們是怎麼走到這條路上的。」十幾年來她每晚站在同一個路口，一個人拉拔兩個孩子長大。「我不需要你們同情，只希望不要用那種眼神看我們。」',
   '【副刊】巷口早餐店\n\n清晨五點，巷口早餐店的老闆娘已經在備料。「開店十年，什麼樣的客人都遇過，」她笑著說，「日子難熬的時候就想，反正天亮了，就是新的一天。」',
   '【社會新聞】簽賭成癮不是意志力問題　醫師：及早求助是關鍵\n\n（記者　報導）精神科醫師指出，賭博成癮和酒癮、毒癮一樣是腦部獎賞迴路出了問題，不是單純「意志力不夠」。若家人出現不斷借錢、瞞著家人簽賭的情況，及早陪同就醫或撥打戒賭諮詢專線，往往比苛責更有效。'
@@ -5132,26 +5170,36 @@ function coldReadPick(){
     { k:'full', v:ST.full,
       lines:['面帶菜色三分飢','腹中空空難支撐','先解眼前一頓飯','後計來日長與短'],
       meaning:'你這幾天大概沒好好吃東西，先把這頓解決再想別的。',
-      followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」' },
+      followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」',
+      grid:{ caiyun:'手頭偏緊', shiye:'先顧肚子', ganqing:'沒力氣多想', jiankang:'腸胃虛弱',
+             chuxing:'少去遠地', renji:'別硬撐場面', yi:'先吃一頓飽', ji:'空腹出門' } },
     { k:'stamina', v:ST.stamina,
       lines:['印堂發灰勞碌命','日夜奔波不得閒','身骨撐著心先垮','該歇一歇莫逞強'],
       meaning:'你最近太拚了，身體在跟你討時間，不是討錢。',
-      followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。' },
+      followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。',
+      grid:{ caiyun:'錢賺得辛苦', shiye:'別硬撐工時', ganqing:'沒空陪人', jiankang:'早點歇息',
+             chuxing:'少熬夜奔波', renji:'少應酬', yi:'早點回去躺', ji:'硬撐通宵' } },
     { k:'calm', v:ST.calm,
       lines:['命宮孤影少人問','獨自撐著不敢言','身邊未必無人在','只是話到嘴邊軟'],
       meaning:'你這陣子是不是都自己一個人扛，有些話講出來會輕鬆一點。',
-      followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。' },
+      followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。',
+      grid:{ caiyun:'錢不是重點', shiye:'心不在焉', ganqing:'渴望有人陪', jiankang:'心累比較重',
+             chuxing:'別自己悶著', renji:'主動找人聊', yi:'去廟口走走', ji:'把自己關起來' } },
     { k:'mood', v:ST.mood,
       lines:['眉頭深鎖心事重','悶在心口說不清','非是想不開這件事','是真沒地方能傾訴'],
       meaning:'有些氣悶在心裡太久了，不是你想不開，是真的沒地方說。',
-      followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。' }
+      followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。',
+      grid:{ caiyun:'別亂花消氣', shiye:'提不起勁', ganqing:'容易鑽牛角尖', jiankang:'睡不安穩',
+             chuxing:'換個地方走走', renji:'少跟人計較', yi:'找人說說話', ji:'憋著不說' } }
   ].sort((a,b) => a.v - b.v);
   const worst = cands[0];
   if(worst.v >= 70) return { grade:'上籤',
     lines:['近日運勢平穩好','腳下步步踏得穩','莫自嚇自庸人擾','順著走就是順風'],
     meaning:'你這陣子過得比想像中穩，別自己嚇自己。',
-    followUp:'「你這樣就不錯了，不用天天來問我。」他笑了笑，把籤筒放回桌上。' };
-  return { grade:'中籤', lines:worst.lines, meaning:worst.meaning, followUp:worst.followUp };
+    followUp:'「你這樣就不錯了，不用天天來問我。」他笑了笑，把籤筒放回桌上。',
+    grid:{ caiyun:'穩紮穩打', shiye:'照原步調', ganqing:'順其自然', jiankang:'維持現狀',
+           chuxing:'平安順遂', renji:'人緣不錯', yi:'照常過日子', ji:'自己嚇自己' } };
+  return { grade:'中籤', lines:worst.lines, meaning:worst.meaning, followUp:worst.followUp, grid:worst.grid };
 }
 function drawFortuneSlip(){
   if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
@@ -5173,6 +5221,7 @@ function drawFortuneSlip(){
       fpVerseEl.textContent = pick.lines.join('\n');
       fpMeaningEl.textContent = pick.meaning + '（歸屬感 +4）';
       fpPendingFollowUp = pick.followUp;
+      renderFortuneGrid(pick.grid);
     }, 500);
   }, 900);
 }
