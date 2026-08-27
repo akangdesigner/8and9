@@ -632,12 +632,23 @@ export function buildCity(THREE, scene){
      面朝一個方向)、沿線偏移拉到 ±2.2、間距壓到 len/.5(比第一版
      weedPatch 的 len/.7 更密)——密到叢與叢大量重疊、高矮參差不齊,
      讀起來是荒廢很久沒人管的野草地,不是照著線種的一排植栽。 */
+  /* 2026-08-27,kc:「大部分要是綠色雜草」,測完發現兩款草模型的貼圖實際
+     在遊戲裡都偏橘黃(grass-tall.glb 的 Grass.png 是四色橫紋,橘黃那條
+     UV 佔比明顯比綠色那條大;grass-01.glb 的 Atlas.png 原本以為是純綠,
+     強制全部用這款测過才發現一樣是橘黃色系,判斷錯了)。不再賭下一個
+     模型的貼圖顏色,直接不用原始貼圖,材質換成幾種深淺綠色的純色
+     (WEED_GREENS),只留模型的形狀(草葉輪廓、彎折),顏色 100% 保證
+     是綠色,顏色深淺交錯製造自然感,不是死板同一色。 */
+  const WEED_GREENS = [0x3f6b2a, 0x4a8a3f, 0x5a9c4a, 0x2f5a24, 0x6bb04f];
   function weedClump(x, z, targetSize, variant){
     const fallback = box(.6, targetSize, .6, std({ color:0x4a6b2f, roughness:.95 }));
     const holder = add(fallback, x, targetSize/2, z, true, false);
     loadModel(variant === 1 ? 'grass-tall.glb' : 'grass-01.glb').then(gltf => {
       scene.remove(holder);
-      add(propModel(THREE, gltf, targetSize, 'y', Math.random()*Math.PI*2), x, 0, z, true, false);
+      const group = propModel(THREE, gltf, targetSize, 'y', Math.random()*Math.PI*2);
+      const greenMat = std({ color: WEED_GREENS[Math.floor(Math.random()*WEED_GREENS.length)], roughness:.9 });
+      group.traverse(o => { if(o.isMesh) o.material = greenMat; });
+      add(group, x, 0, z, true, false);
     }).catch(() => {});
   }
   function weedPatch(ax, az, bx, bz){
@@ -645,8 +656,8 @@ export function buildCity(THREE, scene){
     const steps = Math.max(1, Math.round(len/.5));
     for(let i=0; i<=steps; i++){
       const t = steps ? i/steps : .5;
-      const variant = Math.random() < .5 ? 1 : 2;
-      weedClump(ax+dx*t+(Math.random()-.5)*2.2, az+dz*t+(Math.random()-.5)*2.2, 1.3+Math.random()*1.6, variant);
+      const variant = Math.random() < .5 ? 1 : 2;   // 兩款只留形狀差異,顏色已經統一由 greenMat 控制
+      weedClump(ax+dx*t+(Math.random()-.5)*3.4, az+dz*t+(Math.random()-.5)*3.4, 1.3+Math.random()*1.6, variant);
     }
   }
 
@@ -2166,8 +2177,12 @@ export function buildCity(THREE, scene){
      圍牆一半高,而且要很雜亂」——改叫 weedPatch()(不是 bushLine(),
      那個給公園/校門口那種修剪整齊的籬笆用,不要跟著這裡一起變高變
      亂),尺寸/密度/亂度都比一般灌木叢誇張,詳細參數見 weedPatch()
-     定義那則筆記。 */
-  weedPatch(-60, -113, -40, -113);
+     定義那則筆記。
+     再一輪,kc:「範圍大一點」——線段從 20 個單位(-60~-40)拉到 30
+     (-60~-30),東側往算命攤桌子那個方向多推 10 個單位(西側 -60 貼著
+     西牆的安全距離不動,不能再往西推),配合 weedPatch() 內部同時加大的
+     偏移量,雜草區實際涵蓋的面積比長度數字看起來更寬,不是只拉長一條線。 */
+  weedPatch(-60, -113, -30, -113);
   /* 機車(parkMoto)要等下面 `const motos = []` 先跑過(TDZ,const 不像
      function 宣告會被 hoist),這裡先留呼叫點的位置註解,實際呼叫挪到
      那個陣列宣告後面(見下面「算命攤機車」那行)。 */

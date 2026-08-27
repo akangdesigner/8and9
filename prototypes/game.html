@@ -59,6 +59,21 @@
     color:#dfe4ea; border:1px solid #3d4757; border-radius:4px; padding:5px 11px;
     font:12px/1.4 inherit; letter-spacing:.06em; cursor:pointer; }
   #charCardBtn:hover { background:rgba(32,40,53,.95); border-color:#d8b24a; color:#fff; }
+  /* 任務小面板(2026-08-27,kc:「如果有接到任務的話能不能有個小面板顯示,
+     因為會有很多任務」)——跟 pods/tags/charCardBtn 同一條左側縱軸疊下去,
+     同一套深底淺字視覺語言。沒有任務時整個不顯示(display:none 靠 .on
+     切換),不占位置。ACTIVE_QUESTS 是通用清單,不是只給算命攤這條任務
+     用——之後其他系統要顯示追蹤中的任務,往那個陣列 push/移除元素、
+     呼叫 renderQuestPanel() 就會自動顯示,不用改這裡的 DOM/CSS。 */
+  #questPanel { position:fixed; left:16px; top:150px; z-index:6; display:none; flex-direction:column; gap:7px;
+    background:rgba(9,12,17,.72); border:1px solid rgba(120,134,158,.28); border-radius:6px;
+    padding:8px 11px; max-width:220px; }
+  #questPanel.on { display:flex; }
+  #questPanel .qpCap { color:#7c8593; font-size:10px; letter-spacing:.14em; }
+  #questPanel .qpItem { border-top:1px solid rgba(120,134,158,.18); padding-top:6px; }
+  #questPanel .qpItem:first-of-type { border-top:none; padding-top:0; }
+  #questPanel .qpTitle { color:#eef1f5; font-size:12px; }
+  #questPanel .qpHint { color:#d8b24a; font-size:11px; margin-top:2px; line-height:1.4; }
   #invOverlay { position:fixed; inset:0; background:rgba(6,8,12,.72); z-index:60;
     display:none; align-items:center; justify-content:center; }
   #invOverlay.on { display:flex; }
@@ -407,6 +422,7 @@
 </div>
 <div id="tags"></div>
 <button id="charCardBtn">角色</button>
+<div id="questPanel"></div>
 <div id="invOverlay">
   <div id="invPanel">
     <div class="invHead"><h2>角色</h2><div class="invMoney" id="pMoneyP">$63</div></div>
@@ -1149,6 +1165,20 @@ const agEl = document.getElementById('arcadeGame'), agCap = document.getElementB
 const agCanvas = document.getElementById('agCanvas'), agCtx = agCanvas.getContext('2d');
 const agBarEl = document.getElementById('agBar'), agBarPin = document.getElementById('agBarPin');
 const agBody = document.getElementById('agBody'), agActions = document.getElementById('agActions');
+/* 任務小面板(2026-08-27,kc:「如果有接到任務的話能不能有個小面板顯示,
+   因為會有很多任務」)——ACTIVE_QUESTS 是通用清單,不是算命攤專用:
+   {id,title,hint} 一筆代表一個玩家已接下、還在進行中的任務。任何系統
+   要顯示追蹤中的任務,往這裡 push/用 id 找到並移除,呼叫
+   renderQuestPanel() 刷新畫面就好,不用改這個面板本身。 */
+const ACTIVE_QUESTS = [];
+const questPanelEl = document.getElementById('questPanel');
+function renderQuestPanel(){
+  if(!ACTIVE_QUESTS.length){ questPanelEl.classList.remove('on'); questPanelEl.innerHTML = ''; return; }
+  questPanelEl.classList.add('on');
+  questPanelEl.innerHTML = '<div class="qpCap">任務</div>' + ACTIVE_QUESTS.map(q =>
+    `<div class="qpItem"><div class="qpTitle">${q.title}</div><div class="qpHint">${q.hint}</div></div>`
+  ).join('');
+}
 const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
 const fpTextEl = document.getElementById('fpText'), fpResultEl = document.getElementById('fpResult');
 const fpGradeEl = document.getElementById('fpGrade'), fpHeadNoEl = document.getElementById('fpHeadNo');
@@ -5030,7 +5060,7 @@ function updateCity(dt){
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'altar' ? '按 <b>空白鍵</b> 靠近功德箱'
                       : nearProp.type === 'piss' ? '按 <b>空白鍵</b> 解決一下'
-                      : nearProp.type === 'bushes' ? '按 <b>空白鍵</b> 翻翻灌木叢'
+                      : nearProp.type === 'bushes' ? '按 <b>空白鍵</b> 翻翻草叢'
                       : nearProp.type === 'bench' ? '按 <b>空白鍵</b> 坐下來休息一下'
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
                       : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
@@ -5274,9 +5304,9 @@ const FORTUNE_QUEST_TEXT = {
   moto:  { ask:'「你幫我去中華路那間機車行一趟，跟老闆說一聲，他知道要給你什麼。」',
            hint:'（去中華路的機車行找老闆）',
            find:'你跟老闆說明來意，他從裡面翻出一包東西遞給你，什麼都沒多問。' },
-  sword: { ask:'「就在廟埕北邊那叢灌木裡，你去翻翻看，應該還在。」',
-           hint:'（去廟埕北側圍牆前的灌木叢找找看）',
-           find:'你在灌木叢裡翻了一下，摸到一把桃木劍，劍身都生鏽了。' }
+  sword: { ask:'「就在廟埕北邊那片草叢裡，你去翻翻看，應該還在。」',
+           hint:'（去廟埕北側圍牆前的草叢找找看）',
+           find:'你在草叢裡翻了一下，摸到一把桃木劍，劍身都生鏽了。' }
 };
 const FORTUNE_ITEMS = [
   { id:'charm', name:'平安符', stat:'mood', amount:20, target:'sword',
@@ -5480,6 +5510,8 @@ function startFortuneQuest(entry){
   FORTUNE.quest = { id:entry.id, stat:entry.stat, amount:entry.amount,
                      isLuck:!!entry.isLuck, buy:entry.buy, target:entry.target, done:false };
   const qt = FORTUNE_QUEST_TEXT[entry.target];
+  ACTIVE_QUESTS.push({ id:'fortune', title:'算命攤委託', hint:qt.hint.replace(/^[（(]|[)）]$/g, '') });
+  renderQuestPanel();
   say('fortune', qt.ask, () => toast(qt.hint, 3200));
 }
 /* 在對應地點觸發——不是 FORTUNE.quest 這個任務、或還沒交代任務、或
@@ -5489,6 +5521,8 @@ function startFortuneQuest(entry){
 function completeFortuneQuestAt(target){
   if(!FORTUNE.quest || FORTUNE.quest.done || FORTUNE.quest.target !== target) return false;
   FORTUNE.quest.done = true;
+  const q = ACTIVE_QUESTS.find(x => x.id === 'fortune');
+  if(q){ q.hint = '回去找先生交差'; renderQuestPanel(); }
   toast(FORTUNE_QUEST_TEXT[target].find, 3200);
   return true;
 }
@@ -5521,6 +5555,9 @@ function talkToFortune(){
     const q = FORTUNE.quest;
     if(q.done){
       FORTUNE.quest = null;
+      const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'fortune');
+      if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+      renderQuestPanel();
       say('fortune', q.buy, () => {
         if(q.isLuck){ ST_MAX.stamina += 10; luckBuys++; syncHUD(); toast('（體力上限 +10）', 2600); }
         else { chg(q.stat, q.amount); toast('（' + NAMES[q.stat] + ' +' + q.amount + '）', 2600); }
@@ -6205,7 +6242,7 @@ function interactProp(prop){
      (不是「這裡永遠都有劍」,是任務給的才有)。 */
   if(prop.type === 'bushes'){
     if(completeFortuneQuestAt('sword')) return;
-    toast('灌木叢裡只有葉子，沒什麼特別的。', 2000);
+    toast('草叢裡只有草，沒什麼特別的。', 2000);
     return;
   }
   /* 公園長椅・散心(2026-08-26)——見上面 BENCH 那則筆記,單一動作,跟摸貓狗
