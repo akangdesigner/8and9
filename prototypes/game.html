@@ -1365,7 +1365,17 @@ const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:f
    的 hd = d/2+1.1 同一個量級抓的,人站的位置本來就要在那個碰撞範圍內)。
    met 是第一次互動的開場白旗標,跟劇情內容一起在下面 talkToFortune()
    那段補上,見那則筆記——「不要腦補」那條到這輪 kc 明確給方向之後解除。 */
-const FORTUNE = { x:-50, z:-96 - (2.95/2 + .6), met:false };
+/* quest/lastDrawDay(2026-08-27,kc:「每天只能抽一次籤,然後推銷商品的
+   時候代價不是錢是他會叫你去做任務」)——quest 是目前掛著的跑腿任務
+   (null=沒有),lastDrawDay 記上次抽籤詩是哪一天,同一天不能再抽。
+   兩則都是這輪新增,見下面 FORTUNE_QUEST_TEXT/pitchFortuneItem() 那組
+   長筆記。 */
+const FORTUNE = { x:-50, z:-96 - (2.95/2 + .6), met:false, quest:null, lastDrawDay:-1 };
+/* 桃木劍藏身處(2026-08-27,kc:「有個任務要找桃木劍,會在裡面看到」)——
+   跟 scene-city3d.js 那叢北牆灌木(kc:「灌木叢改放在最北面圍牆前面」)
+   同一個座標,互動範圍抓寬一點(4,不是其他小物那種 3.2)因為灌木叢本身
+   有寬度,站在叢子前面隨便一個位置都該摸得到,不用精準站在單一點上。 */
+const BUSH_SPOT = { x:-50, z:-113 };
 
 /* 阿源好朋友門檻(2026-08-20,kc:「他會叫你去刺青並且帶女朋友來,帥潮
    >30 他才會跟你當好朋友,跟學校女生交往也會加值」)——跟阿姨/阿成不同,
@@ -4912,6 +4922,8 @@ function updateCity(dt){
       nearProp = { type:'statue', ref:STATUE };
     if(!nearProp && Math.hypot(pos.x-PISS_SPOT.x, pos.z-PISS_SPOT.z) < 3.2)
       nearProp = { type:'piss', ref:PISS_SPOT };
+    if(!nearProp && Math.hypot(pos.x-BUSH_SPOT.x, pos.z-BUSH_SPOT.z) < 4)
+      nearProp = { type:'bushes', ref:BUSH_SPOT };
     /* 供桌本身的 solid() 碰撞會擋住正中央,半徑用 4.5(理由同 AYI/ACHENG,
        見上面 ALTAR 那則筆記)。 */
     if(!nearProp && Math.hypot(pos.x-ALTAR.x, pos.z-ALTAR.z) < 4.5)
@@ -5010,6 +5022,7 @@ function updateCity(dt){
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'altar' ? '按 <b>空白鍵</b> 靠近功德箱'
                       : nearProp.type === 'piss' ? '按 <b>空白鍵</b> 解決一下'
+                      : nearProp.type === 'bushes' ? '按 <b>空白鍵</b> 翻翻灌木叢'
                       : nearProp.type === 'bench' ? '按 <b>空白鍵</b> 坐下來休息一下'
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
                       : nearProp.type === 'acheng' ? '按 <b>空白鍵</b> 找阿成'
@@ -5233,30 +5246,53 @@ function talkToAcheng(){
    道具(那時候是「固定挑最差那項」,full 常態性會是最差,連續被跳過
    推銷很明顯),改成隨機抽之後這個理由不成立了,六選一隨機抽到 full/
    cool/star 又剛好是下籤,卻靜悄悄不推銷,反而讓「下籤=推銷商品」這條
-   規則出現漏洞。三項各自補一個對應道具,六項現在每項都有東西可推。 */
+   規則出現漏洞。三項各自補一個對應道具,六項現在每項都有東西可推。
+   ⚠ 2026-08-27 第十一輪,kc 兩句一起改掉推銷的付費方式:「每天只能抽
+   一次籤。然後推銷商品的時候代價不是錢是他會叫你去做任務,比如說幫她
+   去跟機車行老闆領回車,或是去找到他遺失的桃木劍之類的(在廟口區域)」
+   ——道具不再標 $cost,買賣選單也拿掉,改成「跑腿任務」:接受推薦之後
+   FORTUNE.quest 記著任務(target/stat/amount/buy),玩家要跑去對應地點
+   才能完成,完成後回來找他才真的拿到道具、指標才加值(跟 WATCHJOB 顧
+   場子那套「先接、跑一趟、回報才算數」同一個節奏,不是新發明一套)。
+   兩個任務地點:
+   - `moto`:去中華路機車行找旺鴻(掛在 talkToMotoBoss() 最前面攔截,
+     kc 原話的例子)。
+   - `sword`:去廟埕北側圍牆前的灌木叢裡找(kc:「有個任務要找桃木劍,
+     會在裡面看到」)——新增 BUSH_SPOT 互動點,見下面 interactProp()
+     那則筆記,座落在 scene-city3d.js 那叢北牆灌木裡。
+   六項指標各配一個地點(moto/sword 交錯),量最小可行:只做兩種地點,
+   不是六個指標各自蓋一個新地點。 */
+const FORTUNE_QUEST_TEXT = {
+  moto:  { ask:'「你幫我去中華路那間機車行一趟，跟老闆說一聲，他知道要給你什麼。」',
+           hint:'（去中華路的機車行找老闆）',
+           find:'你跟老闆說明來意，他從裡面翻出一包東西遞給你，什麼都沒多問。' },
+  sword: { ask:'「就在廟埕北邊那叢灌木裡，你去翻翻看，應該還在。」',
+           hint:'（去廟埕北側圍牆前的灌木叢找找看）',
+           find:'你在灌木叢裡翻了一下，摸到一把桃木劍，劍身都生鏽了。' }
+};
 const FORTUNE_ITEMS = [
-  { id:'charm', name:'平安符', cost:50, stat:'mood', amount:20,
+  { id:'charm', name:'平安符', stat:'mood', amount:20, target:'sword',
     pitch:'「我看你這幾天心裡悶，要不要帶一個平安符，戴著心裡踏實一點。」',
     buy:'「拿去，壓壓驚。」' },
-  { id:'string', name:'收驚珠串', cost:80, stat:'calm', amount:20,
+  { id:'string', name:'收驚珠串', stat:'calm', amount:20, target:'moto',
     pitch:'「你這樣一個人扛太久了，要不要帶串收驚珠串，睡前握著念一念，人會安一點。」',
     buy:'「常常摸摸它。」' },
-  { id:'rice', name:'平安米', cost:40, stat:'full', amount:20,
+  { id:'rice', name:'平安米', stat:'full', amount:20, target:'sword',
     pitch:'「你這樣不行啦，帶包平安米回去，好歹墊墊肚子。」',
     buy:'「拿去，加減吃。」' },
-  { id:'bracelet', name:'開光手鍊', cost:60, stat:'cool', amount:15,
+  { id:'bracelet', name:'開光手鍊', stat:'cool', amount:15, target:'moto',
     pitch:'「要不要來條手鍊，戴著看起來有精神一點，人家對你印象也會不一樣。」',
     buy:'「戴上，走路都有風。」' },
-  { id:'ward', name:'解厄符', cost:70, stat:'star', amount:15,
+  { id:'ward', name:'解厄符', stat:'star', amount:15, target:'sword',
     pitch:'「你最近是不是犯小人，帶張解厄符，消一消晦氣。」',
     buy:'「貼身放著，別讓人看到。」' }
 ];
-/* 轉運金牌:唯一會動 ST_MAX 的道具,價格逐次墊高(150→250→400),買滿
-   三次之後不能再買——體力上限永遠往上加是強力效果,不設上限會變成
-   「有錢就無限堆體力」,跟其他指標(補了就會自然掉回來)性質不一樣,
-   需要一個硬性天花板。 */
-const LUCK_PRICES = [150, 250, 400];
+/* 轉運金牌:唯一會動 ST_MAX 的道具,買滿三次之後不能再買——體力上限
+   永遠往上加是強力效果,不設上限會變成「有錢就無限堆體力」(現在也不是
+   花錢,是跑腿,一樣要設「跑幾次就不能再跑」的天花板,不然變成無限
+   刷跑腿換體力上限)。target 固定用 moto,跟 kc 原話的例子一致。 */
 let luckBuys = 0;
+const LUCK_MAX_BUYS = 3;
 /* 籤詩內容(2026-08-27,kc:「你的畫面要參考籤詩內容」)——原本每項只有
    一句話,kc 指的是要照真的籤詩格式來,參考 ai-linebot 那頁 SLIPS 陣列
    的四句七言(見 DESIGN_NOTES「廟口算命擺攤」節)。四句押的是白話的
@@ -5366,6 +5402,7 @@ function coldReadPick(){
 function drawFortuneSlip(){
   if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
   chg('money', -20);
+  FORTUNE.lastDrawDay = day;   // 每天限抽一次(kc:「每天只能抽一次籤」),見 openFortuneMenu()
   busy = true;
   fpStageEl.style.display = ''; fpResultEl.style.display = 'none';
   fpStageEl.classList.add('shaking');
@@ -5388,19 +5425,18 @@ function drawFortuneSlip(){
 /* 收下籤詩+聽完收尾對話之後才會觸發(見下面 fpClose 那段筆記),不是
    玩家自己點出來的——kc:「他會自己推薦東西給你,不是你自己看」。
    pick.k 是 coldReadPick() 冷讀命中的那項指標,stamina 對應轉運金牌
-   (有獨立的墊高價/封頂邏輯,跟其他道具不同,拆開處理),full 沒有
-   對應道具,直接解鎖離開。 */
+   (有獨立的封頂邏輯,跟其他道具不同,拆開處理),full 沒有對應道具,
+   直接解鎖離開。已經掛著一個跑腿任務時不重複推銷(FORTUNE.quest 還
+   在),免得同時疊兩個任務搞不清楚要跑哪裡。 */
 function pitchFortuneItem(pick){
-  if(!pick){ busy = false; return; }
-  if(pick.k === 'stamina' && luckBuys < LUCK_PRICES.length){
-    const price = LUCK_PRICES[luckBuys];
+  if(!pick || FORTUNE.quest){ busy = false; return; }
+  if(pick.k === 'stamina'){
+    if(luckBuys >= LUCK_MAX_BUYS){ busy = false; return; }
     say('fortune', '「你這樣硬撐不是辦法，要不要備一個轉運金牌，戴著你撐得比別人久一點。」', () => {
-      openMenu('轉運金牌　$'+price, [
-        { label:'買下來', cost:'$'+price, cls: ST.money<price?'bad':'',
-          run(){
-            if(ST.money < price){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
-            chg('money', -price); ST_MAX.stamina += 10; luckBuys++; syncHUD();
-            toast('「戴著它，你撐得比別人久一點。」（體力上限 +10）', 2800);
+      openMenu('轉運金牌', [
+        { label:'好啊，我去跑一趟', run(){
+            startFortuneQuest({ id:'luck', stat:'stamina', isLuck:true, target:'moto',
+              buy:'「戴著它，你撐得比別人久一點。」' });
           } },
         { label:'不用了，謝謝', cls:'back', run(){} }
       ]);
@@ -5410,24 +5446,66 @@ function pitchFortuneItem(pick){
   const item = FORTUNE_ITEMS.find(it => it.stat === pick.k);
   if(!item){ busy = false; return; }
   say('fortune', item.pitch, () => {
-    openMenu(item.name + '　$'+item.cost, [
-      { label:'買下來', cost:'$'+item.cost, cls: ST.money<item.cost?'bad':'',
-        run(){
-          if(ST.money < item.cost){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
-          chg('money', -item.cost); chg(item.stat, item.amount);
-          toast(item.buy + '（' + NAMES[item.stat] + ' +' + item.amount + '）', 2600);
-        } },
+    openMenu(item.name, [
+      { label:'好啊，我去跑一趟', run(){ startFortuneQuest(item); } },
       { label:'不用了，謝謝', cls:'back', run(){} }
     ]);
   });
 }
+/* 接下任務:記進 FORTUNE.quest(done 一開始是 false),再讓他交代地點
+   (FORTUNE_QUEST_TEXT[target].ask)+ 飄一個地點提示。真的完成要等玩家
+   跑到 completeFortuneQuestAt() 掛的那個地點(見 talkToMotoBoss()/
+   interactProp() 'bushes' 分支),回來找他才會真的拿到道具/加值(見
+   talkToFortune() 開頭那段)。 */
+function startFortuneQuest(entry){
+  FORTUNE.quest = { id:entry.id, stat:entry.stat, amount:entry.amount,
+                     isLuck:!!entry.isLuck, buy:entry.buy, target:entry.target, done:false };
+  const qt = FORTUNE_QUEST_TEXT[entry.target];
+  say('fortune', qt.ask, () => toast(qt.hint, 3200));
+}
+/* 在對應地點觸發——不是 FORTUNE.quest 這個任務、或還沒交代任務、或
+   已經完成過,都不動作(回傳 false 讓呼叫端照原本邏輯繼續跑,例如
+   talkToMotoBoss() 正常的買車/劇情對話)。true 才代表這次互動被任務
+   吃掉,呼叫端要 return,不要再往下執行原本的邏輯。 */
+function completeFortuneQuestAt(target){
+  if(!FORTUNE.quest || FORTUNE.quest.done || FORTUNE.quest.target !== target) return false;
+  FORTUNE.quest.done = true;
+  toast(FORTUNE_QUEST_TEXT[target].find, 3200);
+  return true;
+}
+/* 每天限抽一次(2026-08-27,kc:「每天只能抽一次籤」)——FORTUNE.lastDrawDay
+   在 drawFortuneSlip() 成功扣錢時寫入,同一天再點「抽籤詩」直接被擋掉,
+   不重抽、不再扣錢,跟 ai-linebot 那頁「一天限抽一次」的原始設計同一個
+   精神(那頁後來因為 kc 自己要測試暫時解禁,這裡不用抄那個暫時放行,
+   直接做成正式版)。 */
 function openFortuneMenu(){
+  const drawnToday = FORTUNE.lastDrawDay === day;
   openMenu('算命攤', [
-    { label:'抽籤詩', cost:'$20', cls: ST.money<20?'bad':'', run(){ drawFortuneSlip(); } },
+    { label:'抽籤詩', cost: drawnToday ? '今天算過了' : '$20', cls: drawnToday || ST.money<20 ? 'bad' : '',
+      run(){
+        if(drawnToday){ toast('「今天已經幫你算過了，明天再來。」', 2400); return; }
+        drawFortuneSlip();
+      } },
     { label:'走開', cls:'back', run(){} }
   ]);
 }
 function talkToFortune(){
+  /* 任務進行中優先攔在最前面:做完了(quest.done)先讓他交貨、指標真的
+     加值,還沒做完就提醒你東西還沒拿到——兩種情況都不進正常的算命
+     選單(那天多半也已經抽過籤了,選單本來就沒什麼好點的)。 */
+  if(FORTUNE.quest){
+    const q = FORTUNE.quest;
+    if(q.done){
+      FORTUNE.quest = null;
+      say('fortune', q.buy, () => {
+        if(q.isLuck){ ST_MAX.stamina += 10; luckBuys++; syncHUD(); toast('（體力上限 +10）', 2600); }
+        else { chg(q.stat, q.amount); toast('（' + NAMES[q.stat] + ' +' + q.amount + '）', 2600); }
+      });
+    } else {
+      say('fortune', '「東西還沒拿到吧？我等你。」', () => {});
+    }
+    return;
+  }
   if(!FORTUNE.met){
     FORTUNE.met = true;
     say('fortune', '「來喔，要不要算一下，看你這陣子過得怎麼樣。」', () => openFortuneMenu());
@@ -5891,6 +5969,10 @@ function talkToKai(){
    先跑 events[] 故事節點,沒有觸發中事件就退回 talk[] 隨機閒聊),對完話
    才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
 function talkToMotoBoss(){
+  /* 算命攤跑腿任務(2026-08-27)——攔在最前面,跟這裡原本的劇情/買車邏輯
+     完全independent,見上面 pitchFortuneItem()/completeFortuneQuestAt()
+     那組長筆記。只在任務目標剛好是 moto、還沒完成過的時候吃掉這次互動。 */
+  if(completeFortuneQuestAt('moto')) return;
   /* 舊剪報揭露(2026-08-26,kc:「新聞就是旺宏老闆之前做過的壞事，讀完新聞
      後可以回去問老闆」)——攔在 talkToStallVendor() 那套訪問次數劇情最
      前面,只演一次。內容照 lib/story-motoboss.js 檔頭那則筆記的基準線寫:
@@ -6091,6 +6173,15 @@ function interactProp(prop){
   if(prop.type === 'piss'){
     chg('star', -1);
     toast('公廁要收清潔費，五塊。你摸了摸口袋，找了個牆角解決。', 2600);
+    return;
+  }
+  /* 灌木叢・桃木劍藏身處(2026-08-27)——算命攤跑腿任務的其中一個地點,
+     見上面 pitchFortuneItem()/completeFortuneQuestAt() 那組筆記。任務
+     沒指到這裡、或還沒接任務,翻了也只是普通的灌木叢,不會出現桃木劍
+     (不是「這裡永遠都有劍」,是任務給的才有)。 */
+  if(prop.type === 'bushes'){
+    if(completeFortuneQuestAt('sword')) return;
+    toast('灌木叢裡只有葉子，沒什麼特別的。', 2000);
     return;
   }
   /* 公園長椅・散心(2026-08-26)——見上面 BENCH 那則筆記,單一動作,跟摸貓狗
