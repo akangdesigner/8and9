@@ -265,7 +265,7 @@
   #fortunePanel { position:fixed; inset:0; display:none; align-items:center; justify-content:center;
                   background:rgba(4,5,8,.86); z-index:9; }
   #fortunePanel.on { display:flex; }
-  #fortunePanel .fpPanel { width:min(420px,88%); background:linear-gradient(180deg,rgba(14,18,26,.97),rgba(9,12,18,.98));
+  #fortunePanel .fpPanel { width:min(460px,90%); background:linear-gradient(180deg,rgba(14,18,26,.97),rgba(9,12,18,.98));
     border:2px solid #55617a; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.6); padding:20px 26px 24px; text-align:center; }
   #fortunePanel .fpCap { font-size:13px; letter-spacing:.24em; color:#d8b24a; margin-bottom:14px; }
   #fortunePanel .fpStage img { width:120px; height:120px; object-fit:contain;
@@ -275,35 +275,55 @@
   #fortunePanel .fpStage.tipping img { animation:fpTip .5s ease-out forwards; }
   @keyframes fpTip { 0%{ transform:rotate(0deg); } 100%{ transform:rotate(22deg); } }
   #fortunePanel .fpText { margin-top:14px; font-size:14.5px; color:#c7cdd8; letter-spacing:.04em; }
-  /* 結果紙(fpResult)預設藏著,drawFortuneSlip() 播完動畫才切換顯示——
-     跟 agBar 那套「display:none 預設藏,程式判斷才開」同一招。 */
+  /* 結果紙整組重做(2026-08-27,kc:「你為何要改我的樣式,你有看我原本的
+     籤詩樣式嗎」)——上一輪把內容(四句/宜忌/六格)搬過來了,但排版是
+     我自己重新設計的橫式段落,不是 kc 原本 ai-linebot 那頁真的樣子。
+     這輪直接照抄那頁的 CSS 結構(class 名字/巢狀關係/直式文字排版都
+     照搬,只換色票),不是「參考精神」而是真的照樣式抄:
+     - 籤詩/解籤是直式(`writing-mode:vertical-rl`),由右至左排列
+       (`flex-direction:row-reverse`),旁邊各自跟一個直式的「詩曰」/
+       「解曰」標籤,中間用左邊框隔開——不是我原本那版橫式一行行往下排。
+     - 六格運勢+宜忌是同一排(不是六格一排、宜忌另起一排),宜忌用
+       左邊框從六格中間隔開,跟六格同高。
+     - 整張紙是雙紅框(`fpSlip` 外框+`fpSlipInner` 內框中間留窄縫),
+       四段內容(頭/籤文/解曰/六格)之間用細紅線隔開,不是分開的色塊。
+     - 右下角加祈福印章(直式、旋轉、multiply 混合模式)。
+     結果紙預設藏著,drawFortuneSlip() 播完動畫才切換顯示——跟 agBar
+     那套「display:none 預設藏,程式判斷才開」同一招。 */
   #fortunePanel .fpResult { display:none; }
-  #fortunePanel .fpSlip { padding:4px; border:1.5px solid #a82a22; border-radius:6px;
-    background-image:url('../assets/tex/fortune-paper.jpg'); background-size:cover; background-position:center; }
-  #fortunePanel .fpSlipInner { border:2px solid #a82a22; border-radius:4px; padding:18px 14px 14px; }
-  #fortunePanel .fpGrade { font-size:20px; font-weight:900; color:#a82a22; letter-spacing:.15em; margin-bottom:10px; }
-  /* 四句籤詩(2026-08-27,kc:「你的畫面要參考籤詩內容」)——原本只有
-     一句話,改成 pick.lines 四句用 \n 接起來塞進同一個 textContent,
-     white-space:pre-line 讓換行符真的斷行,不用拆四個 DOM 節點。 */
-  #fortunePanel .fpVerse { font-size:16px; font-weight:800; color:#2a2018; letter-spacing:.06em;
-    margin-bottom:12px; line-height:1.9; white-space:pre-line; }
-  #fortunePanel .fpMeaning { font-size:13.5px; color:#4a3c2e; line-height:1.7; }
-  /* 財運/事業/感情/健康/出行/人際 六格 + 宜/忌(2026-08-27,kc:「我還有
-     宜不宜跟其他的運勢探討」)——上一輪只搬了「四句籤詩+白話解籤」,
-     漏了 ai-linebot 那頁 SLIPS.grid 那組六類運勢+宜忌,這輪照原本的
-     資料形狀補回來,不是重新設計一套新格式。六格用 3 欄 2 排(這個面板
-     比原頁窄,6 欄一排會擠爆),宜/忌另起一排、字級加大一點跟六格區隔
-     (呼應原頁 grid-side 那塊用左邊框隔開的做法,這裡用整排上緣的分隔線
-     代替直排分隔)。 */
-  #fortunePanel .fpGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px 6px;
-    margin-top:12px; padding-top:12px; border-top:1px solid rgba(168,42,34,.4); }
-  #fortunePanel .fpGCell { font-size:12px; line-height:1.5; text-align:center; }
-  #fortunePanel .fpGCell .fpGL { display:block; color:#a82a22; font-weight:800; }
-  #fortunePanel .fpGCell .fpGV { color:#4a3c2e; font-weight:700; }
-  #fortunePanel .fpYiJi { display:flex; justify-content:center; gap:18px;
-    margin-top:10px; padding-top:10px; border-top:1px solid rgba(168,42,34,.4); }
-  #fortunePanel .fpYiJi .fpGCell { font-size:13px; }
-  #fortunePanel #fpClose { margin-top:16px; background:rgba(12,16,23,.95); color:#dfe4ea;
+  #fortunePanel .fpSlip { padding:5px; border:1.5px solid #a82a22; border-radius:6px;
+    background-image:url('../assets/tex/fortune-paper.jpg'); background-size:cover; background-position:center;
+    box-shadow:0 14px 30px -18px rgba(120,20,20,.45); }
+  #fortunePanel .fpSlipInner { border:2.5px solid #a82a22; border-radius:4px; overflow:hidden; }
+  #fortunePanel .fpRow { border-top:1px solid rgba(168,42,34,.55); }
+  #fortunePanel .fpHead { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; }
+  #fortunePanel .fpGradeBig { font-size:26px; font-weight:900; color:#a82a22; letter-spacing:.15em; }
+  #fortunePanel .fpVCol { writing-mode:vertical-rl; text-orientation:upright; letter-spacing:.3em; }
+  #fortunePanel .fpVCol.fpHeadNo { font-size:13px; font-weight:800; color:#a82a22; }
+  #fortunePanel .fpVerseRow { display:flex; align-items:stretch; justify-content:center; padding:14px 10px; gap:10px; min-height:150px; }
+  #fortunePanel .fpVerseCols { display:flex; flex-direction:row-reverse; gap:10px; }
+  #fortunePanel .fpVCol.fpVerseLine { font-size:19px; font-weight:900; color:#2a2018; }
+  #fortunePanel .fpVCol.fpSideLabel { flex:0 0 auto; font-size:13px; font-weight:800; color:#a82a22;
+    border-left:1px solid rgba(168,42,34,.4); padding-left:8px; }
+  #fortunePanel .fpMeaningRow { display:flex; align-items:flex-start; justify-content:center; padding:14px 10px; gap:10px; }
+  #fortunePanel .fpVCol.fpMeaningVert { height:130px; font-size:15px; font-weight:700; color:#4a3c2e; line-height:2; }
+  #fortunePanel .fpGridRow { display:flex; align-items:flex-start; justify-content:center; padding:12px 8px; gap:8px; }
+  #fortunePanel .fpGCol { font-size:12px; line-height:1.5; }
+  #fortunePanel .fpGCol .fpGL { color:#a82a22; font-weight:800; }
+  #fortunePanel .fpGCol .fpGV { color:#4a3c2e; font-weight:700; }
+  #fortunePanel .fpGridSide { display:flex; gap:6px; border-left:1px solid rgba(168,42,34,.4); padding-left:8px; margin-left:2px; }
+  #fortunePanel .fpSeal { display:flex; justify-content:flex-end; padding:4px 16px 14px; }
+  #fortunePanel .fpSealStamp { writing-mode:vertical-rl; text-orientation:upright; font-size:13px; font-weight:900; letter-spacing:.25em;
+    color:#a82a22; border:2px solid #a82a22; border-radius:4px; padding:5px 4px; opacity:.7; transform:rotate(-4deg);
+    mix-blend-mode:multiply; }
+  /* 數值附帶說明拆到直式解曰文字外面(2026-08-27,同一輪修正)——原本把
+     「(歸屬感 +4)」接在 meaning 字串尾巴一起塞進直式欄位,字數一長,
+     vertical-rl 自動換到下一欄,「4」「（」這種標點會被切成單獨一欄,
+     很醜。照這個專案的敘述風格慣例(結果文字真實生活感為主,數值變化
+     附帶括號說明,見 DESIGN_NOTES「文字風格原則」)拆成獨立一行小字,
+     擺在整張籤詩紙外面、關閉鈕上面,不混進直式的「解曰」內容裡。 */
+  #fortunePanel .fpStatNote { margin-top:10px; font-size:12.5px; color:#8d96a4; letter-spacing:.04em; }
+  #fortunePanel #fpClose { margin-top:10px; background:rgba(12,16,23,.95); color:#dfe4ea;
     border:1px solid #3d4757; border-left:3px solid #d8b24a; padding:9px 20px;
     font-size:14.5px; font-family:inherit; letter-spacing:.06em; cursor:pointer; border-radius:3px; }
   #fortunePanel #fpClose:hover { background:rgba(32,40,53,.98); color:#fff; }
@@ -460,13 +480,23 @@
     <div class="fpResult" id="fpResult">
       <div class="fpSlip">
         <div class="fpSlipInner">
-          <div class="fpGrade" id="fpGrade"></div>
-          <div class="fpVerse" id="fpVerse"></div>
-          <div class="fpMeaning" id="fpMeaning"></div>
-          <div class="fpGrid" id="fpGrid"></div>
-          <div class="fpYiJi" id="fpYiJi"></div>
+          <div class="fpHead">
+            <div class="fpGradeBig" id="fpGrade"></div>
+            <div class="fpVCol fpHeadNo" id="fpHeadNo"></div>
+          </div>
+          <div class="fpRow fpVerseRow">
+            <div class="fpVerseCols" id="fpVerseCols"></div>
+            <div class="fpVCol fpSideLabel">詩曰</div>
+          </div>
+          <div class="fpRow fpMeaningRow">
+            <div class="fpVCol fpMeaningVert" id="fpMeaning"></div>
+            <div class="fpVCol fpSideLabel">解曰</div>
+          </div>
+          <div class="fpRow fpGridRow" id="fpGridRow"></div>
+          <div class="fpSeal"><span class="fpSealStamp">誠心祈福</span></div>
         </div>
       </div>
+      <div class="fpStatNote" id="fpStatNote"></div>
       <button id="fpClose">收下籤詩</button>
     </div>
   </div>
@@ -1105,14 +1135,24 @@ const agBarEl = document.getElementById('agBar'), agBarPin = document.getElement
 const agBody = document.getElementById('agBody'), agActions = document.getElementById('agActions');
 const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
 const fpTextEl = document.getElementById('fpText'), fpResultEl = document.getElementById('fpResult');
-const fpGradeEl = document.getElementById('fpGrade'), fpVerseEl = document.getElementById('fpVerse'), fpMeaningEl = document.getElementById('fpMeaning');
-const fpGridEl = document.getElementById('fpGrid'), fpYiJiEl = document.getElementById('fpYiJi');
+const fpGradeEl = document.getElementById('fpGrade'), fpHeadNoEl = document.getElementById('fpHeadNo');
+const fpVerseColsEl = document.getElementById('fpVerseCols'), fpMeaningEl = document.getElementById('fpMeaning');
+const fpGridRowEl = document.getElementById('fpGridRow'), fpStatNoteEl = document.getElementById('fpStatNote');
 const GRID_LABELS = [['caiyun','財運'],['shiye','事業'],['ganqing','感情'],['jiankang','健康'],['chuxing','出行'],['renji','人際']];
-function renderFortuneGrid(grid){
-  fpGridEl.innerHTML = GRID_LABELS.map(([k,label]) =>
-    `<div class="fpGCell"><span class="fpGL">${label}</span><span class="fpGV">${grid[k]}</span></div>`).join('');
-  fpYiJiEl.innerHTML = [['yi','宜'],['ji','忌']].map(([k,label]) =>
-    `<div class="fpGCell"><span class="fpGL">${label}</span><span class="fpGV">${grid[k]}</span></div>`).join('');
+/* 結果紙渲染(2026-08-27,照 kc 原本 ai-linebot 那頁的 DOM 結構搬過來,
+   見上面 #fortunePanel CSS 那則長筆記)——籤文/解籤是直式,四句要順著
+   push 進 fpVerseCols(CSS flex-direction:row-reverse 會自己排成由右至左,
+   不用在這裡反轉陣列)。六格+宜忌是同一排,宜忌包一層 fpGridSide 用左
+   邊框跟六格隔開,不是分開兩排。 */
+function renderFortuneSlip(pick){
+  fpGradeEl.textContent = pick.grade;
+  fpHeadNoEl.textContent = '第' + pick.no + '籤';
+  fpVerseColsEl.innerHTML = pick.lines.map(l => `<div class="fpVCol fpVerseLine">${l}</div>`).join('');
+  fpMeaningEl.textContent = pick.meaning;
+  const gcol = (label, val) => `<div class="fpGCol"><span class="fpGL">${label}</span><span class="fpGV">${val}</span></div>`;
+  fpGridRowEl.innerHTML = GRID_LABELS.map(([k,label]) => gcol(label, pick.grid[k])).join('')
+    + `<div class="fpGridSide">${gcol('宜', pick.grid.yi)}${gcol('忌', pick.grid.ji)}</div>`;
+  fpStatNoteEl.textContent = '（歸屬感 +4）';
 }
 /* 收下籤詩之後他會再說一句(kc:「抽完之後算命仙會再跟你講話」)——
    fpPendingFollowUp 是 drawFortuneSlip() 存的那句,關掉結果紙面板之後
@@ -5167,25 +5207,25 @@ let luckBuys = 0;
    不重複 meaning 已經講過的內容,是他看你收下籤詩之後的反應。 */
 function coldReadPick(){
   const cands = [
-    { k:'full', v:ST.full,
+    { k:'full', v:ST.full, no:7,
       lines:['面帶菜色三分飢','腹中空空難支撐','先解眼前一頓飯','後計來日長與短'],
       meaning:'你這幾天大概沒好好吃東西，先把這頓解決再想別的。',
       followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」',
       grid:{ caiyun:'手頭偏緊', shiye:'先顧肚子', ganqing:'沒力氣多想', jiankang:'腸胃虛弱',
              chuxing:'少去遠地', renji:'別硬撐場面', yi:'先吃一頓飽', ji:'空腹出門' } },
-    { k:'stamina', v:ST.stamina,
+    { k:'stamina', v:ST.stamina, no:13,
       lines:['印堂發灰勞碌命','日夜奔波不得閒','身骨撐著心先垮','該歇一歇莫逞強'],
       meaning:'你最近太拚了，身體在跟你討時間，不是討錢。',
       followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。',
       grid:{ caiyun:'錢賺得辛苦', shiye:'別硬撐工時', ganqing:'沒空陪人', jiankang:'早點歇息',
              chuxing:'少熬夜奔波', renji:'少應酬', yi:'早點回去躺', ji:'硬撐通宵' } },
-    { k:'calm', v:ST.calm,
+    { k:'calm', v:ST.calm, no:21,
       lines:['命宮孤影少人問','獨自撐著不敢言','身邊未必無人在','只是話到嘴邊軟'],
       meaning:'你這陣子是不是都自己一個人扛，有些話講出來會輕鬆一點。',
       followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。',
       grid:{ caiyun:'錢不是重點', shiye:'心不在焉', ganqing:'渴望有人陪', jiankang:'心累比較重',
              chuxing:'別自己悶著', renji:'主動找人聊', yi:'去廟口走走', ji:'把自己關起來' } },
-    { k:'mood', v:ST.mood,
+    { k:'mood', v:ST.mood, no:29,
       lines:['眉頭深鎖心事重','悶在心口說不清','非是想不開這件事','是真沒地方能傾訴'],
       meaning:'有些氣悶在心裡太久了，不是你想不開，是真的沒地方說。',
       followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。',
@@ -5193,13 +5233,13 @@ function coldReadPick(){
              chuxing:'換個地方走走', renji:'少跟人計較', yi:'找人說說話', ji:'憋著不說' } }
   ].sort((a,b) => a.v - b.v);
   const worst = cands[0];
-  if(worst.v >= 70) return { grade:'上籤',
+  if(worst.v >= 70) return { grade:'上籤', no:35,
     lines:['近日運勢平穩好','腳下步步踏得穩','莫自嚇自庸人擾','順著走就是順風'],
     meaning:'你這陣子過得比想像中穩，別自己嚇自己。',
     followUp:'「你這樣就不錯了，不用天天來問我。」他笑了笑，把籤筒放回桌上。',
     grid:{ caiyun:'穩紮穩打', shiye:'照原步調', ganqing:'順其自然', jiankang:'維持現狀',
            chuxing:'平安順遂', renji:'人緣不錯', yi:'照常過日子', ji:'自己嚇自己' } };
-  return { grade:'中籤', lines:worst.lines, meaning:worst.meaning, followUp:worst.followUp, grid:worst.grid };
+  return { grade:'中籤', no:worst.no, lines:worst.lines, meaning:worst.meaning, followUp:worst.followUp, grid:worst.grid };
 }
 function drawFortuneSlip(){
   if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
@@ -5217,11 +5257,8 @@ function drawFortuneSlip(){
       chg('calm', 4);
       fpStageEl.classList.remove('tipping');
       fpStageEl.style.display = 'none'; fpResultEl.style.display = 'block';
-      fpGradeEl.textContent = pick.grade;
-      fpVerseEl.textContent = pick.lines.join('\n');
-      fpMeaningEl.textContent = pick.meaning + '（歸屬感 +4）';
+      renderFortuneSlip(pick);
       fpPendingFollowUp = pick.followUp;
-      renderFortuneGrid(pick.grid);
     }, 500);
   }, 900);
 }
