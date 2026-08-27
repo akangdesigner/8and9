@@ -1133,7 +1133,9 @@ export function buildCity(THREE, scene){
     const TOWERS = [
       { x:-58, w:18, file:'office-tower-1.png', color:0x8a97a0 },   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面(整棟樓風格)還沒生,先素色佔位
       { x:-16, w:14, file:'office-tower-2.png', sideFile:'office-tower-2-side.png?v=2', color:0xb08858 },   // 學校跟火車站中間,只有 16 寬的窄縫,樓也窄一點——古銅色帷幕,側面 v2(2026-08-26,kc:「他是大樓二」,原本以為 v2 那張是大樓一,修正)
-      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材,正面圖 2026-08-27 補上(kc 拿側面圖當參考生的,樓層對齊)
+      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材,正面圖 2026-08-27 補上(kc 拿側面圖當參考生的,樓層對齊)。
+      // 原始生圖左右各留了近 30% 黑色透明邊(kc:「貼錯大樓尺寸」發現的),裁掉黑邊
+      // 只留大樓本體重新存檔(裁圖過程見對話紀錄,不影響這裡的裁切公式)。
     ];
     TOWERS.forEach(cfg => {
       const h = 50, w = cfg.w, d = DEPTH;
@@ -2118,7 +2120,23 @@ export function buildCity(THREE, scene){
     lampSpots.push({ x, y:2.0, z, c:0xff8a3a, i:20, r:14 });
   }
   [[-52.3,-95.3],[-47.7,-95.3]].forEach(([tx,tz]) => mysticTorch(tx,tz));
-  buildTree(-57, -99, 1.4, 2);
+  /* 真的樹 3D(2026-08-27,kc:「能不能用真的樹3D」)——buildTree() 是
+     billboard 卡片樹(灰模多面體+十字交叉照片卡),近看/繞到側面會露餡。
+     這裡跟 lantern/incense-bowl 那套「先蓋灰模占位,glb 載到再替換」的
+     手法一樣,抓一顆真的低模樹模型(Tree,Quaternius,CC0,授權見
+     assets/models/CREDITS.md,跟 food 系列、litter 系列同一個 Quaternius
+     家族),
+     不是又發明一套新機制。只換這裡這棵,街上/公園原本那些 buildTree()
+     卡片樹沒有動——這輪範圍只到算命攤這個角落。 */
+  function realTree(x, z, targetSize){
+    const fallback = box(1.2, targetSize, 1.2, std({ color:0x3c5a2e, roughness:.9 }));
+    const holder = add(fallback, x, targetSize/2, z, true, false);
+    loadModel('tree-01.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, targetSize, 'y', Math.random()*Math.PI*2), x, 0, z, true, false);
+    }).catch(() => {});
+  }
+  realTree(-57, -99, 7);
   bushLine(-59, -91, -59, -104);
   addProp('planter', -47, -99.5, 1.0, 1.3, 0x3c5a2e);
   /* 機車(parkMoto)要等下面 `const motos = []` 先跑過(TDZ,const 不像
