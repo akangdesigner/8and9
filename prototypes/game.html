@@ -311,7 +311,10 @@
      17px(照 ai-linebot 原頁的 meaning-vert 字級),跟籤文(19px)的
      落差不要太明顯。 */
   #fortunePanel .fpMeaningRow { display:flex; align-items:center; justify-content:center; padding:14px 10px; gap:10px; }
-  #fortunePanel .fpVCol.fpMeaningVert { height:150px; font-size:17px; font-weight:700; color:#4a3c2e; line-height:2; }
+  /* 解籤字級再放大(2026-08-27,kc:「第三行字的大小超違和,至少要24」)——
+     17px 跟籤文(19px)/其他區塊排在一起還是明顯偏小,拉到 24px,容器
+     高度跟著加大(150→170px)給多一點直排空間,不然字放大會擠出更多欄。 */
+  #fortunePanel .fpVCol.fpMeaningVert { height:170px; font-size:24px; font-weight:700; color:#4a3c2e; line-height:1.7; }
   #fortunePanel .fpGridRow { display:flex; align-items:flex-start; justify-content:center; padding:12px 8px; gap:8px; }
   /* 六格運勢也是直式(2026-08-27,kc 傳了真的截圖:「是長這樣欸」)——
      上一輪雖然照抄了直式籤文/解籤,但六格運勢還是自己做的橫式小方塊
