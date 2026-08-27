@@ -619,24 +619,34 @@ export function buildCity(THREE, scene){
     }
   }
   /* 雜草區(2026-08-27,kc 看了算命攤北牆那排 bushLine() 截圖:「灌木叢
-     太小,那邊就是雜草區,至少要圍牆一半高,而且要很雜亂」)——跟
-     bushLine() 用同一個 buildBush() 積木,但這裡要的不是修剪整齊的
-     籬笆(公園/校門口那些 bushLine() 用途還是要維持原樣,不要跟著改),
-     是沒人管的雜草叢:尺寸拉大(scale .9~1.8,對應可視高度約 1.4~2.9,
-     templeWall() 的 wallH=3,至少過半);間距壓密(len/.7,比 bushLine()
-     的 len/1.15 更擠,叢與叢重疊);沿線的垂直/水平偏移都放大到 ±1.6
-     (bushLine() 只有 ±.3),讓輪廓歪七扭八不成一直線,不是照著線整齊
-     排一排。 */
+     太小,那邊就是雜草區,至少要圍牆一半高,而且要很雜亂」,第一版拉大
+     buildBush() 參數之後 kc 還是不滿意:「不夠雜而且我不想要灌木,我想要
+     真的草」——問題不是尺寸,是素材本身:buildBush() 用的 tree-crown
+     系列是圓頂樹冠剪影,不管怎麼調參數看起來都是「一叢修剪過的灌木球」,
+     不是野草。整個換掉,不再用 buildBush()/billboard 卡片這條路,改用
+     兩款真的 3D 草叢模型(grass-tall.glb/grass-01.glb,Quaternius,CC0,
+     授權見 assets/models/CREDITS.md)散開種,跟 realTree() 同一套「先蓋
+     灰模占位,glb 到了再替換」,但這裡刻意種得極密、極亂:尺寸 1.3~2.9
+     (templeWall() 的 wallH=3,大半叢逼近甚至撐到牆高,不是勉強過半)、
+     每叢隨機朝向(Math.random()*Math.PI*2,不像 bushLine() 那些灌木統一
+     面朝一個方向)、沿線偏移拉到 ±2.2、間距壓到 len/.5(比第一版
+     weedPatch 的 len/.7 更密)——密到叢與叢大量重疊、高矮參差不齊,
+     讀起來是荒廢很久沒人管的野草地,不是照著線種的一排植栽。 */
+  function weedClump(x, z, targetSize, variant){
+    const fallback = box(.6, targetSize, .6, std({ color:0x4a6b2f, roughness:.95 }));
+    const holder = add(fallback, x, targetSize/2, z, true, false);
+    loadModel(variant === 1 ? 'grass-tall.glb' : 'grass-01.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, targetSize, 'y', Math.random()*Math.PI*2), x, 0, z, true, false);
+    }).catch(() => {});
+  }
   function weedPatch(ax, az, bx, bz){
     const dx = bx-ax, dz = bz-az, len = Math.hypot(dx,dz);
-    const steps = Math.max(1, Math.round(len/.7));
-    let prevVariant = 0;
+    const steps = Math.max(1, Math.round(len/.5));
     for(let i=0; i<=steps; i++){
       const t = steps ? i/steps : .5;
-      let variant = 1 + Math.floor(Math.random()*4);
-      if(variant === prevVariant) variant = 1 + (variant % 4);
-      prevVariant = variant;
-      buildBush(ax+dx*t+(Math.random()-.5)*1.6, az+dz*t+(Math.random()-.5)*1.6, .9+Math.random()*.9, variant);
+      const variant = Math.random() < .5 ? 1 : 2;
+      weedClump(ax+dx*t+(Math.random()-.5)*2.2, az+dz*t+(Math.random()-.5)*2.2, 1.3+Math.random()*1.6, variant);
     }
   }
 

@@ -26,6 +26,8 @@
 | `food-rice-bowl.glb` | Bowl of rice | jeremy | CC-BY | https://poly.pizza/m/clVUEgVMIiX |
 | `food-drink-cup.glb` | Soda | Quaternius | Public Domain (CC0) | https://poly.pizza/m/IqXSdKUMnY |
 | `tree-01.glb` | Tree | Quaternius | Public Domain (CC0) | https://poly.pizza/m/aVOxaHRPWe |
+| `grass-tall.glb` | Tall Grass | Quaternius | Public Domain (CC0) | https://poly.pizza/m/JSIYtscPmP |
+| `grass-01.glb` | Grass | Quaternius | Public Domain (CC0) | https://poly.pizza/m/GyDYqHAByU |
 
 CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時記得帶著這份清單
 (或至少「遊具模型來自 Poly by Google,CC-BY 3.0」這句話),不要漏掉。

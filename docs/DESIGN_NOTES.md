@@ -4509,3 +4509,18 @@ toast 錯開邏輯沒有動,那邊仍然可能兩則 toast 撞在一起)。
 其餘 `bushLine()` 呼叫點(公園、校門口、大樓正面)都沒有動。瀏覽器裡
 量過實際 bounding box:舊版可視高度約 0.86~1.44,新版約 1.44~2.87,
 確實過半,数量也從約 18 叢增加到約 30 叢,密度明顯提高。
+
+**雜草區換成真的草模型,不是加大的灌木(2026-08-27,同一天再一輪)**
+——kc 看了加大版之後還是不滿意:「不夠雜而且我不想要灌木,我想要真的
+草」。問題不是尺寸,是素材本身:`buildBush()` 用的 `tree-crown-*.png`
+是圓頂樹冠剪影,不管怎麼調 scale/密度看起來都是「一叢修剪過的灌木
+球」,不會變成草。整個換掉,`weedPatch()` 不再用 `buildBush()`/billboard
+卡片,改用兩款真的 3D 草叢模型(`grass-tall.glb`/`grass-01.glb`,
+Quaternius,CC0,`https://poly.pizza/m/JSIYtscPmP` / `.../GyDYqHAByU`,
+授權補進 `assets/models/CREDITS.md`),跟 `realTree()` 同一套「先蓋灰模
+占位,glb 到了再替換」手法,新增 `weedClump(x,z,targetSize,variant)`
+包這段載入邏輯。刻意種得比第一版更密更亂:尺寸 1.3~2.9(逼近甚至撐到
+`wallH=3`)、每叢隨機朝向(不像灌木統一面朝一個方向)、沿線偏移 ±2.2、
+間距 `len/.5`(比第一版 weedPatch 的 `len/.7` 更密)。瀏覽器裡看到的
+效果是高高低低、尖刺狀的草叢輪廓(不是圓滾滾的球),叢與叢明顯重疊,
+console 無錯誤。
