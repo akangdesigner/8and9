@@ -202,6 +202,9 @@ export function buildCity(THREE, scene){
        不留任何要靠環境反射撐的成分。 */
     metal:std({color:0x3a3f46,roughness:.5,metalness:0}),
     tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
+    /* 算命攤棚布(2026-08-27,kc:「攤位左邊新增一個算命攤」):跟鴨頭紅/
+       乾麵藍區隔開,選深黃——夜市算命攤常見的布色,不是隨機挑的第三色。 */
+    tarpC:std({color:0xc9962f,roughness:.9}),
     plastic:std({color:0xc0473a,roughness:.75}),
     tin:std({color:0x6a6f6a,roughness:.7,metalness:0}),
     /* 香爐座、供桌各自開專屬材質,不要沿用 M.curb/M.gold——那兩個共用材質
@@ -2003,7 +2006,9 @@ export function buildCity(THREE, scene){
       [['food-rice-bowl.glb', .5, 'x', -1.3, .3], ['food-chopsticks.glb', .45, 'x', -.55, .35], ['food-drink-cup.glb', .45, 'y', 1.5, .2]],
       [['food-udon.glb', .55, 'x', -1.2, .3], ['food-chopsticks.glb', .45, 'x', -.4, .35]],
       [['food-cooking-pot.glb', .6, 'x', -1.1, .2], ['food-drink-cup.glb', .45, 'y', 1.3, .2]]
-    ][propIdx % 3] || []).forEach(([file, size, axis, dx, dz]) => placeStallProp(file, size, axis, dx, dz));
+      /* propIdx 3+(算命攤等非食物攤):沒有對應的食物小物陣列,直接落到
+         下面 `|| []`,桌面維持空的,不會硬塞碗筷上去。 */
+    ][propIdx] || []).forEach(([file, size, axis, dx, dz]) => placeStallProp(file, size, axis, dx, dz));
     /* 拿掉小發光方塊(2026-08-19,同一輪):跟上面同一張截圖抓到的問題——
        這顆小方塊(emissiveIntensity 1.4)在攤子開口那個小範圍裡,跟現在
        新加的招牌(也是發光材質)疊在一起,兩顆一起被 UnrealBloomPass 吃到
@@ -2053,6 +2058,14 @@ export function buildCity(THREE, scene){
      3D 攤位 box 沒有綁在一起,刪這個 box 不影響她的劇情。 */
   stall(-22,-92, M.tarp, 'duck-head', 0, '老大東山鴨頭', 'stall-duck-case-front.png', 'stall-duck-case-side.png', 'stall-duck-case-top.png');
   stall(-13,-92, M.tarpB, 'dry-noodle', 1, '廟口乾麵', 'stall-noodle-case-front.png', 'stall-noodle-case-side.png', 'stall-noodle-case-top.png');
+  /* 算命攤(2026-08-27,kc:「在廟口區有一片空地,攤位左邊新增一個算命攤」)
+     ——沿用既有兩攤的 stall() 骨架卡位置(x=-31,跟兩攤同一條 z=-92、
+     同樣間距 9),鴨頭/乾麵當初也是先蓋灰模占位、招牌貼圖沒生之前用
+     signImage() 的深色底頂著。沒給 trayFile,展示櫃/桌面退回素面
+     M.metal/M.stallTop,不會硬套食物照片;propIdx 傳 3,桌面不會冒出
+     碗筷。玩法/劇情內容還沒展開(見 DESIGN_NOTES「待辦:廟口算命擺攤」
+     ——kc 交代先卡標題不腦補),這裡只放場景位置,不是完整設計。 */
+  stall(-31,-92, M.tarpC, 'fortune', 3, '算命攤');
   function tableSet(x, z){
     add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) => add(box(.14,1.5,.14, M.plastic), x+a*1.05, .75, z+b*1.05));
