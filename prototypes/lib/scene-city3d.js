@@ -2102,9 +2102,11 @@ export function buildCity(THREE, scene){
   /* 算命攤周邊裝飾(2026-08-27,kc:「附近能不能多加一些裝飾,火把或啥的
      裝神弄鬼,也可以放一些大樹植物機車都可以」)——火把是新的簡單發光
      道具(木桿+發光多面體火焰,跟供桌香爐那顆發光小方塊同一招,不用
-     找素材);大樹/灌木/盆栽/機車全部直接呼叫既有函式(realTree/
-     bushLine/addProp/parkMoto),沒有另外蓋系統。位置貼著西牆那一側,
-     圍出「算命攤自己的角落」,跟鴨頭/乾麵那排的熱鬧感區隔開。 */
+     找素材);大樹/盆栽/機車全部直接呼叫既有函式(realTree/addProp/
+     parkMoto),沒有另外蓋系統。位置貼著西牆那一側,圍出「算命攤自己的
+     角落」,跟鴨頭/乾麵那排的熱鬧感區隔開。（原本這裡還有灌木叢
+     bushLine(),kc 這輪要求「灌木叢拔掉,樹要放算命攤四個角落」,樹的
+     位置改到下面桌子四角那段,灌木整個拿掉。） */
   function mysticTorch(x, z){
     add(new THREE.Mesh(new THREE.CylinderGeometry(.05,.07,1.8,8),
         std({ color:0x3a2a1a, roughness:.9 })), x, .9, z, true, false);
@@ -2113,8 +2115,13 @@ export function buildCity(THREE, scene){
     lampSpots.push({ x, y:2.0, z, c:0xff8a3a, i:20, r:14 });
   }
   [[-52.3,-95.3],[-47.7,-95.3]].forEach(([tx,tz]) => mysticTorch(tx,tz));
-  realTree(-57, -99, 7);
-  bushLine(-59, -91, -59, -104);
+  /* 樹改放桌子四個角落(2026-08-27,kc:「灌木叢拔掉,樹要放算命攤四個
+     角落啊」)——原本是靠西牆放一棵大樹+一排灌木,kc 要的是四棵樹圍住
+     桌子四角,灌木叢整個拿掉(不是縮小,是不要)。四個角落抓桌子中心
+     (-50,-96)外推 3 個單位(比桌子本身 w=3.45/d=2.95 的半徑再大一圈,
+     樹冠才不會整棵貼進桌子/火把裡),尺寸從單棵時的 7 降到 6——四棵
+     一起站,原本那個大小會太擠。 */
+  [[-53,-99],[-47,-99],[-53,-93],[-47,-93]].forEach(([tx,tz]) => realTree(tx, tz, 6));
   addProp('planter', -47, -99.5, 1.0, 1.3, 0x3c5a2e);
   /* 機車(parkMoto)要等下面 `const motos = []` 先跑過(TDZ,const 不像
      function 宣告會被 hoist),這裡先留呼叫點的位置註解,實際呼叫挪到
