@@ -1171,12 +1171,12 @@ function renderFortuneSlip(pick){
 }
 /* 收下籤詩之後他會再說一句(kc:「抽完之後算命仙會再跟你講話」),說完
    依三籤等級接不同動作(kc:「下籤他會賣你產品,上籤他會稱讚你可以加
-   數值」,見上面 FORTUNE_STATS 那則長筆記):下籤接 pitchFortuneItem()
-   推銷,上籤直接把抽到的那項指標 +8(稱讚,不用另外開選單問要不要),
-   中籤什麼都不做。fpPendingFollowUp/fpPendingPick 是 drawFortuneSlip()
-   存的資料,關掉結果紙面板之後接 say()→toast→(依等級分流)三段,
-   busy 留到整串播完才解鎖(跟其他 say()/dlg 流程同一個節奏,不要在
-   角色還在講話/推銷時就放你走)。
+   數值」,見上面 FORTUNE_STATS 那則長筆記):下籤接推銷詞(見下面
+   pitchTextFor()),上籤直接把抽到的那項指標 +8(稱讚,不用另外開選單
+   問要不要),中籤什麼都不做。fpPendingFollowUp/fpPendingPick 是
+   drawFortuneSlip() 存的資料,關掉結果紙面板之後接 say()→toast→(依
+   等級分流)三段,busy 留到整串播完才解鎖(跟其他 say()/dlg 流程同一個
+   節奏,不要在角色還在講話/推銷時就放你走)。
    歸屬感+4 的提示(2026-08-27,kc:「歸屬感＋4是講話後才會提示」)——
    原本抽到籤當下就把「(歸屬感 +4)」寫進結果紙下方,kc 要的是「他講完
    話之後」才提示,改成收尾對話播完才 toast 出來,不在結果紙上顯示。
@@ -1187,13 +1187,21 @@ document.getElementById('fpClose').onclick = () => {
   fpEl.classList.remove('on');
   const line = fpPendingFollowUp, pick = fpPendingPick;
   fpPendingFollowUp = null; fpPendingPick = null;
+  /* 下籤:收尾對話+推銷詞接成同一句台詞、一顆對話框播完(2026-08-27,
+     kc:「抽到下籤的話,他會直接跟你推銷商品,是同一串對話」)——不是
+     關掉收尾對話之後另外彈一顆新的對話框。pitchTextFor() 只算文字/
+     選單內容,不自己開 say(),真正播出來的動作在這裡一次做完。 */
+  const pitch = pick && pick.tier === 'low' ? pitchTextFor(pick) : null;
+  const text = pitch ? line + pitch.text : line;
   /* 兩則 toast(歸屬感+4、上籤額外那則)共用同一個 DOM 元素,同一刻連續呼叫
      後面那則會瞬間蓋掉前一則,玩家只會看到第二則——中間錯開一點時間
-     (1.6s,跟 toast 預設顯示時長同量級),讓第一則有時間被看到。 */
+     (1.6s,跟 toast 預設顯示時長同量級),讓第一則有時間被看到。下籤
+     這條路現在只有一則 toast(歸屬感+4),不用等,對話框關掉直接開
+     推銷選單。 */
   const afterTalk = () => {
     toast('（歸屬感 +4）', 2000);
     if(!pick){ setTimeout(() => { busy = false; }, 300); return; }
-    if(pick.tier === 'low') setTimeout(() => pitchFortuneItem(pick), 1600);
+    if(pitch) pitch.open();
     else if(pick.tier === 'high') setTimeout(() => {
       chg(pick.k, 8);
       toast('（' + NAMES[pick.k] + ' +8）', 2400);
@@ -1201,7 +1209,7 @@ document.getElementById('fpClose').onclick = () => {
     }, 1600);
     else setTimeout(() => { busy = false; }, 1600);
   };
-  if(line) say('fortune', line, afterTalk);
+  if(text) say('fortune', text, afterTalk);
   else afterTalk();
 };
 /* 三張機台特寫比例不一樣(roulette 1536×1024 接近畫布本身的 3:2,pusher
@@ -1368,7 +1376,7 @@ const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:f
 /* quest/lastDrawDay(2026-08-27,kc:「每天只能抽一次籤,然後推銷商品的
    時候代價不是錢是他會叫你去做任務」)——quest 是目前掛著的跑腿任務
    (null=沒有),lastDrawDay 記上次抽籤詩是哪一天,同一天不能再抽。
-   兩則都是這輪新增,見下面 FORTUNE_QUEST_TEXT/pitchFortuneItem() 那組
+   兩則都是這輪新增,見下面 FORTUNE_QUEST_TEXT/pitchTextFor() 那組
    長筆記。 */
 const FORTUNE = { x:-50, z:-96 - (2.95/2 + .6), met:false, quest:null, lastDrawDay:-1 };
 /* 桃木劍藏身處(2026-08-27,kc:「有個任務要找桃木劍,會在裡面看到」)——
@@ -5310,7 +5318,7 @@ const LUCK_MAX_BUYS = 3;
       那項「現在」的分數決定上/中/下籤,同一項指標依當下數值不同,抽到
       的籤也會不一樣(不是永遠固定一個結果)。
    2. 三籤各自的動作不一樣:下籤(數值差)——維持原本 followUp 之後接
-      pitchFortuneItem() 推銷道具那套;上籤(數值好)——他稱讚你,並且
+      pitchTextFor() 推銷道具那套;上籤(數值好)——他稱讚你,並且
       直接把那項指標 +8(kc:「加數值」);中籤(不好不壞)——就是聊聊,
       沒有推銷也沒有加值。
    3. 內容量因此變大(六項指標各要一組「上籤才有的」新籤文/解曰/
@@ -5427,30 +5435,41 @@ function drawFortuneSlip(){
    pick.k 是 coldReadPick() 冷讀命中的那項指標,stamina 對應轉運金牌
    (有獨立的封頂邏輯,跟其他道具不同,拆開處理),full 沒有對應道具,
    直接解鎖離開。已經掛著一個跑腿任務時不重複推銷(FORTUNE.quest 還
-   在),免得同時疊兩個任務搞不清楚要跑哪裡。 */
-function pitchFortuneItem(pick){
-  if(!pick || FORTUNE.quest){ busy = false; return; }
+   在),免得同時疊兩個任務搞不清楚要跑哪裡。
+   2026-08-27,kc:「抽到下籤的話,他會直接跟你推銷商品,是同一串對話」
+   ——原本這裡自己開一顆新的 say() 顯示推銷詞,fpClose 那邊收尾對話
+   關掉之後隔 1.6 秒才呼叫這裡,兩顆對話框中間有段空白,感覺像兩段不
+   相干的對話。拆成「算出要講的推銷詞」(這個函式,回傳 text/open,不
+   自己開 say())跟「真的播出來」(fpClose 那邊把這段文字接在收尾對話
+   後面,一次 say() 播完),不再分兩顆對話框。 */
+function pitchTextFor(pick){
+  if(!pick || FORTUNE.quest) return null;
   if(pick.k === 'stamina'){
-    if(luckBuys >= LUCK_MAX_BUYS){ busy = false; return; }
-    say('fortune', '「你這樣硬撐不是辦法，要不要備一個轉運金牌，戴著你撐得比別人久一點。」', () => {
-      openMenu('轉運金牌', [
-        { label:'好啊，我去跑一趟', run(){
-            startFortuneQuest({ id:'luck', stat:'stamina', isLuck:true, target:'moto',
-              buy:'「戴著它，你撐得比別人久一點。」' });
-          } },
-        { label:'不用了，謝謝', cls:'back', run(){} }
-      ]);
-    });
-    return;
+    if(luckBuys >= LUCK_MAX_BUYS) return null;
+    return {
+      text:'「你這樣硬撐不是辦法，要不要備一個轉運金牌，戴著你撐得比別人久一點。」',
+      open(){
+        openMenu('轉運金牌', [
+          { label:'好啊，我去跑一趟', run(){
+              startFortuneQuest({ id:'luck', stat:'stamina', isLuck:true, target:'moto',
+                buy:'「戴著它，你撐得比別人久一點。」' });
+            } },
+          { label:'不用了，謝謝', cls:'back', run(){} }
+        ]);
+      }
+    };
   }
   const item = FORTUNE_ITEMS.find(it => it.stat === pick.k);
-  if(!item){ busy = false; return; }
-  say('fortune', item.pitch, () => {
-    openMenu(item.name, [
-      { label:'好啊，我去跑一趟', run(){ startFortuneQuest(item); } },
-      { label:'不用了，謝謝', cls:'back', run(){} }
-    ]);
-  });
+  if(!item) return null;
+  return {
+    text:item.pitch,
+    open(){
+      openMenu(item.name, [
+        { label:'好啊，我去跑一趟', run(){ startFortuneQuest(item); } },
+        { label:'不用了，謝謝', cls:'back', run(){} }
+      ]);
+    }
+  };
 }
 /* 接下任務:記進 FORTUNE.quest(done 一開始是 false),再讓他交代地點
    (FORTUNE_QUEST_TEXT[target].ask)+ 飄一個地點提示。真的完成要等玩家
@@ -5970,7 +5989,7 @@ function talkToKai(){
    才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
 function talkToMotoBoss(){
   /* 算命攤跑腿任務(2026-08-27)——攔在最前面,跟這裡原本的劇情/買車邏輯
-     完全independent,見上面 pitchFortuneItem()/completeFortuneQuestAt()
+     完全independent,見上面 pitchTextFor()/completeFortuneQuestAt()
      那組長筆記。只在任務目標剛好是 moto、還沒完成過的時候吃掉這次互動。 */
   if(completeFortuneQuestAt('moto')) return;
   /* 舊剪報揭露(2026-08-26,kc:「新聞就是旺宏老闆之前做過的壞事，讀完新聞
@@ -6176,7 +6195,7 @@ function interactProp(prop){
     return;
   }
   /* 灌木叢・桃木劍藏身處(2026-08-27)——算命攤跑腿任務的其中一個地點,
-     見上面 pitchFortuneItem()/completeFortuneQuestAt() 那組筆記。任務
+     見上面 pitchTextFor()/completeFortuneQuestAt() 那組筆記。任務
      沒指到這裡、或還沒接任務,翻了也只是普通的灌木叢,不會出現桃木劍
      (不是「這裡永遠都有劍」,是任務給的才有)。 */
   if(prop.type === 'bushes'){
