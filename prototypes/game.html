@@ -282,7 +282,11 @@
     background-image:url('../assets/tex/fortune-paper.jpg'); background-size:cover; background-position:center; }
   #fortunePanel .fpSlipInner { border:2px solid #a82a22; border-radius:4px; padding:18px 14px 14px; }
   #fortunePanel .fpGrade { font-size:20px; font-weight:900; color:#a82a22; letter-spacing:.15em; margin-bottom:10px; }
-  #fortunePanel .fpVerse { font-size:16px; font-weight:800; color:#2a2018; letter-spacing:.06em; margin-bottom:10px; }
+  /* 四句籤詩(2026-08-27,kc:「你的畫面要參考籤詩內容」)——原本只有
+     一句話,改成 pick.lines 四句用 \n 接起來塞進同一個 textContent,
+     white-space:pre-line 讓換行符真的斷行,不用拆四個 DOM 節點。 */
+  #fortunePanel .fpVerse { font-size:16px; font-weight:800; color:#2a2018; letter-spacing:.06em;
+    margin-bottom:12px; line-height:1.9; white-space:pre-line; }
   #fortunePanel .fpMeaning { font-size:13.5px; color:#4a3c2e; line-height:1.7; }
   #fortunePanel #fpClose { margin-top:16px; background:rgba(12,16,23,.95); color:#dfe4ea;
     border:1px solid #3d4757; border-left:3px solid #d8b24a; padding:9px 20px;
@@ -1085,7 +1089,18 @@ const agBody = document.getElementById('agBody'), agActions = document.getElemen
 const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
 const fpTextEl = document.getElementById('fpText'), fpResultEl = document.getElementById('fpResult');
 const fpGradeEl = document.getElementById('fpGrade'), fpVerseEl = document.getElementById('fpVerse'), fpMeaningEl = document.getElementById('fpMeaning');
-document.getElementById('fpClose').onclick = () => { fpEl.classList.remove('on'); busy = false; };
+/* 收下籤詩之後他會再說一句(kc:「抽完之後算命仙會再跟你講話」)——
+   fpPendingFollowUp 是 drawFortuneSlip() 存的那句,關掉結果紙面板之後
+   接一段 say() 對話,busy 留到那段對話播完才解鎖(跟其他 say()/dlg 流程
+   同一個節奏,不要在角色還在講話時就放你走)。沒有 followUp(理論上
+   不會發生,每個 coldReadPick() 分支都有給)才退回直接解鎖。 */
+let fpPendingFollowUp = null;
+document.getElementById('fpClose').onclick = () => {
+  fpEl.classList.remove('on');
+  const line = fpPendingFollowUp; fpPendingFollowUp = null;
+  if(line) say('fortune', line, () => { busy = false; });
+  else busy = false;
+};
 /* 三張機台特寫比例不一樣(roulette 1536×1024 接近畫布本身的 3:2,pusher
    1254×1254 是正方形)——直接拉伸貼滿畫布會把正方形那張橫向壓扁,改成
    等比縮放置中(跟畫布比例對不上的方向留黑邊,黑邊本來就融進面板深色
@@ -1296,6 +1311,22 @@ const TEACHER_STATE = { aidApplied:false };
    公告,再舊剪報),翻完兩次才退回原本 lookAtBookshelf() 那組環境調味
    idleTalk 隨機池。 */
 const BOOKSHELF_CLUES = { tuitionAdFound:false, motoNewsFound:false };
+/* 社會新聞區・翻完旺鴻那則之後的隨機新聞池(2026-08-27,kc:「新聞專區多加
+   一些東西,是一些遊戲的提示之類的,比如可以講妓女故事,或是心靈雞湯,或是
+   勸人家不要賭博」)——原本翻完 motoNewsFound 就退回 NpcSchool.BOOKSHELF.idleTalk
+   (書脊捲邊那種純環境調味,跟「新聞」無關),現在新聞區改抽這個獨立池,
+   公告區/小說區的 fallback 不動。四則都寫成真的報導格式(呼應 kc 8/26
+   那句「新聞要是真正的新聞才對」),不是一句話帶過:一則職缺類服務新聞
+   (超商大夜班,暗示打工這條路存在,不直說遊戲機制)、一則性工作者的人情
+   採訪(照專案基準線——站在她那邊寫,不是獵奇或討同情,見 CLAUDE.md「這個
+   專案的基準線」)、一則副刊小品(心靈雞湯但不說教)、一則戒賭衛教新聞
+   (呼應母親賭博線 story-bet.js,不是對著玩家說教,是新聞本身在講這件事)。 */
+const SOCIAL_NEWS_ITEMS = [
+  '【社會新聞】超商大夜班缺工　業者調高時薪搶人\n\n（記者　報導）受人力短缺影響，市區多家連鎖超商近月調高大夜班時薪，部分分店加碼提供交通津貼。人力業者表示，願意排大夜班的年輕人不多，但只要肯做，收入其實不算差。',
+  '【社會新聞】巷口那盞紅燈——她們的故事沒有你想的那麼簡單\n\n（記者　特稿）「大家都覺得我們過得很爽，」阿霞（化名）苦笑著說，「沒人問過我們是怎麼走到這條路上的。」十幾年來她每晚站在同一個路口，一個人拉拔兩個孩子長大。「我不需要你們同情，只希望不要用那種眼神看我們。」',
+  '【副刊】巷口早餐店\n\n清晨五點，巷口早餐店的老闆娘已經在備料。「開店十年，什麼樣的客人都遇過，」她笑著說，「日子難熬的時候就想，反正天亮了，就是新的一天。」',
+  '【社會新聞】簽賭成癮不是意志力問題　醫師：及早求助是關鍵\n\n（記者　報導）精神科醫師指出，賭博成癮和酒癮、毒癮一樣是腦部獎賞迴路出了問題，不是單純「意志力不夠」。若家人出現不斷借錢、瞞著家人簽賭的情況，及早陪同就醫或撥打戒賭諮詢專線，往往比苛責更有效。'
+];
 /* 公園長椅・散心(2026-08-26,kc:「情緒不好可以去公園散心啊」)——小公園
    本來就有兩張長椅(`scene-city3d.js` park() 的 `addProp('bench',...)`),
    純裝飾沒接互動。挑東側那張(x1-2.5,cz+3,算出來是 63.5,-18.5),不挑
@@ -5087,16 +5118,40 @@ const FORTUNE_ITEMS = [
    需要一個硬性天花板。 */
 const LUCK_PRICES = [150, 250, 400];
 let luckBuys = 0;
+/* 籤詩內容(2026-08-27,kc:「你的畫面要參考籤詩內容」)——原本每項只有
+   一句話,kc 指的是要照真的籤詩格式來,參考 ai-linebot 那頁 SLIPS 陣列
+   的四句七言(見 DESIGN_NOTES「廟口算命擺攤」節)。四句押的是白話的
+   「冷讀」內容,不是傳統籤詩的典故格式——這裡的重點是「他看穿你的
+   處境」,不是真的抽到一支古籤,四句本身就是在講玩家的處境,跟下面
+   meaning(白話解籤)呼應而不是重複。
+   followUp 是收下籤詩之後他多說的一句(kc:「抽完之後算命仙會再跟你
+   講話」),語氣延續「他不是壞人,是觀察力很好的街頭心理師」那條設定,
+   不重複 meaning 已經講過的內容,是他看你收下籤詩之後的反應。 */
 function coldReadPick(){
   const cands = [
-    { k:'full',    v:ST.full,    verse:'面帶菜色三分飢',   meaning:'你這幾天大概沒好好吃東西，先把這頓解決再想別的。' },
-    { k:'stamina', v:ST.stamina, verse:'印堂發灰勞碌命',   meaning:'你最近太拚了，身體在跟你討時間，不是討錢。' },
-    { k:'calm',    v:ST.calm,    verse:'命宮孤影少人問',   meaning:'你這陣子是不是都自己一個人扛，有些話講出來會輕鬆一點。' },
-    { k:'mood',    v:ST.mood,    verse:'眉頭深鎖心事重',   meaning:'有些氣悶在心裡太久了，不是你想不開，是真的沒地方說。' }
+    { k:'full', v:ST.full,
+      lines:['面帶菜色三分飢','腹中空空難支撐','先解眼前一頓飯','後計來日長與短'],
+      meaning:'你這幾天大概沒好好吃東西，先把這頓解決再想別的。',
+      followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」' },
+    { k:'stamina', v:ST.stamina,
+      lines:['印堂發灰勞碌命','日夜奔波不得閒','身骨撐著心先垮','該歇一歇莫逞強'],
+      meaning:'你最近太拚了，身體在跟你討時間，不是討錢。',
+      followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。' },
+    { k:'calm', v:ST.calm,
+      lines:['命宮孤影少人問','獨自撐著不敢言','身邊未必無人在','只是話到嘴邊軟'],
+      meaning:'你這陣子是不是都自己一個人扛，有些話講出來會輕鬆一點。',
+      followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。' },
+    { k:'mood', v:ST.mood,
+      lines:['眉頭深鎖心事重','悶在心口說不清','非是想不開這件事','是真沒地方能傾訴'],
+      meaning:'有些氣悶在心裡太久了，不是你想不開，是真的沒地方說。',
+      followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。' }
   ].sort((a,b) => a.v - b.v);
   const worst = cands[0];
-  if(worst.v >= 70) return { grade:'上籤', verse:'近日運勢平穩向好', meaning:'你這陣子過得比想像中穩，別自己嚇自己。' };
-  return { grade:'中籤', verse:worst.verse, meaning:worst.meaning };
+  if(worst.v >= 70) return { grade:'上籤',
+    lines:['近日運勢平穩好','腳下步步踏得穩','莫自嚇自庸人擾','順著走就是順風'],
+    meaning:'你這陣子過得比想像中穩，別自己嚇自己。',
+    followUp:'「你這樣就不錯了，不用天天來問我。」他笑了笑，把籤筒放回桌上。' };
+  return { grade:'中籤', lines:worst.lines, meaning:worst.meaning, followUp:worst.followUp };
 }
 function drawFortuneSlip(){
   if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
@@ -5115,8 +5170,9 @@ function drawFortuneSlip(){
       fpStageEl.classList.remove('tipping');
       fpStageEl.style.display = 'none'; fpResultEl.style.display = 'block';
       fpGradeEl.textContent = pick.grade;
-      fpVerseEl.textContent = pick.verse;
+      fpVerseEl.textContent = pick.lines.join('\n');
       fpMeaningEl.textContent = pick.meaning + '（歸屬感 +4）';
+      fpPendingFollowUp = pick.followUp;
     }, 500);
   }, 900);
 }
@@ -5546,7 +5602,7 @@ function lookAtBookshelf(){
           setTimeout(() => toast('要不要回去問問旺鴻？', 2600), 5800);
           return;
         }
-        toast(D.idleTalk[Math.random()*D.idleTalk.length|0], 3000);
+        toast(SOCIAL_NEWS_ITEMS[Math.random()*SOCIAL_NEWS_ITEMS.length|0], 4600);
       } },
     { label:'政府公告區', run(){
         if(!BOOKSHELF_CLUES.tuitionAdFound){
