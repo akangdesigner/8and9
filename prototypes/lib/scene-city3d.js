@@ -202,9 +202,6 @@ export function buildCity(THREE, scene){
        不留任何要靠環境反射撐的成分。 */
     metal:std({color:0x3a3f46,roughness:.5,metalness:0}),
     tarp:std({color:0xc03a2c,roughness:.9}), tarpB:std({color:0x2f6fa8,roughness:.9}),
-    /* 算命攤棚布(2026-08-27,kc:「攤位左邊新增一個算命攤」):跟鴨頭紅/
-       乾麵藍區隔開,選深黃——夜市算命攤常見的布色,不是隨機挑的第三色。 */
-    tarpC:std({color:0xc9962f,roughness:.9}),
     plastic:std({color:0xc0473a,roughness:.75}),
     tin:std({color:0x6a6f6a,roughness:.7,metalness:0}),
     /* 香爐座、供桌各自開專屬材質,不要沿用 M.curb/M.gold——那兩個共用材質
@@ -1182,15 +1179,19 @@ export function buildCity(THREE, scene){
           const ry = ia > targetAspect ? 1 : (ia/targetAspect);
           const offy = ia > targetAspect ? 0 : (1-ry)/2;
 
+          /* v4(2026-08-27,kc:「你側面貼反了,兩邊都要水平翻轉」)——v3 猜的
+             UV 奇偶對調(A 不翻/B 翻)兩面看起來都是反的,不是只有一面錯。
+             實際要的方向剛好對調:A 翻、B 不翻,直接互換原本 v3 的兩組
+             repeat/offset 公式。 */
           const tA = new THREE.Texture(img);
           tA.colorSpace = THREE.SRGBColorSpace; tA.anisotropy = 4;
-          tA.repeat.set(r, ry); tA.offset.set(off, offy);
+          tA.repeat.set(-r, ry); tA.offset.set(off + r, offy);
           tA.needsUpdate = true;
           towerSideA.map = tA; towerSideA.color.setHex(0xffffff); towerSideA.needsUpdate = true;
 
           const tB = new THREE.Texture(img);
           tB.colorSpace = THREE.SRGBColorSpace; tB.anisotropy = 4;
-          tB.repeat.set(-r, ry); tB.offset.set(off + r, offy);   // 水平翻轉:repeat.x 取負,offset 補償
+          tB.repeat.set(r, ry); tB.offset.set(off, offy);
           tB.needsUpdate = true;
           towerSideB.map = tB; towerSideB.color.setHex(0xffffff); towerSideB.needsUpdate = true;
         }, undefined, () => {});
@@ -2058,14 +2059,31 @@ export function buildCity(THREE, scene){
      3D 攤位 box 沒有綁在一起,刪這個 box 不影響她的劇情。 */
   stall(-22,-92, M.tarp, 'duck-head', 0, '老大東山鴨頭', 'stall-duck-case-front.png', 'stall-duck-case-side.png', 'stall-duck-case-top.png');
   stall(-13,-92, M.tarpB, 'dry-noodle', 1, '廟口乾麵', 'stall-noodle-case-front.png', 'stall-noodle-case-side.png', 'stall-noodle-case-top.png');
-  /* 算命攤(2026-08-27,kc:「在廟口區有一片空地,攤位左邊新增一個算命攤」)
-     ——沿用既有兩攤的 stall() 骨架卡位置(x=-31,跟兩攤同一條 z=-92、
-     同樣間距 9),鴨頭/乾麵當初也是先蓋灰模占位、招牌貼圖沒生之前用
-     signImage() 的深色底頂著。沒給 trayFile,展示櫃/桌面退回素面
-     M.metal/M.stallTop,不會硬套食物照片;propIdx 傳 3,桌面不會冒出
-     碗筷。玩法/劇情內容還沒展開(見 DESIGN_NOTES「待辦:廟口算命擺攤」
-     ——kc 交代先卡標題不腦補),這裡只放場景位置,不是完整設計。 */
-  stall(-31,-92, M.tarpC, 'fortune', 3, '算命攤');
+  /* 算命攤(2026-08-27)——kc 第一版位置(x=-31,跟鴨頭/乾麵同排)被 kc
+     推翻:「角落一點,而且他就是一個桌子上面放簽筒」。不是食物攤那種
+     棚架+玻璃展示櫃(stall() 那套骨架),改成極簡的一張桌子+籤筒,搬到
+     廟埕西側角落(x=-50,z=-96)——剛好落在上面那批「廣場自己長出去」的
+     不規則石板(-52,-100,14,18)那塊上,離鴨頭/乾麵那排有段距離,讀起來
+     像廟埕角落自己冒出來的小攤,不是跟食物攤湊成一排。顧攤的人(神棍)
+     是會動的 3D 角色,放在 game.html NPCS(見那邊的 FORTUNE 註解),
+     這裡只蓋桌子+籤筒的靜態場景,兩邊座標要對齊。 */
+  (function fortuneStall(x, z){
+    const legH = 1.5, topH = .12;
+    add(box(1.8, topH, 1.0, M.altarTable), x, legH + topH/2, z, false, true);
+    [[-.75,-.4],[.75,-.4],[-.75,.4],[.75,.4]].forEach(([a,b]) =>
+      add(box(.12, legH, .12, M.altarTable), x+a, legH/2, z+b));
+    /* 籤筒:竹筒(圓柱)+ 幾支參差高度的籤(細長圓柱),沒有另外做「插在
+       填料裡」那套(incense-bowl 那節的做法)——籤筒本來就是空筒插滿籤,
+       不需要沙土填料那層。 */
+    const canY = legH + topH, bambooMat = std({color:0xd9c48a,roughness:.75});
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.16,.14,.34,16),
+        std({color:0xa8863a,roughness:.8})), x-.25, canY+.17, z-.15, false, false);
+    [[-.28,-.19,.5],[-.22,-.12,.58],[-.26,-.09,.46],[-.3,-.15,.54],[-.22,-.22,.5]]
+      .forEach(([dx,dz,h]) => add(new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,h,6), bambooMat),
+        x+dx, canY+.34+h/2-.05, z+dz, false, false));
+    solid(x, z, 1.0, 1.6);
+    landmarks.push({ x, y:legH+topH+.5, z, text:'算命攤' });
+  })(-50, -96);
   function tableSet(x, z){
     add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) => add(box(.14,1.5,.14, M.plastic), x+a*1.05, .75, z+b*1.05));

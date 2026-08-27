@@ -1164,6 +1164,13 @@ const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{}, newsConfronted:false 
    撿拾分支),完成條件是撿滿 3 件(need),不限定要在廟口附近撿到的那幾件,
    簡化成「累計撿滿 3 件」,不做額外的範圍判斷。 */
 const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
+/* 算命攤・神棍(2026-08-27,kc:「角落一點,而且他就是一個桌子上面放簽筒
+   然後要有個神棍去顧攤」)——座標對齊 scene-city3d.js 那張桌子(x:-50,
+   z:-96),站在桌子北側(z 再往北推 1.6,跟 AYI/ACHENG 站在攤子後方同一個
+   偏移量),面向南邊(玩家從廟埕開闊處走過來那側)。**只放外觀,沒有
+   talk[]/events[] 互動資料**——DESIGN_NOTES「待辦:廟口算命擺攤」還在
+   卡標題階段,kc 交代不要腦補內容,這裡先不接對話。 */
+const FORTUNE = { x:-50, z:-97.6 };
 
 /* 阿源好朋友門檻(2026-08-20,kc:「他會叫你去刺青並且帶女朋友來,帥潮
    >30 他才會跟你當好朋友,跟學校女生交往也會加值」)——跟阿姨/阿成不同,
@@ -1313,6 +1320,14 @@ const NPCS = [
   buildNPC(THREE, scene, {                             // 阿成・40幾・乾麵攤(見上面 ACHENG 那則筆記),取代原本站這裡的路人佔位
     x:ACHENG.x, z:ACHENG.z, rotationY:Math.PI, rig:'m3',
     skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038'
+  }),
+  buildNPC(THREE, scene, {                             // 神棍・算命攤(見上面 FORTUNE 那則筆記),站在桌子後方
+    x:FORTUNE.x, z:FORTUNE.z, rotationY:Math.PI, rig:'m2',
+    /* 老人不用另外找骨架,灰髮就有長輩感(跟 scene-city3d.js RIGS 註解
+       「查過 Mixamo,老人靠髮色/膚色調就好」同一套)。深紫長袖當長袍的
+       替代色——這遊戲沒有另外做長袍版型,先用現有 m2 版型的顏色暗示
+       神秘感,跟其他攤販的居家色系(阿姨咖啡/阿成墨綠)區隔開。 */
+    skin:'#c2a17e', hair:'#cfcfcf', hood:'#3a2452', pants:'#232323', shoe:'#1c1c1c'
   }),
   buskerNPC,
   buildNPC(THREE, scene, {                             // 小美・隔壁班(見上面 MEI 那則筆記),站在公園草地上
