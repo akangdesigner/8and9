@@ -2413,7 +2413,7 @@ const ARCADE_FALLBACK = {
    一致),跟 SCHOOL_COLLIDERS_FALLBACK 當初一樣的道理,真的穿模再補。 */
 const ARCADE_COLLIDERS_PHOTO = [];
 const ARCADE_PHOTO = {
-  walkN: 235, walkS: 350,
+  walkN: 276, walkS: 350,   // walkN 是 kc 用 __dbg.tweakArcade() 滑桿調定的最終值(2026-08-27),原本 235
   spots: [
     { id:'door',     name:'門口',       x:32,  w:77,  y0:235, y1:350 },
     { id:'slot',     name:'吃角子老虎', x:173, w:83,  y0:235, y1:350 },
@@ -2847,6 +2847,48 @@ function tweakSchoolPanel(){
     });
   });
 }
+/* 遊藝場滑桿面板(2026-08-27)——跟 tweakSchoolPanel() 同一套寫法,兩組:
+   角色近/遠透視大小(ARCADE_HERO_TWEAK,renderIndoor3D() 每幀重新從這裡
+   算 scale,不用重畫)、前排邊界(ARCADE.walkN,即時讀值,直接改這個
+   物件的 walkN 就會生效)。 */
+const ARCADE_HERO_ROWS = [
+  ['nearPx','近(靠鏡頭/門口)', 150, 500],
+  ['farPx','遠(靠機台)', 150, 500]
+];
+const ARCADE_WALK_ROWS = [
+  ['walkN','前排邊界(越大越擋、越靠近門)', 208, 338]
+];
+function tweakArcadePanel(){
+  const old = document.getElementById('arcadeTweakPanel');
+  if(old){ old.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'arcadeTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:220px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
+  const groups = [
+    ['角色大小(近/遠透視)', ARCADE_HERO_TWEAK, ARCADE_HERO_ROWS],
+    ['前排邊界', ARCADE, ARCADE_WALK_ROWS]
+  ];
+  panel.innerHTML = groups.map(([title, obj, rows], gi) =>
+    `<div style="font-weight:bold;margin:${gi?'12px':'0'} 0 6px">${title}</div>` +
+    rows.map(([key,label,min,max]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="arctweak_${gi}_${key}_v">${obj[key]}</span><br>
+       <input type="range" id="arctweak_${gi}_${key}" min="${min}" max="${max}" step="2" value="${obj[key]}" style="width:100%">
+       </div>`
+    ).join('')
+  ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakArcade()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  groups.forEach(([, obj, rows], gi) => {
+    rows.forEach(([key]) => {
+      const input = document.getElementById(`arctweak_${gi}_${key}`);
+      const out = document.getElementById(`arctweak_${gi}_${key}_v`);
+      input.addEventListener('input', () => {
+        obj[key] = +input.value;
+        out.textContent = input.value;
+      });
+    });
+  });
+}
 /* 攤子遮雨簾滑桿(2026-08-19,kc:「到底難在哪裡你給我滑桿我調整遮雨
    高度」)——跟上面 tweakDadPanel() 同一招,但這裡沒有 2D 疊圖可以重畫,
    直接即時改 3D 場景裡 city.stallValance 那批 mesh 的 scale.y/position.y。
@@ -2961,6 +3003,52 @@ function tweakPolicePanel(){
     });
   });
 }
+/* 警車大小/位置滑桿(2026-08-27,kc:「你給我滑桿,我來調整大小跟位置」)——
+   跟 tweakPolicePanel() 同一招,改的是 city.policeCar.group 這個 Group 的
+   scale/position。每次滑動都重新讀 city.policeCar.group(不快取在開面板
+   當下),因為 glb 可能在面板開著的時候才載入完成、把 fallback 換掉——
+   拿到新的 group 之後滑桿要繼續對新的那顆生效,不能還抓著舊的 fallback。 */
+function tweakPoliceCarPanel(){
+  const old = document.getElementById('policeCarTweakPanel');
+  if(old){ old.remove(); return; }
+  const ref = city.policeCar;
+  if(!ref || !ref.group){
+    alert('警車還沒生成,晚點再開一次滑桿');
+    return;
+  }
+  const state = { scale:1, dx:0, dy:0, dz:0 };
+  const rows = [
+    ['pc_scale','縮放倍率', 0.3, 3, 0.02, 'scale'],
+    ['pc_dx','位置 X 偏移', -4, 4, 0.05, 'dx'],
+    ['pc_dy','位置 Y 偏移(抬高)', -1, 2, 0.02, 'dy'],
+    ['pc_dz','位置 Z 偏移', -4, 4, 0.05, 'dz']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'policeCarTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">警車大小/位置滑桿</div>' +
+    rows.map(([id,label,min,max,step]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${state[rows.find(r=>r[0]===id)[5]].toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="0" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakPoliceCar()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  document.getElementById('pc_scale').value = 1;
+  function apply(){
+    const g = city.policeCar.group;
+    if(!g) return;
+    g.scale.setScalar(state.scale);
+    g.position.set(city.policeCar.baseX + state.dx, city.policeCar.baseY + state.dy, city.policeCar.baseZ + state.dz);
+  }
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      state[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = state[key].toFixed(2);
+      apply();
+    });
+  });
+}
 function paintBedroomBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(homeBedroomImg.complete && homeBedroomImg.naturalWidth){
@@ -3039,6 +3127,15 @@ function schoolHeroPx(py){
   const t = Math.max(0, Math.min(1, (py - SCHOOL.walkN) / (SCHOOL.walkS - SCHOOL.walkN)));
   return SCHOOL_HERO_TWEAK.farPx + t * (SCHOOL_HERO_TWEAK.nearPx - SCHOOL_HERO_TWEAK.farPx);
 }
+/* 遊藝場深度縮放(2026-08-27,kc:「人物最多只能走到這個高度才對,然後
+   也要稍微有一點透視的大小變化跟教室一樣」)——跟 schoolHeroPx() 同一套
+   算法,數字是先卡位的猜值,交給 __dbg.tweakArcade() 滑桿讓 kc 自己調,
+   不用我在這裡猜對。 */
+const ARCADE_HERO_TWEAK = { nearPx: 326, farPx: 376 };   // kc 用 __dbg.tweakArcade() 滑桿調定的最終值(2026-08-27)
+function arcadeHeroPx(py){
+  const t = Math.max(0, Math.min(1, (py - ARCADE.walkN) / (ARCADE.walkS - ARCADE.walkN)));
+  return ARCADE_HERO_TWEAK.farPx + t * (ARCADE_HERO_TWEAK.nearPx - ARCADE_HERO_TWEAK.farPx);
+}
 
 const heroIndoor = buildPlayer(THREE, indoorScene);
 /* 越式按摩室內的第二個角色(2026-08-20,kc:「那個人物模型要進來啊,
@@ -3062,7 +3159,7 @@ const MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,�
    的 px 判斷式(碰撞、Y-sort 遮擋)天生共用同一套數字,不會再脫鉤。 */
 function renderIndoor3D(dt){
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
-  heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
+  heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
@@ -3122,8 +3219,10 @@ function buy(price, feed, mood, line){
 /* 遊藝場賭博(2026-08-26)——見 openIndoorSpot() PLACE==='arcade' 那段筆記。
    `roll` 先扣注金,呼叫端的 `resolveFn()` 回傳這一把的結果(`payout`/
    `mood`/`line`),中獎才把 payout 加回去——三台機台共用同一套流程,差別
-   只在 resolveFn 內部的機率/賠率。情緒固定加,不看 payout 是不是 0,是
-   kc 明確要求的「情緒一定＋」。 */
+   只在 resolveFn 內部的機率/賠率。`mood` 可正可負,不是固定加——2026-08-27
+   kc 推翻原本「情緒一定＋(輸了只是打折)」的設計,改成「賭博輸了會小扣
+   情緒」,三台機台的輸家分支都改成小負值,詳見各自 resolveFn 旁邊的筆記
+   跟 DESIGN_NOTES。 */
 /* 「想起媽媽」的鉤子(2026-08-26,kc 確認要加)——只認**累計淨輸掉多少**,
    贏的局不會拿去抵銷之前輸的(這是「你已經賠了多少」的量尺,不是「現在
    身上盈虧多少」,一把大獎不該把這個記憶洗掉)。門檻 $500 是抓的小的
@@ -3145,7 +3244,7 @@ function gambleResolve(cost, resolveFn){
   /* 情緒變化這輪起要在對話匡裡看得到,不只是 HUD 上一閃而過的飄字
      (2026-08-26,kc:「玩遊戲情緒值會上升,虧錢會略略下降,對話匡要
      顯示」)——toast()跟agShowResult()(見下面)都補上這行。 */
-  toast(r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '') + `\n（情緒 +${r.mood}）`, 3000);
+  toast(r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '') + `\n（情緒 ${r.mood>0?'+':''}${r.mood}）`, 3000);
   if(!ARCADE_GAMBLE.momEchoShown && ARCADE_GAMBLE.netLoss >= 500){
     ARCADE_GAMBLE.momEchoShown = true;
     setTimeout(() => toast('你想起媽媽也是這樣。', 3200), 3200);
@@ -3219,9 +3318,10 @@ function resolvePusherLockIn(){
     const tier = dist <= .05 ? 'great' : dist <= .2 ? 'ok' : 'bad';
     const chance = tier === 'great' ? .7 : tier === 'ok' ? .3 : .08;
     win = Math.random() < chance;
-    /* 情緒:虧錢那次打折(2026-08-26,kc:「玩遊戲情緒值會上升,虧錢會略略
-       下降」)——4→3,見 spinRouletteTo() 旁邊那則同一輪的筆記。 */
-    if(!win) return { payout:0, mood:3, line:'那疊代幣晃了一下，還是沒掉下來。' };
+    /* 情緒:2026-08-27 kc 推翻「輸了也要+,只是打折」那個舊設計,改成
+       「賭博輸了會小扣情緒」——3→-2,見 DESIGN_NOTES「遊藝場文字風格」
+       節後面補的異動記錄,理由不重複貼在這裡。 */
+    if(!win) return { payout:0, mood:-2, line:'那疊代幣晃了一下，還是沒掉下來。' };
     const payout = tier === 'great' ? 25 : 30;
     return { payout, mood:4,
       line: tier === 'great' ? '卡得正準——一整排代幣被推下來了。' : '一小疊代幣被推下來，落進出幣口。' };
@@ -3235,7 +3335,7 @@ function resolvePusherLockIn(){
    重新走一次 openIndoorSpot()。 */
 function agShowResult(r, replay){
   agActions.innerHTML = '';
-  agBody.textContent = r ? (r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '') + `\n（情緒 +${r.mood}）`) : '';
+  agBody.textContent = r ? (r.line + (r.payout ? `\n（拿回 $${r.payout}）` : '') + `\n（情緒 ${r.mood>0?'+':''}${r.mood}）`) : '';
   if(r) agButton('再玩一次', '', '', replay);
   agButton('走開', '', 'back', closeArcadeGame);
 }
@@ -3246,11 +3346,11 @@ function showSlotBets(){
     if(ST.money < 50){ toast('你身上不夠。', 2000); return; }
     agActions.innerHTML = ''; agBody.textContent = '';
     const rr = Math.random();
-    /* 情緒:虧錢那次打折(2026-08-26,kc:「玩遊戲情緒值會上升,虧錢會略略
-       下降」)——6→4,見 spinRouletteTo() 旁邊那則同一輪的筆記。 */
+    /* 情緒:2026-08-27 kc 推翻舊設計,改成輸了小扣——4→-2,理由同上面
+       pusher 那則筆記,不重複貼。 */
     const outcome = rr < .05 ? { payout:500, mood:6, line:'三顆金磚排成一線——中大獎了！', tier:'jackpot' }
                    : rr < .20 ? { payout:100, mood:6, line:'兩顆對上，小賺一筆。', tier:'small' }
-                   : { payout:0, mood:4, line:'轉輪停下，什麼都沒對上。', tier:'lose' };
+                   : { payout:0, mood:-2, line:'轉輪停下，什麼都沒對上。', tier:'lose' };
     startArcadeSpin('slot', 1100, outcome, () => agShowResult(gambleResolve(50, () => outcome), showSlotBets));
   });
   agButton('走開', '', 'back', closeArcadeGame);
@@ -3318,10 +3418,9 @@ function spinRouletteTo(betLabel, win, winLine, loseLine, payout){
   const idx = pool[Math.random()*pool.length|0];
   const number = ROULETTE_WHEEL_ORDER[idx];
   const spins = 3 + Math.floor(Math.random()*2);
-  /* 情緒:輸贏都加,但虧錢那次打折(2026-08-26,kc:「玩遊戲情緒值會上升,
-     虧錢會略略下降」)——8→5,不是歸零或倒扣,呼應「賭癮爽在玩的當下」
-     這個原本的設計精神,只是虧錢時那份爽感打個折,不是完全不加。 */
-  const outcome = { payout: win ? payout : 0, mood: win ? 8 : 5, number,
+  /* 情緒:2026-08-27 kc 推翻舊設計,改成輸了小扣——5→-3,理由同上面
+     pusher 那則筆記,不重複貼。贏的時候維持不變(8)。 */
+  const outcome = { payout: win ? payout : 0, mood: win ? 8 : -3, number,
     line: (win ? winLine : loseLine) + `（${number} ${rouletteColorNameAt(idx)}）`,
     finalAngle: spins*2*Math.PI + rouletteIndexAngle(idx) };
   startArcadeSpin('roulette', 1400, outcome, () => agShowResult(gambleResolve(100, () => outcome), showRouletteBets));
@@ -6472,8 +6571,10 @@ window.__dbg = {
   STATUE_PED_TWEAK, tweakStatuePeds: tweakStatuePedsPanel,
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
   tweakSchool: tweakSchoolPanel,
+  tweakArcade: tweakArcadePanel,
   tweakFortuneStall: tweakFortuneStallPanel,
   tweakPolice: tweakPolicePanel,
+  tweakPoliceCar: tweakPoliceCarPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
