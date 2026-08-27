@@ -311,19 +311,28 @@
      17px(照 ai-linebot 原頁的 meaning-vert 字級),跟籤文(19px)的
      落差不要太明顯。 */
   #fortunePanel .fpMeaningRow { display:flex; align-items:center; justify-content:center; padding:14px 10px; gap:10px; }
-  /* 解籤字級再放大(2026-08-27,kc:「第三行字的大小超違和,至少要24」)——
-     17px 跟籤文(19px)/其他區塊排在一起還是明顯偏小,拉到 24px,容器
-     高度跟著加大(150→170px)給多一點直排空間,不然字放大會擠出更多欄。 */
-  #fortunePanel .fpVCol.fpMeaningVert { height:170px; font-size:24px; font-weight:700; color:#4a3c2e; line-height:1.7; }
-  #fortunePanel .fpGridRow { display:flex; align-items:flex-start; justify-content:center; padding:12px 8px; gap:8px; }
+  /* 解籤字級改回 17px(2026-08-27,kc:「把解曰的字改回來,那一段長度
+     剛好,真正有問題的是人際/出行那邊的字太小太上面」)——上一輪誤判,
+     解曰這段長度/字級本來就沒問題,kc 指的「太小」其實是下面 fpGridRow
+     那組六格運勢裡的人際/出行兩格,不是這裡。 */
+  #fortunePanel .fpVCol.fpMeaningVert { height:150px; font-size:17px; font-weight:700; color:#4a3c2e; line-height:2; }
   /* 六格運勢也是直式(2026-08-27,kc 傳了真的截圖:「是長這樣欸」)——
      上一輪雖然照抄了直式籤文/解籤,但六格運勢還是自己做的橫式小方塊
      (標籤在上、數值在下疊成兩行的橫排卡片),原頁其實整頁一路直式到底,
      每一格是「標籤+數值」接在同一條直式文字裡當一欄(class 也是共用
      `v-col`,不是另外一種排法)。改法很單純:gcol() 產生的每格 div
      加上 `fpVCol`,直接繼承上面 `.fpVCol` 那條 writing-mode 規則,不用
-     另外寫直式邏輯。 */
-  #fortunePanel .fpVCol.fpGCol { font-size:12px; letter-spacing:.15em; }
+     另外寫直式邏輯。
+     置中+放大(2026-08-27,同一天,kc:「人際 出行 那邊的字太小太上
+     面」)——量過 DOM,八格字級其實完全一樣(12px),不是這兩格特別小;
+     真正的原因是 `align-items:flex-start`,字數多的格子(人際/感情,
+     7 字)往下長比較長,但全部格子都貼齊列頂端對齊,字數少的格子(出行
+     等,6 字)看起來就吊在上面、沒把下面的空間撐滿,才會有「小又偏上」
+     的錯覺。改成 `center` 讓短格子跟長格子一樣以列中線對齊,不再貼頂。
+     順便把字級跟 headNo/sideLabel/seal 那批次要文字的 13px 對齊(原本
+     12px 是唯一比其他次要文字還小的,不是刻意的),拉到 14px。 */
+  #fortunePanel .fpGridRow { display:flex; align-items:center; justify-content:center; padding:12px 8px; gap:8px; }
+  #fortunePanel .fpVCol.fpGCol { font-size:14px; letter-spacing:.15em; }
   #fortunePanel .fpGCol .fpGL { color:#a82a22; font-weight:800; }
   #fortunePanel .fpGCol .fpGV { color:#4a3c2e; font-weight:700; }
   #fortunePanel .fpGridSide { display:flex; gap:6px; border-left:1px solid rgba(168,42,34,.4); padding-left:8px; margin-left:2px; }
@@ -5229,37 +5238,66 @@ let luckBuys = 0;
    followUp 是收下籤詩之後他多說的一句(kc:「抽完之後算命仙會再跟你
    講話」),語氣延續「他不是壞人,是觀察力很好的街頭心理師」那條設定,
    不重複 meaning 已經講過的內容,是他看你收下籤詩之後的反應。 */
+/* 冷讀內容兩處修正(2026-08-27):
+   1. kc:「籤詩要真的籤詩感覺啦,不要亂搞,是對話才會講,叫他吃飯之類」
+      ——原本 meaning(解曰)寫成「你這幾天大概沒好好吃東西」這種很口語、
+      直接對玩家講話的診斷句,不像真的籤詩紙上印的字,像在傳訊息。改成
+      印在紙上的是比較像格言/籤詩解讀的語氣(不针对「你這幾天」這種
+      時間點很近的口語),真正「他在跟你講話、叫你去吃飯」那種具體、
+      當面的話只留在 followUp(用引號、say() 對話播出來),不重複寫兩次。
+   2. kc:「我的角色現在最低是帥潮跟風評吧」——原本只評估 full/stamina/
+      calm/mood 四項,漏了 cool(帥潮)/star(風評),kc 目前這輪玩起來
+      cool=8、star=-30 都很低,卻永遠抽不到,因為系統根本沒把它們算進去。
+      補上這兩項候選。star 跟其他項目量尺不同(-100~100,不是 0~100),
+      直接拿數值比大小會失真,改成統一算「困擾分數」(數值越差,分數
+      越高)再比大小:一般項目困擾分數 = 100-數值;star 的 badness 只有
+      負值那一側算數(-100~0 映射到 100~0,正的風評不算困擾),用
+      Math.max(0,-ST.star) 取代 100-ST.star,不然風評好的時候反而會被
+      當成「困擾分數很低」以外的奇怪值。困擾分數最高的那項被念出來,
+      全部都低於門檻(30)才退回「上籤」通用好話。 */
 function coldReadPick(){
   const cands = [
-    { k:'full', v:ST.full, no:7,
+    { k:'full', trouble:100-ST.full, no:7,
       lines:['面帶菜色三分飢','腹中空空難支撐','先解眼前一頓飯','後計來日長與短'],
-      meaning:'你這幾天大概沒好好吃東西，先把這頓解決再想別的。',
+      meaning:'身子沒顧好，心思就定不下來；先安頓五臟廟，才有力氣談別的。',
       followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」',
       grid:{ caiyun:'手頭偏緊', shiye:'先顧肚子', ganqing:'沒力氣多想', jiankang:'腸胃虛弱',
              chuxing:'少去遠地', renji:'別硬撐場面', yi:'先吃一頓飽', ji:'空腹出門' } },
-    { k:'stamina', v:ST.stamina, no:13,
+    { k:'stamina', trouble:100-ST.stamina, no:13,
       lines:['印堂發灰勞碌命','日夜奔波不得閒','身骨撐著心先垮','該歇一歇莫逞強'],
-      meaning:'你最近太拚了，身體在跟你討時間，不是討錢。',
+      meaning:'身骨撐得再久，也有個限度；該歇的時候不歇，後面就得加倍還。',
       followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。',
       grid:{ caiyun:'錢賺得辛苦', shiye:'別硬撐工時', ganqing:'沒空陪人', jiankang:'早點歇息',
              chuxing:'少熬夜奔波', renji:'少應酬', yi:'早點回去躺', ji:'硬撐通宵' } },
-    { k:'calm', v:ST.calm, no:21,
+    { k:'calm', trouble:100-ST.calm, no:21,
       lines:['命宮孤影少人問','獨自撐著不敢言','身邊未必無人在','只是話到嘴邊軟'],
-      meaning:'你這陣子是不是都自己一個人扛，有些話講出來會輕鬆一點。',
+      meaning:'獨木難撐大廈，一個人扛久了遲早會垮；身邊有人，話該說就說。',
       followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。',
       grid:{ caiyun:'錢不是重點', shiye:'心不在焉', ganqing:'渴望有人陪', jiankang:'心累比較重',
              chuxing:'別自己悶著', renji:'主動找人聊', yi:'去廟口走走', ji:'把自己關起來' } },
-    { k:'mood', v:ST.mood, no:29,
+    { k:'mood', trouble:100-ST.mood, no:29,
       lines:['眉頭深鎖心事重','悶在心口說不清','非是想不開這件事','是真沒地方能傾訴'],
-      meaning:'有些氣悶在心裡太久了，不是你想不開，是真的沒地方說。',
+      meaning:'悶在心裡的事，堆久了會發霉；不是想不開，是沒找到出口。',
       followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。',
       grid:{ caiyun:'別亂花消氣', shiye:'提不起勁', ganqing:'容易鑽牛角尖', jiankang:'睡不安穩',
-             chuxing:'換個地方走走', renji:'少跟人計較', yi:'找人說說話', ji:'憋著不說' } }
-  ].sort((a,b) => a.v - b.v);
+             chuxing:'換個地方走走', renji:'少跟人計較', yi:'找人說說話', ji:'憋著不說' } },
+    { k:'cool', trouble:100-ST.cool, no:42,
+      lines:['衣冠不整惹人嫌','門面粗糙少人憐','莫怨旁人多冷眼','先正衣冠再向前'],
+      meaning:'門面撐不撐得住，旁人看在眼底；先把自己收拾好，機會才留得住。',
+      followUp:'他上下打量你一眼。「要不要弄一下自己，不然人家不把你當自己人。」',
+      grid:{ caiyun:'錢財普通', shiye:'表現平平', ganqing:'沒人多看', jiankang:'精神還好',
+             chuxing:'低調就好', renji:'人緣普通', yi:'整理儀容', ji:'蓬頭垢面' } },
+    { k:'star', trouble:Math.max(0,-ST.star), no:50,
+      lines:['名聲已沾風塵色','耳語紛紛傳巷弄','低調行事莫張揚','靜待塵埃落定時'],
+      meaning:'名聲一旦沾了灰，短時間洗不乾淨；這陣子少惹事，讓風頭過去。',
+      followUp:'他壓低聲音。「你最近是不是弄出什麼事了，這陣子收斂一點，別太高調。」',
+      grid:{ caiyun:'花錢消災', shiye:'少出風頭', ganqing:'朋友觀望', jiankang:'心浮氣躁',
+             chuxing:'少去熱鬧處', renji:'少惹是非', yi:'低調行事', ji:'到處張揚' } }
+  ].sort((a,b) => b.trouble - a.trouble);
   const worst = cands[0];
-  if(worst.v >= 70) return { grade:'上籤', no:35,
+  if(worst.trouble < 30) return { grade:'上籤', no:35,
     lines:['近日運勢平穩好','腳下步步踏得穩','莫自嚇自庸人擾','順著走就是順風'],
-    meaning:'你這陣子過得比想像中穩，別自己嚇自己。',
+    meaning:'近日諸事平順，是你自己撐出來的，不用自己嚇自己。',
     followUp:'「你這樣就不錯了，不用天天來問我。」他笑了笑，把籤筒放回桌上。',
     grid:{ caiyun:'穩紮穩打', shiye:'照原步調', ganqing:'順其自然', jiankang:'維持現狀',
            chuxing:'平安順遂', renji:'人緣不錯', yi:'照常過日子', ji:'自己嚇自己' } };
