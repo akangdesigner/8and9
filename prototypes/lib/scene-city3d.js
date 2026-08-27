@@ -519,30 +519,23 @@ export function buildCity(THREE, scene){
     });
   });
 
-  /* ===== 樹:圓環跟公園都要用,抽成共用函式(2026-08-13)=====
-   * 樹冠先用幾顆多面體堆出灰模輪廓,assets/tex/tree-crown-<variant>.png(1~4,
-   * kc 一次生了 4 種變化,見 PROMPTS.md)補了會自動換成兩片十字交叉的去背
-   * 照片(常見的「樹卡片」省事作法,不用真的建樹葉幾何)。灰模留著當
-   * fallback,不是換掉,沒圖之前不會空著。variant 不同的呼叫用不同編號,
-   * 免得整條路每棵樹長得一模一樣。 */
-  function buildTree(cx, cz, scale, variant){
-    scale = scale || 1; variant = variant || 1;
-    add(new THREE.Mesh(new THREE.CylinderGeometry(.32*scale,.48*scale,3.2*scale,8),
-        std({ color:0x4a3626, roughness:.95 })), cx, 1.9*scale+.32*scale, cz, true, true);
-    const leaves = [[0,3.9,0,2.5],[1.3,3.4,.9,1.6],[-1.2,3.6,-.8,1.7],[.5,4.6,-1.0,1.5]]
-      .map(([x,y,z,r]) => add(new THREE.Mesh(new THREE.IcosahedronGeometry(r*scale,0),
-        std({ color:0x3c5a2e, roughness:.95 })), cx+x*scale, (y+.32)*scale, cz+z*scale, true, false));
-    loader.load(TEX_DIR + `tree-crown-${variant}.png`, img => {
-      const t = new THREE.Texture(img);
-      t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
-      const cm = new THREE.MeshStandardMaterial({ map:t, transparent:true, alphaTest:.5, side:THREE.DoubleSide, roughness:.9 });
-      [0, Math.PI/2].forEach(ry => {
-        const card = new THREE.Mesh(new THREE.PlaneGeometry(5.4*scale,5.4*scale), cm);
-        card.rotation.y = ry;
-        add(card, cx, 4.2*scale, cz, false, false);
-      });
-      leaves.forEach(m => m.visible = false);
-    }, undefined, () => {});
+  /* ===== 樹:圓環/公園/校門口/算命攤都要用,抽成共用函式 =====
+   * 原本(2026-08-13)是灰模多面體+billboard 卡片樹(assets/tex/
+   * tree-crown-<variant>.png 裁成十字交叉的去背照片),近看/繞到側面
+   * 會露餡。2026-08-27 kc 先在算命攤那棵試「能不能用真的樹3D」,滿意
+   * 之後要求「其他地方的樹都要換」——整個場景全部改成這個真的低模樹
+   * 模型(Tree,Quaternius,CC0,授權見 assets/models/CREDITS.md,跟
+   * food 系列、litter 系列同一個 Quaternius 家族),跟 lantern/
+   * incense-bowl 那套「先蓋灰模占位,glb 載到再替換」的手法一樣。舊版
+   * billboard 卡片樹(連同 tree-crown-*.png)整個拿掉,沒有留著——
+   * 那批貼圖檔案灌木(buildBush)還在用,不要跟著刪掉。 */
+  function realTree(x, z, targetSize){
+    const fallback = box(1.2, targetSize, 1.2, std({ color:0x3c5a2e, roughness:.9 }));
+    const holder = add(fallback, x, targetSize/2, z, true, false);
+    loadModel('tree-01.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, targetSize, 'y', Math.random()*Math.PI*2), x, 0, z, true, false);
+    }).catch(() => {});
   }
 
   /* ===== 街道小物:立牌卡片(2026-08-13)=====
@@ -645,7 +638,7 @@ export function buildCity(THREE, scene){
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
       roundGrass.map = t; roundGrass.color.setHex(0x9fb583); roundGrass.needsUpdate = true;
     }, undefined, () => {});
-    buildTree(cx, cz, 1, 1);
+    realTree(cx, cz, 6);
     solid(cx, cz, R*.72, R*.72);
     lampSpots.push({ x:cx, y:4.5, z:cz, c:0xffd9a0, i:26, r:24 });
   })();
@@ -814,7 +807,7 @@ export function buildCity(THREE, scene){
     }
     play.push(buildSeesaw(59.6, cz, Math.PI/2));
 
-    buildTree(x0+2.2, z0+2.2, .8, 3);
+    realTree(x0+2.2, z0+2.2, 5);
     lampSpots.push({ x:cx, y:4.5, z:cz, c:0xffe6c0, i:22, r:22 });
     /* 公園沒有室內場景,不要塞進 doors——那個陣列是給 enterIndoor() 用的,
        塞進去按空白鍵會跳出「室內場景還沒做」,語意不對(公園本來就是走進去
@@ -1343,8 +1336,8 @@ export function buildCity(THREE, scene){
       add(box(gateW+1.4,1.8,.15, schoolSignMat), gx, postH+.35, z1+.6, false, true);   // 校名牌,橫跨兩根柱子、貼在橫樑正面外側
       const pole = std({ color:0xaaaaaa, roughness:.4, metalness:.3 });
       add(box(.18,7,.18, pole), gx-3, 3.5, z1-2);                // 旗桿
-      buildTree(x0+2.5, z1-2, .8, 2);
-      buildTree(x1-2.5, z1-2, .8, 3);
+      realTree(x0+2.5, z1-2, 5);
+      realTree(x1-2.5, z1-2, 5);
       lampSpots.push({ x:gx, y:4, z:z1-1, c:0xfff2d8, i:14, r:14 });
       landmarks.push({ x:gx, y:bH+1, z:bz, text:'高中' });
       doors.push({ id:'school', name:'高中', x:gx, z:z1+2.4 });   // 沿用 row() 原本算出來的門口座標(-36, 70.4)
@@ -2109,7 +2102,7 @@ export function buildCity(THREE, scene){
   /* 算命攤周邊裝飾(2026-08-27,kc:「附近能不能多加一些裝飾,火把或啥的
      裝神弄鬼,也可以放一些大樹植物機車都可以」)——火把是新的簡單發光
      道具(木桿+發光多面體火焰,跟供桌香爐那顆發光小方塊同一招,不用
-     找素材);大樹/灌木/盆栽/機車全部直接呼叫既有函式(buildTree/
+     找素材);大樹/灌木/盆栽/機車全部直接呼叫既有函式(realTree/
      bushLine/addProp/parkMoto),沒有另外蓋系統。位置貼著西牆那一側,
      圍出「算命攤自己的角落」,跟鴨頭/乾麵那排的熱鬧感區隔開。 */
   function mysticTorch(x, z){
@@ -2120,22 +2113,6 @@ export function buildCity(THREE, scene){
     lampSpots.push({ x, y:2.0, z, c:0xff8a3a, i:20, r:14 });
   }
   [[-52.3,-95.3],[-47.7,-95.3]].forEach(([tx,tz]) => mysticTorch(tx,tz));
-  /* 真的樹 3D(2026-08-27,kc:「能不能用真的樹3D」)——buildTree() 是
-     billboard 卡片樹(灰模多面體+十字交叉照片卡),近看/繞到側面會露餡。
-     這裡跟 lantern/incense-bowl 那套「先蓋灰模占位,glb 載到再替換」的
-     手法一樣,抓一顆真的低模樹模型(Tree,Quaternius,CC0,授權見
-     assets/models/CREDITS.md,跟 food 系列、litter 系列同一個 Quaternius
-     家族),
-     不是又發明一套新機制。只換這裡這棵,街上/公園原本那些 buildTree()
-     卡片樹沒有動——這輪範圍只到算命攤這個角落。 */
-  function realTree(x, z, targetSize){
-    const fallback = box(1.2, targetSize, 1.2, std({ color:0x3c5a2e, roughness:.9 }));
-    const holder = add(fallback, x, targetSize/2, z, true, false);
-    loadModel('tree-01.glb').then(gltf => {
-      scene.remove(holder);
-      add(propModel(THREE, gltf, targetSize, 'y', Math.random()*Math.PI*2), x, 0, z, true, false);
-    }).catch(() => {});
-  }
   realTree(-57, -99, 7);
   bushLine(-59, -91, -59, -104);
   addProp('planter', -47, -99.5, 1.0, 1.3, 0x3c5a2e);
