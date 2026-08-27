@@ -2583,6 +2583,35 @@ function tweakStallPanel(){
     });
   });
 }
+/* 算命攤桌子尺寸滑桿(2026-08-27,kc:「桌子太小啊,讓我調整」)——跟
+   tweakStallPanel() 同一招,差別是那邊改 mesh.scale.y 就好,這裡桌子
+   整組(桌面+四腳+籤筒+籤)是重蓋的(見 scene-city3d.js
+   buildFortuneStall()),滑桿改 city.fortuneStall.cfg 的數字之後呼叫
+   rebuild() 整組重畫,不用另外算縮放代數。 */
+function tweakFortuneStallPanel(){
+  const old = document.getElementById('fortuneStallTweakPanel');
+  if(old){ old.remove(); return; }
+  const cfg = city.fortuneStall.cfg;
+  const rows = [['w','桌寬',0.6,4,0.05],['d','桌深',0.6,3,0.05],['legH','桌高',0.5,2.5,0.05]];
+  const panel = document.createElement('div');
+  panel.id = 'fortuneStallTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:220px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">算命攤桌子滑桿</div>' +
+    rows.map(([key,label,min,max,step]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="fstweak_${key}_v">${cfg[key].toFixed(2)}</span><br>
+       <input type="range" id="fstweak_${key}" min="${min}" max="${max}" step="${step}" value="${cfg[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakFortuneStall()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([key]) => {
+    document.getElementById(`fstweak_${key}`).addEventListener('input', e => {
+      cfg[key] = +e.target.value;
+      document.getElementById(`fstweak_${key}_v`).textContent = cfg[key].toFixed(2);
+      city.fortuneStall.rebuild();
+    });
+  });
+}
 function paintBedroomBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(homeBedroomImg.complete && homeBedroomImg.naturalWidth){
@@ -5755,6 +5784,7 @@ window.__dbg = {
   STATUE_PED_TWEAK, tweakStatuePeds: tweakStatuePedsPanel,
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
   tweakSchool: tweakSchoolPanel,
+  tweakFortuneStall: tweakFortuneStallPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,

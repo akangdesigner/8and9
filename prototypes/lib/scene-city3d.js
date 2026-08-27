@@ -2067,23 +2067,41 @@ export function buildCity(THREE, scene){
      像廟埕角落自己冒出來的小攤,不是跟食物攤湊成一排。顧攤的人(神棍)
      是會動的 3D 角色,放在 game.html NPCS(見那邊的 FORTUNE 註解),
      這裡只蓋桌子+籤筒的靜態場景,兩邊座標要對齊。 */
-  (function fortuneStall(x, z){
-    const legH = 1.5, topH = .12;
-    add(box(1.8, topH, 1.0, M.altarTable), x, legH + topH/2, z, false, true);
-    [[-.75,-.4],[.75,-.4],[-.75,.4],[.75,.4]].forEach(([a,b]) =>
-      add(box(.12, legH, .12, M.altarTable), x+a, legH/2, z+b));
+  /* 桌子尺寸滑桿(2026-08-27,kc:「桌子太小啊,讓我調整」)——跟
+     tweakStall() 遮雨簾滑桿同一招:不要我猜數字、截圖、kc 不滿意、
+     再猜一輪,直接把尺寸(w/d/legH)暴露給 game.html 的滑桿面板即時改,
+     kc 自己拉到滿意為止。整組(桌面+四腳+籤筒+籤)重蓋比另外算縮放/
+     位移代數簡單,一律先清掉舊 mesh 再照最新尺寸重畫一次。 */
+  const FORTUNE_STALL = { x:-50, z:-96, w:1.8, d:1.0, legH:1.5 };
+  const fortuneStallCollider = { x:FORTUNE_STALL.x, z:FORTUNE_STALL.z, hw:1.0, hd:1.6 };
+  colliders.push(fortuneStallCollider);
+  landmarks.push({ x:FORTUNE_STALL.x, y:FORTUNE_STALL.legH+.6, z:FORTUNE_STALL.z, text:'算命攤' });
+  let fortuneStallParts = [];
+  function buildFortuneStall(){
+    fortuneStallParts.forEach(m => scene.remove(m));
+    fortuneStallParts = [];
+    const { x, z, w, d, legH } = FORTUNE_STALL, topH = .12;
+    fortuneStallParts.push(add(box(w, topH, d, M.altarTable), x, legH + topH/2, z, false, true));
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sz]) =>
+      fortuneStallParts.push(add(box(.12, legH, .12, M.altarTable),
+        x+sx*(w/2-.15), legH/2, z+sz*(d/2-.15))));
     /* 籤筒:竹筒(圓柱)+ 幾支參差高度的籤(細長圓柱),沒有另外做「插在
        填料裡」那套(incense-bowl 那節的做法)——籤筒本來就是空筒插滿籤,
-       不需要沙土填料那層。 */
+       不需要沙土填料那層。籤筒本身大小不跟著桌子滑桿變,固定擺在桌面
+       靠邊角(相對桌寬/桌深的比例位置,桌子變大時跟著挪開,不會飄出
+       桌緣外)。 */
     const canY = legH + topH, bambooMat = std({color:0xd9c48a,roughness:.75});
-    add(new THREE.Mesh(new THREE.CylinderGeometry(.16,.14,.34,16),
-        std({color:0xa8863a,roughness:.8})), x-.25, canY+.17, z-.15, false, false);
+    const canX = x - w*.14, canZ = z - d*.15;
+    fortuneStallParts.push(add(new THREE.Mesh(new THREE.CylinderGeometry(.16,.14,.34,16),
+        std({color:0xa8863a,roughness:.8})), canX, canY+.17, canZ, false, false));
     [[-.28,-.19,.5],[-.22,-.12,.58],[-.26,-.09,.46],[-.3,-.15,.54],[-.22,-.22,.5]]
-      .forEach(([dx,dz,h]) => add(new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,h,6), bambooMat),
-        x+dx, canY+.34+h/2-.05, z+dz, false, false));
-    solid(x, z, 1.0, 1.6);
-    landmarks.push({ x, y:legH+topH+.5, z, text:'算命攤' });
-  })(-50, -96);
+      .forEach(([dx,dz,h]) => fortuneStallParts.push(
+        add(new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,h,6), bambooMat),
+        canX+dx, canY+.34+h/2-.05, canZ+dz, false, false)));
+    fortuneStallCollider.hw = w/2 + .1;
+    fortuneStallCollider.hd = d/2 + 1.1;
+  }
+  buildFortuneStall();
   function tableSet(x, z){
     add(box(2.6,.16,2.6, M.plastic), x, 1.5, z);
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b]) => add(box(.14,1.5,.14, M.plastic), x+a*1.05, .75, z+b*1.05));
@@ -2455,7 +2473,7 @@ export function buildCity(THREE, scene){
        不要看到舊註解就自動接回這批 tower。 */
   })();
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
 }
 
 /* ---------------- 角色 ----------------
