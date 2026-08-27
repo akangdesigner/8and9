@@ -1394,6 +1394,24 @@ const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{}, newsConfronted:false 
    撿拾分支),完成條件是撿滿 3 件(need),不限定要在廟口附近撿到的那幾件,
    簡化成「累計撿滿 3 件」,不做額外的範圍判斷。 */
 const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
+/* 任務小面板同步(2026-08-27,kc:「所有任務都要有面板啦,比如剪垃圾也
+   算啊」)——上一輪 ACTIVE_QUESTS 只有算命攤的委託在用,kc 要求場上所有
+   「接下來要做、之後回報」的任務都要進同一個面板,阿成的撿垃圾任務是
+   第一個補進去的例子。picked/need 有進度,面板文字要跟著即時更新
+   (不像算命攤那組只有「去/回去」兩種狀態),taskDone 之後改顯示「回去
+   跟阿成說一聲」。呼叫時機:接下委託(talkToAcheng() active=true 那個
+   分支)/每撿一件垃圾(interactProp() 撿垃圾那段)/回報拿獎勵
+   (talkToAcheng() done=true 那個分支)三處都呼叫,不用自己複製貼上
+   push/移除邏輯。 */
+function syncLitterQuestPanel(){
+  const q = ACHENG.litterQuest;
+  const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'acheng-litter');
+  if(!q.active || q.done){ if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); renderQuestPanel(); return; }
+  const hint = q.taskDone ? '回去跟阿成說一聲' : `撿廟口垃圾（${q.picked}/${q.need}）`;
+  if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint;
+  else ACTIVE_QUESTS.push({ id:'acheng-litter', title:'阿成的委託', hint });
+  renderQuestPanel();
+}
 /* 算命攤・神棍(2026-08-27,kc:「角落一點,而且他就是一個桌子上面放簽筒
    然後要有個神棍去顧攤」)——座標對齊 scene-city3d.js 那張桌子(x:-50,
    z:-96),站在桌子北側,面向南邊(玩家從廟埕開闊處走過來那側)。
@@ -1675,6 +1693,8 @@ function startWatchJob(){
     path: WATCHJOB_PATH
   });
   NPCS.push(WATCHJOB.walker);
+  ACTIVE_QUESTS.push({ id:'watchjob', title:'幫阿源顧場子', hint:'盯著巷口，看到小美哥就回報' });
+  renderQuestPanel();
   toast('你走到遊藝場附近，盯著巷口。', 2800);
 }
 /* success=true(玩家有看到、回去跟阿源講到)/false(小美哥先走到門口)
@@ -1688,6 +1708,8 @@ function resolveWatchJob(success){
   if(idx >= 0) NPCS.splice(idx, 1);
   WATCHJOB.walker = null;
   brotherNPC.group.visible = true;
+  { const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'watchjob'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); }
+  renderQuestPanel();
   const D = success ? NpcTemple.WATCH_JOB.success : NpcTemple.WATCH_JOB.fail;
   playBeats(D.beats, 0, () => {
     if(success){ chg('money', 1000); chg('calm', 6); chg('mood', 8); }
@@ -2881,6 +2903,61 @@ function tweakFortuneStallPanel(){
       cfg[key] = +e.target.value;
       document.getElementById(`fstweak_${key}_v`).textContent = cfg[key].toFixed(2);
       city.fortuneStall.rebuild();
+    });
+  });
+}
+/* 警察局貼圖位置/縮放滑桿(2026-08-27,kc:「開滑桿讓我調整貼圖位置跟
+   縮放」)——跟上面幾個滑桿同一招,但改的是 THREE.Texture 的 repeat/
+   offset,不是 mesh 的 scale/position。正面(front)四個值都給滑桿
+   (repeat.x/y、offset.x/y 各自獨立)。側面(sideA/sideB)是同一張圖鏡射
+   貼兩個面(見 scene-city3d.js 大樓側面 v4 那則筆記),不能兩顆材質各自
+   亂調不然鏡射會對不起來——側面滑桿改的是「共用參數」(r=寬度裁切比例、
+   off=水平偏移、ry/offy=垂直),照原本 wallSideA/B 的鏡射公式即時算回
+   兩顆材質各自的 repeat/offset,滑一顆兩面同步動。 */
+function tweakPolicePanel(){
+  const old = document.getElementById('policeTweakPanel');
+  if(old){ old.remove(); return; }
+  const pw = city.policeWall;
+  if(!pw || !pw.front || !pw.front.map){
+    alert('警察局貼圖還沒載入完成,晚點再開一次滑桿');
+    return;
+  }
+  const fm = pw.front.map, sa = pw.sideA.map, sb = pw.sideB.map;
+  // 從目前的 sideB(未翻轉那顆)反推共用參數初始值
+  const side0 = { r: sb.repeat.x, off: sb.offset.x, ry: sb.repeat.y, offy: sb.offset.y };
+  const rows = [
+    ['front_rx','正面 repeat.x', 0.2, 1, 0.01, () => fm.repeat.x, v => fm.repeat.x = v],
+    ['front_ry','正面 repeat.y', 0.2, 1, 0.01, () => fm.repeat.y, v => fm.repeat.y = v],
+    ['front_ox','正面 offset.x', -0.5, 0.5, 0.01, () => fm.offset.x, v => fm.offset.x = v],
+    ['front_oy','正面 offset.y', -0.5, 0.5, 0.01, () => fm.offset.y, v => fm.offset.y = v],
+    ['side_r','側面 寬度裁切 r', 0.1, 1, 0.01, () => side0.r, v => { side0.r=v; }],
+    ['side_off','側面 offset(水平)', -0.5, 1, 0.01, () => side0.off, v => { side0.off=v; }],
+    ['side_ry','側面 repeat.y', 0.1, 1, 0.01, () => side0.ry, v => { side0.ry=v; }],
+    ['side_oy','側面 offset.y', -0.5, 0.5, 0.01, () => side0.offy, v => { side0.offy=v; }]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'policeTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">警察局貼圖滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakPolice()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  function applySide(){
+    sa.repeat.set(-side0.r, side0.ry); sa.offset.set(side0.off+side0.r, side0.offy);
+    sb.repeat.set(side0.r, side0.ry); sb.offset.set(side0.off, side0.offy);
+    sa.needsUpdate = true; sb.needsUpdate = true;
+  }
+  rows.forEach(([id,,,,,, set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value;
+      set(v);
+      document.getElementById(`${id}_v`).textContent = v.toFixed(2);
+      if(id.startsWith('front')){ fm.needsUpdate = true; }
+      else { applySide(); }
     });
   });
 }
@@ -5249,12 +5326,13 @@ function talkToAcheng(){
       extra.push({ label:'「垃圾撿好了。」', cls:'',
         run(){
           q.done = true;
+          syncLitterQuestPanel();
           chg('money', 40); chg('calm', 8);
           toast('「你人真好。」阿成塞給你一包滷味。（$+40，歸屬感 +8）', 2600);
         } });
     } else if(!q.active && !q.done){
       extra.push({ label:'「廟口這附近的垃圾,你順手幫忙撿一撿?」', cls:'',
-        run(){ q.active = true; toast('「三包就好,不用撿到天亮。」', 2400); } });
+        run(){ q.active = true; syncLitterQuestPanel(); toast('「三包就好,不用撿到天亮。」', 2400); } });
     }
     openStallMenu('阿成的麵攤', '阿成', 45, 16, '「趁熱吃。」', '「自己人,不用跟我客氣。」', extra);
   }, { talkGivesCalm: 2 });
@@ -6331,6 +6409,7 @@ function interactProp(prop){
           ACHENG.litterQuest.taskDone = true;
           setTimeout(() => toast('湊到三包了。可以回去跟阿成說一聲了。', 2600), 2400);
         }
+        syncLitterQuestPanel();
       }
     });
   }
@@ -6394,6 +6473,7 @@ window.__dbg = {
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
   tweakSchool: tweakSchoolPanel,
   tweakFortuneStall: tweakFortuneStallPanel,
+  tweakPolice: tweakPolicePanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
