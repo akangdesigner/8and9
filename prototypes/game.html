@@ -1170,22 +1170,37 @@ function renderFortuneSlip(pick){
     + `<div class="fpGridSide">${gcol('宜', pick.grid.yi)}${gcol('忌', pick.grid.ji)}</div>`;
 }
 /* 收下籤詩之後他會再說一句(kc:「抽完之後算命仙會再跟你講話」),說完
-   接著主動推銷一個對應道具(kc:「他會自己推薦東西給你,不是你自己
-   看」,見下面 pitchFortuneItem())——fpPendingFollowUp/fpPendingPick
-   是 drawFortuneSlip() 存的資料,關掉結果紙面板之後接 say()→toast→
-   pitchFortuneItem() 三段,busy 留到整串播完才解鎖(跟其他 say()/dlg
-   流程同一個節奏,不要在角色還在講話/推銷時就放你走)。
+   依三籤等級接不同動作(kc:「下籤他會賣你產品,上籤他會稱讚你可以加
+   數值」,見上面 FORTUNE_STATS 那則長筆記):下籤接 pitchFortuneItem()
+   推銷,上籤直接把抽到的那項指標 +8(稱讚,不用另外開選單問要不要),
+   中籤什麼都不做。fpPendingFollowUp/fpPendingPick 是 drawFortuneSlip()
+   存的資料,關掉結果紙面板之後接 say()→toast→(依等級分流)三段,
+   busy 留到整串播完才解鎖(跟其他 say()/dlg 流程同一個節奏,不要在
+   角色還在講話/推銷時就放你走)。
    歸屬感+4 的提示(2026-08-27,kc:「歸屬感＋4是講話後才會提示」)——
    原本抽到籤當下就把「(歸屬感 +4)」寫進結果紙下方,kc 要的是「他講完
    話之後」才提示,改成收尾對話播完才 toast 出來,不在結果紙上顯示。
    沒有 followUp(理論上不會發生,每個 coldReadPick() 分支都有給)才
-   退回直接 toast+推銷。 */
+   退回直接 toast+分流。 */
 let fpPendingFollowUp = null, fpPendingPick = null;
 document.getElementById('fpClose').onclick = () => {
   fpEl.classList.remove('on');
   const line = fpPendingFollowUp, pick = fpPendingPick;
   fpPendingFollowUp = null; fpPendingPick = null;
-  const afterTalk = () => { toast('（歸屬感 +4）', 2000); pitchFortuneItem(pick); };
+  /* 兩則 toast(歸屬感+4、上籤額外那則)共用同一個 DOM 元素,同一刻連續呼叫
+     後面那則會瞬間蓋掉前一則,玩家只會看到第二則——中間錯開一點時間
+     (1.6s,跟 toast 預設顯示時長同量級),讓第一則有時間被看到。 */
+  const afterTalk = () => {
+    toast('（歸屬感 +4）', 2000);
+    if(!pick){ setTimeout(() => { busy = false; }, 300); return; }
+    if(pick.tier === 'low') setTimeout(() => pitchFortuneItem(pick), 1600);
+    else if(pick.tier === 'high') setTimeout(() => {
+      chg(pick.k, 8);
+      toast('（' + NAMES[pick.k] + ' +8）', 2400);
+      busy = false;
+    }, 1600);
+    else setTimeout(() => { busy = false; }, 1600);
+  };
   if(line) say('fortune', line, afterTalk);
   else afterTalk();
 };
@@ -5238,75 +5253,102 @@ let luckBuys = 0;
    followUp 是收下籤詩之後他多說的一句(kc:「抽完之後算命仙會再跟你
    講話」),語氣延續「他不是壞人,是觀察力很好的街頭心理師」那條設定,
    不重複 meaning 已經講過的內容,是他看你收下籤詩之後的反應。 */
-/* 冷讀內容兩處修正(2026-08-27):
-   1. kc:「籤詩要真的籤詩感覺啦,不要亂搞,是對話才會講,叫他吃飯之類」
-      ——第一次改寫(「身子沒顧好,心思就定不下來;先安頓五臟廟」這種
-      版本)kc 回報「解約的字沒改到,還是口語化,我要機關玄妙感,廟都
-      這樣」,問題不是「有沒有對玩家講話」,是白話文的因果句式(先XX
-      才YY、不是XX是YY)本身就不夠玄——真的廟裡籤詩解是文言腔,用
-      「命/運/劫/天時/貴人」這類字眼,少用白話的邏輯連接詞。改成偏
-      文言的版本(例如飽足低那組:「身若無食,神魂難安;且顧五穀為本,
-      餘事自有天時。」),七個分類(含上籤)全部重寫。真正「他在跟你
-      講話、叫你去吃飯」那種具體、當面、白話的話只留在 followUp(用
-      引號、say() 對話播出來),跟印在紙上的文言解曰形成對比——這個
-      落差本身就是「他裝神弄鬼,講話卻很直白」那個人設的笑點。
-   2. kc:「我的角色現在最低是帥潮跟風評吧」——原本只評估 full/stamina/
-      calm/mood 四項,漏了 cool(帥潮)/star(風評),kc 目前這輪玩起來
-      cool=8、star=-30 都很低,卻永遠抽不到,因為系統根本沒把它們算進去。
-      補上這兩項候選。star 跟其他項目量尺不同(-100~100,不是 0~100),
-      直接拿數值比大小會失真,改成統一算「困擾分數」(數值越差,分數
-      越高)再比大小:一般項目困擾分數 = 100-數值;star 的 badness 只有
-      負值那一側算數(-100~0 映射到 100~0,正的風評不算困擾),用
-      Math.max(0,-ST.star) 取代 100-ST.star,不然風評好的時候反而會被
-      當成「困擾分數很低」以外的奇怪值。困擾分數最高的那項被念出來,
-      全部都低於門檻(30)才退回「上籤」通用好話。 */
+/* 機制改成「隨機抽一項數值、依那項的高低分上中下三籤」(2026-08-27,
+   kc:「他是隨機抽你一個數值看,然後會有上中下三種籤,如果抽到下籤他會
+   賣你產品,抽到上籤他會稱讚你可以加數值」)——原本是「固定挑困擾分數
+   最高的那項」+「只有中籤/上籤兩級」,這輪整個改掉:
+   1. 抽籤先隨機選一項指標(FORTUNE_STATS 六選一,不看數值好壞),再看
+      那項「現在」的分數決定上/中/下籤,同一項指標依當下數值不同,抽到
+      的籤也會不一樣(不是永遠固定一個結果)。
+   2. 三籤各自的動作不一樣:下籤(數值差)——維持原本 followUp 之後接
+      pitchFortuneItem() 推銷道具那套;上籤(數值好)——他稱讚你,並且
+      直接把那項指標 +8(kc:「加數值」);中籤(不好不壞)——就是聊聊,
+      沒有推銷也沒有加值。
+   3. 內容量因此變大(六項指標各要一組「上籤才有的」新籤文/解曰/
+      followUp),但沒有到六項×三籤全部各寫一套——中籤沿用下籤那組的
+      四句籤文(verse 本身其實比較像通用的「觀察」意象,換一句解曰/
+      followUp 語氣放軟就夠了,不用重寫四句诗),省下一半的籤文量,
+      grid(六格運勢)三籤共用同一份,不特別分好壞版本。
+   goodness(0~100,分數越高越好)——star 量尺不同(-100~100),換算成
+   (ST.star+100)/2 跟其他項目對齊到同一把尺再比較門檻。>=70 上籤、
+   <30 下籤,中間中籤。 */
+const FORTUNE_STATS = [
+  { k:'full', no:7,
+    lines:['面帶菜色三分飢','腹中空空難支撐','先解眼前一頓飯','後計來日長與短'],
+    low:  { meaning:'身若無食，神魂難安；且顧五穀為本，餘事自有天時。',
+            followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」' },
+    mid:  { meaning:'五穀尚足，不飢不飽；此運平平，毋須多慮。',
+            followUp:'「還過得去啦，別餓著就好。」他隨口說了一句，沒再多問。' },
+    high: { lines:['五穀豐登糧倉滿','三餐無憂氣色旺','此運根基自穩固','衣食無缺是天賞'],
+            meaning:'倉廩實而知禮節，此乃根基穩固之相，非僥倖可得。',
+            followUp:'「你這陣子倒是養得不錯。」他難得笑了一下。「難得的，多顧著點。」' },
+    grid:{ caiyun:'手頭偏緊', shiye:'先顧肚子', ganqing:'沒力氣多想', jiankang:'腸胃虛弱',
+           chuxing:'少去遠地', renji:'別硬撐場面', yi:'先吃一頓飽', ji:'空腹出門' } },
+  { k:'stamina', no:13,
+    lines:['印堂發灰勞碌命','日夜奔波不得閒','身骨撐著心先垮','該歇一歇莫逞強'],
+    low:  { meaning:'命裡犯勞，奔波難免；此運當歇不歇，恐傷根本。',
+            followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。' },
+    mid:  { meaning:'筋骨未損，然亦有磨；此運不好不壞，量力而行即可。',
+            followUp:'「還撐得住吧？」他看了你一眼，沒再多說。' },
+    high: { lines:['筋骨強健精神爽','日行千里不覺累','此運根基本自厚','養精蓄銳待來時'],
+            meaning:'精神飽滿，筋骨強健，此乃根基深厚之相。',
+            followUp:'「你這陣子精神不錯喔。」他點點頭。「底子養好了，才撐得久。」' },
+    grid:{ caiyun:'錢賺得辛苦', shiye:'別硬撐工時', ganqing:'沒空陪人', jiankang:'早點歇息',
+           chuxing:'少熬夜奔波', renji:'少應酬', yi:'早點回去躺', ji:'硬撐通宵' } },
+  { k:'calm', no:21,
+    lines:['命宮孤影少人問','獨自撐著不敢言','身邊未必無人在','只是話到嘴邊軟'],
+    low:  { meaning:'命宮孤影，身邊雖有人而心不敢言；此劫在己，非在無人。',
+            followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。' },
+    mid:  { meaning:'人情來往平平，不冷不熱；此運如常，緣分自有深淺。',
+            followUp:'「日子還過得去吧。」他淡淡說了一句。' },
+    high: { lines:['命宮吉星照人緣','左右扶持得人望','此運根基在人和','福從眾人心中來'],
+            meaning:'人緣廣結，貴人相助，此乃人和之福，非強求可致。',
+            followUp:'「你這陣子身邊倒是熱鬧啊。」他難得多看你一眼。「這種緣分，要惜福。」' },
+    grid:{ caiyun:'錢不是重點', shiye:'心不在焉', ganqing:'渴望有人陪', jiankang:'心累比較重',
+           chuxing:'別自己悶著', renji:'主動找人聊', yi:'去廟口走走', ji:'把自己關起來' } },
+  { k:'mood', no:29,
+    lines:['眉頭深鎖心事重','悶在心口說不清','非是想不開這件事','是真沒地方能傾訴'],
+    low:  { meaning:'心事鬱結，如烏雲蔽月；非是命裡無光，乃一時未得抒發。',
+            followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。' },
+    mid:  { meaning:'心緒平平，無甚波瀾；此運如水，靜待風生。',
+            followUp:'「看你臉色還好。」他隨口一句，沒有多問。' },
+    high: { lines:['眉開眼笑心自寬','烏雲盡散見青天','此運根基在心寬','福自心生非天賜'],
+            meaning:'心寬則路自寬，此乃福自心生之相，非天賜之運。',
+            followUp:'「你今天心情不錯喔。」他笑了一下。「這種時候，多留一點給自己。」' },
+    grid:{ caiyun:'別亂花消氣', shiye:'提不起勁', ganqing:'容易鑽牛角尖', jiankang:'睡不安穩',
+           chuxing:'換個地方走走', renji:'少跟人計較', yi:'找人說說話', ji:'憋著不說' } },
+  { k:'cool', no:42,
+    lines:['衣冠不整惹人嫌','門面粗糙少人憐','莫怨旁人多冷眼','先正衣冠再向前'],
+    low:  { meaning:'門面不整，貴人難識；此運要在自身，非關命定。',
+            followUp:'他上下打量你一眼。「要不要弄一下自己，不然人家不把你當自己人。」' },
+    mid:  { meaning:'門面平平，不顯不隱；此運如常，多一分修整多一分助力。',
+            followUp:'「你這樣子還行啦。」他隨口一句，沒多說什麼。' },
+    high: { lines:['衣冠楚楚人皆敬','門面撐起貴人來','此運根基在自身','人前立得住方真'],
+            meaning:'門面撐得住，貴人自然識；此乃自身修得之相。',
+            followUp:'「你今天弄得挺整齊的嘛。」他難得多看你兩眼。「這樣，人家才把你當自己人。」' },
+    grid:{ caiyun:'錢財普通', shiye:'表現平平', ganqing:'沒人多看', jiankang:'精神還好',
+           chuxing:'低調就好', renji:'人緣普通', yi:'整理儀容', ji:'蓬頭垢面' } },
+  { k:'star', no:50,
+    lines:['名聲已沾風塵色','耳語紛紛傳巷弄','低調行事莫張揚','靜待塵埃落定時'],
+    low:  { meaning:'名聲染塵，是非纏身；此運宜靜不宜動，待風頭自過。',
+            followUp:'他壓低聲音。「你最近是不是弄出什麼事了，這陣子收斂一點，別太高調。」' },
+    mid:  { meaning:'名聲平平，無功無過；此運如常，行事但求問心無愧。',
+            followUp:'「你這陣子倒是沒什麼風聲。」他隨口一句。' },
+    high: { lines:['名聲清白眾人誇','巷弄之間傳好話','此運根基在德行','清譽得來非僥倖'],
+            meaning:'名聲清白，眾口稱善，此乃德行所致，非一日之功。',
+            followUp:'「你這陣子名聲不錯喔。」他點點頭。「這種東西，維持比得到還難。」' },
+    grid:{ caiyun:'花錢消災', shiye:'少出風頭', ganqing:'朋友觀望', jiankang:'心浮氣躁',
+           chuxing:'少去熱鬧處', renji:'少惹是非', yi:'低調行事', ji:'到處張揚' } }
+];
+function statGoodness(k){ return k === 'star' ? (ST.star+100)/2 : ST[k]; }
 function coldReadPick(){
-  const cands = [
-    { k:'full', trouble:100-ST.full, no:7,
-      lines:['面帶菜色三分飢','腹中空空難支撐','先解眼前一頓飯','後計來日長與短'],
-      meaning:'身若無食，神魂難安；且顧五穀為本，餘事自有天時。',
-      followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」',
-      grid:{ caiyun:'手頭偏緊', shiye:'先顧肚子', ganqing:'沒力氣多想', jiankang:'腸胃虛弱',
-             chuxing:'少去遠地', renji:'別硬撐場面', yi:'先吃一頓飽', ji:'空腹出門' } },
-    { k:'stamina', trouble:100-ST.stamina, no:13,
-      lines:['印堂發灰勞碌命','日夜奔波不得閒','身骨撐著心先垮','該歇一歇莫逞強'],
-      meaning:'命裡犯勞，奔波難免；此運當歇不歇，恐傷根本。',
-      followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。',
-      grid:{ caiyun:'錢賺得辛苦', shiye:'別硬撐工時', ganqing:'沒空陪人', jiankang:'早點歇息',
-             chuxing:'少熬夜奔波', renji:'少應酬', yi:'早點回去躺', ji:'硬撐通宵' } },
-    { k:'calm', trouble:100-ST.calm, no:21,
-      lines:['命宮孤影少人問','獨自撐著不敢言','身邊未必無人在','只是話到嘴邊軟'],
-      meaning:'命宮孤影，身邊雖有人而心不敢言；此劫在己，非在無人。',
-      followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。',
-      grid:{ caiyun:'錢不是重點', shiye:'心不在焉', ganqing:'渴望有人陪', jiankang:'心累比較重',
-             chuxing:'別自己悶著', renji:'主動找人聊', yi:'去廟口走走', ji:'把自己關起來' } },
-    { k:'mood', trouble:100-ST.mood, no:29,
-      lines:['眉頭深鎖心事重','悶在心口說不清','非是想不開這件事','是真沒地方能傾訴'],
-      meaning:'心事鬱結，如烏雲蔽月；非是命裡無光，乃一時未得抒發。',
-      followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。',
-      grid:{ caiyun:'別亂花消氣', shiye:'提不起勁', ganqing:'容易鑽牛角尖', jiankang:'睡不安穩',
-             chuxing:'換個地方走走', renji:'少跟人計較', yi:'找人說說話', ji:'憋著不說' } },
-    { k:'cool', trouble:100-ST.cool, no:42,
-      lines:['衣冠不整惹人嫌','門面粗糙少人憐','莫怨旁人多冷眼','先正衣冠再向前'],
-      meaning:'門面不整，貴人難識；此運要在自身，非關命定。',
-      followUp:'他上下打量你一眼。「要不要弄一下自己，不然人家不把你當自己人。」',
-      grid:{ caiyun:'錢財普通', shiye:'表現平平', ganqing:'沒人多看', jiankang:'精神還好',
-             chuxing:'低調就好', renji:'人緣普通', yi:'整理儀容', ji:'蓬頭垢面' } },
-    { k:'star', trouble:Math.max(0,-ST.star), no:50,
-      lines:['名聲已沾風塵色','耳語紛紛傳巷弄','低調行事莫張揚','靜待塵埃落定時'],
-      meaning:'名聲染塵，是非纏身；此運宜靜不宜動，待風頭自過。',
-      followUp:'他壓低聲音。「你最近是不是弄出什麼事了，這陣子收斂一點，別太高調。」',
-      grid:{ caiyun:'花錢消災', shiye:'少出風頭', ganqing:'朋友觀望', jiankang:'心浮氣躁',
-             chuxing:'少去熱鬧處', renji:'少惹是非', yi:'低調行事', ji:'到處張揚' } }
-  ].sort((a,b) => b.trouble - a.trouble);
-  const worst = cands[0];
-  if(worst.trouble < 30) return { grade:'上籤', no:35,
-    lines:['近日運勢平穩好','腳下步步踏得穩','莫自嚇自庸人擾','順著走就是順風'],
-    meaning:'時來運轉，諸事亨通；此乃根基穩固，非僥倖所得。',
-    followUp:'「你這樣就不錯了，不用天天來問我。」他笑了笑，把籤筒放回桌上。',
-    grid:{ caiyun:'穩紮穩打', shiye:'照原步調', ganqing:'順其自然', jiankang:'維持現狀',
-           chuxing:'平安順遂', renji:'人緣不錯', yi:'照常過日子', ji:'自己嚇自己' } };
-  return { grade:'中籤', no:worst.no, lines:worst.lines, meaning:worst.meaning, followUp:worst.followUp, grid:worst.grid };
+  const stat = FORTUNE_STATS[Math.floor(Math.random()*FORTUNE_STATS.length)];
+  const g = statGoodness(stat.k);
+  const tier = g >= 70 ? 'high' : g < 30 ? 'low' : 'mid';
+  const grade = tier === 'high' ? '上籤' : tier === 'low' ? '下籤' : '中籤';
+  const content = stat[tier];
+  const lines = tier === 'high' ? content.lines : stat.lines;
+  return { k:stat.k, tier, grade, no:stat.no, lines, meaning:content.meaning, followUp:content.followUp, grid:stat.grid };
 }
 function drawFortuneSlip(){
   if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
