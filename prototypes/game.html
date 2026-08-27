@@ -308,7 +308,14 @@
   #fortunePanel .fpMeaningRow { display:flex; align-items:flex-start; justify-content:center; padding:14px 10px; gap:10px; }
   #fortunePanel .fpVCol.fpMeaningVert { height:130px; font-size:15px; font-weight:700; color:#4a3c2e; line-height:2; }
   #fortunePanel .fpGridRow { display:flex; align-items:flex-start; justify-content:center; padding:12px 8px; gap:8px; }
-  #fortunePanel .fpGCol { font-size:12px; line-height:1.5; }
+  /* 六格運勢也是直式(2026-08-27,kc 傳了真的截圖:「是長這樣欸」)——
+     上一輪雖然照抄了直式籤文/解籤,但六格運勢還是自己做的橫式小方塊
+     (標籤在上、數值在下疊成兩行的橫排卡片),原頁其實整頁一路直式到底,
+     每一格是「標籤+數值」接在同一條直式文字裡當一欄(class 也是共用
+     `v-col`,不是另外一種排法)。改法很單純:gcol() 產生的每格 div
+     加上 `fpVCol`,直接繼承上面 `.fpVCol` 那條 writing-mode 規則,不用
+     另外寫直式邏輯。 */
+  #fortunePanel .fpVCol.fpGCol { font-size:12px; letter-spacing:.15em; }
   #fortunePanel .fpGCol .fpGL { color:#a82a22; font-weight:800; }
   #fortunePanel .fpGCol .fpGV { color:#4a3c2e; font-weight:700; }
   #fortunePanel .fpGridSide { display:flex; gap:6px; border-left:1px solid rgba(168,42,34,.4); padding-left:8px; margin-left:2px; }
@@ -1149,22 +1156,25 @@ function renderFortuneSlip(pick){
   fpHeadNoEl.textContent = '第' + pick.no + '籤';
   fpVerseColsEl.innerHTML = pick.lines.map(l => `<div class="fpVCol fpVerseLine">${l}</div>`).join('');
   fpMeaningEl.textContent = pick.meaning;
-  const gcol = (label, val) => `<div class="fpGCol"><span class="fpGL">${label}</span><span class="fpGV">${val}</span></div>`;
+  const gcol = (label, val) => `<div class="fpVCol fpGCol"><span class="fpGL">${label}</span><span class="fpGV">${val}</span></div>`;
   fpGridRowEl.innerHTML = GRID_LABELS.map(([k,label]) => gcol(label, pick.grid[k])).join('')
     + `<div class="fpGridSide">${gcol('宜', pick.grid.yi)}${gcol('忌', pick.grid.ji)}</div>`;
   fpStatNoteEl.textContent = '（歸屬感 +4）';
 }
-/* 收下籤詩之後他會再說一句(kc:「抽完之後算命仙會再跟你講話」)——
-   fpPendingFollowUp 是 drawFortuneSlip() 存的那句,關掉結果紙面板之後
-   接一段 say() 對話,busy 留到那段對話播完才解鎖(跟其他 say()/dlg 流程
-   同一個節奏,不要在角色還在講話時就放你走)。沒有 followUp(理論上
-   不會發生,每個 coldReadPick() 分支都有給)才退回直接解鎖。 */
-let fpPendingFollowUp = null;
+/* 收下籤詩之後他會再說一句(kc:「抽完之後算命仙會再跟你講話」),說完
+   接著主動推銷一個對應道具(kc:「他會自己推薦東西給你,不是你自己
+   看」,見下面 pitchFortuneItem())——fpPendingFollowUp/fpPendingPick
+   是 drawFortuneSlip() 存的資料,關掉結果紙面板之後接 say()→
+   pitchFortuneItem() 兩段,busy 留到整串播完才解鎖(跟其他 say()/dlg
+   流程同一個節奏,不要在角色還在講話/推銷時就放你走)。沒有 followUp
+   (理論上不會發生,每個 coldReadPick() 分支都有給)才退回直接推銷。 */
+let fpPendingFollowUp = null, fpPendingPick = null;
 document.getElementById('fpClose').onclick = () => {
   fpEl.classList.remove('on');
-  const line = fpPendingFollowUp; fpPendingFollowUp = null;
-  if(line) say('fortune', line, () => { busy = false; });
-  else busy = false;
+  const line = fpPendingFollowUp, pick = fpPendingPick;
+  fpPendingFollowUp = null; fpPendingPick = null;
+  if(line) say('fortune', line, () => pitchFortuneItem(pick));
+  else pitchFortuneItem(pick);
 };
 /* 三張機台特寫比例不一樣(roulette 1536×1024 接近畫布本身的 3:2,pusher
    1254×1254 是正方形)——直接拉伸貼滿畫布會把正方形那張橫向壓扁,改成
@@ -5183,12 +5193,22 @@ function talkToAcheng(){
       →翻出結果紙那套節奏。
    跟阿姨/阿成不同的是他沒有 events[]/多次拜訪的劇情深度(那批資料要
    放 npc-temple.js,這輪只做機制沒有寫那麼深的角色故事,先讓玩法跑得
-   起來),met 只控制第一次開場白那一句。 */
+   起來),met 只控制第一次開場白那一句。
+   ⚠ 2026-08-27 第二輪修正,kc:「他會自己推薦東西給你,不是你自己看」
+   ——原本做成「看看他在賣什麼」這種玩家自己打開的商店選單,是被動的
+   逛街邏輯,跟 kc 原話「推銷」的方向相反(推銷是他主動開口)。改法:
+   拿掉逛街選單,收下籤詩、聽完收尾對話之後,他直接針對這次冷讀命中
+   的那項指標(pick.k)主動推薦*一個*對應道具(不是整份清單都推),
+   買不買只是一個 yes/no,不是打開一整個商店。full(飽足)沒有對應
+   道具(前面 followUp 已經叫你去吃飯了,吃完緊接著推銷會很突兀,壞了
+   「他不是壞人」那條設定),命中 full 就不推銷。 */
 const FORTUNE_ITEMS = [
   { id:'charm', name:'平安符', cost:50, stat:'mood', amount:20,
-    sell:'「戴著,心裡踏實一點。」', buy:'「拿去,壓壓驚。」' },
+    pitch:'「我看你這幾天心裡悶，要不要帶一個平安符，戴著心裡踏實一點。」',
+    buy:'「拿去，壓壓驚。」' },
   { id:'string', name:'收驚珠串', cost:80, stat:'calm', amount:20,
-    sell:'「串子這個,睡前握著念一念,人會安一點。」', buy:'「常常摸摸它。」' }
+    pitch:'「你這樣一個人扛太久了，要不要帶串收驚珠串，睡前握著念一念，人會安一點。」',
+    buy:'「常常摸摸它。」' }
 ];
 /* 轉運金牌:唯一會動 ST_MAX 的道具,價格逐次墊高(150→250→400),買滿
    三次之後不能再買——體力上限永遠往上加是強力效果,不設上限會變成
@@ -5259,36 +5279,49 @@ function drawFortuneSlip(){
       fpStageEl.style.display = 'none'; fpResultEl.style.display = 'block';
       renderFortuneSlip(pick);
       fpPendingFollowUp = pick.followUp;
+      fpPendingPick = pick;
     }, 500);
   }, 900);
 }
-function openFortuneShop(){
-  const items = FORTUNE_ITEMS.map(it => ({
-    label: it.name, cost:'$'+it.cost, cls: ST.money<it.cost?'bad':'',
-    run(){
-      if(ST.money < it.cost){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
-      chg('money', -it.cost); chg(it.stat, it.amount);
-      toast(it.buy + '（' + NAMES[it.stat] + ' +' + it.amount + '）', 2600);
-    }
-  }));
-  if(luckBuys < LUCK_PRICES.length){
+/* 收下籤詩+聽完收尾對話之後才會觸發(見下面 fpClose 那段筆記),不是
+   玩家自己點出來的——kc:「他會自己推薦東西給你,不是你自己看」。
+   pick.k 是 coldReadPick() 冷讀命中的那項指標,stamina 對應轉運金牌
+   (有獨立的墊高價/封頂邏輯,跟其他道具不同,拆開處理),full 沒有
+   對應道具,直接解鎖離開。 */
+function pitchFortuneItem(pick){
+  if(!pick){ busy = false; return; }
+  if(pick.k === 'stamina' && luckBuys < LUCK_PRICES.length){
     const price = LUCK_PRICES[luckBuys];
-    items.push({ label:'轉運金牌', cost:'$'+price, cls: ST.money<price?'bad':'',
-      run(){
-        if(ST.money < price){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
-        chg('money', -price); ST_MAX.stamina += 10; luckBuys++; syncHUD();
-        toast('「戴著它，你撐得比別人久一點。」（體力上限 +10）', 2800);
-      } });
-  } else {
-    items.push({ label:'轉運金牌（他手上沒了）', cls:'bad', run(){ toast('「這個你已經有了，別再買了，我也是要賺良心錢的。」', 2600); } });
+    say('fortune', '「你這樣硬撐不是辦法，要不要備一個轉運金牌，戴著你撐得比別人久一點。」', () => {
+      openMenu('轉運金牌　$'+price, [
+        { label:'買下來', cost:'$'+price, cls: ST.money<price?'bad':'',
+          run(){
+            if(ST.money < price){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
+            chg('money', -price); ST_MAX.stamina += 10; luckBuys++; syncHUD();
+            toast('「戴著它，你撐得比別人久一點。」（體力上限 +10）', 2800);
+          } },
+        { label:'不用了，謝謝', cls:'back', run(){} }
+      ]);
+    });
+    return;
   }
-  items.push({ label:'先不用了', cls:'back', run(){} });
-  openMenu('算命攤的道具', items);
+  const item = FORTUNE_ITEMS.find(it => it.stat === pick.k);
+  if(!item){ busy = false; return; }
+  say('fortune', item.pitch, () => {
+    openMenu(item.name + '　$'+item.cost, [
+      { label:'買下來', cost:'$'+item.cost, cls: ST.money<item.cost?'bad':'',
+        run(){
+          if(ST.money < item.cost){ toast('他看你摸口袋，笑了一下沒說話。', 2000); return; }
+          chg('money', -item.cost); chg(item.stat, item.amount);
+          toast(item.buy + '（' + NAMES[item.stat] + ' +' + item.amount + '）', 2600);
+        } },
+      { label:'不用了，謝謝', cls:'back', run(){} }
+    ]);
+  });
 }
 function openFortuneMenu(){
   openMenu('算命攤', [
     { label:'抽籤詩', cost:'$20', cls: ST.money<20?'bad':'', run(){ drawFortuneSlip(); } },
-    { label:'看看他在賣什麼', run(){ openFortuneShop(); } },
     { label:'走開', cls:'back', run(){} }
   ]);
 }
