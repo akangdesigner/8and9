@@ -473,6 +473,17 @@ export function buildCity(THREE, scene){
      即時改 scale.y/position.y,kc 自己拖到滿意為止,最後那個數字才是
      定案,不用再來回猜。 */
   const stallValance = [];
+  /* 警察局貼圖滑桿(2026-08-27,kc:「你開滑桿讓我調整貼圖位置跟縮放」)——
+     wallFront/wallSideA/wallSideB 在 policeStation() 那個 IIFE 裡是區域
+     變數,外面存取不到,這裡先開一個空物件佔位,IIFE 裡蓋好材質之後把
+     三個材質塞進來,最後隨 return 一起交給 game.html 那邊的滑桿面板即時改
+     .map.repeat/.map.offset,跟 stallValance 那套「暴露 mesh 給滑桿」同一招。 */
+  const policeWall = {};
+  /* 警車大小/位置滑桿(2026-08-27,kc:「你給我滑桿,我來調整大小跟位置」)——
+     同一招,realPoliceCar() 裡把目前的 group(先是灰模 fallback,glb 到了
+     再換成真模型)+ 基準座標/縮放塞進這裡,滑桿即時乘一個倍率/加一個位移,
+     不用重算 propModel 那組置中邏輯。 */
+  const policeCarRef = {};
   let parkBounds = null;                              // 見下面 park(),whereAmI() 要用
   const add = (mesh,x,y,z,cast,recv) => {
     mesh.position.set(x,y,z);
@@ -536,6 +547,54 @@ export function buildCity(THREE, scene){
       scene.remove(holder);
       add(propModel(THREE, gltf, targetSize, 'y', Math.random()*Math.PI*2), x, 0, z, true, false);
     }).catch(() => {});
+  }
+
+  /* 警車/交通錐(2026-08-27,kc 看了施工工地/警察局的概念圖回饋:「三角錐
+     警車這種適用真的3d,建築本身用灰模方塊但要有點變化」)——這兩樣是
+     獨立的小道具,不是建築量體,套跟樹/機車同一招「先蓋灰模占位,glb 到
+     了再替換」。Quaternius 家族,CC0,授權見 assets/models/CREDITS.md。
+     車身沿用 parkMoto() 那套「lockAxis:'z' 撐滿車長」的縮放邏輯。 */
+  function realPoliceCar(x, z, ry, scale, yOff){
+    const s = scale || 1, y0 = yOff || 0;
+    const fallback = box(2*s, .9*s, 4.4*s, std({ color:0x1c2226, roughness:.4, metalness:.3 }));
+    const holder = add(fallback, x, .55*s+y0, z, true, false);
+    policeCarRef.group = holder; policeCarRef.baseX = x; policeCarRef.baseY = .55*s+y0; policeCarRef.baseZ = z;
+    loadModel('police-car.glb').then(gltf => {
+      scene.remove(holder);
+      const g = propModel(THREE, gltf, 4.4, 'z', ry || 0);
+      g.scale.setScalar(s);
+      add(g, x, y0, z, true, false);
+      policeCarRef.group = g; policeCarRef.baseX = x; policeCarRef.baseY = y0; policeCarRef.baseZ = z;
+    }).catch(() => {});
+  }
+  function realTrafficCone(x, z){
+    const fallback = new THREE.Mesh(new THREE.CylinderGeometry(0,.28,.55,10), std({ color:0xe8622a, roughness:.6 }));
+    const holder = add(fallback, x, .28, z, true, false);
+    loadModel('traffic-cone.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, .7, 'y'), x, 0, z, true, false);
+    }).catch(() => {});
+  }
+  /* 怪手/土堆(2026-08-27,kc:「這幾個是要真的3d吧」——上一輪誤用了
+     addProp() 那套「立牌照片卡」做法,kc 糾正:設備類道具(怪手)要跟
+     警車/交通錐同一套真 3D 模型手法,照片才是留給警察局那種建築立面用。
+     excavator.glb 目前 assets/models 裡還沒有這個檔案,loadModel 失敗會
+     靜默 catch,退回下面這個單一箱體 fallback——先用這個頂著,之後有
+     模型檔案放進去就自動接上,不用改呼叫端的程式碼。土堆不是「載入模型」
+     的東西,維持幾何,但改成扁平不規則堆疊(不是圓滾滾像球)。 */
+  function realExcavator(x, z, ry){
+    const fallback = box(2, 1.4, 4, std({ color:0xe8b23a, roughness:.5, metalness:.15 }));
+    const holder = add(fallback, x, .7, z, true, false);
+    loadModel('excavator.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, 4, 'z', ry || 0), x, 0, z, true, false);
+    }).catch(() => {});
+  }
+  function dirtPile(x, z, r){
+    const m = std({ color:0x6b4a30, roughness:1 });
+    [[0,0,r],[r*.5,r*.4,r*.6],[-r*.4,r*.3,r*.55]].forEach(([dx,dz,rr]) => {
+      add(new THREE.Mesh(new THREE.SphereGeometry(rr,8,6), m), x+dx, rr*.4, z+dz, false, true);
+    });
   }
 
   /* ===== 街道小物:立牌卡片(2026-08-13)=====
@@ -1166,11 +1225,11 @@ export function buildCity(THREE, scene){
        第三棟(淺灰石材)kc 還沒生,file 指到一個目前不存在的檔名,圖片
        404 會靜默失敗、維持素色佔位,之後補圖不用改這裡的程式碼。 */
     const TOWERS = [
-      { x:-58, w:18, file:'office-tower-1.png', color:0x8a97a0 },   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面(整棟樓風格)還沒生,先素色佔位
+      { x:-58, w:18, file:'office-tower-1.png', sideFile:'office-tower-1-side.png', color:0x8a97a0 },   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面 2026-08-27 補上(kc 生的圖一開始被誤放成大樓3正面,kc 糾正「我給你的是側面」才發現配對錯,原始生圖同樣左右留了近 30% 黑邊,裁法跟大樓3那次一樣)
       { x:-16, w:14, file:'office-tower-2.png', sideFile:'office-tower-2-side.png?v=2', color:0xb08858 },   // 學校跟火車站中間,只有 16 寬的窄縫,樓也窄一點——古銅色帷幕,側面 v2(2026-08-26,kc:「他是大樓二」,原本以為 v2 那張是大樓一,修正)
-      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材,正面圖 2026-08-27 補上(kc 拿側面圖當參考生的,樓層對齊)。
-      // 原始生圖左右各留了近 30% 黑色透明邊(kc:「貼錯大樓尺寸」發現的),裁掉黑邊
-      // 只留大樓本體重新存檔(裁圖過程見對話紀錄,不影響這裡的裁切公式)。
+      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png?v=2', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材。正面+側面 2026-08-27
+      // 同一輪重生(kc 一次生兩張,一張真的填滿畫面、一張側面又留了黑邊,裁法
+      // 跟前面幾次一樣),側面加 ?v=2 破快取,取代掉先前那張磁磚特寫拉伸版。
     ];
     TOWERS.forEach(cfg => {
       const h = 50, w = cfg.w, d = DEPTH;
@@ -1385,36 +1444,236 @@ export function buildCity(THREE, scene){
       doors.push({ id:'school', name:'高中', x:gx, z:z1+2.4 });   // 沿用 row() 原本算出來的門口座標(-36, 70.4)
     })();
 
-    /* 火車站:全新地標,x:[-8,16](24 寬),z 一樣維持一般深度 57~68。
-       站體矮而寬(跟辦公大樓的瘦高塔樓反過來),前面伸出一片雨遮棚架
-       撐出「月台/廣場」的意象,兩根柱子撐棚頂。 */
-    (function trainStation(){
-      const cx=4, z0=rowZ-DEPTH/2, hallD=9, hallZ=z0+hallD/2;
-      const hallW=20, hallH=14;
-      /* 站體主牆(2026-08-26,kc:「另一邊為何還是住宅區」)——原本用
-         M.wallC,那顆材質雖然調成灰色但貼的還是跟住宅店面共用的 T.wall
-         磚牆照片,遠看還是「住宅感」。換成純色無貼圖的淺灰混凝土色調,
-         跟辦公大樓的玻璃帷幕放在一起才讀得出「新開發區」不是老公寓。 */
-      add(box(hallW,hallH,hallD, std({ color:0xa8aca8, roughness:.8 })), cx, hallH/2, hallZ);
-      solid(cx, hallZ, hallW/2, hallD/2);
-      /* 站體正面整片玻璃帷幕(跟辦公大樓同一顆材質,拉出「這一帶都是新
-         開發區」的一致感),站名牌純色卡片佔位。 */
-      const faceZ = hallZ + hallD/2 + .05;
-      add(box(hallW-2,hallH-3,.3, M.glassOff), cx, hallH/2, faceZ, false, true);
-      add(box(10,1.8,.2, std({ color:0x1c3a52, roughness:.5 })), cx, hallH-1.5, faceZ+.1, false, true);
-      /* 雨遮棚架:從站體前緣一路撐到接近人行道,M.tin 屋頂+ alumFrame 柱子。 */
-      const canopyZ0 = faceZ, canopyZ1 = front - .5, canopyLen = canopyZ1-canopyZ0;
-      add(box(hallW+2,.4,canopyLen, M.tin), cx, 6.6, (canopyZ0+canopyZ1)/2, false, true);
-      [-hallW/2+1.2, hallW/2-1.2].forEach(dx => {
-        add(box(.3,6.6,.3, M.alumFrame), cx+dx, 3.3, canopyZ1-.6);
-        solid(cx+dx, canopyZ1-.6, .2, .2);
+    /* 火車站 v3(2026-08-27,kc 不滿意 v2 尺寸「火車站要超大的好嗎你有沒有
+       概念」——v2 直接照參考圖上標的公制數字(14×7)做,但那張參考圖本身
+       是示意比例,不是要求做小。全部尺寸拉大到接近 3 倍(月台 40×13、
+       雨遮高 8.5、柱子 5→9 根),量體才撐得起「火車站」這個級別的地標,
+       不是社區公車亭。同一天 kc:「把那排假房子全部拆掉」——站體北側緊貼
+       skylineRing() 的遠景天際線背牆,太近穿幫,已在 skylineRing() 那段
+       清空 x:[-70,-5] 這段給站體+未來的警察局/施工大樓留空間。
+       座標:跟南側 backStation 那排對稱,rowZ_n=84+B_LINE(105.5)、
+       frontN=rowZn-DEPTH/2(100,面向街道/學校那一側,南側建築面向 +z、
+       這裡反過來面向 -z)。 */
+    (function trainStationV2(){
+      const cx = -36;                              // 對齊學校校門 gx
+      const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;   // 105.5 / 100
+      const platW = 40, platD = 13, platH = 1;
+      /* 2026-08-27,kc:「火車站後退一點,不要壓到馬路,對齊同一條路的房子」
+         ——v3 的鐵軌意象貼到 frontN-.5,比 frontN(建築線,南側大樓/學校
+         的正面都貼齊這條線)還要往路那側多探了快一個單位,讀起來像蓋到
+         人行道上。setback 3 個單位,月台跟軌道都收回建築線後面,不再有
+         任何東西越過 frontN。 */
+      const setback = 3;
+      const nearZ = frontN + setback;               // 月台靠鐵軌那一側(離學校較近)
+      const farZ  = nearZ + platD;                  // 月台後緣
+      const platCz = (nearZ+farZ)/2;
+
+      const concrete = std({ color:0xb0b4ae, roughness:.85 });
+      const canopyMat = std({ color:0x3b5a78, roughness:.6 });
+      const postMat = std({ color:0xd8cfba, roughness:.7 });
+      const yellow = std({ color:0xe8b23a, roughness:.6 });
+      const railMat = std({ color:0x2c2f33, roughness:.4, metalness:.4 });
+      const tieMat = std({ color:0x4a3a2a, roughness:.9 });
+      const benchMat = std({ color:0x6a4a30, roughness:.8 });
+      const binMat = std({ color:0x3d6b4a, roughness:.7 });
+      const boardMat = std({ color:0xf2f2ee, roughness:.6 });
+
+      /* 月台本體,墊高(kc 參考圖標「月台高度建議高於軌道 0.8~1.0m」)。 */
+      add(box(platW, platH, platD, concrete), cx, platH/2, platCz);
+      solid(cx, platCz, platW/2, platD/2);
+      /* 月台黃線,貼靠鐵軌那一側邊緣。 */
+      add(box(platW, .06, .4, yellow), cx, platH+.03, nearZ+.2, false, true);
+
+      /* 鐵軌意象(純視覺,不是真的能走的軌道)——2026-08-27 從「貼在月台前緣外、
+         探到 frontN 外側」改成收在 setback 帶裡面(仍在建築線 frontN 之後),
+         不再越線。兩條鋼軌+等距枕木。 */
+      const railZ0 = frontN + .6, railZ1 = frontN + 1.8;
+      [railZ0+.15, railZ1-.15].forEach(rz => {
+        add(box(platW+1, .05, .08, railMat), cx, .05, rz, false, true);
       });
-      /* 強度砍下來,理由同上面辦公大樓 towerLobbyGlow 那則筆記——玩家走近
-         棚架下面很容易貼到這顆燈,i:20/r:20 太強會過曝。 */
-      lampSpots.push({ x:cx, y:5, z:(canopyZ0+canopyZ1)/2, c:0xdce8f2, i:7, r:10 });
-      landmarks.push({ x:cx, y:hallH+1, z:hallZ, text:'火車站' });
+      const tieN = Math.round(platW/2.2);
+      for(let i=0;i<tieN;i++){
+        const tx = cx - platW/2 + 1 + i*2.2;
+        add(box(.5, .04, .7, tieMat), tx, .03, (railZ0+railZ1)/2, false, true);
+      }
+
+      /* 雨遮:低模單斜頂,壓低壓長,是全站最大的量體。九根柱子等距排在
+         月台前緣(v2 只有 5 根,40 寬的雨遮撐不住觀感)。
+         2026-08-27,kc:「車站警察局都太小,你要不要看看人家大樓多大」
+         ——v3 只放大了平面尺寸(月台寬/深),高度沒跟著調,雨遮/候車室
+         矮矮一片貼在地上,旁邊 50 高的辦公大樓一比就像玩具。雨遮 8.5→10、
+         候車室(下面)6.5→18、燈箱柱跟著兩者一起拉高,不是社區公車亭
+         的高度感。 */
+      const canopyH = 10;
+      add(box(platW+2, .5, platD+1, canopyMat), cx, canopyH, platCz, false, true);
+      const postN = 9;
+      for(let i=0;i<postN;i++){
+        const px = cx - platW/2 + i*(platW/(postN-1));
+        add(box(.6, canopyH-platH, .6, postMat), px, platH+(canopyH-platH)/2, nearZ+.3);
+        solid(px, nearZ+.3, .35, .35);
+      }
+
+      /* 候車室:縮小退到月台後緣一角,配角而非主體(但站體整體放大之後
+         這間也跟著等比放大,不然會比柱子還矮小,比例失衡)。 */
+      const roomW=18, roomD=6, roomH=18;
+      const roomCx = cx+11, roomCz = farZ - roomD/2 - .3;
+      add(box(roomW, roomH, roomD, std({ color:0xc4c6c0, roughness:.8 })), roomCx, platH+roomH/2, roomCz);
+      solid(roomCx, roomCz, roomW/2, roomD/2);
+      add(box(roomW-2, roomH-2.5, .18, M.glassOff), roomCx, platH+roomH/2+.5, roomCz-roomD/2-.06, false, true);
+
+      /* 長椅/垃圾桶/時刻表牌,月台上的小道具,呼應參考圖,數量跟著放大的
+         月台長度增加。 */
+      [-15,-4,7,18].forEach(dx => add(box(1.8,.55,.65, benchMat), cx+dx, platH+.28, platCz-2, false, true));
+      add(box(.6,.8,.6, binMat), cx-18, platH+.4, platCz, false, true);
+      add(box(1.4,1.9,.18, boardMat), cx-19, platH+.95, nearZ+.5, false, true);
+
+      /* 站名燈箱柱(參考圖裡屋頂還高的那根招牌柱)+ 雨遮下懸掛的長條招牌,
+         文字用既有 landmarks 飄浮字系統(跟「火車站」「高中」同一套),
+         不用另外生招牌貼圖。站名先用參考圖裡的「南邊站」佔位,kc 之後
+         要改真的站名再換這裡的字串就好。柱子/招牌板也等比放大,不然
+         全站放大 3 倍後這根柱子反而變成最不起眼的東西。 */
+      const pylonX = cx + platW/2 + 2.2, pylonH = roomH + 6;
+      add(box(.5, pylonH, .5, std({color:0x25384a,roughness:.5})), pylonX, pylonH/2, nearZ+.3);
+      add(box(3.2, 2.4, .2, std({color:0x25384a,roughness:.5})), pylonX, pylonH-1.6, nearZ+.3, false, true);
+      solid(pylonX, nearZ+.3, .4, .4);
+      lampSpots.push({ x:cx, y:canopyH-1, z:platCz, c:0xdce8f2, i:14, r:22 });
+      landmarks.push({ x:cx, y:canopyH+2.5, z:platCz, text:'南邊站' });
     })();
   })();
+
+  /* 警察局 + 施工工地(2026-08-27,kc 生了一張參考圖,兩棟分站在新火車站
+     兩側——「把警察局跟施工工地放上去」)。量體改了兩輪:
+     第一輪照 kc 的示意圖字面公尺數做(10×10、兩層樓 7 高)——kc 打回票
+     「不對,是你的車站警察局都太小,你要不要看看人家大樓多大」,示意圖
+     標的公尺數是圖面本身的比例參考,不是要求照real-world literal尺寸縮小;
+     這個城市其他建築(辦公大樓 50 高、學校 26 高、街屋 17~27 高)都是
+     誇張過的高度感,警察局要對齊同一套視覺量級,不是照現實 2 層樓的真實
+     公尺數。第二輪拉高到 16(footprint 也跟著放寬到 13×13),跟旁邊的
+     辦公大樓/火車站站在一起才不會像玩具。警車/交通錐維持真 3D 模型
+     (realPoliceCar/realTrafficCone)。跟火車站同一套北側座標基準:
+     rowZn=84+B_LINE(105.5)、frontN=rowZn-DEPTH/2(100)。 */
+  (function policeStation(){
+    const cx=-78, bW=13, bD=13, bH=16;
+    const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;   // 105.5 / 100
+    const bz = frontN + bD/2;
+    /* 2026-08-27,kc 生了正面+側面真照片(同一組提示詞、同一張畫面分兩半
+       生的,樓層線對得上,見對話紀錄),換掉原本band/窗排/門/警徽那堆
+       手拼色塊——警徽、「警察局」字樣、「立警為公/執法為民」門聯、窗戶、
+       雙開門全部烤進照片裡了,不用再疊一次。裁切公式跟辦公大樓那套一樣
+       (targetAspect 比對,fill 滿版)。側面 UV 翻轉的坑也踩過一次了
+       (見大樓側面 v4 那則筆記),這裡直接用同一個翻轉方向。 */
+    const wallSideA = std({ color:0xc2beae, roughness:.85 });   // +x 面
+    const wallSideB = std({ color:0xc2beae, roughness:.85 });   // -x 面
+    const wallFront = std({ color:0xc2beae, roughness:.85 });
+    const wallPlain = std({ color:0xc2beae, roughness:.85 });   // 頂/底/背面,不貼圖,純色
+    policeWall.front = wallFront; policeWall.sideA = wallSideA; policeWall.sideB = wallSideB;
+    policeWall.bW = bW; policeWall.bH = bH; policeWall.bD = bD;
+    new THREE.ImageLoader().load(TEX_DIR + 'police-station.png', img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      /* 2026-08-27,kc 用 __dbg.tweakPolice() 滑桿現場拉到滿意的最終數字,
+         直接寫死,不再用公式算(公式版本的裁切基準點跟 kc 視覺判斷對不上,
+         拉滑桿比再猜一次公式準)。 */
+      t.repeat.set(1, .83); t.offset.set(0, 0);
+      t.needsUpdate = true;
+      wallFront.map = t; wallFront.color.setHex(0xffffff); wallFront.needsUpdate = true;
+    }, undefined, () => {});
+    new THREE.ImageLoader().load(TEX_DIR + 'police-station-side.png', img => {
+      /* 同上,kc 滑桿現場拉定的最終數字:r=1、off=0、ry=.51、offy=0,
+         直接寫死,鏡射公式(A 取負、B 不取負)維持不動。 */
+      const r = 1, off = 0, ry = .51, offy = 0;
+      const tA = new THREE.Texture(img);
+      tA.colorSpace = THREE.SRGBColorSpace; tA.anisotropy = 4;
+      tA.repeat.set(-r, ry); tA.offset.set(off+r, offy);
+      tA.needsUpdate = true;
+      wallSideA.map = tA; wallSideA.color.setHex(0xffffff); wallSideA.needsUpdate = true;
+      const tB = new THREE.Texture(img);
+      tB.colorSpace = THREE.SRGBColorSpace; tB.anisotropy = 4;
+      tB.repeat.set(r, ry); tB.offset.set(off, offy);
+      tB.needsUpdate = true;
+      wallSideB.map = tB; wallSideB.color.setHex(0xffffff); wallSideB.needsUpdate = true;
+    }, undefined, () => {});
+    /* 2026-08-27,kc:「正面滑桿完全沒反應,你只貼了環狀的側面,正常應該是
+       背面不貼、正面一張、側面兩張」——抓到真正的坑:警察局在北側,正面
+       朝 -z(面向街道那側,frontN=100 是建築最小 z 那端),不是像南側大樓
+       那樣朝 +z。原本沿用大樓的 index4(+z)=front,結果 wallFront 貼到
+       玩家看不到的背面,玩家真正看到的那面(index5,-z)反而是 wallSideA
+       (側面材質重複用在 top/bottom/back 四個面,才會像「側面材質包住整棟
+       樓」)。改成 index5=wallFront(真正朝街那面)、top/bottom/back
+       (index2/3/4)換成不貼圖的純色 wallPlain,不再借用側面材質湊數。 */
+    add(box(bW,bH,bD, [wallSideA,wallSideB,wallPlain,wallPlain,wallPlain,wallFront]), cx, bH/2, bz);
+    solid(cx, bz, bW/2, bD/2);
+    /* 屋頂女兒牆,矮矮一圈收邊,不是貼圖範圍。 */
+    const parapetM = std({ color:0x9c988c, roughness:.8 });
+    add(box(bW+.5, .5, bD+.5, parapetM), cx, bH+.25, bz, false, true);
+    /* 台階,收在建築線內側(照片裡的台階只是示意,實際碰撞/踏板還是要
+       真的幾何)。 */
+    add(box(4.6,.35,1.4, std({color:0x9c988c,roughness:.85})), cx, .18, frontN+.7, false, true);
+    landmarks.push({ x:cx, y:bH+1.2, z:bz-bD/2, text:'警察局' });
+    /* 2026-08-27,kc:「有個奇怪的空板子」——下面原本立的獨立招牌柱是個
+       純色箱體,沒有貼文字,現在正面照片本身已經烤進「立警為公/執法為民」
+       門聯了,這根多出來的空板子純粹是多餘的贅物,直接刪掉,不用另外
+       想要不要補文字上去。 */
+    /* 2026-08-27,kc:「你確定?這是警局沒錯唷還有警車勒」——貼圖真的有接上,
+       但晚上這面牆沒有燈直接照,PBR 材質沒光就整張照片(警徽/白字)一起
+       壓黑,細節讀不出來。招牌柱那顆路燈對著柱子自己,沒有對準建築正面。
+       補一顆專門對著警徽/「警察局」字樣那塊(約 bH-3 高)的暖光,跟辦公
+       大樓入口暖光同一招。 */
+    lampSpots.push({ x:cx, y:bH-3, z:frontN+2, c:0xfff0d8, i:16, r:16 });
+    /* 路燈用既有的真 3D 路燈道具(獨立招牌柱已刪,見上面那則筆記)。 */
+    placeAlleyLamp(cx+6.4, frontN-1.4);
+
+    /* 警車停在門口路邊(路面上,不是建築腳印,純視覺道具,不擋路)。
+       真 3D 模型(realPoliceCar)。2026-08-27,kc 用 __dbg.tweakPoliceCar()
+       滑桿現場拉定:縮放 1.96、位置在原基準 (cx-4, frontN-2.3) 上再加
+       (dx:-4, dy:-.1, dz:-1.55),直接寫死。同一天「多放幾台才有感覺,
+       不要擋到門」——原本那台已經在 cx-8 附近,再加兩台沿路邊排開,
+       避開 cx(門口)前後左右各留至少 4 個單位淨空。 */
+    realPoliceCar(cx-8, frontN-3.85, Math.PI, 1.96, -.1);
+    realPoliceCar(cx+6, frontN-2.3, Math.PI, 1.3);
+    realPoliceCar(cx-19, frontN-2.3, Math.PI * .9, 1.3);
+    /* 第四台,kc:「門口左右 2.2 的感覺」——貼近門口兩側站崗的距離感,
+       不是沿路邊遠遠停的那種,擺在門口右側 2.2 個單位。 */
+    realPoliceCar(cx+2.2, frontN-2.1, Math.PI, 1.3);
+  })();
+
+  (function constructionSite(){
+    const cx=20, siteW=14, siteD=10;
+    const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;
+    const siteZ0 = frontN, siteZ1 = frontN+siteD, siteCz = (siteZ0+siteZ1)/2;
+
+    /* 圍籬:灰色鐵皮浪板+橘色收邊柱(照參考圖的材質表換掉,不是骨架大樓
+       +塔吊——kc:「不是預留的問題是太醜」那輪之後又追加「量體/比例本身
+       沒抓對」,場地裡該有的是整地中的怪手/土堆/貨櫃屋,不是蓋到一半的
+       樓)。矩形周界等距立收邊柱,四邊各補一片浪板牆。 */
+    const fenceM = std({ color:0x9a9a96, roughness:.75, metalness:.15 });
+    const postM = std({ color:0xe8862a, roughness:.6 });
+    [[cx-siteW/2,siteZ0],[cx+siteW/2,siteZ0],[cx-siteW/2,siteZ1],[cx+siteW/2,siteZ1],
+     [cx,siteZ0],[cx,siteZ1],[cx-siteW/2,siteCz],[cx+siteW/2,siteCz]].forEach(([px,pz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,2.5,6), postM), px, 1.25, pz);
+    });
+    add(box(siteW+.3,2.2,.15, fenceM), cx, 1.1, siteZ0, false, true);
+    add(box(siteW+.3,2.2,.15, fenceM), cx, 1.1, siteZ1, false, true);
+    add(box(.15,2.2,siteD, fenceM), cx-siteW/2, 1.1, siteCz, false, true);
+    add(box(.15,2.2,siteD, fenceM), cx+siteW/2, 1.1, siteCz, false, true);
+    solid(cx, siteCz, siteW/2, siteD/2);
+
+    /* 警示牌掛在圍籬正面(不越過 frontN),交通錐擺出入口,沿用真 3D 模型。 */
+    add(box(2.6,1.8,.12, std({color:0xf2e8d8,roughness:.6})), cx, 1.9, siteZ0+.1, false, true);
+    landmarks.push({ x:cx, y:3, z:siteZ0, text:'施工中\n請小心安全' });
+    for(let i=0;i<5;i++) realTrafficCone(cx-siteW/2-1.5+i*.8, frontN-1.4);
+
+    /* 場地內部:怪手(真 3D 模型,見上面 realExcavator,跟警車/交通錐同一套
+       手法)+ 兩堆土丘(幾何,不規則堆疊)+ 綠色工地貨櫃屋(箱體,形狀
+       本來就是箱子不用拍照/建模)。2026-08-27 kc 糾正過一次做法(先誤用
+       照片卡,又改回真 3D)。 */
+    realExcavator(cx-1, siteCz, 0);
+    dirtPile(cx+3.5, siteCz-1.2, 1.1);
+    dirtPile(cx+3.5, siteCz+1.8, .9);
+
+    add(box(2.6,2,1.8, std({color:0x3d6b4a,roughness:.7})), cx+siteW/2-2, 1, siteZ1-1.6);
+  })();
+
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
      繞回 FOOD.length/BETEL.length 重複到前面已經出現過的店名(2026-08-14 kc
      抓到「麵店」重複)。FOOD 6 種、BETEL 3 種都已經在前面的排用滿,這裡多出來
@@ -2540,7 +2799,14 @@ export function buildCity(THREE, scene){
        (bz0-edgeGap)開始蓋,涵蓋了廟埕整段凸出區的高度——改成從 -84(廟口路,
        正方形的北邊界)開始,只沿著「正方形核心」那一段蓋,不再跟廟埕same
        z 範圍重疊,廟埕凸出區左右兩側現在也不會冒出房子。 */
+    /* 2026-08-27,kc:「把那排假房子全部拆掉」——不是留白給以後蓋警察局/
+       施工大樓那種「先佔位」問題,是這排遠景天際線背牆(bz1+edgeGap=108)
+       本身太醜、貼太近會穿幫,要整個刪掉,範圍抓大一點,不要留邊緣露出來
+       (kc 截圖抓到 x:[-70,-5] 那次還留了 -76/12 兩棟在旁邊)。x:[-100,40]
+       整段清空,涵蓋新火車站(x≈-36)+ 兩側大樓 + 之後警察局/施工大樓的
+       範圍,其餘城市邊界(廟口路那側等)照舊不動。 */
     for(let x=bx0-edgeGap; x<=bx1+edgeGap; x+=spacing){
+      if(x >= -100 && x <= 40) continue;
       placeTower(bz1+edgeGap, x, 'x', -1);
     }
     for(let z=-84; z<=bz1+edgeGap; z+=spacing){
@@ -2560,7 +2826,7 @@ export function buildCity(THREE, scene){
        不要看到舊註解就自動接回這批 tower。 */
   })();
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef };
 }
 
 /* ---------------- 角色 ----------------

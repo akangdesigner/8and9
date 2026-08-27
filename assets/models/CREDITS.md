@@ -26,6 +26,8 @@
 | `food-rice-bowl.glb` | Bowl of rice | jeremy | CC-BY | https://poly.pizza/m/clVUEgVMIiX |
 | `food-drink-cup.glb` | Soda | Quaternius | Public Domain (CC0) | https://poly.pizza/m/IqXSdKUMnY |
 | `tree-01.glb` | Tree | Quaternius | Public Domain (CC0) | https://poly.pizza/m/aVOxaHRPWe |
+| `police-car.glb` | Police Car | Quaternius | Public Domain (CC0) | https://poly.pizza/m/BwwnUrWGmV |
+| `traffic-cone.glb` | Traffic Cone | Quaternius | Public Domain (CC0) | https://poly.pizza/m/lAx8JytxGD |
 | `grass-tall.glb` | Tall Grass | Quaternius | Public Domain (CC0) | https://poly.pizza/m/JSIYtscPmP |
 | `grass-01.glb` | Grass | Quaternius | Public Domain (CC0) | https://poly.pizza/m/GyDYqHAByU |
 
