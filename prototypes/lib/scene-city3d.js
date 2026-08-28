@@ -1721,16 +1721,46 @@ export function buildCity(THREE, scene){
       fencePendingMats.push({ mat:m, rx, ry });
       return m;
     }
+    /* 大門缺口兩側那兩段圍籬,正面(街上看得到那面)額外貼一張 kc 生的
+       告示牌全景(fence-sign.png,施工中/CONSTRUCTION 招牌+警示牌+工地
+       編號,一整條橫幅構圖)——kc:「可以貼這張在工地正面看看」。跟 office-
+       tower 那組整棟照片同一套「裁切不拉伸、不重複貼」做法,不是像浪板
+       材質那樣 RepeatWrapping 鋪滿(這張圖只有一份,鋪滿會變成招牌重複
+       出現好幾次,讀起來很假)。只貼在朝向街道那一面(-z,人站在缺口外
+       看到的那面),朝基地內側那面(+z)還是浪板材質,不用跟著換。 */
+    const fenceSignPending = [];
+    let fenceSignImg = null;
+    new THREE.ImageLoader().load(TEX_DIR + 'fence-sign.png', img => {
+      fenceSignImg = img;
+      fenceSignPending.forEach(({mat, faceW}) => applyFenceSign(mat, faceW));
+    }, undefined, () => {});
+    function applyFenceSign(mat, faceW){
+      const t = new THREE.Texture(fenceSignImg);
+      const targetAspect = faceW/fenceH, ia = fenceSignImg.width/fenceSignImg.height;
+      if(ia > targetAspect){ const r = targetAspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2,0); }
+      else { const r = ia/targetAspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      t.needsUpdate = true;
+      mat.map = t; mat.color.setHex(0xffffff); mat.needsUpdate = true;
+    }
+    function fenceSignMat(faceW){
+      const m = std({ color:0x9a9a96, roughness:.8 });
+      if(fenceSignImg) applyFenceSign(m, faceW); else fenceSignPending.push({ mat:m, faceW });
+      return m;
+    }
     /* bigFaceW:大面(看得到的那個方向)實際寬度;orient 'z' 是牆板(正面/背面
        朝 ±z,窄邊朝 ±x,像正面/背面那兩段圍籬);'x' 是側牆(大面朝 ±x,窄邊
        朝 ±z,像東西兩側那兩段)。回傳 [+x,-x,+y,-y,+z,-z] 六面材質陣列,
-       頂/底(±y)也套同一張圖(kc 要求跟正面/側面同步,不留素色)。 */
-    function fenceMats(bigFaceW, orient){
+       頂/底(±y)也套同一張圖(kc 要求跟正面/側面同步,不留素色)。
+       useSign:只有大門缺口兩側那兩段圍籬傳 true,朝街道那面(-z)換成
+       告示牌全景,不是每段圍籬都套。 */
+    function fenceMats(bigFaceW, orient, useSign){
       const bigRepX = Math.max(1, bigFaceW/FENCE_TILE), bigRepY = Math.max(1, fenceH/FENCE_TILE);
       const big = fenceEdgeMat(bigRepX, bigRepY);
+      const outward = useSign ? fenceSignMat(bigFaceW) : big;
       const edge = fenceEdgeMat(1, bigRepY);
       const top = fenceEdgeMat(bigRepX, .3);
-      return orient === 'z' ? [edge,edge,top,top,big,big] : [big,big,top,top,edge,edge];
+      return orient === 'z' ? [edge,edge,top,top,big,outward] : [big,big,top,top,edge,edge];
     }
     const postM = std({ color:0xe8862a, roughness:.6 });
     const postsLong = 5, postsShort = 3;
@@ -1756,8 +1786,8 @@ export function buildCity(THREE, scene){
     }
     // 正面圍籬拆成缺口兩側兩段(西段 2→16、東段 24→38),缺口本身不補牆板
     const westSegW = (gateX0-(cx-siteW/2))+.3, eastSegW = ((cx+siteW/2)-gateX1)+.3;
-    add(box(westSegW, fenceH, .15, fenceMats(westSegW,'z')), (cx-siteW/2+gateX0)/2, fenceH/2, siteZ0, false, true);
-    add(box(eastSegW, fenceH, .15, fenceMats(eastSegW,'z')), (gateX1+cx+siteW/2)/2, fenceH/2, siteZ0, false, true);
+    add(box(westSegW, fenceH, .15, fenceMats(westSegW,'z',true)), (cx-siteW/2+gateX0)/2, fenceH/2, siteZ0, false, true);
+    add(box(eastSegW, fenceH, .15, fenceMats(eastSegW,'z',true)), (gateX1+cx+siteW/2)/2, fenceH/2, siteZ0, false, true);
     add(box(siteW+.3,fenceH,.15, fenceMats(siteW+.3,'z')), cx, fenceH/2, siteZ1, false, true);
     add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx-siteW/2, fenceH/2, siteCz, false, true);
     add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx+siteW/2, fenceH/2, siteCz, false, true);
