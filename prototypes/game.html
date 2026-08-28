@@ -1827,7 +1827,8 @@ const constructionForemanNPC = buildNPC(THREE, scene, {
   x:FOREMAN.x, z:FOREMAN.z, rotationY:Math.PI, rig:'m3',
   skin:'#b98a63', hair:'#4a4a48',
   hood:'#e8862a', pants:'#33302b', shoe:'#1c1c1c',
-  helmet:true   // 2026-08-28,kc:「工地老闆可以帶個安全帽嗎」——見 buildNPC() opts.helmet 那則筆記
+  helmet:true,    // 2026-08-28,kc:「工地老闆可以帶個安全帽嗎」——見 buildNPC() opts.helmet 那則筆記
+  stillFace:true  // 2026-08-28,kc:「人不要亂動」——見 buildNPC() opts.stillFace 那則筆記
 });
 NPCS.push(constructionForemanNPC);
 
@@ -3529,6 +3530,40 @@ function tweakForemanPanel(){
       FOREMAN_TWEAK[key] = +e.target.value;
       document.getElementById(`${id}_v`).textContent = FOREMAN_TWEAK[key];
       agDrawForeman();
+    });
+  });
+}
+/* 工地老闆安全帽滑桿(2026-08-28,kc:「先讓我調整安全帽」)——調的是 3D
+   場景裡 constructionForemanNPC 的安全帽(跟上面 tweakForemanPanel 那個
+   2D 疊磚小遊戲畫面的滑桿是兩回事,不要搞混,面板標題有寫「3D 街景」
+   區分)。frac 是位置佔身高比例、scale 是整體縮放,呼叫 NPC 自己的
+   setHelmet()(見 lib/scene-city3d.js buildNPC() 那則筆記),不用重建
+   場景或角色。 */
+const FOREMAN_HELMET_TWEAK = { frac:.88, scale:1 };
+function tweakForemanHelmetPanel(){
+  const old = document.getElementById('foremanHelmetTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['fh_frac','安全帽高度(佔身高比例)', .6, 1.1, .005, 'frac'],
+    ['fh_scale','安全帽大小倍率', .5, 2, .02, 'scale']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'foremanHelmetTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">工地老闆安全帽滑桿(3D 街景)</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${FOREMAN_HELMET_TWEAK[key]}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${FOREMAN_HELMET_TWEAK[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">要看得到效果,角色要走到工地老闆附近<br>關掉:再打一次 __dbg.tweakForemanHelmet()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  function apply(){ constructionForemanNPC.setHelmet(FOREMAN_HELMET_TWEAK.frac, FOREMAN_HELMET_TWEAK.scale); }
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      FOREMAN_HELMET_TWEAK[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = FOREMAN_HELMET_TWEAK[key];
+      apply();
     });
   });
 }
@@ -5798,6 +5833,17 @@ function updateCity(dt){
     if(Math.hypot(wp.x-door[0], wp.z-door[1]) < 1.2) resolveWatchJob(false);
   }
 
+  /* 走失狗任務(2026-08-28)——見 talkToTattooMaster() 上面那則長筆記。
+     半徑跟摸貓狗那組互動同一個量級(3.2,一般互動範圍),不是 WATCHJOB
+     那種「遠遠看到人影」的 16——這是走到牠面前才算找到。 */
+  if(TATTOO_DOG.active && !TATTOO_DOG.found && city.construction.dog){
+    const dp = city.construction.dog.position;
+    if(Math.hypot(pos.x-dp.x, pos.z-dp.z) < 3.2){
+      TATTOO_DOG.found = true;
+      toast('骨架柱子旁邊——牠縮在角落，看到你抬起頭，尾巴搖了兩下。快回刺青店跟老闆說。', 3600);
+    }
+  }
+
   /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
      dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
      用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
@@ -6851,18 +6897,26 @@ const TATTOO_MENU = [
    刺一次才會再算數,教官/小美哥那三條已經觸發過的劇情本身是一次性
    事件,不會被這裡影響(見各自的 confronted/reacted 旗標)。 */
 const TATTOO_REMOVE_PRICE = 10000;
-/* 走失狗(2026-08-28,kc:「等候區可以看到一些雜誌新聞...然後可以接任務,
-   會在工地內找到他」,同一天再一輪 kc 推翻做法:「工地太明顯 說永安街就好
-   然後任務對話都不是直接觸發 是一樣有正常的刺青選項只是多一個」)——
-   第一版做了真的「工地裡放一隻可以走過去找到的狗」機制(city.construction.
-   dog + updateCity() 距離判斷 + ACTIVE_QUESTS 任務面板),kc 覺得這樣做
-   太重、太像正式任務主線,把工地這個地點的份量蓋過永安街本身。整套拿掉,
-   永安街純粹當師傅台詞裡的地名(跟阿源「後火車站」同一個份量的敘事細節,
-   不做成真的可以走去找的地點,見下面 tattooDogMenuItem() 那則筆記)。
-   `newsFound`(等候區雜誌翻到協尋啟事,見 lookAtWaitingMagazine())→
-   `revealed`(在刺青選單裡問過一次,一次性,問完這件事就講完了,不接後續
-   「去找」的任務)。 */
-const TATTOO_DOG = { newsFound:false, revealed:false };
+/* 走失狗(2026-08-28,kc 來回改了三輪,這是目前定案的版本):
+   第一輪「等候區可以看到一些雜誌新聞...然後可以接任務,會在工地內找到
+   他」——做了真的「工地裡放一隻可以走過去找到的狗」機制(city.construction.
+   dog + updateCity() 距離判斷 + ACTIVE_QUESTS 任務面板)。
+   第二輪「工地太明顯 說永安街就好 然後任務對話都不是直接觸發」——整套
+   拿掉,只留刺青選單裡多一項一次性對話,沒有任何真的可以走去找的東西。
+   第三輪(這輪)「不是 狗要真的出現在工地 我是說提示不要講 而且接任務後
+   跟工地老闆對話會有這個任務提示 他會說好像有在工地內看到」——推翻第二
+   輪的簡化,狗真的放回工地(scene-city3d.js constructionSite() 那顆
+   `constructionRef.dog`,見那邊筆記),但**任務面板的文字提示不能直接
+   寫「工地」**(`hint` 維持「永安街那邊」不變)——工地這個地點只能透過
+   跟工地老闆(`talkToForeman()`)對話拿到口頭線索(「好像有在工地裡看到」)
+   才知道,面板本身不直接告訴玩家去哪找。
+   `newsFound`(等候區雜誌翻到協尋啟事)→`revealed`(在刺青選單裡問過一次,
+   一次性)→`active`(問完之後就是「進行中」,工地老闆對話/工地找狗判定都
+   看這個旗標)→`found`(工地裡走近狗本體)→`resolved`(帶著找到的消息
+   回報刺青老闆,結算,見 talkToTattooMaster() 開頭那段)。
+   `foremanHinted`:工地老闆那句線索只講一次,講過之後正常接回扛磚工那條
+   線,不會每次對話都重複插這句。 */
+const TATTOO_DOG = { newsFound:false, revealed:false, active:false, found:false, resolved:false, foremanHinted:false };
 function lookAtWaitingMagazine(){
   if(!TATTOO_DOG.newsFound){
     TATTOO_DOG.newsFound = true;
@@ -6873,23 +6927,13 @@ function lookAtWaitingMagazine(){
   toast('塑膠椅上放著一本翻爛的雜誌，茶几上還有喝到一半的飲料。', 2600);
 }
 /* 選單裡多一個選項(2026-08-28,kc:「任務對話都不是直接觸發 是一樣有
-   正常的刺青選項只是多一個」)——上一版翻到線索後,跟師傅講話會直接演
-   一整段揭露對話,蓋掉原本「要刺哪裡/你這隻還在想換掉喔」那組正常選單。
-   改成正常選單照常開,`newsFound` 之後選單裡多塞這一項,問不問是玩家
-   自己選,不是自動觸發。問完是一次性的短對話+一個反應選擇(跟機車行
-   老闆那條「舊剪報揭露」結尾的反應選擇同一個份量——玩家自己怎麼看這件
-   事)。
-   **✅ 同一天再一輪(kc:「還是要有任務面板 只是提示改永安街」)**——
-   上面那則筆記寫「沒有任務面板」是上一輪推翻的結果,這輪 kc 又要回來,
-   但「工地太明顯」那條規矩沒有跟著推翻——不是恢復整套 city.construction.
-   dog+updateCity() 距離判斷,只是單純把 ACTIVE_QUESTS 那筆記事重新
-   push 回去,`hint` 從舊版「去工地那邊找找看」改成「永安街那邊」,純
-   文字提示,沒有接任何「走到某個座標就觸發」的判定——這筆記事目前**沒有
-   解掉的路徑**(不像 WATCHJOB/TUITION_QUEST 那些有明確 resolve 條件),
-   會一直留在任務面板上當一個「你知道這件事、正在放在心上」的提醒,
-   kc 要是之後想要一個真的解法(比如某天師傅自己提起「找到了」),再另外
-   接。兩個反應選擇都會留下這筆記事(不管玩家嘴上怎麼回,都算「知道了
-   這件事」)。 */
+   正常的刺青選項只是多一個」)——跟師傅講話不會自動演揭露對話,正常選單
+   照常開,`newsFound` 之後選單裡多塞這一項,問不問是玩家自己選。問完是
+   一次性的短對話+一個反應選擇(跟機車行老闆那條「舊剪報揭露」結尾的
+   反應選擇同一個份量——玩家自己怎麼看這件事),兩個反應選擇都會設
+   `active=true`+開任務面板(不管玩家嘴上怎麼回,都算「接下這件事」)。
+   `hint` 固定「永安街那邊」,不寫「工地」——工地那個地點只透過
+   talkToForeman() 的口頭線索揭露,見上面 TATTOO_DOG 那則長筆記。 */
 function tattooDogMenuItem(){
   if(!TATTOO_DOG.newsFound || TATTOO_DOG.revealed) return null;
   return { label:'「等候區那則協尋啟事……是你貼的？」', run(){
@@ -6901,8 +6945,10 @@ function tattooDogMenuItem(){
       { who:'tattooMaster', text:'「上禮拜帶牠去永安街那邊，蹲下來跟朋友講話，一放繩牠就跑了。」' },
       { who:'tattooMaster', text:'「找了好幾天，都沒消息。」他頓了一下，低頭繼續刺著手上的圖。' }
     ], 0, () => {
+      TATTOO_DOG.active = true;
       ACTIVE_QUESTS.push({ id:'tattoodog', title:'老闆走失的狗', hint:'永安街那邊' });
       renderQuestPanel();
+      if(city.construction.dog) city.construction.dog.visible = true;
       openMenu('刺青店', [
         { label:'「希望牠早點回家。」', run(){
             chg('calm', 6);
@@ -6959,7 +7005,27 @@ function lookAtBench(){
     { label:'算了，還是看看工具就好', cls:'back', run(){} }
   ]);
 }
+/* 回報找到狗(2026-08-28)——攔在 talkToTattooMaster() 最前面,跟
+   talkToMotoBoss() 的 newsConfronted 攔法同一個位置邏輯,結算完之後才
+   放行到下面正常的刺青選單。 */
 function talkToTattooMaster(){
+  if(TATTOO_DOG.active && TATTOO_DOG.found && !TATTOO_DOG.resolved){
+    TATTOO_DOG.resolved = true; TATTOO_DOG.active = false;
+    { const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'tattoodog'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); }
+    renderQuestPanel();
+    if(city.construction.dog) city.construction.dog.visible = false;
+    playBeats([
+      { who:'tattooMaster', text:'「在工地？」他手上的針停下來。' },
+      { who:'pc',       text:'「骨架柱子旁邊，牠自己躲在那裡。」' },
+      { who:'tattooMaster', text:'他沒說話，把手套脫了，往外走。' },
+      { who:'tattooMaster', text:'半小時後他抱著狗回來，衣服上全是灰。' },
+      { who:'tattooMaster', text:'「謝了。」他只講這兩個字，但一直摸牠的頭。' }
+    ], 0, () => {
+      chg('calm', 8); chg('mood', 10);
+      toast('師傅沒有多說什麼，但你看得出來他鬆了一口氣。', 3400);
+    });
+    return;
+  }
   const dogItem = tattooDogMenuItem();
   if(YUAN.hasTattoo){
     say('tattooMaster', '「你這隻還在，想換掉喔？」', () => {
@@ -7165,7 +7231,20 @@ function talkToKai(){
    (兩套游標各管各的 active 旗標,不會互相搶按鍵)。畫面/無限疊高的細節
    見 agDrawForeman()/resolveForemanLockIn() 那兩則筆記,這套已經不用
    遊藝場推幣機那套 agBar/agBarPin DOM 了(2026-08-28 改成 canvas 直接畫)。 */
+/* 走失狗口頭線索(2026-08-28,kc:「接任務後跟工地老闆對話會有這個任務
+   提示 他會說好像有在工地內看到」)——見上面 TATTOO_DOG 那則長筆記,任務
+   面板本身不寫「工地」,這句話是玩家真正知道要去工地找的唯一管道。只講
+   一次(`foremanHinted`),講完照常接回下面扛磚工那條線,不會每次對話
+   都重複插這句、也不會擋掉正常的扛磚工作。 */
 function talkToForeman(){
+  if(TATTOO_DOG.active && !TATTOO_DOG.found && !TATTOO_DOG.foremanHinted){
+    TATTOO_DOG.foremanHinted = true;
+    say('foreman', '「你也在找那隻狗喔？我這幾天好像有在工地裡看到一隻，躲在鋼筋柱子那邊。」', () => talkToForemanShift());
+    return;
+  }
+  talkToForemanShift();
+}
+function talkToForemanShift(){
   if(FOREMAN.workedDay === day){
     say('foreman', '「今天扛得差不多了，明天再來。」');
     return;
@@ -7761,6 +7840,7 @@ window.__dbg = {
   tweakPoliceCar: tweakPoliceCarPanel,
   tweakConstruction: tweakConstructionPanel,
   tweakForeman: tweakForemanPanel,
+  tweakForemanHelmet: tweakForemanHelmetPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
@@ -7775,6 +7855,8 @@ window.__dbg = {
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
   TATTOO_DOG, talkToTattooMaster, lookAtWaitingMagazine, lookAtFlashWall, TATTOO_BREAD, lookAtBench,
+  talkToForeman,
+  spotTattooDog(){ TATTOO_DOG.found = true; return TATTOO_DOG; },   // 跳過「走到工地」那段,方便現場測回報
 
   MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
   KAI, talkToKai, talkToTeacher,
