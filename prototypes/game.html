@@ -1781,13 +1781,22 @@ const FOREMAN = { x:20, z:101.6, workedDay:-1 };
    那則筆記),跟賠率/tier 判定(barPos 距離 0.5 多遠)完全脫鉤,只是拿同一個
    barPos 順便當畫面上的水平位移,不是另開一條真值。 */
 const FOREMAN_GAME = { active:false, round:0, barPos:0, barDir:1, earned:0, stack:[], fallen:null };
+/* 建材照片(2026-08-28,kc 生一張合圖——5 種材質由上到下無縫排在同一張,
+   我用 PIL 照等分位置切成 5 張分開存,見 assets/tex/brick-*.png)。base/
+   line 保留當 img 還沒載入完成時的色塊備援(同 FOREMAN_BG_IMG 那招),
+   不是真的還在用手畫版當正式畫面。 */
 const FOREMAN_MATERIALS = [
-  { name:'紅磚',     base:'#b34a34', line:'#7c2f1f' },
-  { name:'水泥空心磚', base:'#9d9d95', line:'#6c6c66' },
-  { name:'木夾板',   base:'#c9a066', line:'#8a6a3d' },
-  { name:'鋼筋捆',   base:'#8a7550', line:'#5c4b2e' },
-  { name:'白磚',     base:'#d8d2c0', line:'#a39c86' },
+  { name:'紅磚',     base:'#b34a34', line:'#7c2f1f', img:new Image() },
+  { name:'水泥空心磚', base:'#9d9d95', line:'#6c6c66', img:new Image() },
+  { name:'木夾板',   base:'#c9a066', line:'#8a6a3d', img:new Image() },
+  { name:'鋼筋捆',   base:'#8a7550', line:'#5c4b2e', img:new Image() },
+  { name:'白磚',     base:'#d8d2c0', line:'#a39c86', img:new Image() },
 ];
+FOREMAN_MATERIALS[0].img.src = '../assets/tex/brick-red.png';
+FOREMAN_MATERIALS[1].img.src = '../assets/tex/brick-cinder.png';
+FOREMAN_MATERIALS[2].img.src = '../assets/tex/brick-plywood.png';
+FOREMAN_MATERIALS[3].img.src = '../assets/tex/brick-rebar.png';
+FOREMAN_MATERIALS[4].img.src = '../assets/tex/brick-white.png';
 /* 背景照(2026-08-28,kc 生的 foreman-site.png,1536×1024)——構圖是照
    agDrawForeman() 那則筆記要求的:中央淨空地面留給程式動態疊磚,兩側
    鋼筋/角材增加真實感,圍籬+天空跟遊藝場那批照片同一種寫實、不陰森的
@@ -4160,14 +4169,15 @@ function openIndoorSpot(id){
     else if(id === 'pusher'){ openArcadeGame('pusher', '推幣機'); showPusherBets(); return; }
     return;
   }
-  /* 刺青店(2026-08-28)——SPOTS 沿用 SceneTattoo.SPOTS,'chair' 是唯一
-     真的接邏輯的點(talkToTattooMaster()),其餘四個(等候區/圖牆/工作檯/
-     展示櫃)只是逛場景的氣氛 toast,跟教室書架(lookAtBookshelf() 之外
-     那種單純環境調味)同一個份量,不用每個角落都掛系統。 */
+  /* 刺青店(2026-08-28)——SPOTS 沿用 SceneTattoo.SPOTS。'chair'
+     (talkToTattooMaster())跟'wait'(lookAtWaitingMagazine(),見下面走失狗
+     任務那則長筆記)接了真邏輯,其餘三個(圖牆/工作檯/展示櫃)還是單純
+     逛場景的氣氛 toast,跟教室書架(lookAtBookshelf() 之外那種純環境
+     調味)同一個份量,不用每個角落都掛系統。 */
   if(PLACE === 'tattoo'){
     if(id === 'door'){ leaveIndoor(); return; }
     else if(id === 'chair'){ talkToTattooMaster(); return; }
-    else if(id === 'wait'){ toast('塑膠椅上放著一本翻爛的雜誌，茶几上還有喝到一半的飲料。', 2600); return; }
+    else if(id === 'wait'){ lookAtWaitingMagazine(); return; }
     else if(id === 'flash'){ toast('牆上貼滿了圖，有些邊角已經泛黃。', 2600); return; }
     else if(id === 'bench'){ toast('檯面上一排墨水瓶，旁邊是消毒過的針具。', 2600); return; }
     else if(id === 'case'){ toast('玻璃櫃裡是耳環跟鼻環，你沒有多餘的錢想那個。', 2600); return; }
@@ -5680,6 +5690,17 @@ function updateCity(dt){
     if(Math.hypot(wp.x-door[0], wp.z-door[1]) < 1.2) resolveWatchJob(false);
   }
 
+  /* 走失狗任務(2026-08-28)——見 talkToTattooMaster() 上面那則長筆記。
+     半徑跟摸貓狗那組互動同一個量級(3.2,一般互動範圍),不是 WATCHJOB
+     那種「遠遠看到人影」的 16——這是走到牠面前才算找到。 */
+  if(TATTOO_DOG.active && !TATTOO_DOG.found && city.construction.dog){
+    const dp = city.construction.dog.position;
+    if(Math.hypot(pos.x-dp.x, pos.z-dp.z) < 3.2){
+      TATTOO_DOG.found = true;
+      toast('骨架柱子旁邊——牠縮在角落，看到你抬起頭，尾巴搖了兩下。快回刺青店跟老闆說。', 3600);
+    }
+  }
+
   /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
      dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
      用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
@@ -6733,7 +6754,74 @@ const TATTOO_MENU = [
    刺一次才會再算數,教官/小美哥那三條已經觸發過的劇情本身是一次性
    事件,不會被這裡影響(見各自的 confronted/reacted 旗標)。 */
 const TATTOO_REMOVE_PRICE = 10000;
+/* 走失狗任務(2026-08-28,kc:「等候區可以看到一些雜誌新聞,比如有一隻小狗狗
+   走丟之類,然後你問老闆,老闆會說那是他的狗,之前在永安街玩的時候弄丟的,
+   然後可以接任務,會在工地內找到他」)——跟 BOOKSHELF_CLUES→talkToMotoBoss()
+   那組「先在別的地方翻到線索,再回去問當事人」的既有做法同一套,不重新
+   設計流程:`newsFound`(等候區雜誌翻到協尋啟事,見 lookAtWaitingMagazine())
+   →`revealed`(回去問師傅,他認了、給任務)→`active`+`found`(工地裡走近
+   狗本體,見 updateCity() 那段距離判斷)→`resolved`(帶著找到的消息回報
+   師傅,結算)。狗本體是 scene-city3d.js constructionSite() 裡新增的
+   `city.construction.dog`(跟 pets[] 那兩隻街上永遠站著給人摸的裝飾寵物
+   不同,這隻預設藏起來,任務開始才會顯示,見那邊的筆記)。永安街只是師傅
+   台詞裡的地名,沒有真的對應到城市地圖上的哪條路(城市裡目前的路都有
+   自己的名字,見 scene-city3d.js row() 那些呼叫),跟阿源「後火車站」
+   那類台詞地名同一個份量,純敘事細節不需要真的可以走到。 */
+const TATTOO_DOG = { newsFound:false, revealed:false, active:false, found:false, resolved:false };
+function lookAtWaitingMagazine(){
+  if(!TATTOO_DOG.newsFound){
+    TATTOO_DOG.newsFound = true;
+    toast('【協尋】黑棕色米克斯，走失於永安街\n\n上禮拜在永安街巷口不見的，脖子上有咖啡色項圈，怕生但不會咬人。有看到的話拜託通知張貼者，會付謝金。\n\n雜誌那一角被原子筆用力圈起來，圈的人看起來很急。', 5000);
+    setTimeout(() => toast('要不要問問老闆看過這隻狗嗎？', 2600), 5200);
+    return;
+  }
+  toast('塑膠椅上放著一本翻爛的雜誌，茶几上還有喝到一半的飲料。', 2600);
+}
 function talkToTattooMaster(){
+  /* 回報找到狗(2026-08-28)——攔在最前面,跟 talkToMotoBoss() 的
+     newsConfronted 攔法同一個位置邏輯。師傅認了、給任務,還沒找到之前
+     再跟他講話只換一句提醒,不會重複整段揭露台詞。 */
+  if(TATTOO_DOG.active && TATTOO_DOG.found && !TATTOO_DOG.resolved){
+    TATTOO_DOG.resolved = true; TATTOO_DOG.active = false;
+    { const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'tattoodog'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); }
+    renderQuestPanel();
+    if(city.construction.dog) city.construction.dog.visible = false;
+    playBeats([
+      { who:'tattooMaster', text:'「在工地？」他手上的針停下來。' },
+      { who:'pc',       text:'「骨架柱子旁邊，牠自己躲在那裡。」' },
+      { who:'tattooMaster', text:'他沒說話，把手套脫了，往外走。' },
+      { who:'tattooMaster', text:'半小時後他抱著狗回來，衣服上全是灰。' },
+      { who:'tattooMaster', text:'「謝了。」他只講這兩個字，但一直摸牠的頭。' }
+    ], 0, () => {
+      chg('calm', 8); chg('mood', 10);
+      toast('師傅沒有多說什麼，但你看得出來他鬆了一口氣。', 3400);
+    });
+    return;
+  }
+  if(TATTOO_DOG.active && !TATTOO_DOG.found){
+    say('tattooMaster', '「去工地找找看，拜託了。」');
+    return;
+  }
+  if(TATTOO_DOG.newsFound && !TATTOO_DOG.revealed){
+    TATTOO_DOG.revealed = true;
+    playBeats([
+      { who:'pc',       text:'「等候區那本雜誌上，有一則協尋狗的啟事……是你貼的？」' },
+      { who:'tattooMaster', text:'他手上的動作停了一下。' },
+      { who:'tattooMaster', text:'「對，是我的狗。」' },
+      { who:'tattooMaster', text:'「上禮拜帶牠去永安街那邊，蹲下來跟朋友講話，一放繩牠就跑了。」' },
+      { who:'tattooMaster', text:'「找了好幾天，都沒消息。」他頓了一下。「你要是有空，幫我留意一下？」' }
+    ], 0, () => {
+      /* 沒有做「拒絕」分支——kc 的原話只到「可以接任務」,沒有要求拒絕
+         走向,這裡不多加一個會讓 revealed=true 之後卡死、沒有回頭路再問
+         的選項(揭露只演一次,見上面 revealed 那個旗標),直接接。 */
+      TATTOO_DOG.active = true;
+      ACTIVE_QUESTS.push({ id:'tattoodog', title:'幫師傅找狗', hint:'去工地那邊找找看' });
+      renderQuestPanel();
+      if(city.construction.dog) city.construction.dog.visible = true;
+      toast('「我幫你找找看。」\n\n他跟你講了大概的方位——最近工地那邊常有人回報看到流浪動物。', 3600);
+    });
+    return;
+  }
   if(YUAN.hasTattoo){
     say('tattooMaster', '「你這隻還在，想換掉喔？」', () => {
       openMenu('刺青店', [
@@ -6961,10 +7049,18 @@ const FOREMAN_BRICK_W = 92, FOREMAN_BRICK_H = 34, FOREMAN_SWING_RANGE = 130;
 function foremanOffsetPx(){ return (FOREMAN_GAME.barPos - .5) * FOREMAN_SWING_RANGE * 2; }
 function foremanDrawBrick(cx, y, w, h, mat, dim){
   agCtx.globalAlpha = dim ? .85 : 1;
-  agCtx.fillStyle = mat.base; agCtx.fillRect(cx - w/2, y, w, h);
-  agCtx.strokeStyle = mat.line; agCtx.lineWidth = 2; agCtx.strokeRect(cx - w/2, y, w, h);
-  agCtx.globalAlpha = (dim ? .85 : 1) * .5;
-  agCtx.beginPath(); agCtx.moveTo(cx - w/2, y + h/2); agCtx.lineTo(cx + w/2, y + h/2); agCtx.stroke();
+  if(mat.img && mat.img.naturalWidth){
+    agCtx.drawImage(mat.img, cx - w/2, y, w, h);
+    /* 疊層之間貼著同一張照片會糊在一起分不出層次,加一道細邊界線
+       (不是照片內容,是疊圖後才畫的)幫玩家看清楚疊了幾層。 */
+    agCtx.strokeStyle = 'rgba(0,0,0,.35)'; agCtx.lineWidth = 1.5;
+    agCtx.strokeRect(cx - w/2, y, w, h);
+  } else {
+    agCtx.fillStyle = mat.base; agCtx.fillRect(cx - w/2, y, w, h);
+    agCtx.strokeStyle = mat.line; agCtx.lineWidth = 2; agCtx.strokeRect(cx - w/2, y, w, h);
+    agCtx.globalAlpha = (dim ? .85 : 1) * .5;
+    agCtx.beginPath(); agCtx.moveTo(cx - w/2, y + h/2); agCtx.lineTo(cx + w/2, y + h/2); agCtx.stroke();
+  }
   agCtx.globalAlpha = 1;
 }
 function foremanDrawWorker(x, footY){
@@ -7503,6 +7599,8 @@ window.__dbg = {
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
+  TATTOO_DOG, talkToTattooMaster, lookAtWaitingMagazine,
+  spotTattooDog(){ TATTOO_DOG.found = true; return TATTOO_DOG; },   // 跳過「走到工地」那段,方便現場測回報
 
   MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
   KAI, talkToKai, talkToTeacher,

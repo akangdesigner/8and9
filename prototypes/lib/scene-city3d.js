@@ -2062,6 +2062,31 @@ export function buildCity(THREE, scene){
     realSandbag(27, 106.2, -.5);
     realSandbag(24, 110, 1.1);   // 原本 x=20 卡在大門缺口正對的走道上,同一輪挪開
 
+    /* 走失狗任務用的道具狗(2026-08-28,kc:「等候區可以看到...小狗狗走丟...
+       接任務,會在工地內找到他」,見 game.html TATTOO_DOG 那則長筆記)——
+       跟上面 placePet()(temple() 那兩隻永遠站著給人摸的裝飾寵物)共用
+       同一顆 dog.glb 模型跟灰模佔位手法,但這隻預設藏起來(visible=false),
+       只有玩家在刺青店接下任務之後,game.html 才會把它打開——不進 pets[]
+       那份「隨時可摸,+mood」清單,平常根本不存在於畫面上。位置挑在骨架
+       柱網東北角一塊空地(22,113):跟最近的柱子(20,113)/(25.5,113)、
+       東側沙包(24,110)都隔了安全距離,不疊土堆/貨櫃屋/管料堆/交通錐既有
+       道具(座標見上面那一串),narratively 讀起來像躲在骨架角落。
+       `constructionRef.dog` 是可變參照(gltf 非同步載入完成後從灰模佔位
+       換成真模型,參照跟著更新)——跟 `constructionRef.bulldozers/cones`
+       同一個「暴露給 game.html 讀寫」的模式,不是新發明一套。 */
+    {
+      const dogFallback = box(.5, .9, 1.8, std({ color:0x5a4a38, roughness:.9 }));
+      constructionRef.dog = add(dogFallback, 22, .3+.45, 113, true, true);
+      constructionRef.dog.visible = false;
+      loadModel('dog.glb').then(gltf => {
+        scene.remove(constructionRef.dog);
+        const real = propModel(THREE, gltf, 1.6, 'z', 0);
+        real.visible = false;
+        add(real, 22, .3, 113, false, false);
+        constructionRef.dog = real;
+      }).catch(() => {});
+    }
+
     /* Decal 貼圖(2026-08-28,kc 生的第二張才有真的 alpha 通道——第一張是
        四合一縮圖,RGB 沒有透明通道,那輪只接了柱子/樓板底/地面三張,見上面
        那次的筆記)。原圖是一整張大 sprite sheet,不是切好的單一圖示,用
