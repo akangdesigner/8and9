@@ -1780,7 +1780,7 @@ const FOREMAN = { x:20, z:101.6, workedDay:-1 };
 /* stack/fallen 是畫面用的疊磚狀態(2026-08-28 改款,見下面 agDrawForeman()
    那則筆記),跟賠率/tier 判定(barPos 距離 0.5 多遠)完全脫鉤,只是拿同一個
    barPos 順便當畫面上的水平位移,不是另開一條真值。 */
-const FOREMAN_GAME = { active:false, round:0, rounds:5, barPos:0, barDir:1, earned:0, stack:[], fallen:null };
+const FOREMAN_GAME = { active:false, round:0, barPos:0, barDir:1, earned:0, stack:[], fallen:null };
 const FOREMAN_MATERIALS = [
   { name:'紅磚',     base:'#b34a34', line:'#7c2f1f' },
   { name:'水泥空心磚', base:'#9d9d95', line:'#6c6c66' },
@@ -2638,8 +2638,19 @@ const TATTOO_PHOTO = {
    起來覺得太難站記得說一聲,把椅子往後(縮小 `bottom`)挪一點就會鬆。
    凳子那顆位置跟椅子的 x 範圍不重疊,`pyFront` 直接框到視覺下緣(clamp
    在 `WALK_S`,人本來就走不到更深)。 */
+/* pyBack 從 258 收到 300(2026-08-28,kc:「碰撞位置要重新確認 角色應該可以
+   從椅子上方穿過去」)——上面那則筆記的「地板接觸」量法把整張疊圖的
+   48.8%~89.6% 高度都當成深度,對這張躺椅照片不成立:躺椅背靠是斜著往上
+   翹起來的,那段翹起來的背靠在照片裡「畫得比較高」是因為它離地面比較
+   高(z 軸),不是因為它在房間裡比較深(y 軸)——量法把兩者混在一起,
+   把背靠那段也算進碰撞深度,擋住了背靠底下/後面本來沒有東西的地板。
+   這輪先收窄到只保留椅座+液壓踏板那段(比較貼近地面、整段長度都低)的
+   深度,pyFront 不動(已經卡到 WALK_S 邊界,見上面那則筆記)。沒有重新
+   肉眼量圖(這輪瀏覽器分頁一直卡在 document.hidden,截圖拿不到真的畫面,
+   見 DESIGN_NOTES 那則筆記),是先收窄一半深度的估值——kc 玩起來如果還是
+   卡或收太多,說一聲再調。 */
 const TATTOO_COLLIDERS_PHOTO = [
-  { x0:327, x1:493, pyBack:258, pyFront:329 },   // 刺青椅
+  { x0:327, x1:493, pyBack:300, pyFront:329 },   // 刺青椅
   { x0:257, x1:314, pyBack:318, pyFront:338 }    // 滾輪凳
 ];
 let TATTOO = TATTOO_FALLBACK, TATTOO_COLLIDERS = TATTOO_COLLIDERS_FALLBACK;
@@ -6879,12 +6890,12 @@ function talkToKai(){
   say('kai', lines[Math.floor(Math.random()*lines.length)]);
 }
 /* 工地打工(2026-08-28,見上面 FOREMAN/FOREMAN_GAME 那則筆記)——跟超商班表
-   並存,workedDay 只鎖這份工。玩法是「扛磚」時機小遊戲:時機條跟遊藝場
-   推幣機同一套 DOM(#arcadeGame/agBar/agBarPin),但那套 ARCADE_ANIM 是
-   updateIndoor() 專用,這裡是戶外 3D 街景,自己另開 FOREMAN_GAME 狀態、
-   掛在 updateCity() 開頭 tick(見那邊),keydown 空白鍵鎖定也另開一條
-   resolveForemanLockIn(),不動 resolvePusherLockIn() 那條(兩套游標各管
-   各的 active 旗標,不會互相搶按鍵)。 */
+   並存,workedDay 只鎖這份工。玩法是「扛磚」時機小遊戲,自己另開
+   FOREMAN_GAME 狀態、掛在 updateCity() 開頭 tick(見那邊),keydown 空白鍵
+   鎖定也另開一條 resolveForemanLockIn(),不動 resolvePusherLockIn() 那條
+   (兩套游標各管各的 active 旗標,不會互相搶按鍵)。畫面/無限疊高的細節
+   見 agDrawForeman()/resolveForemanLockIn() 那兩則筆記,這套已經不用
+   遊藝場推幣機那套 agBar/agBarPin DOM 了(2026-08-28 改成 canvas 直接畫)。 */
 function talkToForeman(){
   if(FOREMAN.workedDay === day){
     say('foreman', '「今天扛得差不多了，明天再來。」');
@@ -6927,10 +6938,22 @@ function agDrawForeman(){
   const sky = agCtx.createLinearGradient(0,0,0,h);
   sky.addColorStop(0,'#7fb8e0'); sky.addColorStop(1,'#cfe6f2');
   agCtx.fillStyle = sky; agCtx.fillRect(0,0,w,h);
+
+  /* 無限疊高(2026-08-28,kc:「可以無限扛」)——磚堆會超過畫布高度,
+     跟著疊的層數往下捲場景(捲的是圍籬/地面/磚堆這個「世界」,天空
+     漸層留在畫布座標不跟著捲,模擬鏡頭一路往上爬、看到的都是更高的
+     天空)。scrollY 只在疊到快頂到上緣時才開始生效,矮的時候跟以前
+     一樣不捲。 */
+  const visibleTop = 60;
+  const totalH = FOREMAN_GAME.stack.length * FOREMAN_BRICK_H;
+  const scrollY = Math.max(0, totalH - (groundY - visibleTop));
+
+  agCtx.save();
+  agCtx.translate(0, scrollY);
   agCtx.fillStyle = 'rgba(60,68,58,.35)';
   for(let x=-20;x<w+40;x+=54) agCtx.fillRect(x, 210, 8, 90);
   agCtx.fillRect(0, 210, w, 10);
-  agCtx.fillStyle = '#8b8578'; agCtx.fillRect(0, groundY, w, h-groundY);
+  agCtx.fillStyle = '#8b8578'; agCtx.fillRect(0, groundY, w, 4000);   // 夠高就好,translate 之後多出來的部分反正被畫布裁掉
   agCtx.fillStyle = 'rgba(0,0,0,.12)'; agCtx.fillRect(0, groundY, w, 4);
 
   FOREMAN_GAME.stack.forEach((b, i) => {
@@ -6946,16 +6969,17 @@ function agDrawForeman(){
   const stackTopY = groundY - FOREMAN_GAME.stack.length*FOREMAN_BRICK_H;
   agCtx.save();
   agCtx.strokeStyle = 'rgba(255,255,255,.45)'; agCtx.setLineDash([6,6]);
-  agCtx.beginPath(); agCtx.moveTo(cx, 40); agCtx.lineTo(cx, stackTopY); agCtx.stroke();
+  agCtx.beginPath(); agCtx.moveTo(cx, visibleTop - scrollY); agCtx.lineTo(cx, stackTopY); agCtx.stroke();
   agCtx.restore();
 
   if(FOREMAN_GAME.active){
     const mat = FOREMAN_MATERIALS[FOREMAN_GAME.round % FOREMAN_MATERIALS.length];
-    const carryY = Math.max(70, stackTopY - 70);
+    const carryY = Math.max(visibleTop - scrollY + 10, stackTopY - 70);
     const bx = cx + foremanOffsetPx();
     foremanDrawWorker(bx, carryY + FOREMAN_BRICK_H + 6);
     foremanDrawBrick(bx, carryY, FOREMAN_BRICK_W, FOREMAN_BRICK_H, mat);
   }
+  agCtx.restore();
 }
 function startForemanShift(){
   busy = true;
@@ -6975,14 +6999,18 @@ function startForemanRound(){
   FOREMAN_GAME.active = true;
   FOREMAN_GAME.barPos = 0; FOREMAN_GAME.barDir = 1;
   FOREMAN_GAME.fallen = null;
-  agBody.innerHTML = `第 ${FOREMAN_GAME.round+1}/${FOREMAN_GAME.rounds} 趟——按空白鍵，抓準時機把磚放下`;
+  agBody.innerHTML = `第 ${FOREMAN_GAME.round+1} 趟——按空白鍵，抓準時機把磚放下（疊越高賺越多，偏差太大會塌）`;
 }
 /* 命中判定跟賠率經濟學無關(這是老闆給的工錢,不是賭博機台,不用照
    resolvePusherLockIn() 那套「三檔全負期望值」的顧慮)——純粹手感越準
-   工錢越高,沒有隨機骰勝負。tier 門檻沒動,2026-08-28 改款只多了一件事:
-   命中當下的 barPos 順便決定這塊磚疊上去的水平位移(foremanOffsetPx()),
-   miss 則不進 stack、改進 fallen 畫成滾在地上的磚,呼應「磚頭滾了一地」
-   那句文案——原本這句話只是純文字,現在畫面上真的看得到。 */
+   工錢越高,沒有隨機骰勝負。
+   2026-08-28 第二輪改款(kc:「可以無限扛,如果偏差太大才會搖晃輸掉,
+   然後跌多少賺多少」)——原本固定 5 趟、每趟各自結算的模式拿掉,改成
+   無限疊下去,只有最差那檔(tier 'miss',dist>.4,即之前「沒扶好」那句)
+   會讓整落磚塌掉、結束這班;great/ok/bad 三檔都照樣疊上去、照樣領那趟
+   的錢,只是歪一點。「跌多少賺多少」的意思是塌掉當下不倒扣——
+   FOREMAN_GAME.earned 是每趟疊上去就直接累加,不是疊到最後才結算,
+   所以塌掉那瞬間身上已經有的錢不會被拿走,只是不能再繼續疊。 */
 function resolveForemanLockIn(){
   if(!FOREMAN_GAME.active) return;
   const dist = Math.abs(FOREMAN_GAME.barPos - .5);
@@ -6991,28 +7019,32 @@ function resolveForemanLockIn(){
   const tier = dist<=.05 ? 'great' : dist<=.2 ? 'ok' : dist<=.4 ? 'bad' : 'miss';
   const pay  = { great:150, ok:90, bad:40, miss:0 }[tier];
   const line = { great:'一次到位，磚疊得整整齊齊。', ok:'差不多，堆得還算穩。',
-                 bad:'歪了一點，老闆皺了下眉。', miss:'沒扶好，磚頭滾了一地。' }[tier];
+                 bad:'歪了一點，老闆皺了下眉。', miss:'手一滑，沒扶好——整落磚「轟」一聲塌了。' }[tier];
+  let toppled = false;
   if(tier === 'miss'){
+    toppled = true;
     const sign = Math.sign(FOREMAN_GAME.barPos - .5) || 1;
     FOREMAN_GAME.fallen = { x: agCanvas.width/2 + sign*90, rot: sign*.6, mat };
   } else {
     FOREMAN_GAME.stack.push({ offset: foremanOffsetPx(), mat });
+    FOREMAN_GAME.earned += pay;
   }
   agDrawForeman();
-  FOREMAN_GAME.earned += pay;
+  const layers = FOREMAN_GAME.stack.length;
+  agBody.innerHTML = toppled
+    ? `${line}\n\n今天疊到第 ${layers} 層，老闆給了你 $${FOREMAN_GAME.earned}。`
+    : `${line}（+$${pay}，目前 $${FOREMAN_GAME.earned}）`;
   FOREMAN_GAME.round++;
-  agBody.innerHTML = `${line}（+$${pay}）`;
   setTimeout(() => {
-    if(FOREMAN_GAME.round >= FOREMAN_GAME.rounds) endForemanShift();
-    else startForemanRound();
-  }, 900);
+    if(toppled) endForemanShift(); else startForemanRound();
+  }, toppled ? 1600 : 900);
 }
 function endForemanShift(){
   agEl.classList.remove('on');
   busy = false;
   foremanShiftOn = false;
   chg('money', FOREMAN_GAME.earned);
-  toast(`扛完 ${FOREMAN_GAME.rounds} 趟磚，老闆給了你 $${FOREMAN_GAME.earned}。`, 3200);
+  toast(`今天疊到第 ${FOREMAN_GAME.stack.length} 層磚塌了，老闆給了你 $${FOREMAN_GAME.earned}。`, 3200);
 }
 /* 旺鴻(機車行老闆,2026-08-25 kc 要求)——買車現在要先跟他對話,不是走到
    forSale 車旁邊直接跳選單(見上面 interactProp() 'moto'/'motoboss' 兩條
@@ -7437,6 +7469,18 @@ window.__dbg = {
                : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE
                : PLACE === 'corridor' ? CORRIDOR : PLACE === 'tattoo' ? TATTOO : BEDROOM),
   cam: indoorCamera,
+  /* 工地扛磚測試開關(2026-08-28,kc:「測試階段讓我無限玩」)——正常玩法
+     workedDay 鎖一天一次、上工要扣 20 體力,這兩道檔板留著給正式玩法用,
+     不要改掉;這個 helper 只是繞開檔板直接重開一班,方便反覆測手感/塌掉
+     門檻,跟 joinedTroupe() 那種測試開關同精神。 */
+  foreman(){
+    if(busy) return '目前忙線中(可能上一輪還沒結束),等它跑完再呼叫。';
+    FOREMAN.workedDay = -1;
+    chg('stamina', 999);
+    startForemanShift();
+    return '測試模式：workedDay 解鎖、體力回滿，直接開工。';
+  },
+  FOREMAN, FOREMAN_GAME,
   chg, steal, updateIndoor, openIndoorSpot, startCheckoutShift, getCO: () => CO,
   hire(){ IN.hired = true; return 'hired'; },
   pendingTheft: () => pendingTheft,
