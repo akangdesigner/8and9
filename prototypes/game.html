@@ -1266,12 +1266,23 @@ function openArcadeGame(kind, cap){
   agDrawIdle(kind);
 }
 /* momEchoPending 在這裡(不是輸錢當下)才真的說出來,見上面 gambleResolve()
-   那則筆記——大面板先關掉,z-index:8 的對話匡才看得到。 */
+   那則筆記——大面板先關掉,z-index:8 的對話匡才看得到。
+   2026-08-27,kc:「感覺可以多幾句話」——原本只有一句,拉成三句用 say()
+   的 after 串起來(跟算命攤 followUp→推銷那組同一招,每句要按空白鍵才
+   接下一句,不是一次塞進同一個對話框),節奏比較像真的在想事情,不是
+   丟一句評語就結束。內容停在「回憶片段」,不直接講白媽媽在賭——那個
+   坦白留給 talkToStallVendor() 'mom' 那條分支的「別像我一樣」當難得
+   一次的真話,這裡先講白就搶了那句的份量,也違反上面那則筆記提過的
+   「不加碼延伸、不寫說教式收尾」那條界線。 */
 function closeArcadeGame(){
   agEl.classList.remove('on'); busy = false;
   if(ARCADE_GAMBLE.momEchoPending){
     ARCADE_GAMBLE.momEchoPending = false;
-    say('pc', '你想起媽媽也是這樣。');
+    say('pc', '你想起媽媽也是這樣。', () => {
+      say('pc', '坐在牌桌前坐到很晚，眼睛盯著同一個地方。', () => {
+        say('pc', '你那時候不懂，她在等什麼。');
+      });
+    });
   }
 }
 function agButton(label, cost, cls, run){
