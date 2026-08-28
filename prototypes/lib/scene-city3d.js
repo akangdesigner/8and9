@@ -608,15 +608,25 @@ export function buildCity(THREE, scene){
   /* 2026-08-28,kc 看了工地隔著大門缺口的樣子回報「為何有奇怪的球」——
      舊版拿圓球體疊 3 顆逼近土堆,舊註解雖然寫著要做成「扁平不規則堆疊,
      不是圓滾滾像球」,但實作沒有真的壓扁,球體疊球體看起來還是一串球。
-     改成每顆 lobe 各自 Y 軸壓扁 38~46%(比例微調出不規則感,不是統一
-     壓一個數字),疊起來才是攤平的土堆輪廓。 */
+     壓扁過一輪(38~46% Y 軸)還是不夠,kc 接著要求「土要用真的3d」——
+     跟怪手/警車同一套手法,壓扁球堆當 fallback(loadModel 失敗前先頂著,
+     不是空的),glb 到位就換成真模型(dirt-pile.glb,Soil mount,apelab,
+     CC-BY,poly.pizza 上找的,授權見 assets/models/CREDITS.md)。 */
   function dirtPile(x, z, r){
     const m = std({ color:0x6b4a30, roughness:1 });
+    const fallback = new THREE.Group();
     [[0,0,r,.42],[r*.55,r*.4,r*.62,.38],[-r*.45,r*.32,r*.58,.46],[r*.1,-r*.4,r*.5,.4]].forEach(([dx,dz,rr,fy]) => {
       const s = new THREE.Mesh(new THREE.SphereGeometry(rr,7,5), m);
       s.scale.set(1, fy, 1);
-      add(s, x+dx, rr*fy, z+dz, false, true);
+      s.position.set(dx, rr*fy, dz);
+      s.castShadow = true; s.receiveShadow = true;
+      fallback.add(s);
     });
+    const holder = add(fallback, x, 0, z, false, true);
+    loadModel('dirt-pile.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, r*2.2, 'x', Math.random()*Math.PI*2), x, 0, z, false, true);
+    }).catch(() => {});
   }
 
   /* ===== 街道小物:立牌卡片(2026-08-13)=====
@@ -1717,6 +1727,11 @@ export function buildCity(THREE, scene){
     add(box(gateW+.6, .4, .3, postM), cx, fenceH+.35, siteZ0, false, true);
     solid(cx, siteCz, siteW/2, siteD/2);
 
+    /* 圍籬內地板(2026-08-28,kc:「鋪滿圍牆內的地板」)——原本裡面是跟外面
+       人行道同一塊地磚材質,只有零星幾件道具漂在上面,隔著大門缺口看進去
+       看不出「這裡是工地」。鋪一塊土色平面蓋滿整個基地,压过原本的路面。 */
+    add(box(siteW-.3, .06, siteD-.3, std({ color:0x5a4530, roughness:1 })), cx, .03, siteCz, false, true);
+
     /* 警示牌掛在圍籬正面(不越過 siteZ0),兩端各一面,不再只有中間一小塊;
        交通錐改擺在缺口出入口正前方(原本沿整段西側排,跟「這是門口」的
        閱讀對不上)。 */
@@ -1724,7 +1739,8 @@ export function buildCity(THREE, scene){
       add(box(3.6,2.4,.12, std({color:0xf2e8d8,roughness:.6})), sx, 2.4, siteZ0+.1, false, true);
     });
     landmarks.push({ x:cx, y:3.6, z:siteZ0, text:'施工中\n請小心安全' });
-    for(let i=0;i<9;i++) realTrafficCone(gateX0-1 + i*((gateW+2)/8), siteZ0-1.4);
+    // 2026-08-28,kc:「三角錐幫我分開一點」——原本 9 個錐間距 1.25,擠成一排看不清楚單顆,拉開到 1.75
+    for(let i=0;i<9;i++) realTrafficCone(gateX0-2 + i*1.75, siteZ0-1.4);
 
     /* 大樓骨架(2026-08-28 新增,kc:「工地會有大樓骨架啊因為是大樓施工」)
        ——裸柱+樓板,不貼皮、不裝窗,故意讀出「還在蓋,沒完工」,跟旁邊
