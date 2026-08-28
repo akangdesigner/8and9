@@ -713,15 +713,21 @@ const WEAR_ITEMS = [
      cool/star 兩個效果,是這批衣物裡第一件會動風評的,見下面
      toggleWear() 那則筆記。 */
   { id:'uniform', slot:'top', name:'超商制服', cool:-10, star:10, icon:'👔', locked:true },
-  /* 刺青(2026-08-28,kc 糾正:「刺青刺完是獲得一個拿不下來的裝備才對,
-     除非洗掉,帥潮+10」)——上一輪 getTattoo() 直接 chg('cool', cool) 是
-     錯的,刺青不是一次性效果,是永久裝備,要走這套穿搭系統,只是這件
-     `removable:false`,不能像其他衣物一樣點一下脫掉(見下面 toggleWear()
-     那則筆記)。帥潮固定 +10,不分刺青尺寸大小(小的/半甲只影響價錢跟
-     劇情份量,不是帥潮加成的差異,世界觀上「刺了就是刺了」)。「洗掉」
-     (雷射除刺青)還沒做,`removable:false` 先卡著這個位置,之後真的要做
-     洗掉功能再開一個地方把它翻回 `true`。 */
-  { id:'tattoo', slot:'tattoo', name:'刺青', cool:10, icon:'🐉', locked:true, removable:false }
+  /* 刺青(2026-08-28,kc 糾正兩輪):第一輪「刺完是拿不下來的裝備,帥潮+10」
+     ——走這套穿搭系統,不是一次性 chg('cool', cool)。第二輪 kc 再糾正
+     「帥潮效果要不同啊,然後也要新增洗掉刺青的選項」——六款刺青(見
+     `TATTOO_MENU`)各自是獨立的 `WEAR_ITEMS` 條目,共用同一個 `tattoo`
+     槽位(同時只會有一件在 `owned`/`equipped` 裡,買新的之前要先洗掉舊的,
+     見 `talkToTattooMaster()`),`cool` 值照款式大小/工時分開給,不再是
+     單一固定值。`removable:false` 擋掉的是「點角色卡衣物格想脫下來」這個
+     隨手動作,真的要拿掉要走 `removeTattoo()`(店裡付費雷射,繞過這個
+     檔板直接操作 `equipped`/`owned`),兩者不衝突。 */
+  { id:'tattoo-wrist',  slot:'tattoo', name:'刺青・手腕內側', cool:5,  icon:'🖋️', locked:true, removable:false },
+  { id:'tattoo-rose',   slot:'tattoo', name:'刺青・玫瑰',     cool:8,  icon:'🌹', locked:true, removable:false },
+  { id:'tattoo-tiger',  slot:'tattoo', name:'刺青・虎頭',     cool:12, icon:'🐯', locked:true, removable:false },
+  { id:'tattoo-skull',  slot:'tattoo', name:'刺青・骷髏',     cool:15, icon:'💀', locked:true, removable:false },
+  { id:'tattoo-half',   slot:'tattoo', name:'刺青・半甲',     cool:18, icon:'💪', locked:true, removable:false },
+  { id:'tattoo-dragon', slot:'tattoo', name:'刺青・整片背後龍', cool:25, icon:'🐉', locked:true, removable:false }
 ];
 const owned = WEAR_ITEMS.filter(w => !w.locked).map(w => w.id);
 const equipped = { hat:null, top:null, bottom:null, shoes:null, neck:null, tattoo:null };
@@ -6459,55 +6465,86 @@ function talkToJiaoguanCorridor(){
  * 一個字就會自動生效——這是當初接學校線那輪就設計好的耦合,見
  * docs/DESIGN_NOTES.md「學校線接進 game.html」節那句「hasTattoo 換成讀
  * 真的完成條件之後,教官這邊不用跟著改」。
- * **✅ 2026-08-28 同一天再一輪,kc 糾正帥潮的算法**——原本 `getTattoo()`
- * 直接 `chg('cool', cool)`,兩個尺寸各自 +8/+22(沿用 `world.html` 舊
- * 原型的數字)。kc:「刺青刺完是獲得一個拿不下來的裝備才對,除非洗掉,
- * 帥潮+10」——改成走 `WEAR_ITEMS`/`toggleWear()` 那套穿搭系統,新增
- * `tattoo` 專屬槽位(不跟 top 那些衣物搶格子),`removable:false` 讓
- * `toggleWear()` 擋掉脫下的動作。帥潮固定 +10,不再分尺寸——兩個價位
- * 現在只影響花多少錢跟劇情份量,不影響帥潮加成,世界觀上「刺了就是
- * 刺了」,大小不影響這件事對你的意義。風評維持上一輪的決定不動(刺青
- * 對風評的影響交給教官/小美哥那三條既有劇情各自處理)。 */
+ * **✅ 2026-08-28 kc 三輪糾正,累加到這個最終版本**:
+ * 1. 「刺完是拿不下來的裝備,帥潮+10」——走 `WEAR_ITEMS`/`toggleWear()`
+ *    穿搭系統,不是一次性 `chg('cool', cool)`。
+ * 2. 「多加幾組以及數值更動」——從兩組擴到六組(見 `TATTOO_MENU`)。
+ * 3. 「帥潮效果要不同啊,然後也要新增洗掉刺青的選項」——推翻第 1 輪
+ *    「固定 +10 不分尺寸」那句話,六款各自是獨立的 `WEAR_ITEMS` 條目
+ *    (`tattoo-wrist`~`tattoo-dragon`,見上面那批定義),`cool` 值照
+ *    款式大小分開給;同時新增 `removeTattoo()`(店裡付費雷射)真的能
+ *    洗掉,不再是「拿不下來」的死路——`removable:false` 只擋「點角色卡
+ *    衣物格隨手脫下」這個動作,不擋店裡付費的正式除刺青流程,兩者是
+ *    刻意分開的兩條路,不衝突。 */
 /* 刺青款式清單(2026-08-28,kc 丟一張真的刺青店圖牆參考圖,要求「多加幾組
-   以及數值更動」)——原本只有兩組(小的/半甲),照參考圖那面圖牆常見的
-   幾種經典圖案(玫瑰/虎頭/骷髏/龍)展開成六組,價位照「面積/工時」的
-   直覺順序排(手腕內側最小最便宜,背後整片龍最大最貴,半甲維持在中間)。
-   帥潮效果維持上一輪定案的「固定 +10,不分尺寸」不變——這是同一件裝備
-   (`WEAR_ITEMS` 'tattoo' 那格),六個選項只是價錢/劇情份量不同,不是六種
-   效果,道理跟上一輪「刺了就是刺了」是同一個。價位是我這輪自己抓的,
-   沒跟 kc 對過確切數字,不喜歡可以直接改這個表。 */
+   以及數值更動」,後來又要求帥潮效果要分開)——`id` 對應
+   `WEAR_ITEMS` 裡同名條目,`cool` 值那格自己有,這裡不重複列,選單用
+   `WEAR_ITEMS.find()` 現讀。價位照「面積/工時」的直覺順序排(手腕內側
+   最小最便宜,背後整片龍最大最貴,半甲維持在中間),帥潮值照款式大小
+   分開給,不是這輪自己拍腦袋硬套的比例,只是抓一個看起來合理的曲線——
+   沒跟 kc 對過確切數字,不喜歡可以直接改 `WEAR_ITEMS` 裡對應那筆的
+   `cool`,或改這裡的 `price`,兩張表分開改,不用同步。 */
 const TATTOO_MENU = [
-  { label:'小的，手腕內側', price:1500 },
-  { label:'玫瑰，手臂',     price:3000 },
-  { label:'虎頭，肩膀',     price:5000 },
-  { label:'骷髏，前臂',     price:6000 },
-  { label:'半甲',           price:8000 },
-  { label:'龍，整片背後',   price:12000 }
+  { id:'tattoo-wrist',  label:'小的，手腕內側', price:1500 },
+  { id:'tattoo-rose',   label:'玫瑰，手臂',     price:3000 },
+  { id:'tattoo-tiger',  label:'虎頭，肩膀',     price:5000 },
+  { id:'tattoo-skull',  label:'骷髏，前臂',     price:6000 },
+  { id:'tattoo-half',   label:'半甲',           price:8000 },
+  { id:'tattoo-dragon', label:'龍，整片背後',   price:12000 }
 ];
+/* 洗掉刺青(2026-08-28,kc:「也要新增洗掉刺青的選項」)——固定價位,不分
+   洗掉的是哪一款(現實中雷射除刺青本來就比刺上去貴、不分圖案大小差很多,
+   價位比六款刺青裡最貴的半甲/龍都高,呼應「洗掉比刺上去痛苦、划不來」
+   這個真實世界的直覺)。洗完 `YUAN.hasTattoo` 真的翻回 `false`——不是
+   只清裝備欄好看,阿源的好朋友門檻是即時讀這個旗標,洗掉之後要重新
+   刺一次才會再算數,教官/小美哥那三條已經觸發過的劇情本身是一次性
+   事件,不會被這裡影響(見各自的 confronted/reacted 旗標)。 */
+const TATTOO_REMOVE_PRICE = 10000;
 function talkToTattooMaster(){
   if(YUAN.hasTattoo){
-    say('tattooMaster', '「你上次那隻還沒退紅呢，先讓它好。」');
+    say('tattooMaster', '「你這隻還在，想換掉喔？」', () => {
+      openMenu('刺青店', [
+        { label:'洗掉刺青', cost: ST.money<TATTOO_REMOVE_PRICE ? '錢不夠' : `$${TATTOO_REMOVE_PRICE}`,
+          cls: ST.money<TATTOO_REMOVE_PRICE ? 'bad' : 'risk', run: removeTattoo },
+        { label:'先不要', cls:'back', run(){} }
+      ]);
+    });
     return;
   }
   say('tattooMaster', '「要刺哪裡？」', () => {
     openMenu('刺青店', [
-      ...TATTOO_MENU.map(({label, price}) => ({
-        label, cost: ST.money<price ? '錢不夠' : `$${price}　帥潮 +10`,
-        cls: ST.money<price ? 'bad' : '', run:() => getTattoo(price)
-      })),
+      ...TATTOO_MENU.map(({id, label, price}) => {
+        const it = WEAR_ITEMS.find(w => w.id === id);
+        return { label, cost: ST.money<price ? '錢不夠' : `$${price}　帥潮 +${it.cool}`,
+          cls: ST.money<price ? 'bad' : '', run:() => getTattoo(id, price) };
+      }),
       { label:'只是看看', cls:'back', run:() => say('tattooMaster', '「牆上都有，自己看。」') }
     ]);
   });
 }
-function getTattoo(price){
+function getTattoo(id, price){
   if(ST.money < price){ toast('錢不夠。', 2200); return; }
   chg('money', -price);
-  owned.push('tattoo');
-  toggleWear('tattoo');   // 永久裝備,+10 帥潮從這裡套用,見上面 toggleWear() 的 removable 筆記
+  owned.push(id);
+  toggleWear(id);   // 永久裝備,這一款自己的 cool 從這裡套用,見 toggleWear() 的 removable 筆記
   YUAN.hasTattoo = true;
   advanceTime(90);
   say('tattooMaster', '「刺完了，包著保鮮膜，回去別馬上洗。」', () => {
     toast('刺青加進裝備欄了——拿不下來，除非去洗掉。', 3800);
+  });
+}
+function removeTattoo(){
+  if(ST.money < TATTOO_REMOVE_PRICE){ toast('錢不夠。', 2200); return; }
+  const id = equipped.tattoo, it = WEAR_ITEMS.find(w => w.id === id);
+  chg('money', -TATTOO_REMOVE_PRICE);
+  if(it) chg('cool', -it.cool);
+  equipped.tattoo = null;
+  const i = owned.indexOf(id); if(i !== -1) owned.splice(i, 1);
+  YUAN.hasTattoo = false;
+  advanceTime(180);
+  renderWearTab(); syncPanelStats();
+  say('tattooMaster', '「洗完了，會分好幾次退色，這次只是開始。」', () => {
+    toast('刺青洗掉了，裝備欄那格空了。', 3200);
   });
 }
 /* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
