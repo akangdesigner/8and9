@@ -1977,8 +1977,37 @@ export function buildCity(THREE, scene){
     dirtPile(cx-16, frontCz+1, 1.6);
     dirtPile(cx+10, frontCz+1.8, 1.3);
 
-    add(box(4,2.6,2.4, std({color:0x3d6b4a,roughness:.7})), cx-siteW/2+3, 1.3, siteZ0+2.2);
-    add(box(4,2.6,2.4, std({color:0x2e5a44,roughness:.7})), cx-siteW/2+8, 1.3, siteZ0+2.2);
+    /* 貨櫃屋套真貼圖(2026-08-28,kc:「這塊板子還是素色啊,要貼這個的三面」)
+       ——之前的舊筆記寫「貨櫃屋形狀本來就是箱子不用拍照/建模」,指的是
+       幾何不用做成模型,不是不用貼材質;kc 截圖看到晚上暗色調下素色箱體
+       讀起來像一塊沒貼圖的灰板,還是要貼。用 kc 最早那張「RC柱/樑貼圖」
+       三合一參考圖裡剩下沒用到的兩塊(頂部那張大面板、最下面那條樑,
+       中間那條樑已經給門楣用了):頂面(+y)貼 container-top.png,
+       前後長面(±z)貼 beam-lintel.png(跟門楣同一張,反正都是清水模),
+       左右短面(±x)貼 container-side.png,底面看不到維持素色。 */
+    const containerTopM = std({ color:0x8c8c86, roughness:.85 });
+    const containerFrontM = std({ color:0x8c8c86, roughness:.85 });
+    const containerSideM = std({ color:0x8c8c86, roughness:.85 });
+    new THREE.ImageLoader().load(TEX_DIR + 'container-top.png', img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      containerTopM.map = t; containerTopM.color.setHex(0xffffff); containerTopM.needsUpdate = true;
+    }, undefined, () => {});
+    new THREE.ImageLoader().load(TEX_DIR + 'beam-lintel.png', img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      containerFrontM.map = t; containerFrontM.color.setHex(0xffffff); containerFrontM.needsUpdate = true;
+    }, undefined, () => {});
+    new THREE.ImageLoader().load(TEX_DIR + 'container-side.png', img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      containerSideM.map = t; containerSideM.color.setHex(0xffffff); containerSideM.needsUpdate = true;
+    }, undefined, () => {});
+    const containerBottomM = std({ color:0x4a4a44, roughness:.9 });
+    // [+x,-x,+y,-y,+z,-z]
+    const containerMats = [containerSideM, containerSideM, containerTopM, containerBottomM, containerFrontM, containerFrontM];
+    add(box(4,2.6,2.4, containerMats), cx-siteW/2+3, 1.3, siteZ0+2.2);
+    add(box(4,2.6,2.4, containerMats), cx-siteW/2+8, 1.3, siteZ0+2.2);
     solid(cx-siteW/2+3, siteZ0+2.2, 2, 1.2);
     solid(cx-siteW/2+8, siteZ0+2.2, 2, 1.2);
 
