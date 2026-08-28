@@ -2592,7 +2592,17 @@ const TATTOO_FALLBACK = {
    沒有補碰撞框——`WALK_N` 本身就擋住往牆裡走,這張照片沒有像灰模版那樣
    有一個實際畫出來的家具形狀需要擋,躺椅是烤進背景的靜態圖,角色一律
    蓋在它上面(跟 bedroom 床/書桌那批背景家具同一個既有簡化,不是這輪
-   新增的妥協)。 */
+   新增的妥協)。
+   **✅ 同一天再一輪,kc:「其他椅子呢 還有小凳子 那些」**——問的是同一張
+   傢俱參考圖裡另外兩張(等候椅/滾輪凳)。查過一輪:等候椅這張照片裡
+   本來就有真的實拍(門口那兩張黑色金屬框椅,款式/顏色跟參考圖那張幾乎
+   一樣,見下面 `wait` 判定區),不用再疊——參考圖那張本來就是同一種
+   Tolix 風格金屬椅,只是換一張角度拍,疊上去看不出差別,沒有意義。
+   `滾輪凳`(師傅的椅子)這張照片真的沒有拍到,補法跟刺青椅同一套
+   (裁出來→`black-to-alpha.py` 去背→合成烤進 `tattoo-shop.png`),位置
+   放在刺青椅腳靠前緣那片開放地板(避開椅子腳靠本體跟液壓底座),不是
+   隨便塞——那塊剛好是這張照片裡少數留白夠大、不會跟其他家具打架的
+   地方。 */
 /* 座標肉眼實測踩過一個坑(2026-08-28):`flash`(圖牆)原本 x:221~592 整條
    都給滿版寬度,結果跟後面 `chair`(x:287~414)/`bench`(x:418~571)的 x
    範圍整段疊在一起——`IN.near` 判定是「陣列裡第一個符合的」,`flash`
@@ -2620,7 +2630,7 @@ tattooShopImg.onload = () => {
   if(tattooShopImg.naturalWidth){ TATTOO = TATTOO_PHOTO; TATTOO_COLLIDERS = TATTOO_COLLIDERS_PHOTO; }
   paintTattooBackdrop();
 };
-tattooShopImg.src = '../assets/bg/tattoo-shop.png?v=2';
+tattooShopImg.src = '../assets/bg/tattoo-shop.png?v=3';
 
 /* 遊藝場(2026-08-26,kc:「遊藝場先做,裡面可以玩一些小遊戲,可以加情緒」
    +「真的賭博,情緒一定＋ 金錢賭」)——只有灰模,還沒有照片版(跟 store/
