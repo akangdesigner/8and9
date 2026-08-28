@@ -5245,3 +5245,26 @@ kc 其實是在**定規格**:椅子那個位置本身(靠近攝影機那條窄�
 300 再收到 320,只留貼著 `pyFront`(329)的窄帶。這輪沒能重新截圖驗證
 (同一個 `document.hidden` 卡分頁問題),kc 玩到記得再截一次確認整段
 真的開放了。
+
+**✅ 人物大小/上下邊界滑桿(2026-08-28,kc:「接著做人物大小跟上下邊界的
+滑桿」)**——跟 `tweakSchoolPanel()`/`tweakArcadePanel()` 的
+`schoolHeroPx()`/`arcadeHeroPx()` 同一套算法照抄,不重新設計:新增
+`TATTOO_HERO_TWEAK`(`nearPx`/`farPx`,初始都設 296,跟原本固定值一樣,
+不拉滑桿畫面不變)+ `tattooHeroPx(py)` 按 `IN.py` 插值,`renderIndoor3D()`
+的 scale 那行加一個 `PLACE==='tattoo'` 分支接上去。刺青店原本身高是固定
+常數(不管站多遠都一樣大),這輪起改成跟教室/遊藝場一樣有近大遠小。
+上下邊界(`TATTOO_WALK_ROWS`)比照 `SCHOOL_WALK_ROWS`/`ARCADE_WALK_ROWS`
+的做法,但**這輪 kc 點名「上下」都要**,學校/遊藝場那兩份原本只開
+`walkN`(前排邊界)一顆,這裡多開一顆 `walkS`,直接改 `TATTOO`(場景
+載入後指向 `TATTOO_PHOTO` 的活物件)的 `walkN`/`walkS`,即時生效。
+
+**⚠ 跟椅子/凳子疊圖滑桿同一個限制**:這兩顆邊界不會跟 SPOTS(六個互動點
+的 y0/y1)、`TATTOO_COLLIDERS_PHOTO`(椅子/凳子碰撞框)連動,都是各自
+寫死的數字。kc 拉完邊界如果互動點摸不到或碰撞框對不上,要回頭手動同步
+——已經在 `TATTOO_WALK_ROWS` 宣告那行加了警語註解,跟碰撞框那則筆記互相
+呼應。
+
+在瀏覽器裡確認過 `node --check` 抽出整段 inline script 語法沒錯(這輪
+`document.hidden` 卡分頁的老問題還在,沒能在瀏覽器裡即時看畫面/拉滑桿
+測試),kc 玩到記得打開 `__dbg.tweakTattoo()` 面板確認四組滑桿都能拉、
+角色近大遠小看起來合理。
