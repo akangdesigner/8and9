@@ -5,7 +5,7 @@
  * 看起來就像換了個人。拆成這一份共用資料,兩邊都改這裡,不會再各自寫一次。
  *
  * 不用 ES module,理由跟其他 lib/*.js 一樣——讓 .html 可以直接雙擊開,
- * file:// 不會被 CORS 擋(見 src/tags.js 開頭)。3D 那邊(scene-city3d.js)
+ * file:// 不會被 CORS 擋(見 CLAUDE.md「兩種模組寫法並存」那節)。3D 那邊(scene-city3d.js)
  * 雖然是 ES module,但 module 腳本可以直接讀 globalThis 上的東西,
  * 只要這個檔案在 host html 裡排在 <script type="module"> 之前載入就好。
  *

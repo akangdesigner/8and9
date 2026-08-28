@@ -3301,8 +3301,8 @@ kc 要求「給我一個俯視圖,我們來完善這個小鎮」——用除錯�
 | `prototypes/lib/story-gone.js` | 父親・走了 —— 人走了債留下來,他在別的地方過得比你好 | 冰存,未接 |
 | `prototypes/lib/story-bf.js` | 母親・男朋友 —— 你在自己家裡是客人。需要新角色代號 `bf` | 冰存,未接 |
 | `prototypes/story-bet.html` | 舊的單線劇本頁 | 已轉址到 `stories.html` |
-| `src/tags.js` | 標籤系統核心規則(同標籤跨場合正負反轉、遮蔽成本、拆穿機率) | **擱置** ⚠️ |
-| `src/tag-lab.html` | 標籤系統的實驗台 | **擱置** ⚠️ |
+| `src/tags.js` | 標籤系統核心規則(同標籤跨場合正負反轉、遮蔽成本、拆穿機率) | **已刪除**(2026-08-28,kc:「把標籤機制直接刪除」,見「標籤系統從 game.html 拆掉」節) |
+| `src/tag-lab.html` | 標籤系統的實驗台 | **已刪除**,同上 |
 
 > ⚠️ **標籤系統 2026-08-04 被 kc 喊停**:「先不要管標籤系統,我已經很多指標了」。
 > HUD 上已經有五條(錢／飽足／安全感／帥潮／通緝),再加一套數值面板會爆。
@@ -4929,12 +4929,15 @@ kc:「把標籤機制直接刪除」——`src/tags.js`(`TAGS`/`SCENES`/`evaluat
   (`#invTags`)、`checkout()` 結帳時 `if(it.tag) addTag(it.tag)` 那行
   (連帶 `addToBasket()` 的 `tag` 參數、即期便當那格呼叫時傳的
   `'cheapmeal'` 拿掉)、`__dbg.state()` 快照裡的 `tags` 欄位。
-- **`src/tags.js` 這個檔案本身、跟它專屬的實驗頁 `src/tag-lab.html`
-  沒有動**——問過 kc 要不要連檔案一起刪,還沒回覆,先留著當歷史紀錄。
-  `CLAUDE.md`「兩種模組寫法並存」那張表跟 `character.js` 開頭的
-  CORS 說明還各自提到 `src/tags.js` 一次,都只是舉例性質的文件引用,
-  沒有牽動實際程式碼,這輪沒有跟著改——等檔案去留定案之後再一起處理,
-  不要先改文件又要看檔案到底刪不刪。
+- **✅ 2026-08-28 同一天再一輪,kc 回覆「好」——`src/tags.js`/
+  `src/tag-lab.html` 兩個檔案直接刪掉了**,`src/` 目錄現在是空的
+  (git 不會追蹤空目錄,commit 之後這個目錄本身會從樹狀圖消失,不是
+  漏刪)。連帶把兩處文件引用改掉,不留死連結:`CLAUDE.md`「兩種模組
+  寫法並存」那張表把 `src/tags.js` 從清單拿掉;`CLAUDE.md`「常用指令」
+  那節原本拿 `<script src="../src/tags.js">` 當「為什麼要在 repo 根目錄
+  起 server」的例子,換成 `game.html` 裡其他還在的 `../assets/...` 路徑,
+  道理不變只是換一個現存的例子;`character.js` 開頭 CORS 說明原本指向
+  「見 src/tags.js 開頭」,改成指向 `CLAUDE.md`「兩種模組寫法並存」節。
 
 沒有在瀏覽器裡重新測過(這輪環境卡著,見上一節),讀 `game.html` 全文
 搜過一輪確認沒有殘留 `CH.`/`addTag(`/`drawTags(`/`getTag(`/

@@ -74,9 +74,10 @@
   ```
   python -m http.server 8000
   ```
-  **要在 repo 根目錄起(不是 `prototypes/`)**——`game.html` 有一行
-  `<script src="../src/tags.js">`,serve root 選 `prototypes/` 會讓這個路徑
-  落到 webroot 外面,404(2026-08-13 踩過)。再開
+  **要在 repo 根目錄起(不是 `prototypes/`)**——`game.html` 裡有好幾行
+  `../assets/...`(頭像、背景圖那些),serve root 選 `prototypes/` 會讓這些
+  路徑落到 webroot 外面,404(2026-08-13 踩過,原本的例子是已經刪掉的
+  `src/tags.js`,道理不變換一個現存的例子)。再開
   `http://localhost:8000/prototypes/game.html`。
 - `node tools/render-scene.mjs [--scale 2] [--no-people]`——把 2D 場景灰模輸出成 PNG。
 - `node tools/comfy-img2img.mjs [--denoise 0.7] [--model ...]`——對本機 ComfyUI
@@ -95,7 +96,7 @@ DESIGN_NOTES「目前的原型」那張表是權威盤點,改動原型後要記�
 
 | 寫法 | 用在哪 | 為什麼 |
 |---|---|---|
-| **IIFE 掛全域**(`(function(root){...})(window)`,`<script src>` 引入) | 所有 2D 場景模組(`scene-home.js`、`scene-store-front.js`、`scene-tattoo.js`、`scene-street.js`)、`src/tags.js`、`lib/places.js`、`lib/quests.js`、`lib/npc-temple.js`、`lib/story-*.js` | 讓 `.html` 檔可以直接雙擊開,`file://` 不會被 CORS 擋 |
+| **IIFE 掛全域**(`(function(root){...})(window)`,`<script src>` 引入) | 所有 2D 場景模組(`scene-home.js`、`scene-store-front.js`、`scene-tattoo.js`、`scene-street.js`)、`lib/places.js`、`lib/quests.js`、`lib/npc-temple.js`、`lib/story-*.js` | 讓 `.html` 檔可以直接雙擊開,`file://` 不會被 CORS 擋 |
 | **ES module**(`export`/`import`) | 只有 3D 相關(`scene-city3d.js`),因為要 `import * as THREE` | 唯一需要本機 server 的路徑(見上面常用指令) |
 
 新增 2D 場景模組時跟著 IIFE 那一套,不要因為「ES module 比較新」就換掉——
