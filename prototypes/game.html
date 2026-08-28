@@ -599,7 +599,10 @@ import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGrad
    打工、劇情選項那些)——「每做一件事都會消耗」這句要真的做到全遊戲每個
    動作都扣,是動到很多既有系統的大重構,今天先只接這三種新街上互動 +
    睡覺回滿,其餘之後再擴。 */
-const ST = { money:2000, full:42, calm:55, cool:8, mood:60, stamina:100, star:-30 };
+/* cool 開局 8→11(2026-08-28,kc)——原本 8 已經低於「過低警示」新門檻
+   (10),一開局帥潮血條就是紅框閃爍,kc 看到上一輪筆記後決定拉高一點,
+   剛好跨過門檻,不是要把帥潮定位改掉。 */
+const ST = { money:2000, full:42, calm:55, cool:11, mood:60, stamina:100, star:-30 };
 /* 指標上限(2026-08-27,kc:「算命攤道具甚至體力上限增加這種」)——原本
    chg() 對 full/calm/cool/mood/stamina 一律寫死封頂在 100,這是遊戲第一次
    出現「上限本身可以被墊高」的道具,所以拆出一張獨立的上限表,chg() 改
@@ -612,13 +615,18 @@ const ST_MAX = { full:100, calm:100, cool:100, mood:100, stamina:100 };
    卡住不能動而已。每條各自一句失敗敘事,語氣照這個專案的基準線——
    笑點/殘酷要朝「社會怎麼看待這群人」,不是「你這個角色很廢」,細節見
    docs/DESIGN_NOTES.md「失敗結局」節。這五句是我這輪自己寫的草稿,kc
-   覺得語氣不對可以直接改這個表,不用改邏輯。 */
+   覺得語氣不對可以直接改這個表,不用改邏輯。
+   **✅ 同一天加了第六種:`tuition`**——kc:「必做的任務如果失敗也會
+   結束,比如註冊單」,`triggerGameOver()` 不是只給那五條血條用,任何
+   「必做任務」的失敗都可以借同一個函式,傳一個不在 ST 裡的 key
+   (比如 `'tuition'`)進來就好,見 sleep() 那段呼叫。 */
 const GAME_OVER_TEXT = {
   full:    '你已經好幾天沒有好好吃一頓飯了。那天早上，你怎麼樣都爬不起來——送到醫院的時候，醫生只問了一句：「這孩子平常都吃些什麼？」',
   stamina: '你已經硬撐太久了。走在路上，眼前忽然一黑，倒在人行道上——路過的人只是繞過去，像繞過一個垃圾袋。',
   calm:    '你打回家，沒人接；你站在教室門口，沒人抬頭。你站在原地很久，才發現這座城市裡，沒有一個位置是留給你的。',
   cool:    '你太醜了，走到哪裡都被人在背後笑。沒有人願意再跟你站在一起——連你自己，都開始相信他們說的那些話。',
-  mood:    '有一天，你突然什麼都不想做了。不想上學，不想回話，不想再解釋什麼。你把自己關在房間裡，誰敲門都沒有回應。'
+  mood:    '有一天，你突然什麼都不想做了。不想上學，不想回話，不想再解釋什麼。你把自己關在房間裡，誰敲門都沒有回應。',
+  tuition: '註冊費一直沒繳齊。開學一個多月後，教官室把你的資料轉去輔導處——沒有人問過你，為什麼湊不出那筆錢。'
 };
 let gameOver = false;
 function triggerGameOver(k){
@@ -732,25 +740,45 @@ const WEAR_ITEMS = [
   { id:'hoodie', slot:'top',    name:'素面帽 T', cool:2, icon:'👕' },
   { id:'baggy',  slot:'bottom', name:'垮褲',     cool:5, icon:'👖' },
   { id:'kicks',  slot:'shoes',  name:'白球鞋',   cool:6, icon:'👟' },
-  { id:'chain',  slot:'neck',   name:'金項鍊',   cool:8, icon:'📿' }
+  { id:'chain',  slot:'neck',   name:'金項鍊',   cool:8, icon:'📿' },
+  /* 超商制服(2026-08-28,kc:「超商打工可以獲得超商的衣服,帥潮-10 風評
+     +10」)——跟其他六件示範衣物不一樣,`locked:true` 不會一開局就在
+     `owned` 裡,要打工下班才會拿到(見 coEndShift() 那段)。同時帶
+     cool/star 兩個效果,是這批衣物裡第一件會動風評的,見下面
+     toggleWear() 那則筆記。 */
+  { id:'uniform', slot:'top', name:'超商制服', cool:-10, star:10, icon:'👔', locked:true }
 ];
-const owned = WEAR_ITEMS.map(w => w.id);   // 全部示範用,先給,不用先買
+const owned = WEAR_ITEMS.filter(w => !w.locked).map(w => w.id);
 const equipped = { hat:null, top:null, bottom:null, shoes:null, neck:null };
-const COOL_BASE = ST.cool;   // 起始值就是 ST.cool 的初始值,不重複寫死 8
 /* 角色欄兩側的裝備小圖示(2026-08-19 第二輪)怎麼分左右純粹是排版好看,
  * 沒有特別意義,3/2 只是配平衡,不喜歡可以直接改這兩個陣列。 */
 const EQUIP_BADGE_LEFT = ['hat','top','bottom'], EQUIP_BADGE_RIGHT = ['shoes','neck'];
 
-function recomputeCool(){
-  let v = COOL_BASE;
-  WEAR_SLOTS.forEach(s => { const it = WEAR_ITEMS.find(w => w.id === equipped[s]); if(it) v += it.cool; });
-  const d = v - ST.cool;
-  if(d) chg('cool', d);
-}
+/* toggleWear() 改成算「這次穿脫的差量」直接 chg(),不是重算一個絕對值
+   再跟 ST.cool 做差(舊版 recomputeCool()/COOL_BASE 那套,2026-08-28
+   撤掉)——舊版假設「帥潮永遠等於基準值+目前穿搭總和」,只要有外部原因
+   (比如下面的撿垃圾弄髒 -1)直接動了 ST.cool,下次隨便穿脫一件衣服,
+   舊版重算會把那次外部改動吃掉、悄悄復原。改成差量寫法後,穿脫這個動作
+   只影響「這件衣服的量」,不會動到其他來源造成的變化,不再違反
+   docs/DESIGN_NOTES.md「五條指標各自管什麼」節但這次是 kc 自己要求
+   帥潮多開一個來源(見「必做任務失敗/帥潮/超商制服」節)。同一格換另一件
+   (同 slot 但不同 id)算「先脫舊的、再穿新的」兩次差量疊加,不是整個
+   重算。 */
 function toggleWear(itemId){
   const it = WEAR_ITEMS.find(w => w.id === itemId); if(!it) return;
-  equipped[it.slot] = (equipped[it.slot] === itemId) ? null : itemId;
-  recomputeCool();
+  const slot = it.slot, prevId = equipped[slot];
+  const applyDelta = (item, sign) => {
+    chg('cool', item.cool * sign);
+    if(item.star) chg('star', item.star * sign);
+  };
+  if(prevId === itemId){
+    equipped[slot] = null;
+    applyDelta(it, -1);
+  } else {
+    if(prevId){ const prevItem = WEAR_ITEMS.find(w => w.id === prevId); if(prevItem) applyDelta(prevItem, -1); }
+    equipped[slot] = itemId;
+    applyDelta(it, 1);
+  }
   renderWearTab();
   syncPanelStats();
 }
@@ -771,7 +799,11 @@ function renderWearTab(){
     const it = WEAR_ITEMS.find(w => w.id === id); if(!it) return;
     const el = document.createElement('div');
     el.className = 'itemCard' + (equipped[it.slot] === id ? ' on' : '');
-    el.innerHTML = `<div class="badge">+${it.cool}</div><div class="ic">${it.icon}</div><div class="lb">${it.name}</div>`;
+    /* 徽章文字(2026-08-28):制服帥潮是負的,原本寫死的 `+${it.cool}` 會
+       印成「+-10」——改成正負號自己判斷,順便把風評加成也顯示出來(制服
+       是第一件帶 star 的衣物)。 */
+    const badge = (it.cool>=0?'+':'')+it.cool + (it.star ? `／風評${it.star>=0?'+':''}${it.star}` : '');
+    el.innerHTML = `<div class="badge">${badge}</div><div class="ic">${it.icon}</div><div class="lb">${it.name}</div>`;
     el.onclick = () => toggleWear(id);
     host.appendChild(el);
   });
@@ -4364,10 +4396,16 @@ function coEndShift(){
      錢」那個動作)。busy 這裡照舊放開(跟其他 say() 呼叫端一樣),接下來
      擋玩家走動的是 dlg.on,不是 busy——兩者是分開判斷的(見移動邏輯的
      `!busy && !dlg.on`),不用在這裡刻意再鎖一次。 */
+  /* 超商制服(2026-08-28,kc:「超商打工可以獲得超商的衣服」)——第一次
+     下班就拿到,不分表現好壞(制服是上班本來就會發的,不是獎勵),之後
+     每次下班 `owned.includes` 都會是 true,不會重複發。 */
+  const gotUniform = !owned.includes('uniform');
+  if(gotUniform) owned.push('uniform');
   coFade('下班', () => {
     busy = false;
     advanceTime(180);
     chg('money', wage);
+    if(gotUniform) toast('店長把備用制服丟給你：「上班要穿這件。」（衣櫃多了一件超商制服）', 3200);
     coSayChain('clerk', [...review.lines, review.tip]);
   });
 }
@@ -4765,21 +4803,20 @@ function sleep(){
         loanMsg = `\n機車行來收分期，扣了 $${pay}（還欠 $${MOTO_LOAN.balance}）。`;
       }
     }
-    /* 註冊費逾期(2026-08-28)——跟 MOTO_LOAN 週扣款同一段結算,只觸發一次
-       (overdueApplied 擋掉每晚重複扣)。滯納金 $300、風評 −5 是這輪自己
-       抓的小的可逆數字,沒跟 kc 對過確切金額,不喜歡再調——見
-       docs/DESIGN_NOTES.md「沒誘因去做別的事」節。 */
-    let tuitionMsg = '';
-    if(TUITION_QUEST && !TUITION_QUEST.paid && !TUITION_QUEST.overdueApplied && day > TUITION_QUEST.dueDay){
-      TUITION_QUEST.overdueApplied = true;
-      TUITION_QUEST.amount += 300;
-      chg('star', -5);
-      tuitionMsg = `\n註冊費逾期了，教官在朝會點名時念了你的名字（風評 −5，滯納金 +$300）。`;
+    /* 註冊費逾期直接遊戲結束(2026-08-28 改,kc:「必做的任務如果失敗也會
+       結束,比如註冊單」)——上一輪本來是風評-5+滯納金那種軟性懲罰
+       (見 docs/DESIGN_NOTES.md「沒誘因去做別的事」節的舊版本),這輪
+       kc 明講「必做任務」失敗要直接結束,改成呼叫 triggerGameOver()。
+       不用 overdueApplied 擋重複觸發了——遊戲一結束 sleep() 不會再被
+       呼叫,直接 return 跳過下面正常的「睡醒」toast。 */
+    if(TUITION_QUEST && !TUITION_QUEST.paid && day > TUITION_QUEST.dueDay){
+      triggerGameOver('tuition');
+      return;
     }
     syncHUD();
     toast('你回去睡了一覺，體力補滿了。'
       + (skippedSchool ? '\n（今天沒去學校，風評 −3）' : '')
-      + loanMsg + tuitionMsg, 3800);
+      + loanMsg, 3800);
   });
 }
 function enterIndoor(door){
@@ -5084,11 +5121,12 @@ function momCheckinLines(){
  * item.money/calm 那些欄位由 `applyStoryChoice()` 消費是同一個分工方式。
  * **逾期沒繳的後果目前沒有定義**,到期日到了不會扣任何東西,只是資料上
  * 記得住「逾期了」——這是刻意留白,不是漏做,後果是什麼要 kc 再定。
- * **✅ 2026-08-28 補上還款路徑跟逾期後果**——kc 覺得遊戲「沒誘因去做別的
- * 事」回頭補這塊:繳費在走廊的繳費機(見下面 openTuitionKiosk()),逾期
- * 後果在 sleep() 裡跟 MOTO_LOAN 週扣款同一段結算(風評 −5 + 滯納金 $300,
- * `overdueApplied` 擋掉重複扣),細節見 docs/DESIGN_NOTES.md「沒誘因去做
- * 別的事」節。 */
+ * **✅ 2026-08-28 補上還款路徑**——kc 覺得遊戲「沒誘因去做別的事」回頭
+ * 補這塊:繳費在走廊的繳費機(見下面 openTuitionKiosk())。
+ * **✅ 同一天再一輪:逾期直接遊戲結束**——kc:「必做的任務如果失敗也會
+ * 結束,比如註冊單」,原本這裡的軟性懲罰(風評-5+滯納金)撤掉,改成
+ * `sleep()` 結算時逾期就 `triggerGameOver('tuition')`,見那則筆記跟
+ * `GAME_OVER_TEXT.tuition`。 */
 let TUITION_QUEST = null;
 /* 走廊繳費機(2026-08-28)——TUITION_QUEST 唯一的還款入口,見 CORRIDOR
  * 那則筆記。沒有欠款/已繳清時螢幕只顯示一句話,不開選單(跟教室講台
@@ -5176,7 +5214,7 @@ function maybeTriggerStoryNode(){
       seenStoryDays.add(key+'-'+node.day);
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
-          TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false, overdueApplied: false };
+          TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
           toast(`註冊單:三個月內要湊出 $${node.tuitionQuest.amount}`, 3600);
         }
         openMenu(node.title, node.menu.map(item => ({
@@ -6768,6 +6806,10 @@ function interactProp(prop){
       chg('mood', -3);
       chg('stamina', -2);
       chg('star', 1);                                   // 好事,見 DESIGN_NOTES「風評」,2026-08-14 雙向化後好事要往正的走
+      /* 撿垃圾會弄髒(2026-08-28,kc:「撿垃圾會弄髒會-1」)——帥潮小扣,
+         跟風評的 +1 是兩件不衝突的事:做好事(風評)但手上沾髒東西
+         (帥潮),見 docs/DESIGN_NOTES.md「必做任務失敗/帥潮/超商制服」節。 */
+      chg('cool', -1);
       if(l.kind === 'bottle') chg('money', 2);
       toast('你撿起了' + (LITTER_KIND_NAME[l.kind] || '一個垃圾') + '。'
             + (l.kind === 'bottle' ? '（$2）' : ''), 2200);
