@@ -1810,7 +1810,7 @@ const FOREMAN_WORKER_HAND_X_FRAC = 0.753, FOREMAN_WORKER_HAND_Y_FRAC = 0.342;
 /* 起始地板滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——groundY
    原本是目測抓的常數(262),改成可調狀態讓 __dbg.tweakForeman() 現場拉,
    bgDx/bgDy 順便開給背景照片的貼圖位置微調,跟 tweakPoliceCarPanel 同一招。 */
-const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0 };
+const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0, workerH:170, workerDy:0 };
 /* 背景照(2026-08-28,kc 生的 foreman-site.png,1536×1024)——構圖是照
    agDrawForeman() 那則筆記要求的:中央淨空地面留給程式動態疊磚,兩側
    鋼筋/角材增加真實感,圍籬+天空跟遊藝場那批照片同一種寫實、不陰森的
@@ -3501,9 +3501,11 @@ function tweakForemanPanel(){
   const old = document.getElementById('foremanTweakPanel');
   if(old){ old.remove(); return; }
   const rows = [
-    ['fm_ground','地板高度(groundY)', 150, 380, 1, 'groundY'],
+    ['fm_ground','磚堆地板高度(groundY)', 150, 380, 1, 'groundY'],
     ['fm_bgdx','背景照片 X 偏移', -100, 100, 1, 'bgDx'],
-    ['fm_bgdy','背景照片 Y 偏移', -100, 100, 1, 'bgDy']
+    ['fm_bgdy','背景照片 Y 偏移', -100, 100, 1, 'bgDy'],
+    ['fm_workerh','人物大小(高度px)', 80, 320, 2, 'workerH'],
+    ['fm_workerdy','人物垂直微調', -80, 80, 1, 'workerDy']
   ];
   const panel = document.createElement('div');
   panel.id = 'foremanTweakPanel';
@@ -5787,17 +5789,6 @@ function updateCity(dt){
     if(Math.hypot(wp.x-door[0], wp.z-door[1]) < 1.2) resolveWatchJob(false);
   }
 
-  /* 走失狗任務(2026-08-28)——見 talkToTattooMaster() 上面那則長筆記。
-     半徑跟摸貓狗那組互動同一個量級(3.2,一般互動範圍),不是 WATCHJOB
-     那種「遠遠看到人影」的 16——這是走到牠面前才算找到。 */
-  if(TATTOO_DOG.active && !TATTOO_DOG.found && city.construction.dog){
-    const dp = city.construction.dog.position;
-    if(Math.hypot(pos.x-dp.x, pos.z-dp.z) < 3.2){
-      TATTOO_DOG.found = true;
-      toast('骨架柱子旁邊——牠縮在角落，看到你抬起頭，尾巴搖了兩下。快回刺青店跟老闆說。', 3600);
-    }
-  }
-
   /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
      dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
      用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
@@ -6851,20 +6842,18 @@ const TATTOO_MENU = [
    刺一次才會再算數,教官/小美哥那三條已經觸發過的劇情本身是一次性
    事件,不會被這裡影響(見各自的 confronted/reacted 旗標)。 */
 const TATTOO_REMOVE_PRICE = 10000;
-/* 走失狗任務(2026-08-28,kc:「等候區可以看到一些雜誌新聞,比如有一隻小狗狗
-   走丟之類,然後你問老闆,老闆會說那是他的狗,之前在永安街玩的時候弄丟的,
-   然後可以接任務,會在工地內找到他」)——跟 BOOKSHELF_CLUES→talkToMotoBoss()
-   那組「先在別的地方翻到線索,再回去問當事人」的既有做法同一套,不重新
-   設計流程:`newsFound`(等候區雜誌翻到協尋啟事,見 lookAtWaitingMagazine())
-   →`revealed`(回去問師傅,他認了、給任務)→`active`+`found`(工地裡走近
-   狗本體,見 updateCity() 那段距離判斷)→`resolved`(帶著找到的消息回報
-   師傅,結算)。狗本體是 scene-city3d.js constructionSite() 裡新增的
-   `city.construction.dog`(跟 pets[] 那兩隻街上永遠站著給人摸的裝飾寵物
-   不同,這隻預設藏起來,任務開始才會顯示,見那邊的筆記)。永安街只是師傅
-   台詞裡的地名,沒有真的對應到城市地圖上的哪條路(城市裡目前的路都有
-   自己的名字,見 scene-city3d.js row() 那些呼叫),跟阿源「後火車站」
-   那類台詞地名同一個份量,純敘事細節不需要真的可以走到。 */
-const TATTOO_DOG = { newsFound:false, revealed:false, active:false, found:false, resolved:false };
+/* 走失狗(2026-08-28,kc:「等候區可以看到一些雜誌新聞...然後可以接任務,
+   會在工地內找到他」,同一天再一輪 kc 推翻做法:「工地太明顯 說永安街就好
+   然後任務對話都不是直接觸發 是一樣有正常的刺青選項只是多一個」)——
+   第一版做了真的「工地裡放一隻可以走過去找到的狗」機制(city.construction.
+   dog + updateCity() 距離判斷 + ACTIVE_QUESTS 任務面板),kc 覺得這樣做
+   太重、太像正式任務主線,把工地這個地點的份量蓋過永安街本身。整套拿掉,
+   永安街純粹當師傅台詞裡的地名(跟阿源「後火車站」同一個份量的敘事細節,
+   不做成真的可以走去找的地點,見下面 tattooDogMenuItem() 那則筆記)。
+   `newsFound`(等候區雜誌翻到協尋啟事,見 lookAtWaitingMagazine())→
+   `revealed`(在刺青選單裡問過一次,一次性,問完這件事就講完了,不接後續
+   「去找」的任務)。 */
+const TATTOO_DOG = { newsFound:false, revealed:false };
 function lookAtWaitingMagazine(){
   if(!TATTOO_DOG.newsFound){
     TATTOO_DOG.newsFound = true;
@@ -6874,56 +6863,44 @@ function lookAtWaitingMagazine(){
   }
   toast('塑膠椅上放著一本翻爛的雜誌，茶几上還有喝到一半的飲料。', 2600);
 }
-function talkToTattooMaster(){
-  /* 回報找到狗(2026-08-28)——攔在最前面,跟 talkToMotoBoss() 的
-     newsConfronted 攔法同一個位置邏輯。師傅認了、給任務,還沒找到之前
-     再跟他講話只換一句提醒,不會重複整段揭露台詞。 */
-  if(TATTOO_DOG.active && TATTOO_DOG.found && !TATTOO_DOG.resolved){
-    TATTOO_DOG.resolved = true; TATTOO_DOG.active = false;
-    { const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'tattoodog'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); }
-    renderQuestPanel();
-    if(city.construction.dog) city.construction.dog.visible = false;
-    playBeats([
-      { who:'tattooMaster', text:'「在工地？」他手上的針停下來。' },
-      { who:'pc',       text:'「骨架柱子旁邊，牠自己躲在那裡。」' },
-      { who:'tattooMaster', text:'他沒說話，把手套脫了，往外走。' },
-      { who:'tattooMaster', text:'半小時後他抱著狗回來，衣服上全是灰。' },
-      { who:'tattooMaster', text:'「謝了。」他只講這兩個字，但一直摸牠的頭。' }
-    ], 0, () => {
-      chg('calm', 8); chg('mood', 10);
-      toast('師傅沒有多說什麼，但你看得出來他鬆了一口氣。', 3400);
-    });
-    return;
-  }
-  if(TATTOO_DOG.active && !TATTOO_DOG.found){
-    say('tattooMaster', '「去工地找找看，拜託了。」');
-    return;
-  }
-  if(TATTOO_DOG.newsFound && !TATTOO_DOG.revealed){
+/* 選單裡多一個選項(2026-08-28,kc:「任務對話都不是直接觸發 是一樣有
+   正常的刺青選項只是多一個」)——上一版翻到線索後,跟師傅講話會直接演
+   一整段揭露對話,蓋掉原本「要刺哪裡/你這隻還在想換掉喔」那組正常選單。
+   改成正常選單照常開,`newsFound` 之後選單裡多塞這一項,問不問是玩家
+   自己選,不是自動觸發。問完是一次性的短對話+一個反應選擇(跟機車行
+   老闆那條「舊剪報揭露」結尾的反應選擇同一個份量——玩家自己怎麼看這件
+   事,不是任務,沒有報酬/任務面板),不接「去工地找」的後續。 */
+function tattooDogMenuItem(){
+  if(!TATTOO_DOG.newsFound || TATTOO_DOG.revealed) return null;
+  return { label:'「等候區那則協尋啟事……是你貼的？」', run(){
     TATTOO_DOG.revealed = true;
     playBeats([
       { who:'pc',       text:'「等候區那本雜誌上，有一則協尋狗的啟事……是你貼的？」' },
       { who:'tattooMaster', text:'他手上的動作停了一下。' },
       { who:'tattooMaster', text:'「對，是我的狗。」' },
       { who:'tattooMaster', text:'「上禮拜帶牠去永安街那邊，蹲下來跟朋友講話，一放繩牠就跑了。」' },
-      { who:'tattooMaster', text:'「找了好幾天，都沒消息。」他頓了一下。「你要是有空，幫我留意一下？」' }
+      { who:'tattooMaster', text:'「找了好幾天，都沒消息。」他頓了一下，低頭繼續刺著手上的圖。' }
     ], 0, () => {
-      /* 沒有做「拒絕」分支——kc 的原話只到「可以接任務」,沒有要求拒絕
-         走向,這裡不多加一個會讓 revealed=true 之後卡死、沒有回頭路再問
-         的選項(揭露只演一次,見上面 revealed 那個旗標),直接接。 */
-      TATTOO_DOG.active = true;
-      ACTIVE_QUESTS.push({ id:'tattoodog', title:'幫師傅找狗', hint:'去工地那邊找找看' });
-      renderQuestPanel();
-      if(city.construction.dog) city.construction.dog.visible = true;
-      toast('「我幫你找找看。」\n\n他跟你講了大概的方位——最近工地那邊常有人回報看到流浪動物。', 3600);
+      openMenu('刺青店', [
+        { label:'「希望牠早點回家。」', run(){
+            chg('calm', 6);
+            toast('他點點頭，沒再說話，但你看得出來他聽進去了。', 3200);
+          } },
+        { label:'（不知道要說什麼，沒接話）', cls:'back', run(){
+            toast('你沒接話，他也沒有再提。', 2400);
+          } }
+      ]);
     });
-    return;
-  }
+  } };
+}
+function talkToTattooMaster(){
+  const dogItem = tattooDogMenuItem();
   if(YUAN.hasTattoo){
     say('tattooMaster', '「你這隻還在，想換掉喔？」', () => {
       openMenu('刺青店', [
         { label:'洗掉刺青', cost: ST.money<TATTOO_REMOVE_PRICE ? '錢不夠' : `$${TATTOO_REMOVE_PRICE}`,
           cls: ST.money<TATTOO_REMOVE_PRICE ? 'bad' : 'risk', run: removeTattoo },
+        ...(dogItem ? [dogItem] : []),
         { label:'先不要', cls:'back', run(){} }
       ]);
     });
@@ -6936,6 +6913,7 @@ function talkToTattooMaster(){
         return { label, cost: ST.money<price ? '錢不夠' : `$${price}　帥潮 +${it.cool}`,
           cls: ST.money<price ? 'bad' : '', run:() => getTattoo(id, price) };
       }),
+      ...(dogItem ? [dogItem] : []),
       { label:'只是看看', cls:'back', run:() => say('tattooMaster', '「牆上都有，自己看。」') }
     ]);
   });
@@ -7164,10 +7142,19 @@ function foremanDrawBrick(cx, y, w, h, mat, dim){
    同一個值),這裡自己往下抓磚的垂直中心當手掌高度,把照片的手掌位置
    (FOREMAN_WORKER_HAND_X/Y_FRAC)對過去,磚才會看起來是疊在手上、不是
    浮在人旁邊。 */
+/* 人物是釘在「現在扛的那個點」上,不是釘在 groundY 那條真的地面線——
+   這是刻意的,不是漏掉沒接(2026-08-28,kc:「地板高度是指磚頭的不是
+   人的」問起來才發現這條沒講清楚):無限疊高會捲鏡頭,carryY 疊越高
+   在世界座標裡爬得越高,跟 groundY 的世界座標距離會一路變大,如果硬把
+   人的腳釘死在 groundY,疊高之後人會被拉爆(整張照片放大到爆掉那種),
+   所以人物大小/位置維持固定,跟著扛磚點一起捲,疊高了看起來像「爬上
+   自己疊的磚堆」——這個效果是這輪順便驗證過覺得合理才留著的(見
+   resolveForemanLockIn 那次疊 4 層的截圖)。人物自己的大小/微調獨立開
+   workerH/workerDy 兩個滑桿,不要跟 groundY 混在一起調。 */
 function foremanDrawWorker(x, carryTopY){
   const handY = carryTopY + FOREMAN_BRICK_H*.5;
   if(FOREMAN_WORKER_IMG.naturalWidth){
-    const dh = 170, dw = dh * (FOREMAN_WORKER_IMG.naturalWidth/FOREMAN_WORKER_IMG.naturalHeight);
+    const dh = FOREMAN_TWEAK.workerH, dw = dh * (FOREMAN_WORKER_IMG.naturalWidth/FOREMAN_WORKER_IMG.naturalHeight);
     agCtx.drawImage(FOREMAN_WORKER_IMG, x - FOREMAN_WORKER_HAND_X_FRAC*dw, handY - FOREMAN_WORKER_HAND_Y_FRAC*dh, dw, dh);
   } else {
     const footY = handY + 40;
@@ -7228,7 +7215,10 @@ function agDrawForeman(){
 
   if(FOREMAN_GAME.active){
     const mat = FOREMAN_MATERIALS[FOREMAN_GAME.round % FOREMAN_MATERIALS.length];
-    const carryY = Math.max(visibleTop - scrollY + 10, stackTopY - 70);
+    /* workerDy 加在這裡(兩邊共用的 carryY),不要各自加——kc 抓到「人跟
+       手裡的磚要一起調整」,原本 workerDy 只加在 foremanDrawWorker() 內部
+       的 handY,磚還是用沒加過的 carryY,滑桿一拉人跟磚就分家了。 */
+    const carryY = Math.max(visibleTop - scrollY + 10, stackTopY - 40) + FOREMAN_TWEAK.workerDy;
     const bx = cx + foremanOffsetPx();
     foremanDrawWorker(bx, carryY);
     foremanDrawBrick(bx, carryY, FOREMAN_BRICK_W, FOREMAN_BRICK_H, mat);
@@ -7713,7 +7703,6 @@ window.__dbg = {
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
   TATTOO_DOG, talkToTattooMaster, lookAtWaitingMagazine,
-  spotTattooDog(){ TATTOO_DOG.found = true; return TATTOO_DOG; },   // 跳過「走到工地」那段,方便現場測回報
 
   MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
   KAI, talkToKai, talkToTeacher,
