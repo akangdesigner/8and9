@@ -1926,9 +1926,15 @@ export function buildCity(THREE, scene){
        ②號圖用途寫「樓板底部/天花板」,直接貼在樓板的底面(-y,人站在
        下一層抬頭看到的那面)最合理,不用先補樑才能用。頂面(+y,走在
        上面那層的地板)維持素色——這棟骨架玩家爬不上去,頂面幾乎看不到,
-       不用跟著換材質陣列六面都貼。 */
+       不用跟著換材質陣列六面都貼。
+       **同一天 kc 追問「空中的板子」還是素色**——原本以為的「板子」先後
+       猜成門楣、貨櫃屋都猜錯,kc 講明是這片樓板本身,指的是站在下面
+       抬頭會看到的那圈外露厚度邊緣(±x/±z 那 4 個窄面,不是底面,底面
+       已經貼過了)。這圈邊緣本質上就是一條清水模樑的斷面,直接借用門楣
+       already 在用的 beam-lintel.png,不用再生一張。 */
     const slabM = std({ color:0x9a9a90, roughness:.85 });
     const slabUnderM = std({ color:0x8a887e, roughness:.9 });
+    const slabEdgeM = std({ color:0x9a9890, roughness:.85 });
     new THREE.ImageLoader().load(TEX_DIR + 'skeleton-slab-under.png', img => {
       const t = new THREE.Texture(img);
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -1937,8 +1943,16 @@ export function buildCity(THREE, scene){
       t.needsUpdate = true;
       slabUnderM.map = t; slabUnderM.color.setHex(0xffffff); slabUnderM.needsUpdate = true;
     }, undefined, () => {});
-    // [+x,-x,+y,-y,+z,-z]——只有 -y(底面)換成貼圖,其餘維持素色
-    const slabMats = [slabM,slabM,slabM,slabUnderM,slabM,slabM];
+    new THREE.ImageLoader().load(TEX_DIR + 'beam-lintel.png', img => {
+      const t = new THREE.Texture(img);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      t.repeat.set(3, 1);
+      t.needsUpdate = true;
+      slabEdgeM.map = t; slabEdgeM.color.setHex(0xffffff); slabEdgeM.needsUpdate = true;
+    }, undefined, () => {});
+    // [+x,-x,+y,-y,+z,-z]——邊緣(±x/±z)貼梁貼圖,底面(-y)貼樓板底貼圖,頂面(+y,幾乎看不到)維持素色
+    const slabMats = [slabEdgeM,slabEdgeM,slabM,slabUnderM,slabEdgeM,slabEdgeM];
     const rebarM = std({ color:0x3a3a38, roughness:.5, metalness:.4 });
     const nx=5, nz=3;
     const colXs = Array.from({length:nx}, (_,i) => cx - skelW/2 + i*(skelW/(nx-1)));
