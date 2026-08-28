@@ -47,22 +47,15 @@
   .pod.bump { animation:bump .5s; }
   @keyframes bump { 30% { border-color:rgba(216,178,74,.8); transform:translateY(-3px); } }
 
-  /* ---- 標籤列:src/tags.js 的資料,身上帶著的東西 ---- */
-  #tags { position:fixed; left:16px; top:74px; z-index:6; display:flex; gap:6px; flex-wrap:wrap; max-width:44vw; }
-  .tag { background:#e8e3d6; color:#23262c; font-size:12px; letter-spacing:.04em;
-         padding:3px 9px 4px; border-radius:2px; box-shadow:1px 2px 0 rgba(0,0,0,.45);
-         animation:slap .35s cubic-bezier(.2,1.5,.5,1) both; }
-  @keyframes slap { from { transform:scale(1.5); opacity:0; } to { transform:scale(1); opacity:1; } }
-
   /* 角色卡按鈕(2026-08-18):簡易背包介面的入口,見 openInventory()。放在
-     tags 下面同一條左側縱軸,跟 pods/tags 同一套視覺語言(深底淺字),
+     HUD 血條下面同一條左側縱軸,跟 pods 同一套視覺語言(深底淺字),
      不用另外設計一顆花俏的圖示。 */
   #charCardBtn { position:fixed; left:16px; top:106px; z-index:6; background:rgba(12,16,23,.85);
     color:#dfe4ea; border:1px solid #3d4757; border-radius:4px; padding:5px 11px;
     font:12px/1.4 inherit; letter-spacing:.06em; cursor:pointer; }
   #charCardBtn:hover { background:rgba(32,40,53,.95); border-color:#d8b24a; color:#fff; }
   /* 任務小面板(2026-08-27,kc:「如果有接到任務的話能不能有個小面板顯示,
-     因為會有很多任務」)——跟 pods/tags/charCardBtn 同一條左側縱軸疊下去,
+     因為會有很多任務」)——跟 pods/charCardBtn 同一條左側縱軸疊下去,
      同一套深底淺字視覺語言。沒有任務時整個不顯示(display:none 靠 .on
      切換),不占位置。ACTIVE_QUESTS 是通用清單,不是只給算命攤這條任務
      用——之後其他系統要顯示追蹤中的任務,往那個陣列 push/移除元素、
@@ -433,7 +426,6 @@
   <div class="pod mood"  id="pMood"><div class="lb">情緒</div><div class="nm">60</div><div class="track"><i></i></div></div>
   <div class="pod star"  id="pStar"><div class="lb">風評</div><div class="nm">0</div><div class="track"><i></i></div></div>
 </div>
-<div id="tags"></div>
 <button id="charCardBtn">角色</button>
 <div id="questPanel"></div>
 <div id="invOverlay">
@@ -449,8 +441,6 @@
         <div class="invTabPane on" id="paneItems">
           <h3>食物</h3>
           <div class="itemGrid" id="invFood"></div>
-          <h3>標籤</h3>
-          <div class="itemGrid" id="invTags"></div>
           <h3>文件</h3>
           <div class="itemGrid" id="invQuests"></div>
           <h3>知識</h3>
@@ -570,7 +560,6 @@
 <script src="lib/npc-temple.js"></script>
 <script src="lib/story-motoboss.js"></script>
 <script src="lib/npc-school.js"></script>
-<script src="../src/tags.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -658,39 +647,13 @@ function dayToDate(d){
   return m + '/' + n;
 }
 
-/* 標籤:直接用 src/tags.js 的核心，不自己發明一套 */
-/* 開局不再帶「單親」(2026-08-19 拿掉):這個標籤的 detail 寫死「只有
-   媽媽」(src/tags.js),跟現在接進遊戲的爸爸(story-drink.js、客廳疊圖)
-   直接矛盾——爸爸明明在,角色卡卻掛著「單親/只有媽媽」說不通。標籤
-   定義留在 src/tags.js(還是通用標籤目錄,SCENES 裡掛的反應行也留著,
-   給以後真的單親設定用),只是這個角色開局不再帶。 */
-const CH = createCharacter([], 10);
-function addTag(id){
-  if(CH.tags.includes(id)) return;
-  CH.tags.push(id);
-  drawTags();
-  const t = getTag(id);
-  toast('你身上多了一格：' + (t ? t.name : id) + '。拿不掉。', 4200);
-}
-function drawTags(){
-  const host = document.getElementById('tags');
-  host.innerHTML = '';
-  CH.tags.forEach(id => {
-    const t = getTag(id); if(!t) return;
-    const el = document.createElement('div');
-    el.className = 'tag'; el.textContent = t.name;
-    el.title = t.detail + (t.cover ? `（可以${t.cover.cover?.label || t.cover.label}）` : '（遮不了）');
-    host.appendChild(el);
-  });
-}
 /* 讀書累積知識(2026-08-19,kc):書桌「讀書」每次給一個「少少的知識」,
    湊滿 10 個自動升級成 1 個「略懂書本內容」(small 歸零扣 10,不是清空,
    萬一哪天一次拿到超過 10 個小知識,多的部分不會憑空消失)。「略懂」湊到
    5 個之後,玩家可以自己選要不要換成「精通知識」(kc 原話「可以換成」,
    是選項不是自動)——精通知識之後考期中考要用,**期中考本身這輪不做**,
-   只做蒐集/升級/兌換這條鏈,先把資料結構立起來。跟 CH.tags 那套「永久
-   標籤」不同,這裡是可累加、可消耗的數字,不适合塞進 tags 系統,獨立開
-   一個物件。 */
+   只做蒐集/升級/兌換這條鏈,先把資料結構立起來,是可累加、可消耗的
+   數字,獨立開一個物件。 */
 let KNOWLEDGE = { small: 0, rough: 0, mastery: 0 };
 function studyGainKnowledge(){
   KNOWLEDGE.small++;
@@ -764,7 +727,10 @@ const owned = WEAR_ITEMS.filter(w => !w.locked).map(w => w.id);
 const equipped = { hat:null, top:null, bottom:null, shoes:null, neck:null, tattoo:null };
 /* 角色欄兩側的裝備小圖示(2026-08-19 第二輪)怎麼分左右純粹是排版好看,
  * 沒有特別意義,3/2 只是配平衡,不喜歡可以直接改這兩個陣列。 */
-const EQUIP_BADGE_LEFT = ['hat','top','bottom'], EQUIP_BADGE_RIGHT = ['shoes','neck'];
+/* 刺青補進裝備欄右側(2026-08-28,kc:「拔不掉的刺青要顯示在裝備欄」)——
+   3/2 配平衡改成 3/3,不是隨便塞,刺青放右側跟項鍊同排,理由只是排版
+   好看,沒有特別意義,跟這兩個陣列原本的分法一致。 */
+const EQUIP_BADGE_LEFT = ['hat','top','bottom'], EQUIP_BADGE_RIGHT = ['shoes','neck','tattoo'];
 
 /* toggleWear() 改成算「這次穿脫的差量」直接 chg(),不是重算一個絕對值
    再跟 ST.cool 做差(舊版 recomputeCool()/COOL_BASE 那套,2026-08-28
@@ -890,18 +856,7 @@ function openInventory(){
     };
     fHost.appendChild(el);
   });
-  const tagHost = document.getElementById('invTags');
-  tagHost.innerHTML = '';
   document.getElementById('itemDetail').innerHTML = '';
-  if(CH.tags.length === 0) tagHost.innerHTML = '<div class="invEmpty">還沒有任何標籤。</div>';
-  CH.tags.forEach(id => {
-    const t = getTag(id); if(!t) return;
-    const el = document.createElement('div');
-    el.className = 'itemCard';
-    el.innerHTML = `<div class="ic">🏷️</div><div class="lb">${t.name}</div>`;
-    el.onclick = () => showItemDetail(el, tagHost, t.detail);
-    tagHost.appendChild(el);
-  });
   const qHost = document.getElementById('invQuests');
   qHost.innerHTML = '';
   let anyDoc = false;
@@ -3492,10 +3447,9 @@ function inBlocked(x,y){
 }
 /* mood(第 3 參數):2026-08-17 kc 說「買好吃的東西會開心」,情緒的來源正式
  * 擴大成三種(原本只有街上環境小互動,見 DESIGN_NOTES「第六條:情緒」)
- * ——這裡吃的是「花錢犒賞自己」那個當下的爽感,不是食物本身的社會觀感
- * (黃標便當丟不丟臉是另一條 calm/歸屬感 在管,見 `cheapmeal` tag),所以
- * 便宜的選項不會給負的情緒,只是加得比較少。偷東西不算「買」,steal()
- * 不動這條。 */
+ * ——這裡吃的是「花錢犒賞自己」那個當下的爽感,不是食物本身的社會觀感,
+ * 所以便宜的選項不會給負的情緒,只是加得比較少。偷東西不算「買」,
+ * steal() 不動這條。 */
 function buy(price, feed, mood, line){
   if(ST.money < price){ say('pc', price + ' 塊。\n你身上有 ' + ST.money + '。'); return false; }
   chg('money', -price); if(feed) chg('full', feed); if(mood) chg('mood', mood);
@@ -3766,8 +3720,8 @@ function showPusherBets(){
  * 清空 basket,不用逼玩家一定要走回櫃台。偷(steal())是另一條線,不進
  * basket,維持原本當場判定的邏輯不變。 */
 function basketTotal(){ return IN.basket.reduce((s,it) => s + it.price, 0); }
-function addToBasket(name, price, feed, mood, icon, line, tag){
-  IN.basket.push({ name, price, feed, mood, icon, line, tag });
+function addToBasket(name, price, feed, mood, icon, line){
+  IN.basket.push({ name, price, feed, mood, icon, line });
   toast('放進提袋裡了,記得到櫃台結帳。', 1800);
 }
 /* 結帳明細(2026-08-24 kc:「結帳明細要在對話匡內才清楚」)——原本塞進
@@ -3789,7 +3743,6 @@ function checkout(){
         let line = '';
         IN.basket.forEach(it => {
           FOOD.push({ id: ++FOOD_SEQ, name: it.name, icon: it.icon, feed: it.feed, mood: it.mood });
-          if(it.tag) addTag(it.tag);
           if(it.line) line = it.line;   // 目前一次結帳最多一件會帶特殊台詞(即期便當),直接蓋過去就好
         });
         advanceTime(3);
@@ -4024,7 +3977,7 @@ function openIndoorSpot(id){
   }
   else if(id === 'hot') openMenu('鮮食櫃', [
     { label:'拿即期便當', cost:'$58　飽足 +45　情緒 −3',
-      run:() => addToBasket('即期珍食便當', 58, 45, -3, '🍱', '即期折扣的那格空了一個。', 'cheapmeal') },
+      run:() => addToBasket('即期珍食便當', 58, 45, -3, '🍱', '即期折扣的那格空了一個。') },
     { label:'排骨便當', cost:'$89　飽足 +48　情緒 +6', cls: ST.money<89?'bad':'',
       run:() => addToBasket('排骨便當', 89, 48, 6, '🍱') },
     { label:'蔬菜便當', cost:'$75　飽足 +38　情緒 +5', cls: ST.money<75?'bad':'',
@@ -6515,6 +6468,22 @@ function talkToJiaoguanCorridor(){
  * 現在只影響花多少錢跟劇情份量,不影響帥潮加成,世界觀上「刺了就是
  * 刺了」,大小不影響這件事對你的意義。風評維持上一輪的決定不動(刺青
  * 對風評的影響交給教官/小美哥那三條既有劇情各自處理)。 */
+/* 刺青款式清單(2026-08-28,kc 丟一張真的刺青店圖牆參考圖,要求「多加幾組
+   以及數值更動」)——原本只有兩組(小的/半甲),照參考圖那面圖牆常見的
+   幾種經典圖案(玫瑰/虎頭/骷髏/龍)展開成六組,價位照「面積/工時」的
+   直覺順序排(手腕內側最小最便宜,背後整片龍最大最貴,半甲維持在中間)。
+   帥潮效果維持上一輪定案的「固定 +10,不分尺寸」不變——這是同一件裝備
+   (`WEAR_ITEMS` 'tattoo' 那格),六個選項只是價錢/劇情份量不同,不是六種
+   效果,道理跟上一輪「刺了就是刺了」是同一個。價位是我這輪自己抓的,
+   沒跟 kc 對過確切數字,不喜歡可以直接改這個表。 */
+const TATTOO_MENU = [
+  { label:'小的，手腕內側', price:1500 },
+  { label:'玫瑰，手臂',     price:3000 },
+  { label:'虎頭，肩膀',     price:5000 },
+  { label:'骷髏，前臂',     price:6000 },
+  { label:'半甲',           price:8000 },
+  { label:'龍，整片背後',   price:12000 }
+];
 function talkToTattooMaster(){
   if(YUAN.hasTattoo){
     say('tattooMaster', '「你上次那隻還沒退紅呢，先讓它好。」');
@@ -6522,10 +6491,10 @@ function talkToTattooMaster(){
   }
   say('tattooMaster', '「要刺哪裡？」', () => {
     openMenu('刺青店', [
-      { label:'小的，手腕內側', cost: ST.money<1500 ? '錢不夠' : '$1500　帥潮 +10',
-        cls: ST.money<1500 ? 'bad' : '', run:() => getTattoo(1500) },
-      { label:'半甲', cost: ST.money<8000 ? '錢不夠' : '$8000　帥潮 +10',
-        cls: ST.money<8000 ? 'bad' : '', run:() => getTattoo(8000) },
+      ...TATTOO_MENU.map(({label, price}) => ({
+        label, cost: ST.money<price ? '錢不夠' : `$${price}　帥潮 +10`,
+        cls: ST.money<price ? 'bad' : '', run:() => getTattoo(price)
+      })),
       { label:'只是看看', cls:'back', run:() => say('tattooMaster', '「牆上都有，自己看。」') }
     ]);
   });
@@ -6536,10 +6505,9 @@ function getTattoo(price){
   owned.push('tattoo');
   toggleWear('tattoo');   // 永久裝備,+10 帥潮從這裡套用,見上面 toggleWear() 的 removable 筆記
   YUAN.hasTattoo = true;
-  addTag('tattoo');
   advanceTime(90);
   say('tattooMaster', '「刺完了，包著保鮮膜，回去別馬上洗。」', () => {
-    toast('這一格加到角色卡上了——跟其他標籤一樣，拿不掉。', 3800);
+    toast('刺青加進裝備欄了——拿不下來，除非去洗掉。', 3800);
   });
 }
 /* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
@@ -7104,7 +7072,7 @@ renderer.setAnimationLoop(now => {
   if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc=0; frames=0; }
 });
 
-syncHUD(); drawTags();
+syncHUD();
 
 /* 除錯用:主控台可以直接把角色傳到某個門口，省得走一分鐘 */
 window.__dbg = {
@@ -7273,7 +7241,7 @@ window.__dbg = {
     return 'spawned';
   },
   kaiTick(dt){ if(this._kai) this._kai.animate(dt||16); renderer3d.render(indoorScene, indoorCamera); },
-  state: () => ({ ...ST, tags:CH.tags.slice(), time:fmtTime(minute),
+  state: () => ({ ...ST, time:fmtTime(minute),
                   pos:[+hero.group.position.x.toFixed(1), +hero.group.position.z.toFixed(1)] }),
   ridePose(patch){ if(patch) Object.assign(RIDE_POSE, patch); return { ...RIDE_POSE }; },
   isRiding: () => !!ridingMoto,
