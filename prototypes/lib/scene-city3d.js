@@ -1639,23 +1639,24 @@ export function buildCity(THREE, scene){
 
   (function constructionSite(){
     /* 2026-08-28,kc 截圖回報「重點是他的大小根本不對,人家車站這麼大欸」
-       ——原本 14×10 的小圍籬跟旁邊 50 高辦公大樓/大放大 3 倍的火車站站在
-       一起像自家後院工地。維持 kc 已經拍板的內容方向(灰模怪手/土堆/貨櫃屋,
-       不是骨架大樓+塔吊,見下面圍籬那段舊註解),純粹放大整塊基地跟裡面
-       每樣東西的量體/數量,讓它撐得起「跟這排大樓同一個街廓」的份量。
+       ——原本 14×10 的小圍籬跟旁邊 50 高辦公大樓/放大 3 倍的火車站站在
+       一起像自家後院工地。第一輪先放大基地跟裡面小道具的量體/數量
+       (14×10→36×16),kc 接著推翻更早那條「不要骨架大樓」的舊決定:
+       「工地會有大樓骨架啊因為是大樓施工,圍牆更高」——這輪補上真的
+       在蓋的大樓骨架(裸柱+樓板,沒貼皮,故意讀出「還沒蓋完」),圍籬
+       再拉高一截。灰模怪手/土堆/貨櫃屋等地面道具維持,不是被骨架取代,
+       是骨架旁邊真的還在整地的樣子。
        cx 兩側量過的空間:東邊到小美哥固定站位(x=48)還有 12 個單位淨空
        (siteW 36→右緣 x=38),西邊到火車站站體最右側量體(pylonX≈-13.8)
        還有超過 30 個單位,遠遠夠用。 */
     const cx=20, siteW=36, siteD=16;
     const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;
     const siteZ0 = frontN, siteZ1 = frontN+siteD, siteCz = (siteZ0+siteZ1)/2;
-    const fenceH = 3.4;   // 原本 2.2——真的到胸口以上高度,不是矮欄杆,但仍遠低於大樓量級(照 kc 反饋純比例微調,不是重新設計成建物高度)
+    const fenceH = 6;   // 2026-08-28 3.4→6,kc:「圍牆更高」——工地要蓋大樓,圍籬本來就該高過人視線很多,不是矮欄杆
 
-    /* 圍籬:灰色鐵皮浪板+橘色收邊柱(照參考圖的材質表換掉,不是骨架大樓
-       +塔吊——kc:「不是預留的問題是太醜」那輪之後又追加「量體/比例本身
-       沒抓對」,場地裡該有的是整地中的怪手/土堆/貨櫃屋,不是蓋到一半的
-       樓)。矩形周界等距立收邊柱,四邊各補一片浪板牆——基地放大後長邊
-       (siteW=36)柱子間距沿用原本密度,不再只有頭尾+中點三根。 */
+    /* 圍籬:灰色鐵皮浪板+橘色收邊柱(照參考圖的材質表換掉)。矩形周界
+       等距立收邊柱,四邊各補一片浪板牆——基地放大後長邊(siteW=36)
+       柱子間距沿用原本密度,不再只有頭尾+中點三根。 */
     const fenceM = std({ color:0x9a9a96, roughness:.75, metalness:.15 });
     const postM = std({ color:0xe8862a, roughness:.6 });
     const postsLong = 5, postsShort = 3;
@@ -1683,25 +1684,52 @@ export function buildCity(THREE, scene){
     landmarks.push({ x:cx, y:3.6, z:siteZ0, text:'施工中\n請小心安全' });
     for(let i=0;i<9;i++) realTrafficCone(cx-siteW/2-1.5+i*.8, frontN-1.4);
 
-    /* 場地內部:怪手兩台(真 3D 模型,見上面 realExcavator,跟警車/交通錐
-       同一套手法)+ 四堆土丘(幾何,不規則堆疊,尺寸也放大)+ 兩間貨櫃屋
-       (箱體,形狀本來就是箱子不用拍照/建模)+ 一落鋼筋/管料堆——基地
-       放大後光憑原本兩三件小道具會顯得空,補滿量體。2026-08-27 kc 糾正過
-       一次做法(先誤用照片卡,又改回真 3D)。 */
-    realExcavator(cx-9, siteCz-2, 0);
-    realExcavator(cx+6, siteCz+3, Math.PI*.6);
-    dirtPile(cx-2, siteCz-3.5, 1.8);
-    dirtPile(cx+13, siteCz-1, 1.5);
-    dirtPile(cx-13, siteCz+3, 1.6);
-    dirtPile(cx+2, siteCz+4.5, 1.3);
+    /* 大樓骨架(2026-08-28 新增,kc:「工地會有大樓骨架啊因為是大樓施工」)
+       ——裸柱+樓板,不貼皮、不裝窗,故意讀出「還在蓋,沒完工」,跟旁邊
+       已經貼滿玻璃帷幕照片的辦公大樓/火車站區分開。佔基地後半段(離馬路
+       較遠那側),前半段留給地面施工道具(怪手/土堆/貨櫃屋),跟真工地
+       「後面在往上蓋、前面在整地」的分工一致。5×3 柱網,蓋到第 7 層
+       (骨架本身沒有到頂,頂端露出比樓板高一截的柱子/鋼筋,暗示還要繼續
+       往上蓋),高度落在辦公大樓(50)跟警察局(16)之間,壓過火車站雨遮
+       (10)一截,才撐得住「這裡以後也會是一棟大樓」的份量。 */
+    const skelW = 22, skelD = 10, skelCz = siteZ1 - skelD/2 - 1;
+    const floorH = 5.5, builtFloors = 7, skelH = floorH*builtFloors;
+    const colM = std({ color:0x8c8c86, roughness:.9 });
+    const slabM = std({ color:0x9a9a90, roughness:.85 });
+    const rebarM = std({ color:0x3a3a38, roughness:.5, metalness:.4 });
+    const nx=5, nz=3;
+    const colXs = Array.from({length:nx}, (_,i) => cx - skelW/2 + i*(skelW/(nx-1)));
+    const colZs = Array.from({length:nz}, (_,i) => skelCz - skelD/2 + i*(skelD/(nz-1)));
+    colXs.forEach(px => colZs.forEach(pz => {
+      add(box(.7, skelH, .7, colM), px, skelH/2, pz);
+      // 頂端露出的鋼筋,暗示骨架還沒封頂
+      const r = new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,2.4,6), rebarM);
+      add(r, px+.15, skelH+1.2, pz+.15, false, true);
+    }));
+    for(let f=1; f<=builtFloors; f++){
+      add(box(skelW, .5, skelD, slabM), cx, f*floorH, skelCz, false, true);
+    }
+    // 骨架本身在整塊基地的 solid(cx, siteCz, siteW/2, siteD/2) 範圍內,不用重複註冊碰撞
 
-    add(box(4,2.6,2.4, std({color:0x3d6b4a,roughness:.7})), cx+siteW/2-3, 1.3, siteZ1-2.2);
-    add(box(4,2.6,2.4, std({color:0x2e5a44,roughness:.7})), cx+siteW/2-8, 1.3, siteZ1-2.2);
+    /* 場地前半段(靠馬路那側):怪手兩台(真 3D 模型,見上面 realExcavator,
+       跟警車/交通錐同一套手法)+ 四堆土丘(幾何,不規則堆疊)+ 兩間貨櫃屋
+       + 一落鋼筋/管料堆——地面施工道具維持,骨架蓋在後半段不取代它們。
+       2026-08-27 kc 糾正過一次做法(先誤用照片卡,又改回真 3D)。 */
+    const frontCz = siteZ0 + 2.8;   // 前半段中心線,離骨架(skelCz≈110)有 4+ 單位淨空
+    realExcavator(cx-14, frontCz, 0);
+    realExcavator(cx+11, frontCz+.5, Math.PI*.6);
+    dirtPile(cx-2, frontCz-1.2, 1.8);
+    dirtPile(cx+16, frontCz-.6, 1.5);
+    dirtPile(cx-16, frontCz+1, 1.6);
+    dirtPile(cx+2, frontCz+1.8, 1.3);
+
+    add(box(4,2.6,2.4, std({color:0x3d6b4a,roughness:.7})), cx-siteW/2+3, 1.3, siteZ0+2.2);
+    add(box(4,2.6,2.4, std({color:0x2e5a44,roughness:.7})), cx-siteW/2+8, 1.3, siteZ0+2.2);
 
     /* 鋼筋/管料堆:一落等長圓柱橫躺堆疊,補基地內容,不是照片也不是玩偶,
        跟怪手/土堆同一套幾何手法。 */
     const pipeM = std({ color:0x8a6b3a, roughness:.6, metalness:.2 });
-    const pipeCx = cx-siteW/2+5, pipeCz = siteZ1-2.5;
+    const pipeCx = cx+siteW/2-8, pipeCz = siteZ0+2.5;
     [[0,0],[.42,0],[.84,0],[.21,.36],[.63,.36],[.42,.72]].forEach(([dx,dy]) => {
       const p = new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,3.2,8), pipeM);
       p.rotation.z = Math.PI/2;
