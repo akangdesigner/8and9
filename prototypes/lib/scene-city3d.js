@@ -1813,8 +1813,21 @@ export function buildCity(THREE, scene){
 
     /* 圍籬內地板(2026-08-28,kc:「鋪滿圍牆內的地板」)——原本裡面是跟外面
        人行道同一塊地磚材質,只有零星幾件道具漂在上面,隔著大門缺口看進去
-       看不出「這裡是工地」。鋪一塊土色平面蓋滿整個基地,压过原本的路面。 */
-    add(box(siteW-.3, .06, siteD-.3, std({ color:0x5a4530, roughness:1 })), cx, .03, siteCz, false, true);
+       看不出「這裡是工地」。鋪一塊平面蓋滿整個基地,压过原本的路面。
+       同一天 kc 補了 site-ground.png(混凝土地坪+泥土+輪胎痕+腳印+水漬,
+       可平鋪,無明顯重複感)——素色先頂著,圖到位換成真材質,repeat 抓
+       基地實際尺寸/TILE 去算,不是憑感覺硬套一個數字。 */
+    const groundM = std({ color:0x5a4530, roughness:1 });
+    new THREE.ImageLoader().load(TEX_DIR + 'site-ground.png', img => {
+      const t = new THREE.Texture(img);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      const GROUND_TILE = 5;   // 世界單位,一張圖大概蓋這個範圍,肉眼抓感覺
+      t.repeat.set((siteW-.3)/GROUND_TILE, (siteD-.3)/GROUND_TILE);
+      t.needsUpdate = true;
+      groundM.map = t; groundM.color.setHex(0xffffff); groundM.needsUpdate = true;
+    }, undefined, () => {});
+    add(box(siteW-.3, .06, siteD-.3, groundM), cx, .03, siteCz, false, true);
 
     /* 素色警示牌拿掉了(2026-08-28)——fence-sign.png 那張告示牌全景已經
        涵蓋「施工中/安全第一/危險注意」這些內容,兩塊素色板子留著會跟
@@ -1852,7 +1865,7 @@ export function buildCity(THREE, scene){
        先素色頂著。 */
     const COL_TILE = 1.4;
     const colM = std({ color:0x8c8c86, roughness:.9 });
-    new THREE.ImageLoader().load(TEX_DIR + 'skeleton-column.png', img => {
+    new THREE.ImageLoader().load(TEX_DIR + 'skeleton-column.png?v=2', img => {   // v2:kc 重生了一版板模紋更細緻的(2026-08-28 下午,跟樓板底部/施工地面同一批)
       const t = new THREE.Texture(img);
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
@@ -1860,7 +1873,24 @@ export function buildCity(THREE, scene){
       t.needsUpdate = true;
       colM.map = t; colM.color.setHex(0xffffff); colM.needsUpdate = true;
     }, undefined, () => {});
+    /* 樓板底部貼圖(2026-08-28,kc 生的 skeleton-slab-under.png)——這棟
+       骨架沒有獨立的「樑」幾何(只有柱+樓板,見上面骨架那則筆記),kc 給的
+       ②號圖用途寫「樓板底部/天花板」,直接貼在樓板的底面(-y,人站在
+       下一層抬頭看到的那面)最合理,不用先補樑才能用。頂面(+y,走在
+       上面那層的地板)維持素色——這棟骨架玩家爬不上去,頂面幾乎看不到,
+       不用跟著換材質陣列六面都貼。 */
     const slabM = std({ color:0x9a9a90, roughness:.85 });
+    const slabUnderM = std({ color:0x8a887e, roughness:.9 });
+    new THREE.ImageLoader().load(TEX_DIR + 'skeleton-slab-under.png', img => {
+      const t = new THREE.Texture(img);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      t.repeat.set(skelW/4, skelD/4);
+      t.needsUpdate = true;
+      slabUnderM.map = t; slabUnderM.color.setHex(0xffffff); slabUnderM.needsUpdate = true;
+    }, undefined, () => {});
+    // [+x,-x,+y,-y,+z,-z]——只有 -y(底面)換成貼圖,其餘維持素色
+    const slabMats = [slabM,slabM,slabM,slabUnderM,slabM,slabM];
     const rebarM = std({ color:0x3a3a38, roughness:.5, metalness:.4 });
     const nx=5, nz=3;
     const colXs = Array.from({length:nx}, (_,i) => cx - skelW/2 + i*(skelW/(nx-1)));
@@ -1872,7 +1902,7 @@ export function buildCity(THREE, scene){
       add(r, px+.15, skelH+1.2, pz+.15, false, true);
     }));
     for(let f=1; f<=builtFloors; f++){
-      add(box(skelW, .5, skelD, slabM), cx, f*floorH, skelCz, false, true);
+      add(box(skelW, .5, skelD, slabMats), cx, f*floorH, skelCz, false, true);
     }
     // 骨架本身在整塊基地的 solid(cx, siteCz, siteW/2, siteD/2) 範圍內,不用重複註冊碰撞
 
