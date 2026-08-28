@@ -2544,13 +2544,25 @@ const CORRIDOR = {
    SPOTS 直接沿用 `SceneTattoo.SPOTS`(門/等候區/圖牆/刺青椅/工作檯/
    展示櫃),不用重打一次座標——這是當初那份筆記留言「接的時候不用重打
    座標」的那一刻。跟學校/走廊不同,這裡沒有鎖深度(跟 store/school 同一套
-   自由二維走動,標準案例的預覽本來就是四方向都能走),也沒有另外補
-   碰撞框:刺青椅/滾輪椅的互動判定區(SPOTS 裡的 y0/y1)本來就延伸到
-   WALK_S(店裡最靠近鏡頭那條線),硬加碰撞框會把互動點本身擋死,
-   跟 bedroom/school 那種「碰撞框停在家具前緣」的做法反而衝突——這點
-   грей模瑕疵(站在椅子位置視覺上會蓋到椅子)先接受,跟停在路邊被穿過去
-   的機車同一種「早期灰模不用每個都校正」的容忍度。 */
-const TATTOO_COLLIDERS = [];
+   自由二維走動,標準案例的預覽本來就是四方向都能走)。
+   **✅ 2026-08-28 同一天再一輪,kc 丟真的躺椅照片參考,要求「椅子跟碰撞
+   要做」**——上面這段舊筆記(已刪)原本判斷「不補碰撞框,判定區蓋過去
+   就算了」,這輪反過來真的補上。跟舊判斷沒有互相矛盾:當時是判定區跟
+   椅子本體的範圍疊在一起,補碰撞框會把判定區自己擋死;這輪先把
+   `scene-tattoo.js` 的 `CHAIR` 拉寬重畫(見那邊「刺青椅」筆記),順便把
+   `SPOTS` 裡 `chair` 那筆的判定區收窄到椅子正前方一條窄帶(緊貼
+   `WALK_S`,不再蓋到椅子本體),碰撞框才补得進去、不衝突。碰撞框
+   `pyFront` 卡在 `CHAIR.y`(椅子基座那條線),跟判定區 `y0` 銜接,中間
+   沒有留死角也沒有重疊。 */
+/* pyFront 扣掉 COLLIDE_PAD(見 inBlocked() 那則筆記,全域碰撞緩衝)——
+   不扣的話,`inBlocked()` 加上緩衝之後的實際擋人範圍會多吃進 SPOTS
+   `chair` 那筆的 y0 底下幾個單位,判定區跟碰撞區之間會有一小段「站得進
+   去互動範圍、卻被撞退」的死角。扣掉之後緩衝區剛好卡在 y0 那條線,不多
+   不少。 */
+const TATTOO_COLLIDERS = [
+  { x0: SceneTattoo.CHAIR.x - 6, x1: SceneTattoo.CHAIR.x + SceneTattoo.CHAIR.w + 6,
+    pyBack: SceneTattoo.CHAIR.y - 30, pyFront: SceneTattoo.CHAIR.y - COLLIDE_PAD }
+];
 const TATTOO = {
   walkN: SceneTattoo.WALK_N, walkS: SceneTattoo.WALK_S,
   spots: SceneTattoo.SPOTS

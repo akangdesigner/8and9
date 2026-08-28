@@ -270,30 +270,55 @@
    * 可調式皮躺椅,黑色。玩家從它後面走過去 —— 前景遮擋是空間深度最便宜的來源。
    * 這張椅子是這個場景的重點:你走到它前面,就是要在自己身上留下永久的東西。
    */
-  const CHAIR = { x: 268, y: 306, w: 138 };
+  /* 刺青椅(2026-08-28,kc 丟真的美式刺青躺椅照片參考,要求重畫)——原本這裡
+     是一整塊實心方塊看不出是張躺椅,改成真的分四段畫:腳靠(左,平躺伸長)/
+     坐墊(中)/椅背(右,往右上仰,真的畫出傾角)/頭枕(椅背頂端獨立一塊),
+     底座改成黑色長方形底盤+外露液壓中柱,呼應參考圖那張可調角度的專業
+     躺椅,不是原本看起來像辦公椅的方塊。寬度從 138 拉到 180 才夠分四段,
+     碰撞框(見 game.html TATTOO_COLLIDERS)照這個新的 x/y 範圍重算。 */
+  const CHAIR = { x: 246, y: 318, w: 180 };
   function chair(g) {
     const { px, alp } = tools(g);
     const { x, y, w } = CHAIR;
-    const seat = y - 46;
+    const seat = y - 48;
 
-    alp(.20, () => px(x - 10, y - 4, w + 26, 8, '#3a4045'));        // 落地陰影
+    alp(.22, () => px(x - 8, y - 2, w + 16, 8, '#22262a'));         // 落地陰影
 
-    px(x + w - 44, seat - 52, 44, 54, P.chairBody);                 // 椅背(往右仰)
-    px(x + w - 44, seat - 52, 44, 6, P.chairHi);
-    px(x + w - 44, seat - 26, 44, 2, P.chairSeam);
-    px(x, seat, w, 20, P.chairBody);                                // 坐墊
-    px(x, seat, w, 5, P.chairHi);
-    px(x + 44, seat, 2, 20, P.chairSeam);
-    px(x, seat + 18, w, 6, P.chairSeam);
+    /* 底座:黑色長方形底盤 + 兩端落地腳,呼應參考圖外露的液壓底座 */
+    px(x + 10, y - 8, w - 20, 10, '#1c1f22');
+    px(x + 10, y - 8, w - 20, 3, P.chairMetal);
+    px(x + 6, y, 12, 6, '#111315');
+    px(x + w - 18, y, 12, 6, '#111315');
 
-    px(x - 12, seat + 2, 14, 8, P.chairArm);                        // 扶手(手要放這裡)
-    px(x - 12, seat + 2, 14, 3, P.chairPad);
-    px(x + w, seat - 6, 14, 8, P.chairArm);
+    /* 液壓中柱 */
+    px(x + w / 2 - 12, seat + 20, 24, 22, P.chairMetal);
+    px(x + w / 2 - 14, seat + 40, 28, 6, '#7b8188');
 
-    px(x + w / 2 - 9, seat + 24, 18, 20, P.chairMetal);             // 中柱 + 底座
-    px(x + w / 2 - 26, y - 6, 52, 6, P.chairMetal);
-    px(x + w / 2 - 26, y - 4, 52, 3, '#7f858b');
-    px(x + 6, seat + 24, 8, 14, P.chairMetal);                      // 腳踏
+    /* 腳靠(往左伸長、平躺——參考圖那塊延伸出去的長條腳靠) */
+    px(x, seat + 6, 66, 14, P.chairBody);
+    px(x, seat + 6, 66, 4, P.chairHi);
+    px(x + 62, seat + 6, 2, 14, P.chairSeam);
+
+    /* 坐墊 */
+    px(x + 62, seat, 60, 20, P.chairBody);
+    px(x + 62, seat, 60, 5, P.chairHi);
+    px(x + 120, seat, 2, 20, P.chairSeam);
+
+    /* 椅背(階梯式堆疊近似傾角,px() 畫不出真的斜線,用三層漸進位移+
+       漸窄模擬往右上仰的角度,比單一垂直方塊更像躺椅背) */
+    const bx = x + 116, by = seat;
+    [[0,0,46],[8,-16,44],[16,-32,42]].forEach(([dx,dy,segW]) => {
+      px(bx+dx, by+dy-16, segW, 16, P.chairBody);
+      px(bx+dx, by+dy-16, segW, 4, P.chairHi);
+    });
+
+    /* 頭枕(接在椅背最頂端那截,延續同一個位移方向,參考圖右上角那顆枕頭) */
+    px(bx + 24, by - 64, 34, 22, P.chairPad);
+    px(bx + 24, by - 64, 34, 4, P.chairHi);
+
+    /* 扶手(手要放這裡,貼在坐墊/腳靠交界) */
+    px(x + 56, seat + 2, 12, 8, P.chairArm);
+    px(x + 56, seat + 2, 12, 3, P.chairPad);
   }
 
   /* ---------------- 師傅的滾輪椅(在刺青椅左邊) ---------------- */
@@ -337,7 +362,11 @@
     { id:'door',    name:'門口',   x:6,   w:100, y0:208, y1:338 },
     { id:'wait',    name:'等候區', x:104, w:132, y0:208, y1:262 },
     { id:'flash',   name:'圖牆',   x:250, w:180, y0:208, y1:250 },
-    { id:'chair',   name:'刺青椅', x:268, w:138, y0:284, y1:338 },
+    /* 刺青椅重畫拉寬之後(見上面 CHAIR 那則筆記),互動判定區收窄到
+       椅子正前方那條窄帶(y0/y1 只留 14 個單位),不再蓋到椅子本體的
+       範圍——椅子本體現在有真的碰撞框(game.html TATTOO_COLLIDERS),
+       判定區跟碰撞框重疊會讓玩家走不到能互動的位置。 */
+    { id:'chair',   name:'刺青椅', x:CHAIR.x, w:CHAIR.w, y0:CHAIR.y, y1:CHAIR.y+20 },
     { id:'bench',   name:'工作檯', x:430, w:148, y0:208, y1:262 },
     { id:'case',    name:'展示櫃', x:588, w:46,  y0:208, y1:262 }
   ];
