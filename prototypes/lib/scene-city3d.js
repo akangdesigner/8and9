@@ -605,10 +605,17 @@ export function buildCity(THREE, scene){
       entry.group = g; entry.baseY = 0;
     }).catch(() => {});
   }
+  /* 2026-08-28,kc 看了工地隔著大門缺口的樣子回報「為何有奇怪的球」——
+     舊版拿圓球體疊 3 顆逼近土堆,舊註解雖然寫著要做成「扁平不規則堆疊,
+     不是圓滾滾像球」,但實作沒有真的壓扁,球體疊球體看起來還是一串球。
+     改成每顆 lobe 各自 Y 軸壓扁 38~46%(比例微調出不規則感,不是統一
+     壓一個數字),疊起來才是攤平的土堆輪廓。 */
   function dirtPile(x, z, r){
     const m = std({ color:0x6b4a30, roughness:1 });
-    [[0,0,r],[r*.5,r*.4,r*.6],[-r*.4,r*.3,r*.55]].forEach(([dx,dz,rr]) => {
-      add(new THREE.Mesh(new THREE.SphereGeometry(rr,8,6), m), x+dx, rr*.4, z+dz, false, true);
+    [[0,0,r,.42],[r*.55,r*.4,r*.62,.38],[-r*.45,r*.32,r*.58,.46],[r*.1,-r*.4,r*.5,.4]].forEach(([dx,dz,rr,fy]) => {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(rr,7,5), m);
+      s.scale.set(1, fy, 1);
+      add(s, x+dx, rr*fy, z+dz, false, true);
     });
   }
 
