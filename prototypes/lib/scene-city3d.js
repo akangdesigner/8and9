@@ -1675,9 +1675,19 @@ export function buildCity(THREE, scene){
     const fenceM = std({ color:0x9a9a96, roughness:.75, metalness:.15 });
     const postM = std({ color:0xe8862a, roughness:.6 });
     const postsLong = 5, postsShort = 3;
+    /* 2026-08-28,kc:「牆壁開一個門」——正面圍籬中間留一段缺口當出入口
+       (gateW=8,置中),兩片牆各自變短,缺口兩側補一對比其他收邊柱粗一圈
+       的門柱。原本 postsLong 那圈柱子如果照舊等距排,中間那根(px=cx)會
+       剛好卡在缺口正中間,改成正面(siteZ0)柱子位置改用明講的清單,跳過
+       缺口、補上門柱;背面(siteZ1)沒有門,柱子維持原本等距。 */
+    const gateW = 8, gateX0 = cx-gateW/2, gateX1 = cx+gateW/2;
+    const frontPostXs = [cx-siteW/2, 9, gateX0, gateX1, 31, cx+siteW/2];
+    frontPostXs.forEach(px => {
+      const isGate = px === gateX0 || px === gateX1;
+      add(new THREE.Mesh(new THREE.CylinderGeometry(isGate?.2:.14, isGate?.2:.14, fenceH+.3, 6), postM), px, (fenceH+.3)/2, siteZ0);
+    });
     for(let i=0;i<postsLong;i++){
       const px = cx - siteW/2 + i*(siteW/(postsLong-1));
-      add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), px, (fenceH+.3)/2, siteZ0);
       add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), px, (fenceH+.3)/2, siteZ1);
     }
     for(let i=0;i<postsShort;i++){
@@ -1685,19 +1695,24 @@ export function buildCity(THREE, scene){
       add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), cx-siteW/2, (fenceH+.3)/2, pz);
       add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), cx+siteW/2, (fenceH+.3)/2, pz);
     }
-    add(box(siteW+.3,fenceH,.15, fenceM), cx, fenceH/2, siteZ0, false, true);
+    // 正面圍籬拆成缺口兩側兩段(西段 2→16、東段 24→38),缺口本身不補牆板
+    add(box((gateX0-(cx-siteW/2))+.3, fenceH, .15, fenceM), (cx-siteW/2+gateX0)/2, fenceH/2, siteZ0, false, true);
+    add(box(((cx+siteW/2)-gateX1)+.3, fenceH, .15, fenceM), (gateX1+cx+siteW/2)/2, fenceH/2, siteZ0, false, true);
     add(box(siteW+.3,fenceH,.15, fenceM), cx, fenceH/2, siteZ1, false, true);
     add(box(.15,fenceH,siteD, fenceM), cx-siteW/2, fenceH/2, siteCz, false, true);
     add(box(.15,fenceH,siteD, fenceM), cx+siteW/2, fenceH/2, siteCz, false, true);
+    // 門楣:缺口上方一根橫樑框住出入口,不然單看兩根柱子容易讀成「牆破了一個洞」而不是門
+    add(box(gateW+.6, .4, .3, postM), cx, fenceH+.35, siteZ0, false, true);
     solid(cx, siteCz, siteW/2, siteD/2);
 
     /* 警示牌掛在圍籬正面(不越過 frontN),兩端各一面,不再只有中間一小塊;
-       交通錐擺出入口,拉長跨度沿用真 3D 模型。 */
+       交通錐改擺在缺口出入口正前方(原本沿整段西側排,跟「這是門口」的
+       閱讀對不上)。 */
     [cx-siteW/2+4, cx+siteW/2-4].forEach(sx => {
       add(box(3.6,2.4,.12, std({color:0xf2e8d8,roughness:.6})), sx, 2.4, siteZ0+.1, false, true);
     });
     landmarks.push({ x:cx, y:3.6, z:siteZ0, text:'施工中\n請小心安全' });
-    for(let i=0;i<9;i++) realTrafficCone(cx-siteW/2-1.5+i*.8, frontN-1.4);
+    for(let i=0;i<9;i++) realTrafficCone(gateX0-1 + i*((gateW+2)/8), frontN-1.4);
 
     /* 大樓骨架(2026-08-28 新增,kc:「工地會有大樓骨架啊因為是大樓施工」)
        ——裸柱+樓板,不貼皮、不裝窗,故意讀出「還在蓋,沒完工」,跟旁邊
@@ -1726,13 +1741,19 @@ export function buildCity(THREE, scene){
     }
     // 骨架本身在整塊基地的 solid(cx, siteCz, siteW/2, siteD/2) 範圍內,不用重複註冊碰撞
 
-    /* 場地前半段(靠馬路那側):怪手兩台(真 3D 模型,見上面 realExcavator,
-       跟警車/交通錐同一套手法)+ 四堆土丘(幾何,不規則堆疊)+ 兩間貨櫃屋
+    /* 2026-08-28,kc:「你要把道具放到牆壁外我才看得到」——圍籬拉到 6 之後
+       站在街上完全看不到裡面的怪手,搬到大門缺口正前方的人行道上(跟警車
+       停在警察局門口同一套做法,z 落在人行道帶 93~100 之內,不用額外
+       註冊 solid()),框住新開的大門缺口,一眼就看得到,滑桿(見 game.html
+       tweakConstructionPanel)也才調得出效果。基地裡面(骨架旁邊)留給
+       土堆/貨櫃屋/管料堆這些不用特寫、繼續藏在圍籬後面也沒差的道具。 */
+    realExcavator(cx-11, siteZ0-4, -.3);
+    realExcavator(cx+11, siteZ0-4, .35);
+
+    /* 場地內部(骨架旁邊):四堆土丘(幾何,不規則堆疊)+ 兩間貨櫃屋
        + 一落鋼筋/管料堆——地面施工道具維持,骨架蓋在後半段不取代它們。
        2026-08-27 kc 糾正過一次做法(先誤用照片卡,又改回真 3D)。 */
     const frontCz = siteZ0 + 2.8;   // 前半段中心線,離骨架(skelCz≈110)有 4+ 單位淨空
-    realExcavator(cx-14, frontCz, 0);
-    realExcavator(cx+11, frontCz+.5, Math.PI*.6);
     dirtPile(cx-2, frontCz-1.2, 1.8);
     dirtPile(cx+16, frontCz-.6, 1.5);
     dirtPile(cx-16, frontCz+1, 1.6);
