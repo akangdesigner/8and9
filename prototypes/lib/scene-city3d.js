@@ -1696,7 +1696,42 @@ export function buildCity(THREE, scene){
     /* 圍籬:灰色鐵皮浪板+橘色收邊柱(照參考圖的材質表換掉)。矩形周界
        等距立收邊柱,四邊各補一片浪板牆——基地放大後長邊(siteW=36)
        柱子間距沿用原本密度,不再只有頭尾+中點三根。 */
-    const fenceM = std({ color:0x9a9a96, roughness:.75, metalness:.15 });
+    /* 圍籬鐵皮浪板貼圖(2026-08-28,kc 生了一張可平鋪的浪板照片,fence-panel.png)
+       ——kc 原話「正面側面跟上面同步要生成不然會很怪」,但實際只生了一張
+       (單張可平鋪材質,不是三視圖)。解法:6 面都套同一張圖(同一個來源
+       絕對「同步」),只是依各面實際尺寸各自算 repeat,不會不成比例。
+       圖片非同步載入,先用素色 fallback 頂著,loadImg 到了才回填每個排隊
+       中材質的 map(跟 office-tower 那套「先素色再貼圖」同一招)。 */
+    const FENCE_TILE = 2.6;   // 世界單位,一張圖大概蓋這個寬度,肉眼抓感覺,不是精算
+    const fencePendingMats = [];
+    let fencePanelImg = null;
+    new THREE.ImageLoader().load(TEX_DIR + 'fence-panel.png', img => {
+      fencePanelImg = img;
+      fencePendingMats.forEach(({mat, rx, ry}) => {
+        const t = new THREE.Texture(img);
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        t.repeat.set(rx, ry);
+        t.needsUpdate = true;
+        mat.map = t; mat.color.setHex(0xffffff); mat.needsUpdate = true;
+      });
+    }, undefined, () => {});
+    function fenceEdgeMat(rx, ry){
+      const m = std({ color:0x9a9a96, roughness:.8, metalness:.15 });
+      fencePendingMats.push({ mat:m, rx, ry });
+      return m;
+    }
+    /* bigFaceW:大面(看得到的那個方向)實際寬度;orient 'z' 是牆板(正面/背面
+       朝 ±z,窄邊朝 ±x,像正面/背面那兩段圍籬);'x' 是側牆(大面朝 ±x,窄邊
+       朝 ±z,像東西兩側那兩段)。回傳 [+x,-x,+y,-y,+z,-z] 六面材質陣列,
+       頂/底(±y)也套同一張圖(kc 要求跟正面/側面同步,不留素色)。 */
+    function fenceMats(bigFaceW, orient){
+      const bigRepX = Math.max(1, bigFaceW/FENCE_TILE), bigRepY = Math.max(1, fenceH/FENCE_TILE);
+      const big = fenceEdgeMat(bigRepX, bigRepY);
+      const edge = fenceEdgeMat(1, bigRepY);
+      const top = fenceEdgeMat(bigRepX, .3);
+      return orient === 'z' ? [edge,edge,top,top,big,big] : [big,big,top,top,edge,edge];
+    }
     const postM = std({ color:0xe8862a, roughness:.6 });
     const postsLong = 5, postsShort = 3;
     /* 2026-08-28,kc:「牆壁開一個門」——正面圍籬中間留一段缺口當出入口
@@ -1720,11 +1755,12 @@ export function buildCity(THREE, scene){
       add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), cx+siteW/2, (fenceH+.3)/2, pz);
     }
     // 正面圍籬拆成缺口兩側兩段(西段 2→16、東段 24→38),缺口本身不補牆板
-    add(box((gateX0-(cx-siteW/2))+.3, fenceH, .15, fenceM), (cx-siteW/2+gateX0)/2, fenceH/2, siteZ0, false, true);
-    add(box(((cx+siteW/2)-gateX1)+.3, fenceH, .15, fenceM), (gateX1+cx+siteW/2)/2, fenceH/2, siteZ0, false, true);
-    add(box(siteW+.3,fenceH,.15, fenceM), cx, fenceH/2, siteZ1, false, true);
-    add(box(.15,fenceH,siteD, fenceM), cx-siteW/2, fenceH/2, siteCz, false, true);
-    add(box(.15,fenceH,siteD, fenceM), cx+siteW/2, fenceH/2, siteCz, false, true);
+    const westSegW = (gateX0-(cx-siteW/2))+.3, eastSegW = ((cx+siteW/2)-gateX1)+.3;
+    add(box(westSegW, fenceH, .15, fenceMats(westSegW,'z')), (cx-siteW/2+gateX0)/2, fenceH/2, siteZ0, false, true);
+    add(box(eastSegW, fenceH, .15, fenceMats(eastSegW,'z')), (gateX1+cx+siteW/2)/2, fenceH/2, siteZ0, false, true);
+    add(box(siteW+.3,fenceH,.15, fenceMats(siteW+.3,'z')), cx, fenceH/2, siteZ1, false, true);
+    add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx-siteW/2, fenceH/2, siteCz, false, true);
+    add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx+siteW/2, fenceH/2, siteCz, false, true);
     // 門楣:缺口上方一根橫樑框住出入口,不然單看兩根柱子容易讀成「牆破了一個洞」而不是門
     add(box(gateW+.6, .4, .3, postM), cx, fenceH+.35, siteZ0, false, true);
     solid(cx, siteCz, siteW/2, siteD/2);
