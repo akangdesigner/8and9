@@ -1178,7 +1178,11 @@ const PORTRAIT_IMGS = {
      不是巧合。 */
   mei:    loadPortraitImg('../assets/bg/mei-portrait.png?v=1'),
   aren:   loadPortraitImg('../assets/bg/aren-portrait.png?v=1'),
-  kai:    loadPortraitImg('../assets/bg/kai-portrait.png?v=1')
+  kai:    loadPortraitImg('../assets/bg/kai-portrait.png?v=1'),
+  /* 刺青店老闆(2026-08-28)——kc 丟的真人照片,跟 tattooMasterIndoor 那具
+     3D 骨架配色是同一個人設定(見那則筆記),之前對話框一直退回
+     SF.person() 像素小人 fallback,這輪補真的照片。 */
+  tattooMaster: loadPortraitImg('../assets/bg/tattooMaster-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
@@ -1810,7 +1814,7 @@ const FOREMAN_WORKER_HAND_X_FRAC = 0.753, FOREMAN_WORKER_HAND_Y_FRAC = 0.342;
 /* 起始地板滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——groundY
    原本是目測抓的常數(262),改成可調狀態讓 __dbg.tweakForeman() 現場拉,
    bgDx/bgDy 順便開給背景照片的貼圖位置微調,跟 tweakPoliceCarPanel 同一招。 */
-const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0, workerH:170, workerDy:0, carryReach:40 };
+const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0, workerH:170, workerDy:0, carryReach:222 };
 /* 背景照(2026-08-28,kc 生的 foreman-site.png,1536×1024)——構圖是照
    agDrawForeman() 那則筆記要求的:中央淨空地面留給程式動態疊磚,兩側
    鋼筋/角材增加真實感,圍籬+天空跟遊藝場那批照片同一種寫實、不陰森的
@@ -1822,7 +1826,8 @@ let foremanShiftOn = false;   // 全程(startForemanShift→endForemanShift)開�
 const constructionForemanNPC = buildNPC(THREE, scene, {
   x:FOREMAN.x, z:FOREMAN.z, rotationY:Math.PI, rig:'m3',
   skin:'#b98a63', hair:'#4a4a48',
-  hood:'#e8862a', pants:'#33302b', shoe:'#1c1c1c'
+  hood:'#e8862a', pants:'#33302b', shoe:'#1c1c1c',
+  helmet:true   // 2026-08-28,kc:「工地老闆可以帶個安全帽嗎」——見 buildNPC() opts.helmet 那則筆記
 });
 NPCS.push(constructionForemanNPC);
 
@@ -3504,7 +3509,7 @@ function tweakForemanPanel(){
     ['fm_ground','磚堆地板高度(groundY)', 150, 380, 1, 'groundY'],
     ['fm_bgdx','背景照片 X 偏移', -100, 100, 1, 'bgDx'],
     ['fm_bgdy','背景照片 Y 偏移', -100, 100, 1, 'bgDy'],
-    ['fm_reach','磚頭起始位置(離堆頂距離)', 0, 160, 1, 'carryReach'],
+    ['fm_reach','磚頭/人物起始高度(不受地板影響)', 100, 380, 1, 'carryReach'],
     ['fm_workerh','人物大小(高度px)', 80, 320, 2, 'workerH'],
     ['fm_workerdy','人物+手上磚頭 垂直微調', -80, 80, 1, 'workerDy']
   ];
@@ -6930,13 +6935,15 @@ function lookAtFlashWall(){
     it.run ? it : { label:it.label, run:() => toast(it.text, 3200) }
   ));
 }
-/* 工作檯麵包(2026-08-28,kc:「在工作台會發現一個麵包 可以偷走」)——跟
-   超商 steal() 不是同一套機制:那邊靠店員朝向(IN.clerkFace)判定會不會
-   被抓,師傅這裡是固定站姿的 buildNPC,沒有轉身動畫可以借,做不出同一種
-   「當下沒被抓不代表安全」的判定。簡化成單純的機會成本,不裝一套假的
-   風險系統:拿了飽足 +15,歸屬感 −6(心虛)、風評 −1(師傅明明就站在
-   旁邊,不是神不知鬼不覺那種)。一次性——麵包只有一個,拿過就沒有了,
-   `TATTOO_BREAD.taken` 之後互動退回原本的工作檯氣氛 toast。 */
+/* 工作檯麵包(2026-08-28,kc:「在工作台會發現一個麵包 可以偷走」,同一天
+   再一輪「拿麵包不用扣歸屬感 風評-3」)——跟超商 steal() 不是同一套機制:
+   那邊靠店員朝向(IN.clerkFace)判定會不會被抓,師傅這裡是固定站姿的
+   buildNPC,沒有轉身動畫可以借,做不出同一種「當下沒被抓不代表安全」的
+   判定。簡化成單純的機會成本,不裝一套假的風險系統:拿了飽足 +15、風評
+   −3(師傅明明就站在旁邊,不是神不知鬼不覺那種——kc 原本連歸屬感一起扣,
+   這輪推翻,拿一口別人的麵包不到心虛掉歸屬感的量級,單純算社會觀感)。
+   一次性——麵包只有一個,拿過就沒有了,`TATTOO_BREAD.taken` 之後互動
+   退回原本的工作檯氣氛 toast。 */
 const TATTOO_BREAD = { taken:false };
 function lookAtBench(){
   if(TATTOO_BREAD.taken){
@@ -6946,7 +6953,7 @@ function lookAtBench(){
   openMenu('工作檯', [
     { label:'角落放著半個吃剩的麵包，大概是老闆自己的——拿走？', cls:'risk', run(){
         TATTOO_BREAD.taken = true;
-        chg('full', 15); chg('calm', -6); chg('star', -1);
+        chg('full', 15); chg('star', -3);
         toast('你趁他不注意，把麵包塞進嘴裡。', 2600);
       } },
     { label:'算了，還是看看工具就好', cls:'back', run(){} }
@@ -7274,10 +7281,16 @@ function agDrawForeman(){
 
   if(FOREMAN_GAME.active){
     const mat = FOREMAN_MATERIALS[FOREMAN_GAME.round % FOREMAN_MATERIALS.length];
-    /* workerDy 加在這裡(兩邊共用的 carryY),不要各自加——kc 抓到「人跟
-       手裡的磚要一起調整」,原本 workerDy 只加在 foremanDrawWorker() 內部
-       的 handY,磚還是用沒加過的 carryY,滑桿一拉人跟磚就分家了。 */
-    const carryY = Math.max(visibleTop - scrollY + 10, stackTopY - FOREMAN_TWEAK.carryReach) + FOREMAN_TWEAK.workerDy;
+    /* carryReach 現在是「疊 0 層時人+磚在哪」的絕對高度,不是相對 stackTopY
+       的距離——kc 抓到「groundY 不該影響真人拿磚頭」,原本用 stackTopY(=
+       groundY 算出來的)當基準,拉地板高度滑桿會連帶把人跟磚也拖走。改成
+       獨立的 carryBaseY,只跟疊了幾層(FOREMAN_GAME.stack.length)有關,
+       跟 groundY 完全脫鉤,拉地板滑桿現在只會動已經疊好的那疊磚。
+       workerDy 加在這裡(兩邊共用),不要各自加——kc 抓到「人跟手裡的磚
+       要一起調整」,原本 workerDy 只加在 foremanDrawWorker() 內部的
+       handY,磚還是用沒加過的值,滑桿一拉人跟磚就分家了。 */
+    const carryBaseY = FOREMAN_TWEAK.carryReach - FOREMAN_GAME.stack.length*FOREMAN_BRICK_H;
+    const carryY = Math.max(visibleTop - scrollY + 10, carryBaseY) + FOREMAN_TWEAK.workerDy;
     const bx = cx + foremanOffsetPx();
     foremanDrawWorker(bx, carryY);
     foremanDrawBrick(bx, carryY, FOREMAN_BRICK_W, FOREMAN_BRICK_H, mat);
