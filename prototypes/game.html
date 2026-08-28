@@ -1821,7 +1821,7 @@ const FOREMAN_WORKER_HAND_X_FRAC = 0.753, FOREMAN_WORKER_HAND_Y_FRAC = 0.342;
 /* 起始地板滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——groundY
    原本是目測抓的常數(262),改成可調狀態讓 __dbg.tweakForeman() 現場拉,
    bgDx/bgDy 順便開給背景照片的貼圖位置微調,跟 tweakPoliceCarPanel 同一招。 */
-const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0, workerH:170, workerDy:0, carryReach:222 };
+const FOREMAN_TWEAK = { groundY:380, bgDx:0, bgDy:0, workerH:170, workerDy:0, carryReach:222 };   // groundY 380 是 kc 拉滑桿定案的數字(2026-08-28)
 /* 背景照(2026-08-28,kc 生的 foreman-site.png,1536×1024)——構圖是照
    agDrawForeman() 那則筆記要求的:中央淨空地面留給程式動態疊磚,兩側
    鋼筋/角材增加真實感,圍籬+天空跟遊藝場那批照片同一種寫實、不陰森的
@@ -7725,19 +7725,28 @@ function interactProp(prop){
       }
     });
   } else if(prop.type === 'tattoodog'){
-    /* 走失狗(2026-08-28,kc:「跟狗講話可以把狗帶回去給刺青店老闆」)——
-       跟 'pet' 那段同一套(playOnce 動畫+toast),但這裡不給 mood 獎勵
-       (那份獎勵留到 talkToTattooMaster() 的回報結算才給,這裡只是「找到
-       了、抱起來」的敘事節點,不是又一次隨手摸狗)。找到後
-       `TATTOO_DOG.found=true`,nearProp 判定條件本身會擋掉之後再摸到
-       同一隻(active && !found),不用另外清 city.construction.dog。 */
+    /* 走失狗(2026-08-28,kc:「你把牠抱起來,帶回刺青店給老闆 會自動回到
+       刺青店跟老闆對話 然後會得到獎勵」)——跟 'pet' 那段同一套起手式
+       (playOnce 動畫),但抱起來之後不是留在原地放一句 toast,是直接接
+       `fade()`+`warpIntoPlace()` 把玩家送回刺青店(跟 `sleep()`/
+       `__dbg.warp()` 同一套「淡出→切場景→淡入」轉場,不是真的用走的
+       ——這是劇情事件,不是玩家自己選擇要走去哪),淡入後直接呼叫
+       `talkToTattooMaster()`——這時 `TATTOO_DOG.found` 已經是 true,
+       那個函式最上面「回報找到狗」的分支會自動接手播結算對話+發獎勵,
+       不用玩家自己再走過去、再按一次空白鍵找老闆。`busy` 全程鎖著(先手動
+       設 true,交給 `fade()` 自己的計時器在轉場結束時解鎖),擋掉轉場
+       途中的移動/其他互動。 */
     if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
     busy = true;
     hero.playOnce('pet', () => {
-      busy = false;
       chg('stamina', -3);
       TATTOO_DOG.found = true;
-      toast('牠縮在角落，看到你抬起頭，尾巴搖了兩下——你把牠抱起來，帶回刺青店給老闆。', 3600);
+      returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
+      const door = city.doors.find(d => d.id === 'tattoo');
+      fade('刺青店', () => {
+        warpIntoPlace(door);
+        talkToTattooMaster();
+      });
     });
   } else if(prop.type === 'play'){
     if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
