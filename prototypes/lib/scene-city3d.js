@@ -572,14 +572,16 @@ export function buildCity(THREE, scene){
       policeCarRef.group = g; policeCarRef.baseX = x; policeCarRef.baseY = y0; policeCarRef.baseZ = z;
     }).catch(() => {});
   }
+  // 2026-08-28,kc 開滑桿把交通錐拉到 2.18 倍說「定案」——原本 targetSize .7,烤進去變 1.53,不留在滑桿上
+  const CONE_SIZE = .7 * 2.18;
   function realTrafficCone(x, z){
-    const fallback = new THREE.Mesh(new THREE.CylinderGeometry(0,.28,.55,10), std({ color:0xe8622a, roughness:.6 }));
-    const holder = add(fallback, x, .28, z, true, false);
-    const entry = { group:holder, baseX:x, baseY:.28, baseZ:z };
+    const fallback = new THREE.Mesh(new THREE.CylinderGeometry(0,.28*2.18,.55*2.18,10), std({ color:0xe8622a, roughness:.6 }));
+    const holder = add(fallback, x, .28*2.18, z, true, false);
+    const entry = { group:holder, baseX:x, baseY:.28*2.18, baseZ:z };
     constructionRef.cones.push(entry);
     loadModel('traffic-cone.glb').then(gltf => {
       scene.remove(holder);
-      const g = propModel(THREE, gltf, .7, 'y');
+      const g = propModel(THREE, gltf, CONE_SIZE, 'y');
       add(g, x, 0, z, true, false);
       entry.group = g; entry.baseY = 0;
     }).catch(() => {});
@@ -1739,8 +1741,15 @@ export function buildCity(THREE, scene){
       add(box(3.6,2.4,.12, std({color:0xf2e8d8,roughness:.6})), sx, 2.4, siteZ0+.1, false, true);
     });
     landmarks.push({ x:cx, y:3.6, z:siteZ0, text:'施工中\n請小心安全' });
-    // 2026-08-28,kc:「三角錐幫我分開一點」——原本 9 個錐間距 1.25,擠成一排看不清楚單顆,拉開到 1.75
-    for(let i=0;i<9;i++) realTrafficCone(gateX0-2 + i*1.75, siteZ0-1.4);
+    /* 交通錐(2026-08-28,kc 開滑桿把縮放拉到 2.18 後說「定案」——把這個倍率
+       直接烤進 propModel targetSize,不留在滑桿上,滑桿之後打開預設回到 1
+       代表「在這個新基準上再調」,不是每次都要重新拉到 2.18。kc 同一輪
+       又追加「不要這麼密集,分散一點,有一些也放在圍牆內」——原本 9 個錐
+       等距排一長條,放大後擠在一起變成一面牆;改成大門口只留 4 個(間距
+       拉開到蓋不住彼此),其餘散在圍牆內個別道具旁邊(見下面 dirtPile/
+       skelW 那段之後的「圍牆內交通錐」),不是全部堆在入口。 */
+    [gateX0+.8, gateX0+3.2, gateX1-3.2, gateX1-.8].forEach((cxn, i) =>
+      realTrafficCone(cxn, siteZ0-1.4 + (i%2===0? -.3 : .3)));
 
     /* 大樓骨架(2026-08-28 新增,kc:「工地會有大樓骨架啊因為是大樓施工」)
        ——裸柱+樓板,不貼皮、不裝窗,故意讀出「還在蓋,沒完工」,跟旁邊
@@ -1799,6 +1808,11 @@ export function buildCity(THREE, scene){
       p.rotation.z = Math.PI/2;
       add(p, pipeCx+dx, .22+dy, pipeCz, false, true);
     });
+
+    /* 圍牆內交通錐(2026-08-28,kc:「有一些也放在圍牆內」)——散在土堆/
+       貨櫃屋/管料堆旁邊當警戒標示,不是全部堆在大門口,位置跟著上面
+       dirtPile/貨櫃屋/管料堆座標錯開,不疊在道具正中心。 */
+    [[15.5,103.6],[33.5,104.2],[7.5,108.4],[32.5,109.2],[20,110.5]].forEach(([px,pz]) => realTrafficCone(px, pz));
   })();
 
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
