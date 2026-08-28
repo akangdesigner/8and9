@@ -25,8 +25,10 @@
   .pod .track { height:4px; margin-top:4px; background:rgba(255,255,255,.1); border-radius:2px; overflow:hidden; }
   .pod .track i { display:block; height:100%; width:0; transition:width .45s cubic-bezier(.3,.9,.3,1); }
   .pod.full i { background:linear-gradient(90deg,#8a9a4a,#c9bb44); }
-  .pod.full.low { border-color:rgba(224,72,58,.8); animation:lowpulse 1.15s infinite; }
-  .pod.full.low i { background:linear-gradient(90deg,#e0552f,#e0483a); }
+  /* 過低警示(2026-08-28):原本只有飽足有,改成通用 .pod.low,五條指標
+     共用同一組紅框閃爍樣式,見 syncHUD()/syncPanelStats() 那則同名筆記。 */
+  .pod.low { border-color:rgba(224,72,58,.8); animation:lowpulse 1.15s infinite; }
+  .pod.low i { background:linear-gradient(90deg,#e0552f,#e0483a); }
   @keyframes lowpulse { 50% { border-color:rgba(224,72,58,.2); } }
   .pod.calm i { background:linear-gradient(90deg,#3f8f86,#6fc3b4); }
   .pod.cool i { background:linear-gradient(90deg,#8a4fa8,#d05fa0); }
@@ -390,6 +392,17 @@
                  opacity:0; transition:opacity .5s .1s; }
   #fade.on .place { opacity:1; }
 
+  /* 失敗結局(2026-08-28)——比照 #fade 全黑蓋滿,但不會自動淡出,要按
+     「重新開始」才會離開,見 GAME_OVER_TEXT 那則筆記。 */
+  #gameOver { position:fixed; inset:0; background:#05060a; z-index:20; display:none;
+              align-items:center; justify-content:center; flex-direction:column;
+              padding:0 12%; text-align:center; }
+  #gameOver.on { display:flex; }
+  #gameOver .goCap { font-size:13px; letter-spacing:.4em; text-indent:.4em;
+                      color:#a2564c; margin-bottom:18px; }
+  #gameOver .goText { font-size:16px; line-height:2; color:#dfe4ea; max-width:640px; margin-bottom:28px; }
+  #gameOver .tool { padding:8px 20px; }
+
   #bar { position:fixed; left:50%; bottom:12px; transform:translateX(-50%); z-index:6;
          display:flex; gap:7px; }
   button.tool { background:rgba(20,24,32,.9); color:#c8cfda; border:1px solid #313846;
@@ -534,6 +547,11 @@
   </div>
 </div>
 <div id="fade"><div class="place" id="fPlace"></div></div>
+<div id="gameOver">
+  <div class="goCap">遊戲結束</div>
+  <div class="goText" id="goText"></div>
+  <button class="tool" onclick="location.reload()">重新開始</button>
+</div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
 <div id="bar"><button class="tool" onclick="location.reload()">重來</button></div>
@@ -588,6 +606,27 @@ const ST = { money:2000, full:42, calm:55, cool:8, mood:60, stamina:100, star:-3
    查這張表而不是寫死的 100。money/star 不在這張表裡(money 本來就沒有
    上限,star 是雙向 -100~100,邏輯不一樣,維持原本寫死那行不動)。 */
 const ST_MAX = { full:100, calm:100, cool:100, mood:100, stamina:100 };
+/* 失敗結局(2026-08-28,kc:「各項數值除了風評低於10會顯示提示過低,如果0
+   會遊戲直接失敗」)——五條 0~100 的指標(星星風評不算,範圍/性質不一樣,
+   金錢也不算,不是這種「歸零就完了」的量表)歸零就結束遊戲,不是扣到底
+   卡住不能動而已。每條各自一句失敗敘事,語氣照這個專案的基準線——
+   笑點/殘酷要朝「社會怎麼看待這群人」,不是「你這個角色很廢」,細節見
+   docs/DESIGN_NOTES.md「失敗結局」節。這五句是我這輪自己寫的草稿,kc
+   覺得語氣不對可以直接改這個表,不用改邏輯。 */
+const GAME_OVER_TEXT = {
+  full:    '你已經好幾天沒有好好吃一頓飯了。那天早上，你怎麼樣都爬不起來——送到醫院的時候，醫生只問了一句：「這孩子平常都吃些什麼？」',
+  stamina: '你已經硬撐太久了。走在路上，眼前忽然一黑，倒在人行道上——路過的人只是繞過去，像繞過一個垃圾袋。',
+  calm:    '你打回家，沒人接；你站在教室門口，沒人抬頭。你站在原地很久，才發現這座城市裡，沒有一個位置是留給你的。',
+  cool:    '你太醜了，走到哪裡都被人在背後笑。沒有人願意再跟你站在一起——連你自己，都開始相信他們說的那些話。',
+  mood:    '有一天，你突然什麼都不想做了。不想上學，不想回話，不想再解釋什麼。你把自己關在房間裡，誰敲門都沒有回應。'
+};
+let gameOver = false;
+function triggerGameOver(k){
+  if(gameOver) return;
+  gameOver = true;
+  document.getElementById('goText').textContent = GAME_OVER_TEXT[k] || '你撐不下去了。';
+  document.getElementById('gameOver').classList.add('on');
+}
 let minute = 20*60 + 14, day = 3;
 const DAYS = ['日','一','二','三','四','五','六'];
 /* 日期敘事化(2026-08-21,kc:「第一天是開學第一天是9/1」)——`day` 這個
@@ -752,7 +791,10 @@ function syncPanelStats(){
   set('pCoolP', ST.cool, ST.cool);
   set('pMoodP', ST.mood, ST.mood);
   set('pStaminaP', ST.stamina, ST.stamina);
-  document.getElementById('pFullP').classList.toggle('low', ST.full <= 25);
+  /* 過低警示(2026-08-28,見 syncHUD() 那則同名筆記)——五條都套同一個
+     門檻(<=10),不是只有飽足有。 */
+  ['Full','Calm','Cool','Mood','Stamina'].forEach(n =>
+    document.getElementById('p'+n+'P').classList.toggle('low', ST[n.toLowerCase()] <= 10));
   document.getElementById('pMoneyP').textContent = '$' + ST.money;
   set('pStarP', (ST.star > 0 ? '+' : '') + ST.star, null);
   const starI = document.querySelector('#pStarP .track i');
@@ -904,7 +946,12 @@ function syncHUD(){
   set('pCalm', ST.calm, ST.calm/ST_MAX.calm*100);
   set('pCool', ST.cool, ST.cool/ST_MAX.cool*100);
   set('pMood', ST.mood, ST.mood/ST_MAX.mood*100);
-  document.getElementById('pFull').classList.toggle('low', ST.full <= 25);
+  /* 過低警示(2026-08-28,kc:「各項數值除了風評低於10會顯示提示過低」)——
+     原本只有飽足有這個紅框閃爍(門檻 25),這輪統一成五條都有、門檻改
+     10,跟 chg() 裡「歸零直接遊戲失敗」用同一個門檻家族(10 是警示,
+     0 是死線),見 GAME_OVER_TEXT 那則筆記。 */
+  ['full','calm','cool','mood','stamina'].forEach(k =>
+    document.getElementById('p'+k[0].toUpperCase()+k.slice(1)).classList.toggle('low', ST[k] <= 10));
   set('pStar', (ST.star > 0 ? '+' : '') + ST.star, null);
   const starI = document.querySelector('#pStar .track i');
   const starHalf = Math.abs(ST.star) / 2;                // -100~100 對應 track 半邊 0~50%
@@ -927,12 +974,23 @@ const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0',
 const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', mood:'情緒', stamina:'體力', star:'風評' };
 function chg(k, d){
   if(!d) return;
+  if(gameOver) return;   // 遊戲結束後所有指標凍結,不用逐一擋每個呼叫端
+  const before = ST[k];
   ST[k] += d;
   /* 風評(star)2026-08-14 從 0~5(通緝星星)改成雙向 -100~+100,見
      docs/DESIGN_NOTES.md「通緝改名風評」——中間 0,左邊壞事、右邊好事,
      不再只往一個方向長。其餘指標維持原本 0~100。 */
   if(k === 'star') ST[k] = Math.max(-100, Math.min(100, ST[k]));
   else if(k !== 'money') ST[k] = Math.max(0, Math.min(ST_MAX[k] ?? 100, ST[k]));
+  /* 過低警示 + 歸零失敗(2026-08-28,kc:「各項數值除了風評低於10會顯示
+     提示過低,如果0會遊戲直接失敗」)——星星/金錢排除在外,理由見
+     GAME_OVER_TEXT 那則筆記。警示只在「剛跌破 10」那一刻跳一次(用
+     before 判斷邊界,不是每次低於 10 的 chg() 都跳,不然會洗版),歸零
+     則不管跌破幾次都會觸發,但 triggerGameOver() 自己擋了重複呼叫。 */
+  if(k !== 'star' && k !== 'money'){
+    if(ST[k] <= 0) triggerGameOver(k);
+    else if(before > 10 && ST[k] <= 10) toast(`${NAMES[k]}太低了，再這樣下去會撐不住。`, 3000);
+  }
   /* 扣體力同步扣飽足感(2026-08-28,kc:「扣體力的事情會同步扣飽足感」,
      理由是遊戲目前沒誘因逼你回家/找東西吃)。只在真的「扣」(d<0)才連動,
      睡覺回滿體力(sleep() 那筆 d>0)不算,不然睡一覺會把飽足感也順便補滿,
@@ -5136,6 +5194,7 @@ function maybeTriggerStoryNode(){
    =================================================================== */
 const keys = {};
 addEventListener('keydown', e => {
+  if(gameOver) return;   // 失敗結局蓋上之後不接受任何操作,見 triggerGameOver()
   const k = e.key.toLowerCase();
   keys[k] = true;
   startBuskerAudio();          // 第一次按鍵才建立 AudioContext,見上面那段註解
@@ -6751,6 +6810,7 @@ function fit(){
 const fpsEl = document.getElementById('fps');
 let last = performance.now(), acc = 0, frames = 0;
 renderer.setAnimationLoop(now => {
+  if(gameOver) return;   // 失敗結局蓋上之後整個模擬凍結,見 triggerGameOver()
   const dt = Math.min(50, now-last); last = now;
   fit(); tickDialog(dt);
   if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); composer.render(); }
