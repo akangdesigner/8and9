@@ -1182,7 +1182,14 @@ const PORTRAIT_IMGS = {
   /* 刺青店老闆(2026-08-28)——kc 丟的真人照片,跟 tattooMasterIndoor 那具
      3D 骨架配色是同一個人設定(見那則筆記),之前對話框一直退回
      SF.person() 像素小人 fallback,這輪補真的照片。 */
-  tattooMaster: loadPortraitImg('../assets/bg/tattooMaster-portrait.png?v=1')
+  tattooMaster: loadPortraitImg('../assets/bg/tattooMaster-portrait.png?v=1'),
+  /* 工地老闆(2026-08-28)——kc 丟的照片背景其實是張很淺的棋盤格透明示意圖
+     (不是真的 alpha,PIL 讀出來是 RGB 不是 RGBA),直接貼上去對話框會看到
+     一整片淺灰棋盤格。用 white-to-alpha.py(閾值 225,棋盤格兩種灰階都夠
+     亮,擋得掉,又不會咬到安全帽的黃)去背,不是這裡才第一次踩到「AI
+     生圖工具自己的透明示意畫面被存成真的像素」這個坑,以後遇到同款
+     棋盤格背景圖都可以先試同一支腳本。 */
+  foreman: loadPortraitImg('../assets/bg/foreman-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
@@ -3539,13 +3546,15 @@ function tweakForemanPanel(){
    區分)。frac 是位置佔身高比例、scale 是整體縮放,呼叫 NPC 自己的
    setHelmet()(見 lib/scene-city3d.js buildNPC() 那則筆記),不用重建
    場景或角色。 */
-const FOREMAN_HELMET_TWEAK = { frac:.88, scale:1 };
+const FOREMAN_HELMET_TWEAK = { frac:.925, scale:.9, dx:.025, dz:-.07 };   // 2026-08-28 kc 拉滑桿定案的數字,見 buildNPC() setHelmet 那則筆記
 function tweakForemanHelmetPanel(){
   const old = document.getElementById('foremanHelmetTweakPanel');
   if(old){ old.remove(); return; }
   const rows = [
     ['fh_frac','安全帽高度(佔身高比例)', .6, 1.1, .005, 'frac'],
-    ['fh_scale','安全帽大小倍率', .5, 2, .02, 'scale']
+    ['fh_scale','安全帽大小倍率', .5, 2, .02, 'scale'],
+    ['fh_dx','安全帽左右偏移', -.3, .3, .005, 'dx'],
+    ['fh_dz','安全帽前後偏移', -.3, .3, .005, 'dz']
   ];
   const panel = document.createElement('div');
   panel.id = 'foremanHelmetTweakPanel';
@@ -3558,7 +3567,9 @@ function tweakForemanHelmetPanel(){
     ).join('') +
     '<div style="margin-top:4px;opacity:.7">要看得到效果,角色要走到工地老闆附近<br>關掉:再打一次 __dbg.tweakForemanHelmet()<br>拉到滿意後跟我說最終數字就好</div>';
   document.body.appendChild(panel);
-  function apply(){ constructionForemanNPC.setHelmet(FOREMAN_HELMET_TWEAK.frac, FOREMAN_HELMET_TWEAK.scale); }
+  function apply(){
+    constructionForemanNPC.setHelmet(FOREMAN_HELMET_TWEAK.frac, FOREMAN_HELMET_TWEAK.scale, FOREMAN_HELMET_TWEAK.dx, FOREMAN_HELMET_TWEAK.dz);
+  }
   rows.forEach(([id,,,,,key]) => {
     document.getElementById(id).addEventListener('input', e => {
       FOREMAN_HELMET_TWEAK[key] = +e.target.value;
@@ -5833,17 +5844,6 @@ function updateCity(dt){
     if(Math.hypot(wp.x-door[0], wp.z-door[1]) < 1.2) resolveWatchJob(false);
   }
 
-  /* 走失狗任務(2026-08-28)——見 talkToTattooMaster() 上面那則長筆記。
-     半徑跟摸貓狗那組互動同一個量級(3.2,一般互動範圍),不是 WATCHJOB
-     那種「遠遠看到人影」的 16——這是走到牠面前才算找到。 */
-  if(TATTOO_DOG.active && !TATTOO_DOG.found && city.construction.dog){
-    const dp = city.construction.dog.position;
-    if(Math.hypot(pos.x-dp.x, pos.z-dp.z) < 3.2){
-      TATTOO_DOG.found = true;
-      toast('骨架柱子旁邊——牠縮在角落，看到你抬起頭，尾巴搖了兩下。快回刺青店跟老闆說。', 3600);
-    }
-  }
-
   /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
      dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
      用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
@@ -5960,6 +5960,13 @@ function updateCity(dt){
       nearProp = { type:'kai', ref:KAI };
     if(!nearProp && Math.hypot(pos.x-FOREMAN.x, pos.z-FOREMAN.z) < 3.2)
       nearProp = { type:'foreman', ref:FOREMAN };
+    /* 走失狗(2026-08-28,kc:「跟狗講話可以把狗帶回去給刺青店老闆」)——
+       上一輪是走近自動判定「找到」,這輪改成跟摸貓狗/垃圾同一套「按空白鍵
+       才觸發」的互動,不是自動的。只有任務進行中(active)、還沒找到過
+       (!found)才會摸到這個 nearProp,跟摸貓狗同一個互動半徑(3.2)。 */
+    if(!nearProp && TATTOO_DOG.active && !TATTOO_DOG.found && city.construction.dog &&
+       Math.hypot(pos.x-city.construction.dog.position.x, pos.z-city.construction.dog.position.z) < 3.2)
+      nearProp = { type:'tattoodog', ref: city.construction.dog };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
        讀 npc.group.position。純背景路人,不記名字、不分支對話,一句隨機
@@ -6035,6 +6042,7 @@ function updateCity(dt){
                       : nearProp.type === 'kai' ? '按 <b>空白鍵</b> 找阿凱'
                       : nearProp.type === 'pedestrian' ? '按 <b>空白鍵</b> 打聲招呼'
                       : nearProp.type === 'foreman' ? '按 <b>空白鍵</b> 找老闆'
+                      : nearProp.type === 'tattoodog' ? '按 <b>空白鍵</b> 靠近牠'
                       : '按 <b>空白鍵</b> 撿起垃圾';
     hintEl.classList.add('on');
   } else if(ridingMoto && !dlg.on){
@@ -7232,21 +7240,31 @@ function talkToKai(){
    見 agDrawForeman()/resolveForemanLockIn() 那兩則筆記,這套已經不用
    遊藝場推幣機那套 agBar/agBarPin DOM 了(2026-08-28 改成 canvas 直接畫)。 */
 /* 走失狗口頭線索(2026-08-28,kc:「接任務後跟工地老闆對話會有這個任務
-   提示 他會說好像有在工地內看到」)——見上面 TATTOO_DOG 那則長筆記,任務
-   面板本身不寫「工地」,這句話是玩家真正知道要去工地找的唯一管道。只講
-   一次(`foremanHinted`),講完照常接回下面扛磚工那條線,不會每次對話
+   提示 他會說好像有在工地內看到」,同一天再一輪 kc 糾正:「我說過了 對話
+   不是直接出現 是選項會多一個」)——第一版用 say() 在正常問候之前自動
+   插播這句線索,蓋掉原本的扛磚工選單,跟 kc 之前糾正過 talkToTattooMaster()
+   的原則(任務對話不能直接觸發,要是選單裡多一個選項)是同一條規矩,這裡
+   沒有照做,補上。改成跟 tattooDogMenuItem() 一樣的做法:`foremanDogItem()`
+   回傳一個選單項目(或 null),`active && !found && !foremanHinted` 才會
+   出現,問完(`foremanHinted=true`)之後這個選項就不再出現,不會每次對話
    都重複插這句、也不會擋掉正常的扛磚工作。 */
-function talkToForeman(){
-  if(TATTOO_DOG.active && !TATTOO_DOG.found && !TATTOO_DOG.foremanHinted){
+function foremanDogItem(){
+  if(!TATTOO_DOG.active || TATTOO_DOG.found || TATTOO_DOG.foremanHinted) return null;
+  return { label:'問問工地這邊有沒有看到狗', run(){
     TATTOO_DOG.foremanHinted = true;
-    say('foreman', '「你也在找那隻狗喔？我這幾天好像有在工地裡看到一隻，躲在鋼筋柱子那邊。」', () => talkToForemanShift());
-    return;
-  }
-  talkToForemanShift();
+    say('foreman', '「你也在找那隻狗喔？我這幾天好像有在工地裡看到一隻，躲在鋼筋柱子那邊。」');
+  } };
 }
-function talkToForemanShift(){
+function talkToForeman(){
+  const dogItem = foremanDogItem();
   if(FOREMAN.workedDay === day){
-    say('foreman', '「今天扛得差不多了，明天再來。」');
+    if(dogItem){
+      say('foreman', '「今天扛得差不多了，明天再來。」', () => {
+        openMenu('工地・老闆', [ dogItem, { label:'先不要', cls:'back', run(){} } ]);
+      });
+    } else {
+      say('foreman', '「今天扛得差不多了，明天再來。」');
+    }
     return;
   }
   say('foreman', '「工地缺人，要不要來扛磚？扛一趟給一趟的錢，看你手腳快不快。」', () => {
@@ -7255,6 +7273,7 @@ function talkToForemanShift(){
           if(ST.stamina < 20){ toast('你現在扛不動，先去休息。', 2200); return; }
           startForemanShift();
         } },
+      ...(dogItem ? [dogItem] : []),
       { label:'先不要', cls:'back', run(){} }
     ]);
   });
@@ -7704,6 +7723,21 @@ function interactProp(prop){
         AYI.catQuest.taskDone = true;
         setTimeout(() => toast('牠讓你摸了一陣子。可以回去跟阿姨說一聲了。', 2600), 2600);
       }
+    });
+  } else if(prop.type === 'tattoodog'){
+    /* 走失狗(2026-08-28,kc:「跟狗講話可以把狗帶回去給刺青店老闆」)——
+       跟 'pet' 那段同一套(playOnce 動畫+toast),但這裡不給 mood 獎勵
+       (那份獎勵留到 talkToTattooMaster() 的回報結算才給,這裡只是「找到
+       了、抱起來」的敘事節點,不是又一次隨手摸狗)。找到後
+       `TATTOO_DOG.found=true`,nearProp 判定條件本身會擋掉之後再摸到
+       同一隻(active && !found),不用另外清 city.construction.dog。 */
+    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    busy = true;
+    hero.playOnce('pet', () => {
+      busy = false;
+      chg('stamina', -3);
+      TATTOO_DOG.found = true;
+      toast('牠縮在角落，看到你抬起頭，尾巴搖了兩下——你把牠抱起來，帶回刺青店給老闆。', 3600);
     });
   } else if(prop.type === 'play'){
     if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
