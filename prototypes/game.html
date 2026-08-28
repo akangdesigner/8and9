@@ -2647,10 +2647,14 @@ const TATTOO_PHOTO = {
    這輪先收窄到只保留椅座+液壓踏板那段(比較貼近地面、整段長度都低)的
    深度,pyFront 不動(已經卡到 WALK_S 邊界,見上面那則筆記)。沒有重新
    肉眼量圖(這輪瀏覽器分頁一直卡在 document.hidden,截圖拿不到真的畫面,
-   見 DESIGN_NOTES 那則筆記),是先收窄一半深度的估值——kc 玩起來如果還是
-   卡或收太多,說一聲再調。 */
+   見 DESIGN_NOTES 那則筆記),是先收窄一半深度的估值。
+   **同一天再一輪(kc 截圖:「這邊以下不能穿出 以上都要可以穿出」)**——
+   pyBack:300 這個估值還是收得不夠,kc 要的是「椅子那個位置本身」才擋,
+   後面到牆整段都要能走,不是「擋一半、鬆一半」。300→320,只留貼著
+   `pyFront`(329)那條窄帶(約踏板/базе真的觸地的寬度),再往後
+   (往牆的方向)整段開放。 */
 const TATTOO_COLLIDERS_PHOTO = [
-  { x0:327, x1:493, pyBack:300, pyFront:329 },   // 刺青椅
+  { x0:327, x1:493, pyBack:320, pyFront:329 },   // 刺青椅
   { x0:257, x1:314, pyBack:318, pyFront:338 }    // 滾輪凳
 ];
 let TATTOO = TATTOO_FALLBACK, TATTOO_COLLIDERS = TATTOO_COLLIDERS_FALLBACK;
