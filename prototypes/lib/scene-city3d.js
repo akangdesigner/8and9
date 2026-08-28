@@ -1673,7 +1673,12 @@ export function buildCity(THREE, scene){
        還有超過 30 個單位,遠遠夠用。 */
     const cx=20, siteW=36, siteD=16;
     const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;
-    const siteZ0 = frontN, siteZ1 = frontN+siteD, siteCz = (siteZ0+siteZ1)/2;
+    /* 2026-08-28,kc:「施工空地後移一點對齊車站」——原本貼在跟警察局同一條
+       frontN 建築線上,比火車站整組退後(setback=3,見上面 trainStationV2
+       那段「不要壓到馬路,對齊同一條路的房子」)還要往路那側凸出一截,
+       兩棟站在一起不齊。套用跟火車站同一個 setback 數字,不是隨便挑的。 */
+    const siteSetback = 3;
+    const siteZ0 = frontN + siteSetback, siteZ1 = siteZ0+siteD, siteCz = (siteZ0+siteZ1)/2;
     const fenceH = 6;   // 2026-08-28 3.4→6,kc:「圍牆更高」——工地要蓋大樓,圍籬本來就該高過人視線很多,不是矮欄杆
 
     /* 圍籬:灰色鐵皮浪板+橘色收邊柱(照參考圖的材質表換掉)。矩形周界
@@ -1712,14 +1717,14 @@ export function buildCity(THREE, scene){
     add(box(gateW+.6, .4, .3, postM), cx, fenceH+.35, siteZ0, false, true);
     solid(cx, siteCz, siteW/2, siteD/2);
 
-    /* 警示牌掛在圍籬正面(不越過 frontN),兩端各一面,不再只有中間一小塊;
+    /* 警示牌掛在圍籬正面(不越過 siteZ0),兩端各一面,不再只有中間一小塊;
        交通錐改擺在缺口出入口正前方(原本沿整段西側排,跟「這是門口」的
        閱讀對不上)。 */
     [cx-siteW/2+4, cx+siteW/2-4].forEach(sx => {
       add(box(3.6,2.4,.12, std({color:0xf2e8d8,roughness:.6})), sx, 2.4, siteZ0+.1, false, true);
     });
     landmarks.push({ x:cx, y:3.6, z:siteZ0, text:'施工中\n請小心安全' });
-    for(let i=0;i<9;i++) realTrafficCone(gateX0-1 + i*((gateW+2)/8), frontN-1.4);
+    for(let i=0;i<9;i++) realTrafficCone(gateX0-1 + i*((gateW+2)/8), siteZ0-1.4);
 
     /* 大樓骨架(2026-08-28 新增,kc:「工地會有大樓骨架啊因為是大樓施工」)
        ——裸柱+樓板,不貼皮、不裝窗,故意讀出「還在蓋,沒完工」,跟旁邊
