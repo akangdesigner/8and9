@@ -1638,40 +1638,75 @@ export function buildCity(THREE, scene){
   })();
 
   (function constructionSite(){
-    const cx=20, siteW=14, siteD=10;
+    /* 2026-08-28,kc 截圖回報「重點是他的大小根本不對,人家車站這麼大欸」
+       ——原本 14×10 的小圍籬跟旁邊 50 高辦公大樓/大放大 3 倍的火車站站在
+       一起像自家後院工地。維持 kc 已經拍板的內容方向(灰模怪手/土堆/貨櫃屋,
+       不是骨架大樓+塔吊,見下面圍籬那段舊註解),純粹放大整塊基地跟裡面
+       每樣東西的量體/數量,讓它撐得起「跟這排大樓同一個街廓」的份量。
+       cx 兩側量過的空間:東邊到小美哥固定站位(x=48)還有 12 個單位淨空
+       (siteW 36→右緣 x=38),西邊到火車站站體最右側量體(pylonX≈-13.8)
+       還有超過 30 個單位,遠遠夠用。 */
+    const cx=20, siteW=36, siteD=16;
     const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;
     const siteZ0 = frontN, siteZ1 = frontN+siteD, siteCz = (siteZ0+siteZ1)/2;
+    const fenceH = 3.4;   // 原本 2.2——真的到胸口以上高度,不是矮欄杆,但仍遠低於大樓量級(照 kc 反饋純比例微調,不是重新設計成建物高度)
 
     /* 圍籬:灰色鐵皮浪板+橘色收邊柱(照參考圖的材質表換掉,不是骨架大樓
        +塔吊——kc:「不是預留的問題是太醜」那輪之後又追加「量體/比例本身
        沒抓對」,場地裡該有的是整地中的怪手/土堆/貨櫃屋,不是蓋到一半的
-       樓)。矩形周界等距立收邊柱,四邊各補一片浪板牆。 */
+       樓)。矩形周界等距立收邊柱,四邊各補一片浪板牆——基地放大後長邊
+       (siteW=36)柱子間距沿用原本密度,不再只有頭尾+中點三根。 */
     const fenceM = std({ color:0x9a9a96, roughness:.75, metalness:.15 });
     const postM = std({ color:0xe8862a, roughness:.6 });
-    [[cx-siteW/2,siteZ0],[cx+siteW/2,siteZ0],[cx-siteW/2,siteZ1],[cx+siteW/2,siteZ1],
-     [cx,siteZ0],[cx,siteZ1],[cx-siteW/2,siteCz],[cx+siteW/2,siteCz]].forEach(([px,pz]) => {
-      add(new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,2.5,6), postM), px, 1.25, pz);
-    });
-    add(box(siteW+.3,2.2,.15, fenceM), cx, 1.1, siteZ0, false, true);
-    add(box(siteW+.3,2.2,.15, fenceM), cx, 1.1, siteZ1, false, true);
-    add(box(.15,2.2,siteD, fenceM), cx-siteW/2, 1.1, siteCz, false, true);
-    add(box(.15,2.2,siteD, fenceM), cx+siteW/2, 1.1, siteCz, false, true);
+    const postsLong = 5, postsShort = 3;
+    for(let i=0;i<postsLong;i++){
+      const px = cx - siteW/2 + i*(siteW/(postsLong-1));
+      add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), px, (fenceH+.3)/2, siteZ0);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), px, (fenceH+.3)/2, siteZ1);
+    }
+    for(let i=0;i<postsShort;i++){
+      const pz = siteZ0 + i*(siteD/(postsShort-1));
+      add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), cx-siteW/2, (fenceH+.3)/2, pz);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,fenceH+.3,6), postM), cx+siteW/2, (fenceH+.3)/2, pz);
+    }
+    add(box(siteW+.3,fenceH,.15, fenceM), cx, fenceH/2, siteZ0, false, true);
+    add(box(siteW+.3,fenceH,.15, fenceM), cx, fenceH/2, siteZ1, false, true);
+    add(box(.15,fenceH,siteD, fenceM), cx-siteW/2, fenceH/2, siteCz, false, true);
+    add(box(.15,fenceH,siteD, fenceM), cx+siteW/2, fenceH/2, siteCz, false, true);
     solid(cx, siteCz, siteW/2, siteD/2);
 
-    /* 警示牌掛在圍籬正面(不越過 frontN),交通錐擺出入口,沿用真 3D 模型。 */
-    add(box(2.6,1.8,.12, std({color:0xf2e8d8,roughness:.6})), cx, 1.9, siteZ0+.1, false, true);
-    landmarks.push({ x:cx, y:3, z:siteZ0, text:'施工中\n請小心安全' });
-    for(let i=0;i<5;i++) realTrafficCone(cx-siteW/2-1.5+i*.8, frontN-1.4);
+    /* 警示牌掛在圍籬正面(不越過 frontN),兩端各一面,不再只有中間一小塊;
+       交通錐擺出入口,拉長跨度沿用真 3D 模型。 */
+    [cx-siteW/2+4, cx+siteW/2-4].forEach(sx => {
+      add(box(3.6,2.4,.12, std({color:0xf2e8d8,roughness:.6})), sx, 2.4, siteZ0+.1, false, true);
+    });
+    landmarks.push({ x:cx, y:3.6, z:siteZ0, text:'施工中\n請小心安全' });
+    for(let i=0;i<9;i++) realTrafficCone(cx-siteW/2-1.5+i*.8, frontN-1.4);
 
-    /* 場地內部:怪手(真 3D 模型,見上面 realExcavator,跟警車/交通錐同一套
-       手法)+ 兩堆土丘(幾何,不規則堆疊)+ 綠色工地貨櫃屋(箱體,形狀
-       本來就是箱子不用拍照/建模)。2026-08-27 kc 糾正過一次做法(先誤用
-       照片卡,又改回真 3D)。 */
-    realExcavator(cx-1, siteCz, 0);
-    dirtPile(cx+3.5, siteCz-1.2, 1.1);
-    dirtPile(cx+3.5, siteCz+1.8, .9);
+    /* 場地內部:怪手兩台(真 3D 模型,見上面 realExcavator,跟警車/交通錐
+       同一套手法)+ 四堆土丘(幾何,不規則堆疊,尺寸也放大)+ 兩間貨櫃屋
+       (箱體,形狀本來就是箱子不用拍照/建模)+ 一落鋼筋/管料堆——基地
+       放大後光憑原本兩三件小道具會顯得空,補滿量體。2026-08-27 kc 糾正過
+       一次做法(先誤用照片卡,又改回真 3D)。 */
+    realExcavator(cx-9, siteCz-2, 0);
+    realExcavator(cx+6, siteCz+3, Math.PI*.6);
+    dirtPile(cx-2, siteCz-3.5, 1.8);
+    dirtPile(cx+13, siteCz-1, 1.5);
+    dirtPile(cx-13, siteCz+3, 1.6);
+    dirtPile(cx+2, siteCz+4.5, 1.3);
 
-    add(box(2.6,2,1.8, std({color:0x3d6b4a,roughness:.7})), cx+siteW/2-2, 1, siteZ1-1.6);
+    add(box(4,2.6,2.4, std({color:0x3d6b4a,roughness:.7})), cx+siteW/2-3, 1.3, siteZ1-2.2);
+    add(box(4,2.6,2.4, std({color:0x2e5a44,roughness:.7})), cx+siteW/2-8, 1.3, siteZ1-2.2);
+
+    /* 鋼筋/管料堆:一落等長圓柱橫躺堆疊,補基地內容,不是照片也不是玩偶,
+       跟怪手/土堆同一套幾何手法。 */
+    const pipeM = std({ color:0x8a6b3a, roughness:.6, metalness:.2 });
+    const pipeCx = cx-siteW/2+5, pipeCz = siteZ1-2.5;
+    [[0,0],[.42,0],[.84,0],[.21,.36],[.63,.36],[.42,.72]].forEach(([dx,dy]) => {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,3.2,8), pipeM);
+      p.rotation.z = Math.PI/2;
+      add(p, pipeCx+dx, .22+dy, pipeCz, false, true);
+    });
   })();
 
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
