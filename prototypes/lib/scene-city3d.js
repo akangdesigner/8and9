@@ -618,6 +618,7 @@ export function buildCity(THREE, scene){
       scene.remove(holder);
       add(propModel(THREE, gltf, 1.4, 'x', ry || 0), x, 0, z, false, true);
     }).catch(() => {});
+    solid(x, z, .7, .5);   // 2026-08-28,kc 要求工地內部可以走進去逛之後補的,不然沙包會被穿模走過去
   }
   /* 2026-08-28,kc 看了工地隔著大門缺口的樣子回報「為何有奇怪的球」——
      舊版拿圓球體疊 3 顆逼近土堆,舊註解雖然寫著要做成「扁平不規則堆疊,
@@ -641,6 +642,7 @@ export function buildCity(THREE, scene){
       scene.remove(holder);
       add(propModel(THREE, gltf, r*2.2, 'x', Math.random()*Math.PI*2), x, 0, z, false, true);
     }).catch(() => {});
+    solid(x, z, r*.7, r*.7);   // 2026-08-28,kc 要求工地內部可以走進去逛之後補的,不然土堆會被穿模走過去
   }
 
   /* ===== 街道小物:立牌卡片(2026-08-13)=====
@@ -1809,7 +1811,16 @@ export function buildCity(THREE, scene){
     add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx+siteW/2, fenceH/2, siteCz, false, true);
     // 門楣:缺口上方一根橫樑框住出入口,不然單看兩根柱子容易讀成「牆破了一個洞」而不是門
     add(box(gateW+.6, .4, .3, postM), cx, fenceH+.35, siteZ0, false, true);
-    solid(cx, siteCz, siteW/2, siteD/2);
+    /* 2026-08-28,kc:「工地內部要讓我可以走進去逛啊」——原本整塊基地
+       (含大門缺口)用一個大矩形 solid() 封死,人根本進不去,只能隔著
+       缺口看。改成照實際圍籬牆板的形狀分開註冊碰撞(西段/東段/背牆/
+       兩側牆,缺口本身不擋),玩家可以從缺口真的走進去。裡面的柱子/
+       土堆/貨櫃屋/管料堆/沙包各自在下面補碰撞,不然會穿模走過去。 */
+    solid(9, siteZ0, westSegW/2, .3);
+    solid(31, siteZ0, eastSegW/2, .3);
+    solid(cx, siteZ1, (siteW+.3)/2, .3);
+    solid(cx-siteW/2, siteCz, .3, siteD/2);
+    solid(cx+siteW/2, siteCz, .3, siteD/2);
 
     /* 圍籬內地板(2026-08-28,kc:「鋪滿圍牆內的地板」)——原本裡面是跟外面
        人行道同一塊地磚材質,只有零星幾件道具漂在上面,隔著大門缺口看進去
@@ -1900,11 +1911,11 @@ export function buildCity(THREE, scene){
       // 頂端露出的鋼筋,暗示骨架還沒封頂
       const r = new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,2.4,6), rebarM);
       add(r, px+.15, skelH+1.2, pz+.15, false, true);
+      solid(px, pz, .45, .45);   // 玩家可以走進來逛之後,柱子要擋人,不然穿模
     }));
     for(let f=1; f<=builtFloors; f++){
       add(box(skelW, .5, skelD, slabMats), cx, f*floorH, skelCz, false, true);
     }
-    // 骨架本身在整塊基地的 solid(cx, siteCz, siteW/2, siteD/2) 範圍內,不用重複註冊碰撞
 
     /* 2026-08-28,kc:「你要把道具放到牆壁外我才看得到」——圍籬拉到 6 之後
        站在街上完全看不到裡面的怪手,搬到大門缺口正前方的人行道上(跟警車
@@ -1926,11 +1937,14 @@ export function buildCity(THREE, scene){
 
     add(box(4,2.6,2.4, std({color:0x3d6b4a,roughness:.7})), cx-siteW/2+3, 1.3, siteZ0+2.2);
     add(box(4,2.6,2.4, std({color:0x2e5a44,roughness:.7})), cx-siteW/2+8, 1.3, siteZ0+2.2);
+    solid(cx-siteW/2+3, siteZ0+2.2, 2, 1.2);
+    solid(cx-siteW/2+8, siteZ0+2.2, 2, 1.2);
 
     /* 鋼筋/管料堆:一落等長圓柱橫躺堆疊,補基地內容,不是照片也不是玩偶,
        跟怪手/土堆同一套幾何手法。 */
     const pipeM = std({ color:0x8a6b3a, roughness:.6, metalness:.2 });
     const pipeCx = cx+siteW/2-8, pipeCz = siteZ0+2.5;
+    solid(pipeCx+.4, pipeCz, .9, .5);
     [[0,0],[.42,0],[.84,0],[.21,.36],[.63,.36],[.42,.72]].forEach(([dx,dy]) => {
       const p = new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,3.2,8), pipeM);
       p.rotation.z = Math.PI/2;
