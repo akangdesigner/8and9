@@ -1822,8 +1822,22 @@ export function buildCity(THREE, scene){
     add(box(siteW+.3,fenceH,.15, fenceMats(siteW+.3,'z')), cx, fenceH/2, siteZ1, false, true);
     add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx-siteW/2, fenceH/2, siteCz, false, true);
     add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx+siteW/2, fenceH/2, siteCz, false, true);
-    // 門楣:缺口上方一根橫樑框住出入口,不然單看兩根柱子容易讀成「牆破了一個洞」而不是門
-    add(box(gateW+.6, .4, .3, postM), cx, fenceH+.35, siteZ0, false, true);
+    /* 門楣:缺口上方一根橫樑框住出入口,不然單看兩根柱子容易讀成「牆破了
+       一個洞」而不是門。2026-08-28,kc 追問「板子沒換我給你的素材」——
+       這根橫樑之前跟收邊柱共用 postM(鏽蝕橘漆鐵件),但 kc 最早給的
+       「RC柱/樑貼圖」三合一參考圖(中間那塊,beam-lintel.png,清水模
+       混凝土樑+對拉孔)本來就是要給這根橫樑用的,不是鐵件。改成獨立
+       材質,不再跟收邊柱共用同一顆。 */
+    const lintelM = std({ color:0x9a9890, roughness:.85 });
+    new THREE.ImageLoader().load(TEX_DIR + 'beam-lintel.png', img => {
+      const t = new THREE.Texture(img);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      t.repeat.set(2, 1);
+      t.needsUpdate = true;
+      lintelM.map = t; lintelM.color.setHex(0xffffff); lintelM.needsUpdate = true;
+    }, undefined, () => {});
+    add(box(gateW+.6, .4, .3, lintelM), cx, fenceH+.35, siteZ0, false, true);
     /* 2026-08-28,kc:「工地內部要讓我可以走進去逛啊」——原本整塊基地
        (含大門缺口)用一個大矩形 solid() 封死,人根本進不去,只能隔著
        缺口看。改成照實際圍籬牆板的形狀分開註冊碰撞(西段/東段/背牆/
