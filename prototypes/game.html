@@ -563,6 +563,7 @@
 <script src="lib/scene-bedroom.js"></script>
 <script src="lib/scene-school.js"></script>
 <script src="lib/scene-corridor.js"></script>
+<script src="lib/scene-tattoo.js"></script>
 <script src="lib/scene-arcade.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
@@ -1160,7 +1161,13 @@ const WHO = {
   /* 收銀小遊戲的客人(2026-08-19)——沒有固定角色設定,顏色隨便挑一組跟
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
-  customer:{ name:'客人', opt:{ face:'F', skin:'#c2a17e', hair:'#2c2622', top:'#3a4a5c', topD:'#2b3542', pants:'#2b2b2b' } }
+  customer:{ name:'客人', opt:{ face:'F', skin:'#c2a17e', hair:'#2c2622', top:'#3a4a5c', topD:'#2b3542', pants:'#2b2b2b' } },
+  /* 刺青店師傅(2026-08-28)——顏色直接借 scene-tattoo.js 的 P.mSkin/mHair/
+     mTop/mTopD/mPants(那份場景資料本來就有替他準備一套配色,見
+     SceneTattoo.P),沒有真人照片,退回 SF.person() 像素小人,跟
+     worker/bo/motoboss 同一套先例。 */
+  tattooMaster: { name:'師傅', opt:{ face:'F', skin:SceneTattoo.P.mSkin, hair:SceneTattoo.P.mHair,
+    top:SceneTattoo.P.mTop, topD:SceneTattoo.P.mTopD, pants:SceneTattoo.P.mPants } }
 };
 /* 店員大頭貼:2026-08-14 第一版是直接裁 clerkFrontImg(店員站櫃台那張
    遠景)的臉部,結果放大到 100×100 才發現 3D 模型近距離撐不住——沒有
@@ -2537,6 +2544,26 @@ const CORRIDOR = {
   ]
 };
 
+/* 刺青店(2026-08-28,kc:「接著做刺青店」)——場景本來就畫好了
+   (`lib/scene-tattoo.js`,獨立預覽在 `tattoo-room.html`),這輪接進
+   game.html 的 PLACE 狀態鏈,照 school/corridor 那批「新增室內場景」
+   要補的清單走(bounds/collider 選擇/HERO_TARGET_PX/__dbg.bounds()),
+   細節見 docs/DESIGN_NOTES.md「刺青店接進 game.html」節。
+   SPOTS 直接沿用 `SceneTattoo.SPOTS`(門/等候區/圖牆/刺青椅/工作檯/
+   展示櫃),不用重打一次座標——這是當初那份筆記留言「接的時候不用重打
+   座標」的那一刻。跟學校/走廊不同,這裡沒有鎖深度(跟 store/school 同一套
+   自由二維走動,標準案例的預覽本來就是四方向都能走),也沒有另外補
+   碰撞框:刺青椅/滾輪椅的互動判定區(SPOTS 裡的 y0/y1)本來就延伸到
+   WALK_S(店裡最靠近鏡頭那條線),硬加碰撞框會把互動點本身擋死,
+   跟 bedroom/school 那種「碰撞框停在家具前緣」的做法反而衝突——這點
+   грей模瑕疵(站在椅子位置視覺上會蓋到椅子)先接受,跟停在路邊被穿過去
+   的機車同一種「早期灰模不用每個都校正」的容忍度。 */
+const TATTOO_COLLIDERS = [];
+const TATTOO = {
+  walkN: SceneTattoo.WALK_N, walkS: SceneTattoo.WALK_S,
+  spots: SceneTattoo.SPOTS
+};
+
 /* 遊藝場(2026-08-26,kc:「遊藝場先做,裡面可以玩一些小遊戲,可以加情緒」
    +「真的賭博,情緒一定＋ 金錢賭」)——只有灰模,還沒有照片版(跟 store/
    home/school 當初一樣,先卡位,圖之後再疊,見 scene-arcade.js 檔頭那則
@@ -3287,6 +3314,17 @@ function paintCorridorBackdrop(){
   SceneCorridor.renderBackground(gbg, { vignette:true });
   gbg.restore();
 }
+/* 刺青店(2026-08-28)——只有灰模,還沒有照片版,直接畫 SceneTattoo。
+   `chairFront:true` 把刺青椅/滾輪椅一起烤進靜態背景(跟 bedroom 的
+   床/書桌同一招),不像 tattoo-room.html 那個獨立預覽page 逐幀跟玩家
+   深度排序——這裡的玩家是疊在另一層畫布上的 3D 角色,做不到那套排序,
+   見上面 TATTOO 那則筆記。 */
+function paintTattooBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  gbg.save(); gbg.scale(SC,SC);
+  SceneTattoo.renderBackground(gbg, { vignette:true, neon:true, chairFront:true });
+  gbg.restore();
+}
 /* 遊藝場(2026-08-26 補照片版)——跟 paintSchoolBackdrop() 同一招,圖載入
    成功畫照片,否則退回灰模。 */
 function paintArcadeBackdrop(){
@@ -3323,7 +3361,8 @@ const HERO_TARGET_PX = {
   home: 296,
   bedroom: 320,   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
   arcade: 296,   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
-  corridor: 296   // 2026-08-28:灰模走廊,同上先借同一個量級
+  corridor: 296,   // 2026-08-28:灰模走廊,同上先借同一個量級
+  tattoo: 296   // 2026-08-28:刺青店灰模,同上先借同一個量級
 };
 const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad/spawnMom 那些除錯用的定格截圖工具用,跟超商比例校正
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
@@ -3415,7 +3454,7 @@ function inBlocked(x,y){
     : PLACE==='home' ? HOME_COLLIDERS
     : PLACE==='bedroom' ? BEDROOM_COLLIDERS
     : PLACE==='school' ? SCHOOL_COLLIDERS : PLACE==='arcade' ? ARCADE_COLLIDERS
-    : PLACE==='corridor' ? CORRIDOR_COLLIDERS : [];
+    : PLACE==='corridor' ? CORRIDOR_COLLIDERS : PLACE==='tattoo' ? TATTOO_COLLIDERS : [];
   return colliders.some(c =>
     x > c.x0-COLLIDE_PAD && x < c.x1+COLLIDE_PAD &&
     y > c.pyBack-COLLIDE_PAD && y < c.pyFront+COLLIDE_PAD);
@@ -3925,6 +3964,19 @@ function openIndoorSpot(id){
     else if(id === 'slot'){ openArcadeGame('slot', '吃角子老虎'); showSlotBets(); return; }
     else if(id === 'roulette'){ openArcadeGame('roulette', '俄羅斯輪盤'); showRouletteBets(); return; }
     else if(id === 'pusher'){ openArcadeGame('pusher', '推幣機'); showPusherBets(); return; }
+    return;
+  }
+  /* 刺青店(2026-08-28)——SPOTS 沿用 SceneTattoo.SPOTS,'chair' 是唯一
+     真的接邏輯的點(talkToTattooMaster()),其餘四個(等候區/圖牆/工作檯/
+     展示櫃)只是逛場景的氣氛 toast,跟教室書架(lookAtBookshelf() 之外
+     那種單純環境調味)同一個份量,不用每個角落都掛系統。 */
+  if(PLACE === 'tattoo'){
+    if(id === 'door'){ leaveIndoor(); return; }
+    else if(id === 'chair'){ talkToTattooMaster(); return; }
+    else if(id === 'wait'){ toast('塑膠椅上放著一本翻爛的雜誌，茶几上還有喝到一半的飲料。', 2600); return; }
+    else if(id === 'flash'){ toast('牆上貼滿了圖，有些邊角已經泛黃。', 2600); return; }
+    else if(id === 'bench'){ toast('檯面上一排墨水瓶，旁邊是消毒過的針具。', 2600); return; }
+    else if(id === 'case'){ toast('玻璃櫃裡是耳環跟鼻環，你沒有多餘的錢想那個。', 2600); return; }
     return;
   }
   if(id === 'door'){
@@ -4521,7 +4573,7 @@ function updateIndoor(dt){
 
   const bounds = PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
                : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE
-               : PLACE === 'corridor' ? CORRIDOR : BEDROOM;
+               : PLACE === 'corridor' ? CORRIDOR : PLACE === 'tattoo' ? TATTOO : BEDROOM;
 
   let dx=0, dy=0;
   if(keys['a']||keys['arrowleft'])  dx -= 1;
@@ -4833,16 +4885,18 @@ function sleep(){
   });
 }
 function enterIndoor(door){
-  if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade'){
-    toast(door.name + ' 的室內場景還沒做。（刺青店在 tattoo-room.html,還沒接進來）', 3600);
+  if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
+    toast(door.name + ' 的室內場景還沒做。', 3600);
     return;
   }
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
   walkIn = { x: door.x, z: door.z, done(){
-    fade(door.id === 'store' ? '超商' : door.id === 'school' ? '學校' : door.id === 'arcade' ? '遊藝場' : '家', () => {
+    fade(door.id === 'store' ? '超商' : door.id === 'school' ? '學校' : door.id === 'arcade' ? '遊藝場'
+        : door.id === 'tattoo' ? '刺青店' : '家', () => {
       MODE = 'indoor';
-      PLACE = door.id === 'store' ? 'store' : door.id === 'school' ? 'school' : door.id === 'arcade' ? 'arcade' : 'home';
+      PLACE = door.id === 'store' ? 'store' : door.id === 'school' ? 'school' : door.id === 'arcade' ? 'arcade'
+        : door.id === 'tattoo' ? 'tattoo' : 'home';
       document.getElementById('city').style.display = 'none';
       wlabelsEl.style.display = 'none';   // 進門後停止更新,不然殘留位置疊在室內畫面上
       document.getElementById('indoor').classList.add('on');
@@ -4876,6 +4930,13 @@ function enterIndoor(door){
         IN.px = ARCADE.spots.find(s=>s.id==='door').x + 30; IN.py = ARCADE.walkS; IN.face = 'F';
         document.getElementById('where').textContent = '遊藝場';
         paintArcadeBackdrop();
+      } else if(PLACE === 'tattoo'){
+        /* 刺青店(2026-08-28)——照 school/arcade 同一套「站在門口正中央,
+           面朝 'F' 轉身往店裡走」先例。門在畫面左側(SceneTattoo.SPOTS
+           id:'door',x:6~106),跟 store/school 同一側。 */
+        IN.px = TATTOO.spots.find(s=>s.id==='door').x + 30; IN.py = TATTOO.walkS; IN.face = 'F';
+        document.getElementById('where').textContent = '刺青店';
+        paintTattooBackdrop();
       } else {
         IN.px = 90; IN.py = HOME.walkS; IN.face = 'F';
         document.getElementById('where').textContent = '家';
@@ -6386,6 +6447,49 @@ function talkToJiaoguanCorridor(){
   }
   say('jiaoguan', D.idleTalk[Math.random()*D.idleTalk.length|0]);
 }
+/* 刺青店(2026-08-28,kc:「接著做刺青店」)——`YUAN.hasTattoo` 這面旗標
+ * 之前是 debug 開關(見 YUAN 定義那則筆記),沒有任何正常玩法路徑能把它
+ * 變 true。這裡是它第一次被真的接上:刺青完直接設 true,阿源的好朋友
+ * 門檻(talkToYuan())、小美哥的刺青扣分(talkToBrother() tattooBadBeats)、
+ * 教官的刺青對峙(talkToJiaoguan())三條既有但打不開的分支,不用跟著改
+ * 一個字就會自動生效——這是當初接學校線那輪就設計好的耦合,見
+ * docs/DESIGN_NOTES.md「學校線接進 game.html」節那句「hasTattoo 換成讀
+ * 真的完成條件之後,教官這邊不用跟著改」。
+ * 兩個價位/帥潮加成直接沿用 `world.html`(這個專案更早的原型)`ink()`
+ * 那組已經定案的數字($1500/+8、$8000/+22),不是我這輪自己抓的——舊版
+ * 同時還會 `chg('star', 1)`,但那是舊「通緝 0~5,數字越大越可疑」語意
+ * 下的 +1,對應到現在雙向 -100~100 的風評應該是反過來扣分,不是加分;
+ * 這裡沒有照抄那個方向,直接不動風評——刺青對風評的影響已經交給教官/
+ * 小美哥那三條既有劇情各自處理,這裡再疊一次會重複扣。金錢/體力之外的
+ * 唯一直接效果是帥潮,呼應「帥潮只由外顯行頭決定」那條邊界的精神(刺青
+ * 某種意義上也是一種外顯裝扮),跟同一天稍早撿垃圾/超商制服那兩個明著
+ * 打破邊界的例子不同,這裡沒有違反。*/
+function talkToTattooMaster(){
+  if(YUAN.hasTattoo){
+    say('tattooMaster', '「你上次那隻還沒退紅呢，先讓它好。」');
+    return;
+  }
+  say('tattooMaster', '「要刺哪裡？」', () => {
+    openMenu('刺青店', [
+      { label:'小的，手腕內側', cost: ST.money<1500 ? '錢不夠' : '$1500　帥潮 +8',
+        cls: ST.money<1500 ? 'bad' : '', run:() => getTattoo(1500, 8) },
+      { label:'半甲', cost: ST.money<8000 ? '錢不夠' : '$8000　帥潮 +22',
+        cls: ST.money<8000 ? 'bad' : '', run:() => getTattoo(8000, 22) },
+      { label:'只是看看', cls:'back', run:() => say('tattooMaster', '「牆上都有，自己看。」') }
+    ]);
+  });
+}
+function getTattoo(price, cool){
+  if(ST.money < price){ toast('錢不夠。', 2200); return; }
+  chg('money', -price);
+  chg('cool', cool);
+  YUAN.hasTattoo = true;
+  addTag('tattoo');
+  advanceTime(90);
+  say('tattooMaster', '「刺完了，包著保鮮膜，回去別馬上洗。」', () => {
+    toast('這一格加到角色卡上了——跟其他標籤一樣，拿不掉。', 3800);
+  });
+}
 /* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
    只剩閒聊),跟阿姨貓咪任務同一個簡化幅度,見 npc-school.js 開頭筆記。 */
 function talkToAren(){
@@ -6942,7 +7046,7 @@ window.__dbg = {
   dlgOn: () => dlg.on,
   bounds: () => (PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
                : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE
-               : PLACE === 'corridor' ? CORRIDOR : BEDROOM),
+               : PLACE === 'corridor' ? CORRIDOR : PLACE === 'tattoo' ? TATTOO : BEDROOM),
   cam: indoorCamera,
   chg, steal, updateIndoor, openIndoorSpot, startCheckoutShift, getCO: () => CO,
   hire(){ IN.hired = true; return 'hired'; },
