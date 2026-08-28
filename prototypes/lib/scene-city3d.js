@@ -1799,7 +1799,21 @@ export function buildCity(THREE, scene){
        (10)一截,才撐得住「這裡以後也會是一棟大樓」的份量。 */
     const skelW = 22, skelD = 10, skelCz = siteZ1 - skelD/2 - 1;
     const floorH = 5.5, builtFloors = 7, skelH = floorH*builtFloors;
+    /* 柱子貼圖(2026-08-28,kc 生的 skeleton-column.png,清水模板模紋+對拉孔,
+       可平鋪)——四面都用同一顆材質(柱子沒有正反面之分,跟圍籬那種要分
+       正面/側面/頂面不一樣),repeat.y 抓一個板模高度的量級去算重複次數,
+       repeat.x 抓 1(柱寬 .7 個單位,大概就是一塊板模寬)。非同步載入前
+       先素色頂著。 */
+    const COL_TILE = 1.4;
     const colM = std({ color:0x8c8c86, roughness:.9 });
+    new THREE.ImageLoader().load(TEX_DIR + 'skeleton-column.png', img => {
+      const t = new THREE.Texture(img);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      t.repeat.set(1, skelH/COL_TILE);
+      t.needsUpdate = true;
+      colM.map = t; colM.color.setHex(0xffffff); colM.needsUpdate = true;
+    }, undefined, () => {});
     const slabM = std({ color:0x9a9a90, roughness:.85 });
     const rebarM = std({ color:0x3a3a38, roughness:.5, metalness:.4 });
     const nx=5, nz=3;
