@@ -2618,19 +2618,40 @@ const TATTOO_PHOTO = {
     { id:'door',    name:'門口',   x:36,  w:113, y0:230, y1:338 },
     { id:'wait',    name:'等候區', x:153, w:127, y0:230, y1:338 },
     { id:'flash',   name:'圖牆',   x:221, w:197, y0:230, y1:270 },
-    { id:'chair',   name:'刺青椅', x:287, w:127, y0:290, y1:338 },
+    /* chair 的 y0 從 290 往後挪到 306(2026-08-28,補碰撞框那輪)——
+       挪動理由見下面 TATTOO_COLLIDERS_PHOTO 那則筆記,兩處要一起看。 */
+    { id:'chair',   name:'刺青椅', x:287, w:127, y0:306, y1:338 },
     { id:'bench',   name:'工作檯', x:418, w:153, y0:230, y1:338 },
     { id:'case',    name:'展示櫃', x:571, w:49,  y0:230, y1:338 }
   ]
 };
-const TATTOO_COLLIDERS_PHOTO = [];
+/* 補碰撞框(2026-08-28,kc:「不要擋在一起 而且要做碰撞」)——刺青椅/
+   滾輪凳現在是烤進背景的靜態圖,之前完全沒有擋人,角色可以直接站進
+   椅子/凳子裡面。座標一樣用格線裁圖肉眼讀(跟 SPOTS 那批同一張
+   `final-grid-check.png`,暫存不進 repo),只框「地板接觸」那個高度帶
+   (椅背/頭枕那種立在半空的部分不用擋,跟灰模版那顆碰撞框同一個原則),
+   不是整個視覺外框。
+   `chair` 那顆的 `pyFront` 卡在 300(不是椅子視覺上實際到底的 302),
+   跟上面 SPOTS `chair` 的 `y0:306` 差 6 剛好是 `COLLIDE_PAD`——原因跟
+   刺青椅灰模版那次同一個坑:留一條乾淨的緩衝帶,不然判定區跟碰撞區
+   中間會有「站得進去卻被撞退」的死角。代價是椅子基座最前緣那一小截
+   (native y:743~790,換算約 284~302)沒有真的擋到,肉眼看得出來的話
+   之後開滑桿面板時再一起調——kc 提過新場景要有滑桿面板讓他自己調,
+   這輪先求碰撞邏輯對,面板下一輪再開。
+   滾輪凳那顆位置在椅子左邊、跟椅子的 x 範圍完全不重疊,不用跟著切
+   `pyFront`,直接框到視覺下緣(342,略超過 `WALK_S` 一點,無妨,人本來
+   就走不到那麼深)。 */
+const TATTOO_COLLIDERS_PHOTO = [
+  { x0:283, x1:463, pyBack:180, pyFront:300 },   // 刺青椅
+  { x0:207, x1:278, pyBack:264, pyFront:342 }    // 滾輪凳
+];
 let TATTOO = TATTOO_FALLBACK, TATTOO_COLLIDERS = TATTOO_COLLIDERS_FALLBACK;
 const tattooShopImg = new Image();
 tattooShopImg.onload = () => {
   if(tattooShopImg.naturalWidth){ TATTOO = TATTOO_PHOTO; TATTOO_COLLIDERS = TATTOO_COLLIDERS_PHOTO; }
   paintTattooBackdrop();
 };
-tattooShopImg.src = '../assets/bg/tattoo-shop.png?v=3';
+tattooShopImg.src = '../assets/bg/tattoo-shop.png?v=4';
 
 /* 遊藝場(2026-08-26,kc:「遊藝場先做,裡面可以玩一些小遊戲,可以加情緒」
    +「真的賭博,情緒一定＋ 金錢賭」)——只有灰模,還沒有照片版(跟 store/
