@@ -1810,7 +1810,7 @@ const FOREMAN_WORKER_HAND_X_FRAC = 0.753, FOREMAN_WORKER_HAND_Y_FRAC = 0.342;
 /* 起始地板滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——groundY
    原本是目測抓的常數(262),改成可調狀態讓 __dbg.tweakForeman() 現場拉,
    bgDx/bgDy 順便開給背景照片的貼圖位置微調,跟 tweakPoliceCarPanel 同一招。 */
-const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0, workerH:170, workerDy:0 };
+const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0, workerH:170, workerDy:0, carryReach:40 };
 /* 背景照(2026-08-28,kc 生的 foreman-site.png,1536×1024)——構圖是照
    agDrawForeman() 那則筆記要求的:中央淨空地面留給程式動態疊磚,兩側
    鋼筋/角材增加真實感,圍籬+天空跟遊藝場那批照片同一種寫實、不陰森的
@@ -3504,8 +3504,9 @@ function tweakForemanPanel(){
     ['fm_ground','磚堆地板高度(groundY)', 150, 380, 1, 'groundY'],
     ['fm_bgdx','背景照片 X 偏移', -100, 100, 1, 'bgDx'],
     ['fm_bgdy','背景照片 Y 偏移', -100, 100, 1, 'bgDy'],
+    ['fm_reach','磚頭起始位置(離堆頂距離)', 0, 160, 1, 'carryReach'],
     ['fm_workerh','人物大小(高度px)', 80, 320, 2, 'workerH'],
-    ['fm_workerdy','人物垂直微調', -80, 80, 1, 'workerDy']
+    ['fm_workerdy','人物+手上磚頭 垂直微調', -80, 80, 1, 'workerDy']
   ];
   const panel = document.createElement('div');
   panel.id = 'foremanTweakPanel';
@@ -4265,16 +4266,17 @@ function openIndoorSpot(id){
     return;
   }
   /* 刺青店(2026-08-28)——SPOTS 沿用 SceneTattoo.SPOTS。'chair'
-     (talkToTattooMaster())跟'wait'(lookAtWaitingMagazine(),見下面走失狗
-     任務那則長筆記)接了真邏輯,其餘三個(圖牆/工作檯/展示櫃)還是單純
-     逛場景的氣氛 toast,跟教室書架(lookAtBookshelf() 之外那種純環境
-     調味)同一個份量,不用每個角落都掛系統。 */
+     (talkToTattooMaster())、'wait'(lookAtWaitingMagazine(),見走失狗
+     那則長筆記)、'flash'(lookAtFlashWall(),圖牆詳細介紹)、'bench'
+     (lookAtBench(),工作檯麵包)接了真邏輯,只剩'case'(展示櫃)還是
+     單純逛場景的氣氛 toast,跟教室書架(lookAtBookshelf() 之外那種純
+     環境調味)同一個份量,不用每個角落都掛系統。 */
   if(PLACE === 'tattoo'){
     if(id === 'door'){ leaveIndoor(); return; }
     else if(id === 'chair'){ talkToTattooMaster(); return; }
     else if(id === 'wait'){ lookAtWaitingMagazine(); return; }
-    else if(id === 'flash'){ toast('牆上貼滿了圖，有些邊角已經泛黃。', 2600); return; }
-    else if(id === 'bench'){ toast('檯面上一排墨水瓶，旁邊是消毒過的針具。', 2600); return; }
+    else if(id === 'flash'){ lookAtFlashWall(); return; }
+    else if(id === 'bench'){ lookAtBench(); return; }
     else if(id === 'case'){ toast('玻璃櫃裡是耳環跟鼻環，你沒有多餘的錢想那個。', 2600); return; }
     return;
   }
@@ -6871,7 +6873,18 @@ function lookAtWaitingMagazine(){
    改成正常選單照常開,`newsFound` 之後選單裡多塞這一項,問不問是玩家
    自己選,不是自動觸發。問完是一次性的短對話+一個反應選擇(跟機車行
    老闆那條「舊剪報揭露」結尾的反應選擇同一個份量——玩家自己怎麼看這件
-   事,不是任務,沒有報酬/任務面板),不接「去工地找」的後續。 */
+   事)。
+   **✅ 同一天再一輪(kc:「還是要有任務面板 只是提示改永安街」)**——
+   上面那則筆記寫「沒有任務面板」是上一輪推翻的結果,這輪 kc 又要回來,
+   但「工地太明顯」那條規矩沒有跟著推翻——不是恢復整套 city.construction.
+   dog+updateCity() 距離判斷,只是單純把 ACTIVE_QUESTS 那筆記事重新
+   push 回去,`hint` 從舊版「去工地那邊找找看」改成「永安街那邊」,純
+   文字提示,沒有接任何「走到某個座標就觸發」的判定——這筆記事目前**沒有
+   解掉的路徑**(不像 WATCHJOB/TUITION_QUEST 那些有明確 resolve 條件),
+   會一直留在任務面板上當一個「你知道這件事、正在放在心上」的提醒,
+   kc 要是之後想要一個真的解法(比如某天師傅自己提起「找到了」),再另外
+   接。兩個反應選擇都會留下這筆記事(不管玩家嘴上怎麼回,都算「知道了
+   這件事」)。 */
 function tattooDogMenuItem(){
   if(!TATTOO_DOG.newsFound || TATTOO_DOG.revealed) return null;
   return { label:'「等候區那則協尋啟事……是你貼的？」', run(){
@@ -6883,6 +6896,8 @@ function tattooDogMenuItem(){
       { who:'tattooMaster', text:'「上禮拜帶牠去永安街那邊，蹲下來跟朋友講話，一放繩牠就跑了。」' },
       { who:'tattooMaster', text:'「找了好幾天，都沒消息。」他頓了一下，低頭繼續刺著手上的圖。' }
     ], 0, () => {
+      ACTIVE_QUESTS.push({ id:'tattoodog', title:'老闆走失的狗', hint:'永安街那邊' });
+      renderQuestPanel();
       openMenu('刺青店', [
         { label:'「希望牠早點回家。」', run(){
             chg('calm', 6);
@@ -6894,6 +6909,48 @@ function tattooDogMenuItem(){
       ]);
     });
   } };
+}
+/* 圖牆詳細介紹(2026-08-28,kc:「牆上的刺青會有詳細介紹」)——原本是一句
+   氣氛 toast,改成選單,挑幾張牆上具體會有的圖(呼應 TATTOO_MENU 裡真的
+   能刺的款式:玫瑰/虎頭/骷髏/整片龍,對應賣的東西不是憑空掰的),外加
+   一張藝妓(kc 丟的參考照片牆上真的有這張,但 TATTOO_MENU 沒有賣這個
+   款式,純粹讓圖牆讀起來更豐富,不是暗示可以刺)。每張各自一句介紹,
+   風格照傳統美式刺青 flash 圖的介紹方式寫(圖案來源/常見部位),不是
+   隨便形容詞堆疊。 */
+const TATTOO_FLASH_INFO = [
+  { label:'玫瑰',   text:'配緞帶的玫瑰，線條粗、顏色飽和，傳統美式最經典的圖騰之一，通常刺在手臂。' },
+  { label:'虎頭',   text:'齜牙的虎頭，眼神畫得很兇，傳統美式跟日式圖案交界的畫法，肩膀那個位置最常見。' },
+  { label:'骷髏',   text:'骷髏配玫瑰或匕首，死亡跟美同時存在的老題材，前臂或手背常見。' },
+  { label:'整片背後龍', text:'整片背後的龍，鱗片一片一片描，最耗工時的一張圖，師傅說要分好幾次才刺得完。' },
+  { label:'藝妓',   text:'一張藝妓側臉，日式傳統圖案，牆上貼著但沒有掛在能刺的款式清單裡——大概是師傅自己收藏的。' },
+  { label:'看夠了', cls:'back', run(){} }
+];
+function lookAtFlashWall(){
+  openMenu('圖牆', TATTOO_FLASH_INFO.map(it =>
+    it.run ? it : { label:it.label, run:() => toast(it.text, 3200) }
+  ));
+}
+/* 工作檯麵包(2026-08-28,kc:「在工作台會發現一個麵包 可以偷走」)——跟
+   超商 steal() 不是同一套機制:那邊靠店員朝向(IN.clerkFace)判定會不會
+   被抓,師傅這裡是固定站姿的 buildNPC,沒有轉身動畫可以借,做不出同一種
+   「當下沒被抓不代表安全」的判定。簡化成單純的機會成本,不裝一套假的
+   風險系統:拿了飽足 +15,歸屬感 −6(心虛)、風評 −1(師傅明明就站在
+   旁邊,不是神不知鬼不覺那種)。一次性——麵包只有一個,拿過就沒有了,
+   `TATTOO_BREAD.taken` 之後互動退回原本的工作檯氣氛 toast。 */
+const TATTOO_BREAD = { taken:false };
+function lookAtBench(){
+  if(TATTOO_BREAD.taken){
+    toast('檯面上一排墨水瓶，旁邊是消毒過的針具。', 2600);
+    return;
+  }
+  openMenu('工作檯', [
+    { label:'角落放著半個吃剩的麵包，大概是老闆自己的——拿走？', cls:'risk', run(){
+        TATTOO_BREAD.taken = true;
+        chg('full', 15); chg('calm', -6); chg('star', -1);
+        toast('你趁他不注意，把麵包塞進嘴裡。', 2600);
+      } },
+    { label:'算了，還是看看工具就好', cls:'back', run(){} }
+  ]);
 }
 function talkToTattooMaster(){
   const dogItem = tattooDogMenuItem();
@@ -7220,7 +7277,7 @@ function agDrawForeman(){
     /* workerDy 加在這裡(兩邊共用的 carryY),不要各自加——kc 抓到「人跟
        手裡的磚要一起調整」,原本 workerDy 只加在 foremanDrawWorker() 內部
        的 handY,磚還是用沒加過的 carryY,滑桿一拉人跟磚就分家了。 */
-    const carryY = Math.max(visibleTop - scrollY + 10, stackTopY - 40) + FOREMAN_TWEAK.workerDy;
+    const carryY = Math.max(visibleTop - scrollY + 10, stackTopY - FOREMAN_TWEAK.carryReach) + FOREMAN_TWEAK.workerDy;
     const bx = cx + foremanOffsetPx();
     foremanDrawWorker(bx, carryY);
     foremanDrawBrick(bx, carryY, FOREMAN_BRICK_W, FOREMAN_BRICK_H, mat);
@@ -7704,7 +7761,7 @@ window.__dbg = {
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
-  TATTOO_DOG, talkToTattooMaster, lookAtWaitingMagazine,
+  TATTOO_DOG, talkToTattooMaster, lookAtWaitingMagazine, lookAtFlashWall, TATTOO_BREAD, lookAtBench,
 
   MEI, talkToMei, JIAOGUAN, talkToJiaoguan, AREN, talkToAren, BROTHER, talkToBrother,
   KAI, talkToKai, talkToTeacher,
