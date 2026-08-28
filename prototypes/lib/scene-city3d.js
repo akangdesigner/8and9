@@ -1951,7 +1951,22 @@ export function buildCity(THREE, scene){
       t.needsUpdate = true;
       slabEdgeM.map = t; slabEdgeM.color.setHex(0xffffff); slabEdgeM.needsUpdate = true;
     }, undefined, () => {});
-    // [+x,-x,+y,-y,+z,-z]——邊緣(±x/±z)貼梁貼圖,底面(-y)貼樓板底貼圖,頂面(+y,幾乎看不到)維持素色
+    /* 樓板頂面(2026-08-28,kc:「沒錯了,但上面也要貼」)——原本想說玩家
+       爬不上去頂面幾乎看不到就沒貼,kc 還是要貼滿。kc 生的
+       skeleton-slab-top.png 是水泥地+菸蒂+腳印+血漬,可平鋪,圖裡混了
+       幾個像遊戲 UI 浮動傷害數字的黃色/紅色箭頭+數字(+1200/+800/GL/x3
+       那些)——不確定是不是生圖不小心把「遊戲畫面」的意象也生進去了,
+       先照樣貼,鋪滿之後那些小記號分散開來,讀起來比較像工地噴漆記號,
+       如果看了覺得奇怪,那就是這個。 */
+    new THREE.ImageLoader().load(TEX_DIR + 'skeleton-slab-top.png', img => {
+      const t = new THREE.Texture(img);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      t.repeat.set(skelW/4, skelD/4);
+      t.needsUpdate = true;
+      slabM.map = t; slabM.color.setHex(0xffffff); slabM.needsUpdate = true;
+    }, undefined, () => {});
+    // [+x,-x,+y,-y,+z,-z]——邊緣(±x/±z)貼梁貼圖,頂面(+y)貼樓板頂貼圖,底面(-y)貼樓板底貼圖
     const slabMats = [slabEdgeM,slabEdgeM,slabM,slabUnderM,slabEdgeM,slabEdgeM];
     const rebarM = std({ color:0x3a3a38, roughness:.5, metalness:.4 });
     const nx=5, nz=3;
