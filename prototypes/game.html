@@ -2574,35 +2574,19 @@ const TATTOO_FALLBACK = {
    座標用 `grid.png`(暫存,裁圖疊 100px 格線那招,跟輪盤黑紅核對/校門
    座標當初同一套手法)肉眼讀出來的,換算公式跟其他照片場景一樣
    `logical = native * (640/1672)`。
-   **✅ 補刺青椅(同一天再一輪,kc:「用這個啊」,丟的是稍早那組傢俱參考圖
-   裡右邊那張大圖,躺椅獨照)**——原本這張店面照片沒拍到刺青椅,`chair`
-   判定區踩在空地板上,跟 `SCHOOL_PHOTO` 一開始只接判定區、
-   `school-empty-desk.png` 後來才補上是同一種「先求互動邏輯對,美術分階段
-   補」做法。這輪把那張躺椅獨照裁出來(`tools/black-to-alpha.py` 去背,
-   背景是攝影棚黑底+邊緣柔光暈,不是純黑,邊緣殘留一圈很淡的暈邊,但這張
-   店面照片本身色調也偏暗,實際疊上去幾乎看不出來,不用再處理)、疊圖
-   合成回 `tattoo-shop.png` 裡(用 Python/PIL 一次性合成,不是像
-   `mei-desk.png` 那樣在 game.html 裡用 `MEI_DESK_TWEAK` 那套即時疊圖
-   ——這裡選擇直接烤進背景圖本身,因為刺青椅在照片裡是固定不動的家具,
-   跟小美那種要獨立控制位置/濾鏡的角色疊圖不是同一類東西,烤進背景更
-   簡單,不用多開一組 TWEAK 面板)。位置抓在門口小桌(x0~730)跟工具檯
-   (x740~1490)中間那段空地,跟 `chair` 判定區(邏輯座標 x:287~414,
-   換算回照片原生座標 x:749~1081)大致對得上,沒有精算到像素對齊——跟
-   這個專案疊圖位置「先抓大概,kc 玩起來覺得不對再調」的一貫做法一樣。
-   沒有補碰撞框——`WALK_N` 本身就擋住往牆裡走,這張照片沒有像灰模版那樣
-   有一個實際畫出來的家具形狀需要擋,躺椅是烤進背景的靜態圖,角色一律
-   蓋在它上面(跟 bedroom 床/書桌那批背景家具同一個既有簡化,不是這輪
-   新增的妥協)。
-   **✅ 同一天再一輪,kc:「其他椅子呢 還有小凳子 那些」**——問的是同一張
-   傢俱參考圖裡另外兩張(等候椅/滾輪凳)。查過一輪:等候椅這張照片裡
-   本來就有真的實拍(門口那兩張黑色金屬框椅,款式/顏色跟參考圖那張幾乎
-   一樣,見下面 `wait` 判定區),不用再疊——參考圖那張本來就是同一種
-   Tolix 風格金屬椅,只是換一張角度拍,疊上去看不出差別,沒有意義。
-   `滾輪凳`(師傅的椅子)這張照片真的沒有拍到,補法跟刺青椅同一套
-   (裁出來→`black-to-alpha.py` 去背→合成烤進 `tattoo-shop.png`),位置
-   放在刺青椅腳靠前緣那片開放地板(避開椅子腳靠本體跟液壓底座),不是
-   隨便塞——那塊剛好是這張照片裡少數留白夠大、不會跟其他家具打架的
-   地方。 */
+   **✅ 補刺青椅+滾輪凳(kc 陸續丟同一張傢俱參考圖要求補齊,見下面
+   `tattooChairImg`/`tattooStoolImg` 那則筆記)**——這張店面照片本來沒
+   拍到刺青椅/師傅坐的滾輪凳(等候椅倒是有真的實拍,門口那兩張黑色金屬框
+   椅,Tolix 款式跟參考圖那張幾乎一樣,不用另外疊),`chair` 判定區原本
+   踩在空地板上,跟 `SCHOOL_PHOTO` 一開始只接判定區、`school-empty-desk.
+   png` 後來才補上是同一種「先求互動邏輯對,美術分階段補」做法。
+   **一開始(2026-08-28,第一輪)是直接烤進 `tattoo-shop.png` 背景本身**
+   (Python/PIL 一次性合成),覺得椅子是固定家具不需要獨立控制;
+   **kc 後來要求「滑桿開給我,然後我要調整椅子的色調」,推翻這個決定**
+   ——改成跟 `mei-desk.png`/`school-empty-desk.png` 同一套「獨立疊圖 +
+   `TWEAK` 物件 + `schoolPropFilter()` 即時濾鏡」做法(見下面
+   `TATTOO_CHAIR_TWEAK`/`tweakTattooPanel()`),`tattoo-shop.png` 改回
+   乾淨的原始照片(沒有烤家具進去)。*/
 /* 座標肉眼實測踩過一個坑(2026-08-28):`flash`(圖牆)原本 x:221~592 整條
    都給滿版寬度,結果跟後面 `chair`(x:287~414)/`bench`(x:418~571)的 x
    範圍整段疊在一起——`IN.near` 判定是「陣列裡第一個符合的」,`flash`
@@ -2626,21 +2610,21 @@ const TATTOO_PHOTO = {
   ]
 };
 /* 補碰撞框(2026-08-28,kc:「不要擋在一起 而且要做碰撞」)——刺青椅/
-   滾輪凳現在是烤進背景的靜態圖,之前完全沒有擋人,角色可以直接站進
-   椅子/凳子裡面。座標一樣用格線裁圖肉眼讀(跟 SPOTS 那批同一張
-   `final-grid-check.png`,暫存不進 repo),只框「地板接觸」那個高度帶
-   (椅背/頭枕那種立在半空的部分不用擋,跟灰模版那顆碰撞框同一個原則),
-   不是整個視覺外框。
+   滾輪凳當時是烤進背景的靜態圖,完全不擋人,角色可以直接站進椅子/凳子
+   裡面。座標用格線裁圖肉眼讀(跟 SPOTS 那批同一張 `final-grid-check.
+   png`,暫存不進 repo),只框「地板接觸」那個高度帶(椅背/頭枕那種立在
+   半空的部分不用擋,跟灰模版那顆碰撞框同一個原則),不是整個視覺外框。
    `chair` 那顆的 `pyFront` 卡在 300(不是椅子視覺上實際到底的 302),
    跟上面 SPOTS `chair` 的 `y0:306` 差 6 剛好是 `COLLIDE_PAD`——原因跟
    刺青椅灰模版那次同一個坑:留一條乾淨的緩衝帶,不然判定區跟碰撞區
-   中間會有「站得進去卻被撞退」的死角。代價是椅子基座最前緣那一小截
-   (native y:743~790,換算約 284~302)沒有真的擋到,肉眼看得出來的話
-   之後開滑桿面板時再一起調——kc 提過新場景要有滑桿面板讓他自己調,
-   這輪先求碰撞邏輯對,面板下一輪再開。
-   滾輪凳那顆位置在椅子左邊、跟椅子的 x 範圍完全不重疊,不用跟著切
-   `pyFront`,直接框到視覺下緣(342,略超過 `WALK_S` 一點,無妨,人本來
-   就走不到那麼深)。 */
+   中間會有「站得進去卻被撞退」的死角。滾輪凳那顆位置在椅子左邊、跟椅子
+   的 x 範圍完全不重疊,不用跟著切 `pyFront`,直接框到視覺下緣(342,
+   略超過 `WALK_S` 一點,無妨,人本來就走不到那麼深)。
+   **⚠ 這批數字是照「椅子烤在背景裡」那個固定位置量的**,下面
+   `TATTOO_CHAIR_TWEAK`/`TATTOO_STOOL_TWEAK` 滑桿面板開放之後,kc 拉滑桿
+   移動椅子/凳子的視覺位置**不會**連動改這裡的碰撞框——兩套資料獨立,
+   kc 玩起來如果把椅子拉到肉眼對不上碰撞框的地方,要回頭跟我說一聲再
+   同步調這兩顆數字,不是滑桿自動生效。 */
 const TATTOO_COLLIDERS_PHOTO = [
   { x0:283, x1:463, pyBack:180, pyFront:300 },   // 刺青椅
   { x0:207, x1:278, pyBack:264, pyFront:342 }    // 滾輪凳
@@ -2651,7 +2635,23 @@ tattooShopImg.onload = () => {
   if(tattooShopImg.naturalWidth){ TATTOO = TATTOO_PHOTO; TATTOO_COLLIDERS = TATTOO_COLLIDERS_PHOTO; }
   paintTattooBackdrop();
 };
-tattooShopImg.src = '../assets/bg/tattoo-shop.png?v=4';
+tattooShopImg.src = '../assets/bg/tattoo-shop.png?v=5';
+/* 刺青椅/滾輪凳疊圖(2026-08-28)——kc 丟的傢俱參考圖(躺椅/滾輪凳各一張
+   獨照,攝影棚黑底打光)用 `tools/black-to-alpha.py` 去背,存成
+   `assets/bg/tattoo-chair.png`/`tattoo-stool.png`,畫法/濾鏡機制原封
+   不動照抄 `MEI_DESK_TWEAK`/`schoolPropFilter()` 那套(見那則筆記),
+   不重新發明。裁切窗口用整張圖(去背之後四邊都是透明,`Crop` 直接吃
+   `naturalWidth/Height` 沒有另外裁一次)。
+   `x`/`bottom`/`w` 的初始值是這輪自己換算的(第一版烤進背景時量出來的
+   位置,換算成 1280×720 畫布座標,乘的比例是 1280/1672),不是 kc 拉
+   滑桿定案的——kc 要求開滑桿本身就是因為還沒定案,面板打開後這幾個
+   數字大概率會變,不用當成正式數字看待。 */
+const tattooChairImg = new Image(); tattooChairImg.src = '../assets/bg/tattoo-chair.png?v=1';
+const tattooChairCrop = { x:0, y:0, w:1016, h:1004 };
+const TATTOO_CHAIR_TWEAK = { x:567, bottom:653, w:429, brightness:100, r:100, g:100, b:100 };
+const tattooStoolImg = new Image(); tattooStoolImg.src = '../assets/bg/tattoo-stool.png?v=1';
+const tattooStoolCrop = { x:0, y:0, w:370, h:405 };
+const TATTOO_STOOL_TWEAK = { x:413, bottom:683, w:142, brightness:100, r:100, g:100, b:100 };
 
 /* 遊藝場(2026-08-26,kc:「遊藝場先做,裡面可以玩一些小遊戲,可以加情緒」
    +「真的賭博,情緒一定＋ 金錢賭」)——只有灰模,還沒有照片版(跟 store/
@@ -3147,6 +3147,41 @@ function tweakArcadePanel(){
     rows.forEach(([key]) => {
       const input = document.getElementById(`arctweak_${gi}_${key}`);
       const out = document.getElementById(`arctweak_${gi}_${key}_v`);
+      input.addEventListener('input', () => {
+        obj[key] = +input.value;
+        out.textContent = input.value;
+      });
+    });
+  });
+}
+/* 刺青店滑桿面板(2026-08-28,kc:「滑桿開給我 然後我要調整椅子的色調」)
+   ——跟 tweakSchoolPanel() 同一套寫法,兩組疊圖(刺青椅/滾輪凳)各自
+   x/bottom/w/brightness/r/g/b 七個滑桿,直接沿用 SCHOOL_PROP_ROWS 那份
+   清單(範圍剛好通用,不用為這個場景另開一份)。 */
+function tweakTattooPanel(){
+  const old = document.getElementById('tattooTweakPanel');
+  if(old){ old.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'tattooTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:220px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
+  const groups = [
+    ['刺青椅疊圖', TATTOO_CHAIR_TWEAK, SCHOOL_PROP_ROWS],
+    ['滾輪凳疊圖', TATTOO_STOOL_TWEAK, SCHOOL_PROP_ROWS]
+  ];
+  panel.innerHTML = groups.map(([title, obj, rows], gi) =>
+    `<div style="font-weight:bold;margin:${gi?'12px':'0'} 0 6px">${title}</div>` +
+    rows.map(([key,label,min,max]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="tattweak_${gi}_${key}_v">${obj[key]}</span><br>
+       <input type="range" id="tattweak_${gi}_${key}" min="${min}" max="${max}" step="2" value="${obj[key]}" style="width:100%">
+       </div>`
+    ).join('')
+  ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakTattoo()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  groups.forEach(([, obj, rows], gi) => {
+    rows.forEach(([key]) => {
+      const input = document.getElementById(`tattweak_${gi}_${key}`);
+      const out = document.getElementById(`tattweak_${gi}_${key}_v`);
       input.addEventListener('input', () => {
         obj[key] = +input.value;
         out.textContent = input.value;
@@ -4894,6 +4929,28 @@ function renderIndoorForeground(){
       g2f.filter = schoolPropFilter(SCHOOL_DESK_TWEAK);
       g2f.drawImage(schoolEmptyDeskImg, schoolEmptyDeskCrop.x,schoolEmptyDeskCrop.y,schoolEmptyDeskCrop.w,schoolEmptyDeskCrop.h,
         SCHOOL_DESK_TWEAK.x, SCHOOL_DESK_TWEAK.bottom-eh, ew, eh);
+      g2f.filter = 'none';
+    }
+  }
+  /* 刺青椅/滾輪凳疊圖(2026-08-28)——跟上面小美座位/主角空位那兩張同一招,
+     每幀都畫、不判斷玩家站哪,c2df 天生蓋過玩家的 3D 頭像那一層。 */
+  if(PLACE === 'tattoo'){
+    if(tattooChairImg.complete && tattooChairImg.naturalWidth){
+      const cw = TATTOO_CHAIR_TWEAK.w, ch = cw * (tattooChairCrop.h/tattooChairCrop.w);
+      g2f.imageSmoothingEnabled = true;
+      drawFloorShadow(g2f, TATTOO_CHAIR_TWEAK.x, TATTOO_CHAIR_TWEAK.bottom, cw);
+      g2f.filter = schoolPropFilter(TATTOO_CHAIR_TWEAK);
+      g2f.drawImage(tattooChairImg, tattooChairCrop.x,tattooChairCrop.y,tattooChairCrop.w,tattooChairCrop.h,
+        TATTOO_CHAIR_TWEAK.x, TATTOO_CHAIR_TWEAK.bottom-ch, cw, ch);
+      g2f.filter = 'none';
+    }
+    if(tattooStoolImg.complete && tattooStoolImg.naturalWidth){
+      const sw = TATTOO_STOOL_TWEAK.w, sh = sw * (tattooStoolCrop.h/tattooStoolCrop.w);
+      g2f.imageSmoothingEnabled = true;
+      drawFloorShadow(g2f, TATTOO_STOOL_TWEAK.x, TATTOO_STOOL_TWEAK.bottom, sw);
+      g2f.filter = schoolPropFilter(TATTOO_STOOL_TWEAK);
+      g2f.drawImage(tattooStoolImg, tattooStoolCrop.x,tattooStoolCrop.y,tattooStoolCrop.w,tattooStoolCrop.h,
+        TATTOO_STOOL_TWEAK.x, TATTOO_STOOL_TWEAK.bottom-sh, sw, sh);
       g2f.filter = 'none';
     }
   }
@@ -7269,6 +7326,7 @@ window.__dbg = {
   BEDROOM_WALK_TWEAK, tweakBedroom: tweakBedroomPanel,
   tweakSchool: tweakSchoolPanel,
   tweakArcade: tweakArcadePanel,
+  tweakTattoo: tweakTattooPanel,
   tweakFortuneStall: tweakFortuneStallPanel,
   tweakPolice: tweakPolicePanel,
   tweakPoliceCar: tweakPoliceCarPanel,

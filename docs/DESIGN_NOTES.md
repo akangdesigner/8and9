@@ -5160,3 +5160,31 @@ Tolix 款式跟參考圖那張幾乎一樣,只是角度不同),疊上去看不�
 4. **滑桿面板還沒做**——kc 提過新場景要有滑桿面板讓他自己調(跟
    `tweakBedroom()`/`tweakSchool()`/`tweakArcade()` 那批同一套),
    這輪先求碰撞邏輯對,面板留到下一輪。
+
+**✅ 同一天再一輪:滑桿面板開出來了(2026-08-28,kc:「滑桿開給我 然後我
+要調整椅子的色調」)**——上一節第 4 點記的「滑桿面板還沒做」這輪補上,
+順便把「烤進背景」那個決定推翻:
+
+- **`tattoo-shop.png` 改回乾淨的原始照片**(`git show 8a80fed:assets/bg/
+  tattoo-shop.png` 挖回沒疊過家具的版本),刺青椅/滾輪凳裁出來
+  (`black-to-alpha.py` 去背後的成品)另存成 `assets/bg/tattoo-chair.png`/
+  `tattoo-stool.png` 兩個獨立檔案。
+- **畫法/濾鏡機制照抄 `MEI_DESK_TWEAK`/`schoolPropFilter()` 那套**,不是
+  重新設計一套:`TATTOO_CHAIR_TWEAK`/`TATTOO_STOOL_TWEAK`(各自
+  `x`/`bottom`/`w`/`brightness`/`r`/`g`/`b`),`renderIndoorForeground()`
+  裡跟小美座位/主角空位同一段邏輯依樣畫葫芦。`tweakTattooPanel()`
+  (`__dbg.tweakTattoo()` 開)也是照抄 `tweakSchoolPanel()` 的寫法,滑桿
+  清單直接借用現成的 `SCHOOL_PROP_ROWS`(範圍剛好通用),沒有重打一份。
+- **`x`/`bottom`/`w` 初始值是這輪自己換算的**(把上一版烤進背景時的位置
+  換算成 1280×720 畫布座標,乘 1280/1672),不是 kc 拉滑桿定案的——
+  這幾個數字大概率會變,不用當正式數字看待,等 kc 開面板調完回報最終值
+  再寫進預設。
+- **碰撞框(`TATTOO_COLLIDERS_PHOTO`)沒有跟著滑桿連動**——兩套資料
+  獨立,kc 拉滑桿把椅子挪到跟碰撞框對不上的位置時,要回頭跟我說再手動
+  同步兩邊數字,已經在碰撞框那則筆記補了這條警語。
+
+在瀏覽器裡用 `__dbg.warp('tattoo')` 測過:椅子/凳子畫面正常顯示(跟
+烤進背景那版視覺上一致,因為初始值是照原位置換算的)、`__dbg.
+tweakTattoo()` 面板正確開出兩組滑桿,console 無錯誤。滑桿本身「拉了會
+不會即時反映」沒有另外拖拉測試(這輪同一套機制在教室已經測過一輪能
+用,見「小美座位/主角空位」那節,信任同一套程式碼不用每次都重新驗證)。
