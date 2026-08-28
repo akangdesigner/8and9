@@ -932,6 +932,12 @@ function chg(k, d){
      不再只往一個方向長。其餘指標維持原本 0~100。 */
   if(k === 'star') ST[k] = Math.max(-100, Math.min(100, ST[k]));
   else if(k !== 'money') ST[k] = Math.max(0, Math.min(ST_MAX[k] ?? 100, ST[k]));
+  /* 扣體力同步扣飽足感(2026-08-28,kc:「扣體力的事情會同步扣飽足感」,
+     理由是遊戲目前沒誘因逼你回家/找東西吃)。只在真的「扣」(d<0)才連動,
+     睡覺回滿體力(sleep() 那筆 d>0)不算,不然睡一覺會把飽足感也順便補滿,
+     變成免費吃飯。比例先抓 1:1(扣多少體力就扣多少飽足),沒跟 kc 對過
+     確切數字,不喜歡再調。 */
+  if(k === 'stamina' && d < 0) chg('full', d);
   /* 體力低於 50 又還沒去學校的提醒,見上面 schoolRemindedDay 那則筆記。
      跳在數值飄字之後沒有先後順序上的講究,只是程式碼寫在這裡比較順——
      兩個都是這次 chg() 呼叫的副作用,誰先跳不影響觀感。 */
@@ -3068,6 +3074,63 @@ function tweakPoliceCarPanel(){
     });
   });
 }
+/* 施工工地滑桿(2026-08-28,kc:「先把道具都換成真的然後讓我調整大小」
+   +「三角錐我也要調整」)——跟 tweakPoliceCarPanel 同一招,差別是工地
+   裡怪手/交通錐各有好幾台,不是單一 ref,滑桿套一個共用倍率/位移到
+   scene-city3d.js 那邊 constructionRef.bulldozers/cones 陣列裡的每一台上,
+   不用逐台各開一組滑桿。 */
+function tweakConstructionPanel(){
+  const old = document.getElementById('constructionTweakPanel');
+  if(old){ old.remove(); return; }
+  const ref = city.construction;
+  if(!ref || !ref.bulldozers.length || !ref.cones.length){
+    alert('工地還沒生成,晚點再開一次滑桿');
+    return;
+  }
+  const state = { bzScale:1, bzDx:0, bzDy:0, bzDz:0, bzRot:0, cnScale:1, cnDx:0, cnDy:0, cnDz:0 };
+  const rows = [
+    ['bz_scale','怪手縮放倍率', 0.3, 3, 0.02, 'bzScale'],
+    ['bz_dx','怪手位置 X 偏移', -6, 6, 0.05, 'bzDx'],
+    ['bz_dy','怪手位置 Y 偏移(抬高)', -1, 2, 0.02, 'bzDy'],
+    ['bz_dz','怪手位置 Z 偏移', -6, 6, 0.05, 'bzDz'],
+    ['bz_rot','怪手額外旋轉(rad)', -3.14, 3.14, 0.02, 'bzRot'],
+    ['cn_scale','交通錐縮放倍率', 0.3, 3, 0.02, 'cnScale'],
+    ['cn_dx','交通錐位置 X 偏移', -3, 3, 0.05, 'cnDx'],
+    ['cn_dy','交通錐位置 Y 偏移(抬高)', -1, 1, 0.02, 'cnDy'],
+    ['cn_dz','交通錐位置 Z 偏移', -3, 3, 0.05, 'cnDz']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'constructionTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:250px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">工地怪手/交通錐滑桿(全部同動)</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${state[key].toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${key.endsWith('Scale')?1:0}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakConstruction()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  function apply(){
+    city.construction.bulldozers.forEach(b => {
+      if(!b.group) return;
+      b.group.scale.setScalar(state.bzScale);
+      b.group.position.set(b.baseX + state.bzDx, b.baseY + state.bzDy, b.baseZ + state.bzDz);
+      b.group.rotation.y = (b.baseRy||0) + state.bzRot;
+    });
+    city.construction.cones.forEach(c => {
+      if(!c.group) return;
+      c.group.scale.setScalar(state.cnScale);
+      c.group.position.set(c.baseX + state.cnDx, c.baseY + state.cnDy, c.baseZ + state.cnDz);
+    });
+  }
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      state[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = state[key].toFixed(2);
+      apply();
+    });
+  });
+}
 function paintBedroomBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(homeBedroomImg.complete && homeBedroomImg.naturalWidth){
@@ -3611,7 +3674,15 @@ function openIndoorSpot(id){
   if(PLACE === 'bedroom'){
     if(id === 'door'){ leaveBedroom(); return; }
     else if(id === 'bed') openMenu('床', [
-      { label:'睡覺', cost:'體力補滿,跳到明天早上', run:() => sleep() },
+      /* 體力要低於 30 才准睡(2026-08-28,kc:「體力要低於30才可以睡覺」,
+         同一輪「沒誘因去做別的事」的調整,不然體力還很滿也能直接睡跳過
+         一天,等於白得一堆時間)。 */
+      { label:'睡覺', cost: ST.stamina >= 30 ? '還不夠累，睡不著' : '體力補滿,跳到明天早上',
+        cls: ST.stamina >= 30 ? 'bad' : '',
+        run:() => {
+          if(ST.stamina >= 30){ toast('還不夠累，睡不著。', 2400); return; }
+          sleep();
+        } },
       { label:'不睏', cls:'back', run(){} }
     ]);
     /* 讀書(2026-08-19,kc:「書桌互動...讀書」):花體力+時間換一個「少少的
@@ -6606,6 +6677,7 @@ window.__dbg = {
   tweakFortuneStall: tweakFortuneStallPanel,
   tweakPolice: tweakPolicePanel,
   tweakPoliceCar: tweakPoliceCarPanel,
+  tweakConstruction: tweakConstructionPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
