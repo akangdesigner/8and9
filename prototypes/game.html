@@ -2559,14 +2559,56 @@ const CORRIDOR = {
    `chair` 那筆的 y0 底下幾個單位,判定區跟碰撞區之間會有一小段「站得進
    去互動範圍、卻被撞退」的死角。扣掉之後緩衝區剛好卡在 y0 那條線,不多
    不少。 */
-const TATTOO_COLLIDERS = [
+const TATTOO_COLLIDERS_FALLBACK = [
   { x0: SceneTattoo.CHAIR.x - 6, x1: SceneTattoo.CHAIR.x + SceneTattoo.CHAIR.w + 6,
     pyBack: SceneTattoo.CHAIR.y - 30, pyFront: SceneTattoo.CHAIR.y - COLLIDE_PAD }
 ];
-const TATTOO = {
+const TATTOO_FALLBACK = {
   walkN: SceneTattoo.WALK_N, walkS: SceneTattoo.WALK_S,
   spots: SceneTattoo.SPOTS
 };
+/* 刺青店照片版(2026-08-28,kc:「你不要用走的.. 你用debug模式直接傳送啊」
+   後緊接著「而且我叫你換真的圖啦」)——kc 丟的參考圖其實是真的店面照片
+   (`assets/bg/tattoo-shop.png`,1672×941,跟 home-living.png/
+   school-classroom.png 同規格),不是只當設計參考,這輪真的换成背景。
+   座標用 `grid.png`(暫存,裁圖疊 100px 格線那招,跟輪盤黑紅核對/校門
+   座標當初同一套手法)肉眼讀出來的,換算公式跟其他照片場景一樣
+   `logical = native * (640/1672)`。
+   **這張照片裡沒有拍到刺青椅**(取景是門口/等候區/圖牆/工具檯那一側,
+   椅子在鏡頭外的空地)——`chair` 判定區還是放在照片裡那塊看得到的空地板
+   (門口小桌跟工具櫃中間那段),互動摸得到,只是暫時沒有真的椅子畫面
+   可以看,跟 `SCHOOL_PHOTO` 一開始也是先接判定區、`school-empty-desk.png`
+   後來才補上是同一種「先求互動邏輯對,美術分階段補」的做法。沒有另外
+   補碰撞框——`WALK_N` 本身就擋住往牆裡走,這張照片沒有像灰模版那樣有
+   一個實際畫出來的家具形狀需要擋。 */
+/* 座標肉眼實測踩過一個坑(2026-08-28):`flash`(圖牆)原本 x:221~592 整條
+   都給滿版寬度,結果跟後面 `chair`(x:287~414)/`bench`(x:418~571)的 x
+   範圍整段疊在一起——`IN.near` 判定是「陣列裡第一個符合的」,`flash`
+   排最前面永遠贏,`chair`/`bench` 根本摸不到。這張照片裡圖牆(牆面,y
+   淺,靠近牆)跟刺青椅/工作檯(地板/檯面,y 深,人站得到的地方)在畫面上
+   剛好疊在同一段 x,只能靠 y(深淺)分開:`flash` 收窄成只留貼牆那條淺帶
+   (y1:270),`chair` 移到更深的地板帶(y0:290)才不衝突,`bench`/`case`
+   維持全深度範圍但 x 往右挪出 `flash` 收窄後空出來的區段,彼此不重疊。
+   `__dbg.updateIndoor()` + `IN.near` 現場測過一輪確認四個都摸得到。 */
+const TATTOO_PHOTO = {
+  walkN: 230, walkS: 338,
+  spots: [
+    { id:'door',    name:'門口',   x:36,  w:113, y0:230, y1:338 },
+    { id:'wait',    name:'等候區', x:153, w:127, y0:230, y1:338 },
+    { id:'flash',   name:'圖牆',   x:221, w:197, y0:230, y1:270 },
+    { id:'chair',   name:'刺青椅', x:287, w:127, y0:290, y1:338 },
+    { id:'bench',   name:'工作檯', x:418, w:153, y0:230, y1:338 },
+    { id:'case',    name:'展示櫃', x:571, w:49,  y0:230, y1:338 }
+  ]
+};
+const TATTOO_COLLIDERS_PHOTO = [];
+let TATTOO = TATTOO_FALLBACK, TATTOO_COLLIDERS = TATTOO_COLLIDERS_FALLBACK;
+const tattooShopImg = new Image();
+tattooShopImg.onload = () => {
+  if(tattooShopImg.naturalWidth){ TATTOO = TATTOO_PHOTO; TATTOO_COLLIDERS = TATTOO_COLLIDERS_PHOTO; }
+  paintTattooBackdrop();
+};
+tattooShopImg.src = '../assets/bg/tattoo-shop.png?v=1';
 
 /* 遊藝場(2026-08-26,kc:「遊藝場先做,裡面可以玩一些小遊戲,可以加情緒」
    +「真的賭博,情緒一定＋ 金錢賭」)——只有灰模,還沒有照片版(跟 store/
@@ -3323,11 +3365,18 @@ function paintCorridorBackdrop(){
    床/書桌同一招),不像 tattoo-room.html 那個獨立預覽page 逐幀跟玩家
    深度排序——這裡的玩家是疊在另一層畫布上的 3D 角色,做不到那套排序,
    見上面 TATTOO 那則筆記。 */
+/* 刺青店(2026-08-28 補照片版)——跟 paintSchoolBackdrop() 同一招,圖載入
+   成功畫照片,否則退回灰模。 */
 function paintTattooBackdrop(){
   gbg.clearRect(0,0,1280,720);
-  gbg.save(); gbg.scale(SC,SC);
-  SceneTattoo.renderBackground(gbg, { vignette:true, neon:true, chairFront:true });
-  gbg.restore();
+  if(tattooShopImg.complete && tattooShopImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(tattooShopImg, 0,0,1280,720);
+  } else {
+    gbg.save(); gbg.scale(SC,SC);
+    SceneTattoo.renderBackground(gbg, { vignette:true, neon:true, chairFront:true });
+    gbg.restore();
+  }
 }
 /* 遊藝場(2026-08-26 補照片版)——跟 paintSchoolBackdrop() 同一招,圖載入
    成功畫照片,否則退回灰模。 */
@@ -4886,6 +4935,64 @@ function sleep(){
       + loanMsg, 3800);
   });
 }
+/* 拆出來的「真的切進室內」那段(2026-08-28,kc:「你不要用走的.. 你用
+   debug模式直接傳送啊」)——原本這整段焊在 walkIn.done()→fade() 的回呼
+   裡,`__dbg` 想要一個「不用真的走過去、不用等 fade 動畫」的傳送指令
+   時沒有東西可以直接呼叫,只能重新複製一份邏輯,兩份以後會慢慢長歪。
+   拆成獨立函式,`enterIndoor()`(真的玩法路徑,保留走路+淡出動畫)跟
+   `__dbg.warp()`(除錯用,略過走路/busy/fade,直接切換)共用同一份。 */
+function warpIntoPlace(door){
+  MODE = 'indoor';
+  PLACE = door.id === 'store' ? 'store' : door.id === 'school' ? 'school' : door.id === 'arcade' ? 'arcade'
+    : door.id === 'tattoo' ? 'tattoo' : 'home';
+  document.getElementById('city').style.display = 'none';
+  wlabelsEl.style.display = 'none';   // 進門後停止更新,不然殘留位置疊在室內畫面上
+  document.getElementById('indoor').classList.add('on');
+  if(PLACE === 'store'){
+    /* 2026-08-21 kc 截圖回報:應該要「一進超商就站在門口」,原本這裡
+       是隨手湊的店中央座標(150,320),跟門口(STORE.spots id:'door',
+       x0~x1 約 6~126,walkN=190)差了一大截,人一進門就已經在店中間。
+       改成站在門口正中央、y 卡在 walkN(北邊界本來就擋住不能再往上),
+       面朝 'F' 是原本就有的「面向店內」——一進門自然轉身往店裡走。 */
+    IN.px = 66; IN.py = STORE.walkN; IN.face = 'F';
+    document.getElementById('where').textContent = '超商';
+    /* 2026-08-17 抓到的坑:c2dbg 這張畫布現在跟家/房間共用,超商原本
+       假設它「只要在頁面載入時畫過一次就永遠是超商」(wallImg.onload
+       那次),接了家/房間之後這個假設不成立——玩家進過家裡或房間,
+       c2dbg 會被換成別的背景,回超商卻沒人叫它重畫,變成頂著超商的
+       `where` 標籤卻顯示上一個場景的背景。這裡補回來,每次真的走進
+       超商都重畫一次,不能只靠頁面載入那一次。 */
+    paintStoreBackdrop();
+  } else if(PLACE === 'school'){
+    /* 一進門站在走廊門口(SCHOOL.spots id:'door',在畫面右側,見
+       scene-school.js「往右走可以走到走廊」那則筆記),照 store 的
+       先例站在門口正中央、面朝 'F' 轉身往教室裡走,不要生成在座位
+       那格中間。 */
+    IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
+    document.getElementById('where').textContent = '學校';
+    paintSchoolBackdrop();
+    lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
+  } else if(PLACE === 'arcade'){
+    /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
+       scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
+    IN.px = ARCADE.spots.find(s=>s.id==='door').x + 30; IN.py = ARCADE.walkS; IN.face = 'F';
+    document.getElementById('where').textContent = '遊藝場';
+    paintArcadeBackdrop();
+  } else if(PLACE === 'tattoo'){
+    /* 刺青店(2026-08-28)——照 school/arcade 同一套「站在門口正中央,
+       面朝 'F' 轉身往店裡走」先例。門在畫面左側(SceneTattoo.SPOTS
+       id:'door',x:6~106),跟 store/school 同一側。 */
+    IN.px = TATTOO.spots.find(s=>s.id==='door').x + 30; IN.py = TATTOO.walkS; IN.face = 'F';
+    document.getElementById('where').textContent = '刺青店';
+    paintTattooBackdrop();
+  } else {
+    IN.px = 90; IN.py = HOME.walkS; IN.face = 'F';
+    document.getElementById('where').textContent = '家';
+    paintHomeBackdrop();
+    maybeTriggerStoryNode();
+  }
+  advanceTime(1);
+}
 function enterIndoor(door){
   if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
     toast(door.name + ' 的室內場景還沒做。', 3600);
@@ -4895,58 +5002,7 @@ function enterIndoor(door){
   busy = true;
   walkIn = { x: door.x, z: door.z, done(){
     fade(door.id === 'store' ? '超商' : door.id === 'school' ? '學校' : door.id === 'arcade' ? '遊藝場'
-        : door.id === 'tattoo' ? '刺青店' : '家', () => {
-      MODE = 'indoor';
-      PLACE = door.id === 'store' ? 'store' : door.id === 'school' ? 'school' : door.id === 'arcade' ? 'arcade'
-        : door.id === 'tattoo' ? 'tattoo' : 'home';
-      document.getElementById('city').style.display = 'none';
-      wlabelsEl.style.display = 'none';   // 進門後停止更新,不然殘留位置疊在室內畫面上
-      document.getElementById('indoor').classList.add('on');
-      if(PLACE === 'store'){
-        /* 2026-08-21 kc 截圖回報:應該要「一進超商就站在門口」,原本這裡
-           是隨手湊的店中央座標(150,320),跟門口(STORE.spots id:'door',
-           x0~x1 約 6~126,walkN=190)差了一大截,人一進門就已經在店中間。
-           改成站在門口正中央、y 卡在 walkN(北邊界本來就擋住不能再往上),
-           面朝 'F' 是原本就有的「面向店內」——一進門自然轉身往店裡走。 */
-        IN.px = 66; IN.py = STORE.walkN; IN.face = 'F';
-        document.getElementById('where').textContent = '超商';
-        /* 2026-08-17 抓到的坑:c2dbg 這張畫布現在跟家/房間共用,超商原本
-           假設它「只要在頁面載入時畫過一次就永遠是超商」(wallImg.onload
-           那次),接了家/房間之後這個假設不成立——玩家進過家裡或房間,
-           c2dbg 會被換成別的背景,回超商卻沒人叫它重畫,變成頂著超商的
-           `where` 標籤卻顯示上一個場景的背景。這裡補回來,每次真的走進
-           超商都重畫一次,不能只靠頁面載入那一次。 */
-        paintStoreBackdrop();
-      } else if(PLACE === 'school'){
-        /* 一進門站在走廊門口(SCHOOL.spots id:'door',在畫面右側,見
-           scene-school.js「往右走可以走到走廊」那則筆記),照 store 的
-           先例站在門口正中央、面朝 'F' 轉身往教室裡走,不要生成在座位
-           那格中間。 */
-        IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
-        document.getElementById('where').textContent = '學校';
-        paintSchoolBackdrop();
-        lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
-      } else if(PLACE === 'arcade'){
-        /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
-           scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
-        IN.px = ARCADE.spots.find(s=>s.id==='door').x + 30; IN.py = ARCADE.walkS; IN.face = 'F';
-        document.getElementById('where').textContent = '遊藝場';
-        paintArcadeBackdrop();
-      } else if(PLACE === 'tattoo'){
-        /* 刺青店(2026-08-28)——照 school/arcade 同一套「站在門口正中央,
-           面朝 'F' 轉身往店裡走」先例。門在畫面左側(SceneTattoo.SPOTS
-           id:'door',x:6~106),跟 store/school 同一側。 */
-        IN.px = TATTOO.spots.find(s=>s.id==='door').x + 30; IN.py = TATTOO.walkS; IN.face = 'F';
-        document.getElementById('where').textContent = '刺青店';
-        paintTattooBackdrop();
-      } else {
-        IN.px = 90; IN.py = HOME.walkS; IN.face = 'F';
-        document.getElementById('where').textContent = '家';
-        paintHomeBackdrop();
-        maybeTriggerStoryNode();
-      }
-      advanceTime(1);
-    });
+        : door.id === 'tattoo' ? '刺青店' : '家', () => warpIntoPlace(door));
   }};
 }
 function leaveIndoor(){
@@ -7139,6 +7195,18 @@ window.__dbg = {
     return `已移到 ${d.name} (${d.x.toFixed(1)}, ${d.z.toFixed(1)})`;
   },
   enter(id){ const d = city.doors.find(x => x.id === id); if(d) enterIndoor(d); return MODE; },
+  /* 直接傳送進室內(2026-08-28,kc:「你不要用走的.. 你用debug模式直接
+     傳送啊」)——`enter()` 還是會經過 walkIn(用真的走路動畫走到門口)+
+     fade()(淡出淡入),兩者都要靠 rAF 一幀一幀推進才會完成,某些環境
+     rAF 會卡住(見 DESIGN_NOTES 那則筆記)整個卡死在半路。這個直接呼叫
+     `warpIntoPlace()`,略過走路/busy 鎖/淡出動畫,同一幀就切完。 */
+  warp(id){
+    const d = city.doors.find(x => x.id === id);
+    if(!d) return '沒有這個門：' + city.doors.map(x=>x.id).join(', ');
+    returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
+    warpIntoPlace(d);
+    return MODE;
+  },
   at(x, z){ hero.group.position.set(x, .3, z); return `已移到 (${x}, ${z})`; },
   near(x, z, r){ return scene.children.filter(o => o.isMesh && Math.hypot(o.position.x-x, o.position.z-z) < (r||3))
     .map(o => ({ pos:[+o.position.x.toFixed(2),+o.position.y.toFixed(2),+o.position.z.toFixed(2)],
