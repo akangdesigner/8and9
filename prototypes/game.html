@@ -544,6 +544,7 @@
 <script src="lib/scene-home.js"></script>
 <script src="lib/scene-bedroom.js"></script>
 <script src="lib/scene-school.js"></script>
+<script src="lib/scene-corridor.js"></script>
 <script src="lib/scene-arcade.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
@@ -2413,6 +2414,26 @@ const SCHOOL_COLLIDERS_PHOTO = [
 ];
 let SCHOOL = SCHOOL_FALLBACK, SCHOOL_COLLIDERS = SCHOOL_COLLIDERS_FALLBACK;
 
+/* 走廊(2026-08-28,kc:「教室門出去後接走廊,然後接外面,走廊有繳費機跟
+   教官」)——插在教室跟街上中間,`school` 場景的門不再直接 leaveIndoor(),
+   改走 enterCorridor()/leaveCorridorToClassroom() 這組,跟客廳⇄房間
+   (enterBedroom()/leaveBedroom())同一套「兩個都算室內,只是 PLACE 換」
+   模式,不牽動 3D 街景/returnTo。目前只有灰模(SceneCorridor),沒有照片
+   版本,鎖深度水平走(跟房間同一套 lockDepth),不用另外開 WALK_TWEAK
+   滑桿——沒有伸出走道的家具,20~LW-20 這個通用範圍就夠用。 */
+const CORRIDOR_COLLIDERS = [];
+const CORRIDOR = {
+  walkN: SceneCorridor.WALK_N, walkS: SceneCorridor.WALK_S,
+  spots: [
+    { id:'classroom', name:'教室門', x:0, w:70, y0:SceneCorridor.WALK_N, y1:SceneCorridor.WALK_S },
+    { id:'kiosk', name:'繳費機', x:SceneCorridor.KIOSK.x-14, w:SceneCorridor.KIOSK.w+28,
+      y0:SceneCorridor.WALK_N, y1:SceneCorridor.WALK_S },
+    { id:'jiaoguan', name:'教官', x:SceneCorridor.DESK.x-14, w:SceneCorridor.DESK.w+28,
+      y0:SceneCorridor.WALK_N, y1:SceneCorridor.WALK_S },
+    { id:'outside', name:'走出去', x:SceneCorridor.W-70, w:70, y0:SceneCorridor.WALK_N, y1:SceneCorridor.WALK_S }
+  ]
+};
+
 /* 遊藝場(2026-08-26,kc:「遊藝場先做,裡面可以玩一些小遊戲,可以加情緒」
    +「真的賭博,情緒一定＋ 金錢賭」)——只有灰模,還沒有照片版(跟 store/
    home/school 當初一樣,先卡位,圖之後再疊,見 scene-arcade.js 檔頭那則
@@ -3155,6 +3176,14 @@ function paintSchoolBackdrop(){
     gbg.restore();
   }
 }
+/* 走廊(2026-08-28)——只有灰模,還沒有照片版,直接畫 SceneCorridor,不用
+   像其他場景那樣先判斷圖有沒有載入。 */
+function paintCorridorBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  gbg.save(); gbg.scale(SC,SC);
+  SceneCorridor.renderBackground(gbg, { vignette:true });
+  gbg.restore();
+}
 /* 遊藝場(2026-08-26 補照片版)——跟 paintSchoolBackdrop() 同一招,圖載入
    成功畫照片,否則退回灰模。 */
 function paintArcadeBackdrop(){
@@ -3190,7 +3219,8 @@ const HERO_TARGET_PX = {
   store: 106 * 1.3 * SC,   // 275.6,定案不再調
   home: 296,
   bedroom: 320,   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
-  arcade: 296   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
+  arcade: 296,   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
+  corridor: 296   // 2026-08-28:灰模走廊,同上先借同一個量級
 };
 const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad/spawnMom 那些除錯用的定格截圖工具用,跟超商比例校正
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
@@ -3281,7 +3311,8 @@ function inBlocked(x,y){
   const colliders = PLACE==='store' ? FIXTURE_COLLIDERS
     : PLACE==='home' ? HOME_COLLIDERS
     : PLACE==='bedroom' ? BEDROOM_COLLIDERS
-    : PLACE==='school' ? SCHOOL_COLLIDERS : PLACE==='arcade' ? ARCADE_COLLIDERS : [];
+    : PLACE==='school' ? SCHOOL_COLLIDERS : PLACE==='arcade' ? ARCADE_COLLIDERS
+    : PLACE==='corridor' ? CORRIDOR_COLLIDERS : [];
   return colliders.some(c =>
     x > c.x0-COLLIDE_PAD && x < c.x1+COLLIDE_PAD &&
     y > c.pyBack-COLLIDE_PAD && y < c.pyFront+COLLIDE_PAD);
@@ -3716,7 +3747,10 @@ function openIndoorSpot(id){
      那套(體力 −10 換知識),偷玩手遊體力扣比較少(−5,沒有真的在動腦)
      但有被教官抓到的風險,細節見 playPhoneInClass()。 */
   if(PLACE === 'school'){
-    if(id === 'door'){ leaveIndoor(); return; }
+    /* 門不再直接離開學校(2026-08-28)——教室門出去先進走廊
+       (enterCorridor()),走廊盡頭那扇門才是真的離開學校,見下面
+       PLACE==='corridor' 那個分支跟 CORRIDOR 那則筆記。 */
+    if(id === 'door'){ enterCorridor(); return; }
     else if(id === 'teacher'){ talkToTeacher(); return; }
     else if(id === 'aren'){ talkToAren(); return; }
     /* 小美(2026-08-26,kc:「可以幫小美解題目 會增加歸屬感 也可以約他出去玩
@@ -3757,6 +3791,18 @@ function openIndoorSpot(id){
         { label:'不要', cls:'back', run(){} }
       ]);
     }
+    return;
+  }
+  /* 走廊(2026-08-28,kc:「走廊有繳費機跟教官」)——夾在教室跟街上中間,
+     見上面 CORRIDOR 那則筆記。繳費機/教官兩個入口見下面 openTuitionKiosk()/
+     talkToJiaoguanCorridor(),跟註冊單(TUITION_QUEST)那條線是這輪新接上的
+     還款路徑——之前 TUITION_QUEST 只會顯示在文件分頁,沒有任何地方能真的
+     繳掉,見 docs/DESIGN_NOTES.md「沒誘因去做別的事」節。 */
+  if(PLACE === 'corridor'){
+    if(id === 'classroom'){ leaveCorridorToClassroom(); return; }
+    else if(id === 'outside'){ leaveIndoor(); return; }
+    else if(id === 'kiosk'){ openTuitionKiosk(); return; }
+    else if(id === 'jiaoguan'){ talkToJiaoguanCorridor(); return; }
     return;
   }
   /* 遊藝場(2026-08-26,kc:「裡面有 2d 場景 可以去跟機台對話玩遊戲 吃角子
@@ -4365,7 +4411,8 @@ function updateIndoor(dt){
   }
 
   const bounds = PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
-               : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE : BEDROOM;
+               : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE
+               : PLACE === 'corridor' ? CORRIDOR : BEDROOM;
 
   let dx=0, dy=0;
   if(keys['a']||keys['arrowleft'])  dx -= 1;
@@ -4387,7 +4434,7 @@ function updateIndoor(dt){
      透視走,只有 walkS 附近那條線眼睛校過看起來是對的,再往後退誤差就
      露出來),鎖住深度直接讓玩家永遠站在那條校過的線上,不用再另外解
      透視校正。 */
-  const lockDepth = PLACE === 'home' || PLACE === 'bedroom';
+  const lockDepth = PLACE === 'home' || PLACE === 'bedroom' || PLACE === 'corridor';
 
   if(!busy && !dlg.on && (dx||dy)){
     /* 2D 室內也能跑(2026-08-19,kc 要求):跟 updateCity() 的 Shift=2 倍
@@ -4660,10 +4707,21 @@ function sleep(){
         loanMsg = `\n機車行來收分期，扣了 $${pay}（還欠 $${MOTO_LOAN.balance}）。`;
       }
     }
+    /* 註冊費逾期(2026-08-28)——跟 MOTO_LOAN 週扣款同一段結算,只觸發一次
+       (overdueApplied 擋掉每晚重複扣)。滯納金 $300、風評 −5 是這輪自己
+       抓的小的可逆數字,沒跟 kc 對過確切金額,不喜歡再調——見
+       docs/DESIGN_NOTES.md「沒誘因去做別的事」節。 */
+    let tuitionMsg = '';
+    if(TUITION_QUEST && !TUITION_QUEST.paid && !TUITION_QUEST.overdueApplied && day > TUITION_QUEST.dueDay){
+      TUITION_QUEST.overdueApplied = true;
+      TUITION_QUEST.amount += 300;
+      chg('star', -5);
+      tuitionMsg = `\n註冊費逾期了，教官在朝會點名時念了你的名字（風評 −5，滯納金 +$300）。`;
+    }
     syncHUD();
     toast('你回去睡了一覺，體力補滿了。'
       + (skippedSchool ? '\n（今天沒去學校，風評 −3）' : '')
-      + loanMsg, 3800);
+      + loanMsg + tuitionMsg, 3800);
   });
 }
 function enterIndoor(door){
@@ -4827,6 +4885,27 @@ function leaveBedroom(){
     paintHomeBackdrop();
   });
 }
+/* 教室 ⇄ 走廊(2026-08-28):跟客廳⇄房間同一套「兩個都算室內,只是 PLACE
+   換」模式,不牽動 3D 街景/returnTo——真的離開學校是走廊那扇「走出去」
+   的門,走 leaveIndoor(),不是這裡。 */
+function enterCorridor(){
+  busy = true;
+  fade('走廊', () => {
+    PLACE = 'corridor';
+    IN.px = 70; IN.py = CORRIDOR.walkS; IN.face = 'F';
+    document.getElementById('where').textContent = '走廊';
+    paintCorridorBackdrop();
+  });
+}
+function leaveCorridorToClassroom(){
+  busy = true;
+  fade('教室', () => {
+    PLACE = 'school';
+    IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
+    document.getElementById('where').textContent = '學校';
+    paintSchoolBackdrop();
+  });
+}
 
 /* ===================================================================
    家裡的拉扯:母·賭 + 父·喝(唯一接進遊戲的一組,見 DESIGN_NOTES
@@ -4946,8 +5025,35 @@ function momCheckinLines(){
  * 不碰 DOM),真的建立這個物件、算到期日、跳 toast 提醒都在這裡做——跟
  * item.money/calm 那些欄位由 `applyStoryChoice()` 消費是同一個分工方式。
  * **逾期沒繳的後果目前沒有定義**,到期日到了不會扣任何東西,只是資料上
- * 記得住「逾期了」——這是刻意留白,不是漏做,後果是什麼要 kc 再定。 */
+ * 記得住「逾期了」——這是刻意留白,不是漏做,後果是什麼要 kc 再定。
+ * **✅ 2026-08-28 補上還款路徑跟逾期後果**——kc 覺得遊戲「沒誘因去做別的
+ * 事」回頭補這塊:繳費在走廊的繳費機(見下面 openTuitionKiosk()),逾期
+ * 後果在 sleep() 裡跟 MOTO_LOAN 週扣款同一段結算(風評 −5 + 滯納金 $300,
+ * `overdueApplied` 擋掉重複扣),細節見 docs/DESIGN_NOTES.md「沒誘因去做
+ * 別的事」節。 */
 let TUITION_QUEST = null;
+/* 走廊繳費機(2026-08-28)——TUITION_QUEST 唯一的還款入口,見 CORRIDOR
+ * 那則筆記。沒有欠款/已繳清時螢幕只顯示一句話,不開選單(跟教室講台
+ * 閒聊那種「沒東西可做就別開選單」同一個習慣)。 */
+function openTuitionKiosk(){
+  if(!TUITION_QUEST || TUITION_QUEST.paid){
+    toast('繳費機螢幕顯示：你名下目前沒有待繳的款項。', 2600);
+    return;
+  }
+  const amt = TUITION_QUEST.amount;
+  openMenu('繳費機', [
+    { label:`繳註冊費 $${amt}`,
+      cost: ST.money < amt ? '餘額不足' : `截止日：${dayToDate(TUITION_QUEST.dueDay)}`,
+      cls: ST.money < amt ? 'bad' : '',
+      run:() => {
+        if(ST.money < amt){ toast('餘額不足，機器把卡片吐了出來。', 2400); return; }
+        chg('money', -amt);
+        TUITION_QUEST.paid = true;
+        toast('註冊費繳清了，收據自動列印出來。', 2800);
+      } },
+    { label:'先不繳', cls:'back', run(){} }
+  ]);
+}
 /* beats 是 [{who,text}] 或 [{toast,ms}] 的混合陣列,照順序一句一句播完再
  * 呼叫 done——跟既有 say() 手動巢狀 callback 是同一招,只是資料量大了
  * (最多到 6 句)用遞迴展開,不用每加一句就多縮排一層。 */
@@ -5012,7 +5118,7 @@ function maybeTriggerStoryNode(){
       seenStoryDays.add(key+'-'+node.day);
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
-          TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
+          TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false, overdueApplied: false };
           toast(`註冊單:三個月內要湊出 $${node.tuitionQuest.amount}`, 3600);
         }
         openMenu(node.title, node.menu.map(item => ({
@@ -6154,6 +6260,22 @@ function talkToJiaoguan(){
     })));
   });
 }
+/* 走廊教官(2026-08-28)——跟街上那具 talkToJiaoguan()(刺青對峙那條線)
+ * 是同一個角色、不同站位/不同話題,不共用函式:這裡只負責提醒註冊費,
+ * 沒有註冊單的日子借同一份 NpcSchool.JIAOGUAN.idleTalk 巡邏閒聊當防呆,
+ * 不用另外寫一組台詞。 */
+function talkToJiaoguanCorridor(){
+  const D = NpcSchool.JIAOGUAN;
+  if(TUITION_QUEST && !TUITION_QUEST.paid){
+    if(day > TUITION_QUEST.dueDay){
+      say('jiaoguan', '「你那筆註冊費的事，教官室已經在問了，別再拖。」');
+    } else {
+      say('jiaoguan', `「註冊費記得繳一繳，截止日是 ${dayToDate(TUITION_QUEST.dueDay)}。」`);
+    }
+    return;
+  }
+  say('jiaoguan', D.idleTalk[Math.random()*D.idleTalk.length|0]);
+}
 /* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
    只剩閒聊),跟阿姨貓咪任務同一個簡化幅度,見 npc-school.js 開頭筆記。 */
 function talkToAren(){
@@ -6704,7 +6826,8 @@ window.__dbg = {
   busy: () => busy,
   dlgOn: () => dlg.on,
   bounds: () => (PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
-               : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE : BEDROOM),
+               : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE
+               : PLACE === 'corridor' ? CORRIDOR : BEDROOM),
   cam: indoorCamera,
   chg, steal, updateIndoor, openIndoorSpot, startCheckoutShift, getCO: () => CO,
   hire(){ IN.hired = true; return 'hired'; },

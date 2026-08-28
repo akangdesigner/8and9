@@ -795,6 +795,51 @@ mood。
 交給 kc,見 [[feedback_dont_self_test_hand_off]]),kc 玩到覺得數字太
 輕/太重再回報調整。
 
+**✅ 同一天第二輪:「要讓主角背上更多的負面,比如註冊單這種」**——討論
+過 A(把註冊單這個既有的欠款補完)/B(再開新的負面條目,比如賭債/水電費
+黃單/機車分期真的有後果)兩個方向,kc 選 A,順便把scope 講清楚:
+「之後學校會設計走廊,教室門出去後接走廊,然後接外面,走廊有繳費機跟
+教官」。查證發現 `TUITION_QUEST`(註冊單)當初就是刻意留白的死路——
+建立了會顯示在文件分頁,但沒有任何繳費入口、逾期也不會怎樣,金額到期日
+晾在那邊(舊筆記直接寫「後果是什麼要 kc 再定」),這輪把這條路徑真的
+接通:
+
+1. **新場景 `lib/scene-corridor.js`**——照 `scene-bedroom.js` 的規格
+   (灰模,640×360,IIFE,鎖深度水平走,沒有另外做 WALK_TWEAK 滑桿,因為
+   沒有伸出走道的家具),插在教室跟街上中間:左門回教室、右門(刻意畫
+   亮一點,暗示外面是白天街上)走出學校、置物櫃排裝飾湊走廊感、繳費機
+   (`KIOSK`,vending machine 造型)、教官岗哨桌(`DESK`,桌上一疊表格,
+   跟教室黑板前的講台同一個先例——人物不畫進背景圖,只留互動點,真人
+   由 `WHO`/`say()` 頭像處理)。目前只有灰模,沒有照片版本。
+2. **動線接法跟客廳⇄房間同一套**——教室的門不再直接 `leaveIndoor()`,
+   改呼叫新的 `enterCorridor()`;走廊的「教室門」呼叫
+   `leaveCorridorToClassroom()` 回教室,「走出去」那扇門才是真的
+   `leaveIndoor()` 離開學校。兩個都算室內(`MODE` 全程 `'indoor'`),
+   PLACE 在 `'school'`/`'corridor'` 之間切,不牽動 3D 街景/`returnTo`。
+   `bounds`/`lockDepth`/collider 選擇/`HERO_TARGET_PX`/`__dbg.bounds()`
+   這五處 PLACE 判斷鏈都補了 `corridor` 分支,跟當初新增學校那輪「一整條
+   PLACE 判斷鏈散在好幾個函式裡,要逐一補」是同一份清單(見上面「學校也要
+   建2d場景」節)。
+3. **繳費機是 `TUITION_QUEST` 唯一的還款入口**(`openTuitionKiosk()`)——
+   沒有欠款/已繳清時螢幕只顯示一句話不開選單;有欠款時開選單顯示金額跟
+   截止日,錢不夠顯示「餘額不足」+ `bad` 樣式擋下,繳完 `TUITION_QUEST.paid
+   = true`,文件分頁既有的 `!TUITION_QUEST.paid` 判斷自動讓那張卡片消失,
+   不用另外清。
+4. **逾期後果補上**(`sleep()` 裡跟 `MOTO_LOAN` 週扣款同一段結算)——
+   `day > dueDay` 且還沒繳、還沒罰過(`overdueApplied` 擋掉每晚重複扣)
+   就風評 −5、滯納金 +$300(金額直接加回 `TUITION_QUEST.amount`,下次
+   去繳費機要繳更多),toast 提示「教官在朝會點名時念了你的名字」。星星
+   數字/滯納金金額是這輪自己抓的小的可逆參數,沒跟 kc 對過確切數字。
+5. **走廊教官(`talkToJiaoguanCorridor()`)跟街上那具 `talkToJiaoguan()`
+   (刺青對峙那條線)是同一個角色、不同站位/不同函式**,不共用——這裡
+   只負責提醒/催繳註冊費(有欠款時講截止日或「教官室已經在問了」,沒有
+   欠款時借 `NpcSchool.JIAOGUAN.idleTalk` 巡邏閒聊防呆),街上那具的刺青
+   對峙劇情完全沒動。
+
+沒有在瀏覽器裡實測這輪(新場景走一遍完整動線,讀程式碼審過但沒有真的
+點開玩過),kc 玩到記得順便看一下教室門→走廊→街上這條路走不走得通、
+繳費機/教官兩個互動點摸不摸得到。
+
 ### ✅ 小美教室座位(2026-08-21 起,2026-08-25 換做法解決)
 
 **原計畫(3D 模型截圖)放棄了**——kc 2026-08-25 直接改給一張綠幕寫實圖
@@ -3137,6 +3182,7 @@ kc 要求「給我一個俯視圖,我們來完善這個小鎮」——用除錯�
 | `prototypes/lib/scene-home.js` | 家(客廳)的繪圖模組,程序畫法——**現在只在照片載入失敗時當 fallback**,同時也是 `WHO.mom`/`WHO.dad` 大頭貼調色盤來源,不能刪 | 2026-08-17 接進 game.html,同一天稍後改成主要走 `assets/bg/home-living.png` |
 | `prototypes/lib/scene-bedroom.js` | 主角房間的繪圖模組,跟 `scene-home.js` 同規格,同樣降級成 fallback | 2026-08-17 新增,同一天稍後改成主要走 `assets/bg/home-bedroom.png` |
 | `prototypes/lib/scene-school.js` | 教室的繪圖模組,跟 `scene-bedroom.js` 同規格(灰模,圖片載入失敗時的 fallback) | 2026-08-21 新增,**已接進 game.html**(校門在後火車站,見「第七條:體力」節「學校也要建2d場景」小節) |
+| `prototypes/lib/scene-corridor.js` | 學校走廊的繪圖模組,跟 `scene-bedroom.js` 同規格(灰模,鎖深度水平走,沒有照片版本) | 2026-08-28 新增,**已接進 game.html**,插在教室跟街上中間(繳費機/教官),見「第七條:體力」節「要讓主角背上更多的負面」小節 |
 | `assets/bg/home-living.png` | 客廳照片背景(kc 用 GPT 生的,一次過) | 2026-08-17 新增,見「客廳/房間改成照片級背景」節 |
 | `assets/bg/home-bedroom.png` | 房間照片背景 | 2026-08-17 新增,同上 |
 | `assets/bg/school-classroom.png` | 教室照片背景(1672×941,跟 home-living.png 同規格)v2——只剩橘髮男生/光頭男生兩張桌子+講台,女生那組桌椅、原本的空桌椅都拿掉,改用下面兩張獨立疊圖補回來 | 2026-08-25 新增,v2 同一天換圖,接進 `SCHOOL_PHOTO`/`SCHOOL_COLLIDERS_PHOTO` |
