@@ -1930,10 +1930,15 @@ export function buildCity(THREE, scene){
        + 一落鋼筋/管料堆——地面施工道具維持,骨架蓋在後半段不取代它們。
        2026-08-27 kc 糾正過一次做法(先誤用照片卡,又改回真 3D)。 */
     const frontCz = siteZ0 + 2.8;   // 前半段中心線,離骨架(skelCz≈110)有 4+ 單位淨空
-    dirtPile(cx-2, frontCz-1.2, 1.8);
+    /* 2026-08-28,kc:「不行欸進不去」——上一輪補了土堆/沙包的碰撞之後才
+       發現這兩堆(cx-2/cx+2 那組)剛好卡在大門缺口(x:16~24)正對著的
+       走道正中間,player 從門口直直走進來會被擋住,不是真的進不去,是
+       要繞很小的縫才過得去,體感就是「卡住」。挪離開缺口正對的走道,
+       不再擋在 x:16~24 這條線上。 */
+    dirtPile(cx-10, frontCz-1.2, 1.8);
     dirtPile(cx+16, frontCz-.6, 1.5);
     dirtPile(cx-16, frontCz+1, 1.6);
-    dirtPile(cx+2, frontCz+1.8, 1.3);
+    dirtPile(cx+10, frontCz+1.8, 1.3);
 
     add(box(4,2.6,2.4, std({color:0x3d6b4a,roughness:.7})), cx-siteW/2+3, 1.3, siteZ0+2.2);
     add(box(4,2.6,2.4, std({color:0x2e5a44,roughness:.7})), cx-siteW/2+8, 1.3, siteZ0+2.2);
@@ -1960,7 +1965,7 @@ export function buildCity(THREE, scene){
        還算空的角落,跟土堆/貨櫃屋/管料堆錯開,不疊在一起。 */
     realSandbag(13, 104.5, .3);
     realSandbag(27, 106.2, -.5);
-    realSandbag(20, 109.2, 1.1);
+    realSandbag(24, 110, 1.1);   // 原本 x=20 卡在大門缺口正對的走道上,同一輪挪開
 
     /* Decal 貼圖(2026-08-28,kc 生的第二張才有真的 alpha 通道——第一張是
        四合一縮圖,RGB 沒有透明通道,那輪只接了柱子/樓板底/地面三張,見上面
