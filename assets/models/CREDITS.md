@@ -32,6 +32,7 @@
 | `grass-01.glb` | Grass | Quaternius | Public Domain (CC0) | https://poly.pizza/m/GyDYqHAByU |
 | `bulldozer.glb` | Bulldozer | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/ddxtaegI3HQ |
 | `dirt-pile.glb` | Soil mount | apelab | CC-BY | https://poly.pizza/m/0ycSG7vDLMm |
+| `sandbags.glb` | Sandbags | J-Toastie | CC-BY | https://poly.pizza/m/xClPIEQJdX |
 
 CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時記得帶著這份清單
 (或至少「遊具模型來自 Poly by Google,CC-BY 3.0」這句話),不要漏掉。

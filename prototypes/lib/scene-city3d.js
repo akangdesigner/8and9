@@ -607,6 +607,18 @@ export function buildCity(THREE, scene){
       entry.group = g; entry.baseY = 0;
     }).catch(() => {});
   }
+  /* 沙包(2026-08-28,kc:「工地內部放幾個真的沙包」)——跟怪手/土堆同一套
+     「真 3D 模型,先素色箱體頂著」手法,不用另外設計。sandbags.glb
+     (Sandbags,J-Toastie,CC-BY,poly.pizza,授權見 assets/models/
+     CREDITS.md)本身就是一落疊起來的沙包,不用像土堆那樣自己疊多顆。 */
+  function realSandbag(x, z, ry){
+    const fallback = box(1.4, .7, 1, std({ color:0xb0966a, roughness:.9 }));
+    const holder = add(fallback, x, .35, z, false, true);
+    loadModel('sandbags.glb').then(gltf => {
+      scene.remove(holder);
+      add(propModel(THREE, gltf, 1.4, 'x', ry || 0), x, 0, z, false, true);
+    }).catch(() => {});
+  }
   /* 2026-08-28,kc 看了工地隔著大門缺口的樣子回報「為何有奇怪的球」——
      舊版拿圓球體疊 3 顆逼近土堆,舊註解雖然寫著要做成「扁平不規則堆疊,
      不是圓滾滾像球」,但實作沒有真的壓扁,球體疊球體看起來還是一串球。
@@ -1899,6 +1911,12 @@ export function buildCity(THREE, scene){
        貨櫃屋/管料堆旁邊當警戒標示,不是全部堆在大門口,位置跟著上面
        dirtPile/貨櫃屋/管料堆座標錯開,不疊在道具正中心。 */
     [[15.5,103.6],[33.5,104.2],[7.5,108.4],[32.5,109.2],[20,110.5]].forEach(([px,pz]) => realTrafficCone(px, pz));
+
+    /* 沙包(2026-08-28,kc:「工地內部放幾個真的沙包」)——散在圍牆內幾個
+       還算空的角落,跟土堆/貨櫃屋/管料堆錯開,不疊在一起。 */
+    realSandbag(13, 104.5, .3);
+    realSandbag(27, 106.2, -.5);
+    realSandbag(20, 109.2, 1.1);
   })();
 
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
