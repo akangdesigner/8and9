@@ -1807,6 +1807,10 @@ FOREMAN_MATERIALS[4].img.src = '../assets/tex/brick-white.png';
 const FOREMAN_WORKER_IMG = new Image();
 FOREMAN_WORKER_IMG.src = '../assets/tex/foreman-worker.png';
 const FOREMAN_WORKER_HAND_X_FRAC = 0.753, FOREMAN_WORKER_HAND_Y_FRAC = 0.342;
+/* 起始地板滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——groundY
+   原本是目測抓的常數(262),改成可調狀態讓 __dbg.tweakForeman() 現場拉,
+   bgDx/bgDy 順便開給背景照片的貼圖位置微調,跟 tweakPoliceCarPanel 同一招。 */
+const FOREMAN_TWEAK = { groundY:262, bgDx:0, bgDy:0 };
 /* 背景照(2026-08-28,kc 生的 foreman-site.png,1536×1024)——構圖是照
    agDrawForeman() 那則筆記要求的:中央淨空地面留給程式動態疊磚,兩側
    鋼筋/角材增加真實感,圍籬+天空跟遊藝場那批照片同一種寫實、不陰森的
@@ -2641,10 +2645,18 @@ const TATTOO_PHOTO = {
     { id:'door',    name:'門口',   x:36,  w:113, y0:230, y1:338 },
     { id:'wait',    name:'等候區', x:153, w:127, y0:230, y1:338 },
     { id:'flash',   name:'圖牆',   x:221, w:197, y0:230, y1:270 },
-    /* chair 這格(2026-08-28,kc 拉滑桿定案椅子最終位置那輪重算)——
-       x/w 挪到跟椅子疊圖的新位置對齊,y0 卡在 335(只剩 3 個單位的窄帶,
-       見下面 TATTOO_COLLIDERS_PHOTO 那則筆記解釋為什麼這麼窄)。 */
-    { id:'chair',   name:'刺青椅', x:327, w:166, y0:335, y1:338 },
+    /* chair 這格(2026-08-28,kc:「老闆在躺椅那邊啦 然後你的對話範圍很怪」)
+       ——師傅站位這輪改到頭枕那端(見 TATTOO_MASTER_PX/PY 那則筆記,
+       460/270),但這格判定區當時沒有跟著挪,還留在椅子前緣貼近鏡頭那條
+       窄帶(y0:335)——玩家站在師傅本人旁邊按空白鍵,摸到的其實是隔壁
+       'bench' 那格(工作檯氣氛 toast),要走到完全沒有人站的空地才會觸發
+       真的對話,體感就是「對話範圍很怪」。這格唯一的功能是
+       talkToTattooMaster(),不是真的要跟「椅子」這個家具互動,改成直接
+       圍著師傅本人開一圈判定區(x:430~490、y:255~285,師傅站位置中),
+       跟 'bench'(x:418~571)在 x:430~490 那段會有 y:255~285 的小重疊,
+       跟原本 chair/bench 本來就有 x:418~493 那段重疊、靠陣列順序(chair
+       排前面)分勝負是同一個既有做法,不是新問題。 */
+    { id:'chair',   name:'刺青椅', x:430, w:60, y0:255, y1:285 },
     { id:'bench',   name:'工作檯', x:418, w:153, y0:230, y1:338 },
     { id:'case',    name:'展示櫃', x:571, w:49,  y0:230, y1:338 }
   ]
@@ -3479,6 +3491,36 @@ function tweakConstructionPanel(){
       state[key] = +e.target.value;
       document.getElementById(`${id}_v`).textContent = state[key].toFixed(2);
       apply();
+    });
+  });
+}
+/* 工地扛磚滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——跟
+   tweakPoliceCarPanel 同一招,調的是 FOREMAN_TWEAK(見那則筆記),不用
+   等場景生成(不像警車/工地道具那些要等 3D 物件建好),隨時開都能拉。 */
+function tweakForemanPanel(){
+  const old = document.getElementById('foremanTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['fm_ground','地板高度(groundY)', 150, 380, 1, 'groundY'],
+    ['fm_bgdx','背景照片 X 偏移', -100, 100, 1, 'bgDx'],
+    ['fm_bgdy','背景照片 Y 偏移', -100, 100, 1, 'bgDy']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'foremanTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">工地扛磚地板/背景滑桿</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${FOREMAN_TWEAK[key]}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${FOREMAN_TWEAK[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakForeman()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      FOREMAN_TWEAK[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = FOREMAN_TWEAK[key];
+      agDrawForeman();
     });
   });
 }
@@ -5676,7 +5718,13 @@ function updateCity(dt){
      tick 跑,這裡是戶外 3D 街景自己的頭,提早 return 不跑下面的移動/鏡頭
      邏輯,只留 hero.animate() 讓角色不要卡在走路姿勢半途。 */
   if(FOREMAN_GAME.active){
-    FOREMAN_GAME.barPos += FOREMAN_GAME.barDir * dt * .0024;
+    /* 難度隨疊高提升(2026-08-28,kc:「為何堆的都不會倒」)——原本速度
+       固定,miss 門檻(resolveForemanLockIn 那邊 dist>.4)又只佔擺盪範圍
+       兩端各 10%,正常手感很難真的按到那個窄區間,無限模式變成事實上
+       疊不完會倒。改成疊越高擺盪越快,越到後面越難卡準,風險才會隨著
+       貪心疊高真的上升(倍率封頂 2.2,不要快到完全打不到)。 */
+    const speedMult = Math.min(2.2, 1 + FOREMAN_GAME.stack.length * 0.08);
+    FOREMAN_GAME.barPos += FOREMAN_GAME.barDir * dt * .0024 * speedMult;
     if(FOREMAN_GAME.barPos >= 1){ FOREMAN_GAME.barPos = 1; FOREMAN_GAME.barDir = -1; }
     else if(FOREMAN_GAME.barPos <= 0){ FOREMAN_GAME.barPos = 0; FOREMAN_GAME.barDir = 1; }
     agDrawForeman();
@@ -7129,17 +7177,17 @@ function foremanDrawWorker(x, carryTopY){
   }
 }
 function agDrawForeman(){
-  const w = agCanvas.width, h = agCanvas.height, cx = w/2, groundY = 262;
+  const w = agCanvas.width, h = agCanvas.height, cx = w/2, groundY = FOREMAN_TWEAK.groundY;
   agCtx.clearRect(0,0,w,h);
   /* 背景照(見上面 FOREMAN_BG_IMG 那則筆記)——跟 arcadeInteriorImg 同一招,
-     圖還沒載入完成就先退回手畫色塊,不會空白。groundY=262 是照這張照片
-     實際圍籬/地面交界目測抓的(1536×1024,跟畫布 640×420 長寬比幾乎一樣,
-     cover 貼滿裁掉的量小到可以忽略)——之前手畫版本的 372 是配合原本
-     色塊構圖喬的,現在改貼照片,構圖跟著照片重新對。 */
+     圖還沒載入完成就先退回手畫色塊,不會空白。groundY 預設 262 是照這張
+     照片實際圍籬/地面交界目測抓的(1536×1024,跟畫布 640×420 長寬比幾乎
+     一樣,cover 貼滿裁掉的量小到可以忽略),現在可以用 __dbg.tweakForeman()
+     現場調(見 FOREMAN_TWEAK 那則筆記)。 */
   if(FOREMAN_BG_IMG.naturalWidth){
     const s = Math.max(w/FOREMAN_BG_IMG.naturalWidth, h/FOREMAN_BG_IMG.naturalHeight);
     const iw = FOREMAN_BG_IMG.naturalWidth*s, ih = FOREMAN_BG_IMG.naturalHeight*s;
-    agCtx.drawImage(FOREMAN_BG_IMG, (w-iw)/2, (h-ih)/2, iw, ih);
+    agCtx.drawImage(FOREMAN_BG_IMG, (w-iw)/2 + FOREMAN_TWEAK.bgDx, (h-ih)/2 + FOREMAN_TWEAK.bgDy, iw, ih);
   } else {
     const sky = agCtx.createLinearGradient(0,0,0,h);
     sky.addColorStop(0,'#7fb8e0'); sky.addColorStop(1,'#cfe6f2');
@@ -7212,17 +7260,21 @@ function startForemanRound(){
    工錢越高,沒有隨機骰勝負。
    2026-08-28 第二輪改款(kc:「可以無限扛,如果偏差太大才會搖晃輸掉,
    然後跌多少賺多少」)——原本固定 5 趟、每趟各自結算的模式拿掉,改成
-   無限疊下去,只有最差那檔(tier 'miss',dist>.4,即之前「沒扶好」那句)
-   會讓整落磚塌掉、結束這班;great/ok/bad 三檔都照樣疊上去、照樣領那趟
-   的錢,只是歪一點。「跌多少賺多少」的意思是塌掉當下不倒扣——
-   FOREMAN_GAME.earned 是每趟疊上去就直接累加,不是疊到最後才結算,
-   所以塌掉那瞬間身上已經有的錢不會被拿走,只是不能再繼續疊。 */
+   無限疊下去,只有最差那檔(tier 'miss')會讓整落磚塌掉、結束這班;
+   great/ok/bad 三檔都照樣疊上去、照樣領那趟的錢,只是歪一點。「跌多少
+   賺多少」的意思是塌掉當下不倒扣——FOREMAN_GAME.earned 是每趟疊上去就
+   直接累加,不是疊到最後才結算,所以塌掉那瞬間身上已經有的錢不會被拿走,
+   只是不能再繼續疊。
+   2026-08-28 第三輪(kc:「為何堆的都不會倒」)——miss 門檻原本是 dist>.4,
+   只佔擺盪範圍兩端各 10% 寬,正常手感幾乎按不到那個窄區間,配上上面
+   updateCity() 新加的隨疊高加速,兩邊一起調才會真的有塌的風險:miss 門檻
+   從 .4 收窄到 .3(其餘三檔門檻等比例收窄,不是只動 miss 那一刀)。 */
 function resolveForemanLockIn(){
   if(!FOREMAN_GAME.active) return;
   const dist = Math.abs(FOREMAN_GAME.barPos - .5);
   const mat = FOREMAN_MATERIALS[FOREMAN_GAME.round % FOREMAN_MATERIALS.length];
   FOREMAN_GAME.active = false;
-  const tier = dist<=.05 ? 'great' : dist<=.2 ? 'ok' : dist<=.4 ? 'bad' : 'miss';
+  const tier = dist<=.04 ? 'great' : dist<=.15 ? 'ok' : dist<=.3 ? 'bad' : 'miss';
   const pay  = { great:150, ok:90, bad:40, miss:0 }[tier];
   const line = { great:'一次到位，磚疊得整整齊齊。', ok:'差不多，堆得還算穩。',
                  bad:'歪了一點，老闆皺了下眉。', miss:'手一滑，沒扶好——整落磚「轟」一聲塌了。' }[tier];
@@ -7646,6 +7698,7 @@ window.__dbg = {
   tweakPolice: tweakPolicePanel,
   tweakPoliceCar: tweakPoliceCarPanel,
   tweakConstruction: tweakConstructionPanel,
+  tweakForeman: tweakForemanPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
