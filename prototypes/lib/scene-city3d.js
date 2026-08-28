@@ -1974,10 +1974,15 @@ export function buildCity(THREE, scene){
       card.rotation.z = ry || 0;
       add(card, x, .07, z, false, true);   // 地板箱體(高 .06,中心 y=.03)頂面在 y=.06,貼花要蓋在上面,不是埋進箱體裡
     }
-    groundDecal('tape', 20, 104.2, 4, .85, 0);
-    groundDecal('tape', 12, 108, 3, .64, Math.PI/2 + .1);
-    groundDecal('crack1', 25, 111, 1.8, 3, .4);
-    groundDecal('crack2', 9, 112, 2, 2.9, -.6);
+    /* 2026-08-28,kc:「我怎看不出來」——查證過不是穿模/沒載到(scene 裡
+       貼花物件真的在,材質/貼圖都對),是原本擺的位置剛好卡在大門橫樑
+       投下來的陰影裡,晚上光線暗,黃黑條紋的對比被陰影吃掉大半,肉眼
+       幾乎看不到。挪到陰影範圍外、彼此不跟土堆/貨櫃屋/管料堆疊在一起
+       的空地,尺寸也放大一截。 */
+    groundDecal('tape', 30, 108, 4.8, 1, .3);
+    groundDecal('tape', 14, 111.5, 3.6, .77, -.4);
+    groundDecal('crack1', 25, 116, 2.4, 4, .4);
+    groundDecal('crack2', 9, 116.5, 2.6, 3.8, -.6);
   })();
 
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
