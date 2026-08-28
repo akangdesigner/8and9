@@ -1788,7 +1788,7 @@ const brotherNPC = NPCS[NPCS.length - 1];
    kaiNPC 同一套,沒有互動邏輯。安全背心配色呼應圍籬收邊柱的橘色
    (0xe8862a),同一個色號不是巧合。 */
 const constructionForemanNPC = buildNPC(THREE, scene, {
-  x:20, z:101.6, rotationY:0, rig:'m3',
+  x:20, z:101.6, rotationY:Math.PI, rig:'m3',
   skin:'#b98a63', hair:'#4a4a48',
   hood:'#e8862a', pants:'#33302b', shoe:'#1c1c1c'
 });
