@@ -3607,6 +3607,26 @@ const workerIndoor = buildNPC(THREE, indoorScene, {
 });
 workerIndoor.group.visible = false;
 const MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
+/* 刺青師傅(2026-08-28,kc:「刺青店還沒把師父接上去 我要怎用」)——
+   talkToTattooMaster() 這輪之前只是站在'chair'判定區按空白鍵觸發的
+   隱形對話,場景裡完全沒有畫出這個人,kc 才問不到要跟誰講話。跟
+   workerIndoor 同一套做法(3D 骨架疊在照片背景上,`heroIndoor` 自己就是
+   這樣站在這些照片場景裡的,不是「人形立牌」問題——那則舊筆記指的是
+   `paintStoreBackdrop()` 那張店員特寫近景,近到看得出模型粗糙,跟這裡
+   遠景全身站位是不同層級,不用套用同一個顧慮),不重新設計一套 2D 疊圖。
+   配色借 `SceneTattoo.P` 那組 `mSkin`/`mHair`/`mTop`/`mPants`(跟
+   `WEAR_ITEMS.tattooMaster` 對話 portrait 共用同一份調色,肖像/3D 模型
+   看起來是同一個人)。 */
+const tattooMasterIndoor = buildNPC(THREE, indoorScene, {
+  rig:'m3', skin:SceneTattoo.P.mSkin, hair:SceneTattoo.P.mHair,
+  hood:SceneTattoo.P.mTop, pants:SceneTattoo.P.mPants, shoe:'#1c1c1c'
+});
+tattooMasterIndoor.group.visible = false;
+/* 站位(2026-08-28)——照 tattoo-room.html 那個獨立預覽頁的參考站法
+   (師傅站/坐在滾輪凳旁邊,面朝刺青椅),邏輯座標抓在滾輪凳疊圖
+   (TATTOO_STOOL_TWEAK,logical x≈253)右側一點、刺青椅(logical
+   x:327~493)左側,沒有精算,先抓大概,kc 玩起來覺得站錯位置再調。 */
+const TATTOO_MASTER_PX = 230, TATTOO_MASTER_PY = 285;
 
 /* 店員 3D 骨架模型拿掉了(2026-08-13,見上面「整體改回 2D 背景」)——跟
    照片級背景擺在一起像人形立牌,質感差太多。kc 說他之後自己做 2D 版畫進
@@ -3633,6 +3653,16 @@ function renderIndoor3D(dt){
     workerIndoor.group.scale.setScalar((HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store) / PLAYER.height);
     workerIndoor.group.rotation.y = -heroIndoor.group.rotation.y;
     workerIndoor.animate(dt);
+  }
+  /* 刺青師傅(2026-08-28)——見 tattooMasterIndoor 宣告那則筆記。站位固定
+     (不像 workerIndoor 跟著玩家的 py 走,師傅站在自己的工作站,不會跟玩家
+     面對面移動),面向 'R'(刺青椅在他右手邊,x 比 TATTOO_MASTER_PX 大)。 */
+  tattooMasterIndoor.group.visible = (PLACE === 'tattoo');
+  if(PLACE === 'tattoo'){
+    tattooMasterIndoor.group.position.set(TATTOO_MASTER_PX*SC, 720 - TATTOO_MASTER_PY*SC, 0);
+    tattooMasterIndoor.group.scale.setScalar(tattooHeroPx(TATTOO_MASTER_PY) / PLAYER.height);
+    tattooMasterIndoor.group.rotation.y = Math.PI/2;
+    tattooMasterIndoor.animate(dt);
   }
   renderer3d.render(indoorScene, indoorCamera);
 }
