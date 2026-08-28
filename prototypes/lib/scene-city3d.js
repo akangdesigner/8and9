@@ -484,6 +484,11 @@ export function buildCity(THREE, scene){
      再換成真模型)+ 基準座標/縮放塞進這裡,滑桿即時乘一個倍率/加一個位移,
      不用重算 propModel 那組置中邏輯。 */
   const policeCarRef = {};
+  /* 施工工地滑桿(2026-08-28,kc:「三角錐我也要調整」,同一輪也要能調怪手)
+     ——跟 policeCarRef 同一招,但工地裡怪手/交通錐各有多台,不是單一 ref,
+     用陣列蒐集每一台的 group/基準座標,滑桿套一個共用倍率/位移到全部
+     實例上,不用逐台各開一組滑桿。 */
+  const constructionRef = { bulldozers: [], cones: [] };
   let parkBounds = null;                              // 見下面 park(),whereAmI() 要用
   const add = (mesh,x,y,z,cast,recv) => {
     mesh.position.set(x,y,z);
@@ -570,24 +575,34 @@ export function buildCity(THREE, scene){
   function realTrafficCone(x, z){
     const fallback = new THREE.Mesh(new THREE.CylinderGeometry(0,.28,.55,10), std({ color:0xe8622a, roughness:.6 }));
     const holder = add(fallback, x, .28, z, true, false);
+    const entry = { group:holder, baseX:x, baseY:.28, baseZ:z };
+    constructionRef.cones.push(entry);
     loadModel('traffic-cone.glb').then(gltf => {
       scene.remove(holder);
-      add(propModel(THREE, gltf, .7, 'y'), x, 0, z, true, false);
+      const g = propModel(THREE, gltf, .7, 'y');
+      add(g, x, 0, z, true, false);
+      entry.group = g; entry.baseY = 0;
     }).catch(() => {});
   }
   /* 怪手/土堆(2026-08-27,kc:「這幾個是要真的3d吧」——上一輪誤用了
      addProp() 那套「立牌照片卡」做法,kc 糾正:設備類道具(怪手)要跟
      警車/交通錐同一套真 3D 模型手法,照片才是留給警察局那種建築立面用。
-     excavator.glb 目前 assets/models 裡還沒有這個檔案,loadModel 失敗會
-     靜默 catch,退回下面這個單一箱體 fallback——先用這個頂著,之後有
-     模型檔案放進去就自動接上,不用改呼叫端的程式碼。土堆不是「載入模型」
+     2026-08-28:poly.pizza 上找不到真的手臂+抓斗挖土機(CC0/CC-BY 免費
+     池子裡沒有),kc 確認先用「Bulldozer」推土機(Poly by Google,CC-BY
+     3.0,assets/models/bulldozer.glb)頂位置,函式名維持 realExcavator
+     沒改(場景語意還是「工地裡的重機具」,不是特指推土機這個字),之後
+     真的挖土機模型到位只要換 loadModel() 那行檔名。土堆不是「載入模型」
      的東西,維持幾何,但改成扁平不規則堆疊(不是圓滾滾像球)。 */
   function realExcavator(x, z, ry){
     const fallback = box(2, 1.4, 4, std({ color:0xe8b23a, roughness:.5, metalness:.15 }));
     const holder = add(fallback, x, .7, z, true, false);
-    loadModel('excavator.glb').then(gltf => {
+    const entry = { group:holder, baseX:x, baseY:.7, baseZ:z, baseRy:ry||0 };
+    constructionRef.bulldozers.push(entry);
+    loadModel('bulldozer.glb').then(gltf => {
       scene.remove(holder);
-      add(propModel(THREE, gltf, 4, 'z', ry || 0), x, 0, z, true, false);
+      const g = propModel(THREE, gltf, 4, 'z', ry || 0);
+      add(g, x, 0, z, true, false);
+      entry.group = g; entry.baseY = 0;
     }).catch(() => {});
   }
   function dirtPile(x, z, r){
@@ -2895,7 +2910,7 @@ export function buildCity(THREE, scene){
        不要看到舊註解就自動接回這批 tower。 */
   })();
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef };
 }
 
 /* ---------------- 角色 ----------------
