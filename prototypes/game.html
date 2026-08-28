@@ -1774,14 +1774,14 @@ const NPCS = [
    插進陣列宣告中間好維護——陣列本身的宣告順序/排列不用跟著動。 */
 const brotherNPC = NPCS[NPCS.length - 1];
 
-/* 施工大哥(2026-08-28,kc:「門口要有一個施工大哥」)——站在工地大門缺口
-   西側門柱外側,不擋在缺口正中間(跟同一輪「交通錐不要擋住門口」同一個
-   理由,缺口本身要留空給人視覺上讀出「這是走得進去的門」)。純裝飾,
-   跟 motoBoss/kaiNPC 同一套,沒有互動邏輯。座標對齊 scene-city3d.js
-   constructionSite() 的 cx=20/siteZ0=103/gateX0=16(門柱)。安全背心配色
-   呼應圍籬收邊柱的橘色(0xe8862a),同一個色號不是巧合。 */
+/* 施工大哥(2026-08-28,kc:「門口要有一個施工大哥」)——第一版站在西側門柱
+   外面,kc 追加「大哥要站在門口」改成站在缺口正中央(x=cx=20),z 貼近
+   siteZ0 外緣(101.6,人行道帶),跟交通錐/怪手不同——他是活人,玩家會
+   繞過去,不用像交通錐那樣特地閃開缺口正中間。純裝飾,跟 motoBoss/
+   kaiNPC 同一套,沒有互動邏輯。安全背心配色呼應圍籬收邊柱的橘色
+   (0xe8862a),同一個色號不是巧合。 */
 const constructionForemanNPC = buildNPC(THREE, scene, {
-  x:12, z:102.2, rotationY:Math.PI*.15, rig:'m3',
+  x:20, z:101.6, rotationY:0, rig:'m3',
   skin:'#b98a63', hair:'#4a4a48',
   hood:'#e8862a', pants:'#33302b', shoe:'#1c1c1c'
 });
