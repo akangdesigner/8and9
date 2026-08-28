@@ -1730,7 +1730,7 @@ export function buildCity(THREE, scene){
        看到的那面),朝基地內側那面(+z)還是浪板材質,不用跟著換。 */
     const fenceSignPending = [];
     let fenceSignImg = null;
-    new THREE.ImageLoader().load(TEX_DIR + 'fence-sign.png', img => {
+    new THREE.ImageLoader().load(TEX_DIR + 'fence-sign.png?v=2', img => {   // v2:kc 重生了一版警示牌更多、跟浪板底圖更貼合的版本
       fenceSignImg = img;
       fenceSignPending.forEach(({mat, faceW}) => applyFenceSign(mat, faceW));
     }, undefined, () => {});
@@ -1800,12 +1800,12 @@ export function buildCity(THREE, scene){
        看不出「這裡是工地」。鋪一塊土色平面蓋滿整個基地,压过原本的路面。 */
     add(box(siteW-.3, .06, siteD-.3, std({ color:0x5a4530, roughness:1 })), cx, .03, siteCz, false, true);
 
-    /* 警示牌掛在圍籬正面(不越過 siteZ0),兩端各一面,不再只有中間一小塊;
-       交通錐改擺在缺口出入口正前方(原本沿整段西側排,跟「這是門口」的
-       閱讀對不上)。 */
-    [cx-siteW/2+4, cx+siteW/2-4].forEach(sx => {
-      add(box(3.6,2.4,.12, std({color:0xf2e8d8,roughness:.6})), sx, 2.4, siteZ0+.1, false, true);
-    });
+    /* 素色警示牌拿掉了(2026-08-28)——fence-sign.png 那張告示牌全景已經
+       涵蓋「施工中/安全第一/危險注意」這些內容,兩塊素色板子留著會跟
+       新告示牌的訊息重複。遠景導航用的飄浮字(跟「火車站」「警察局」
+       同一套,站遠一點就看得到,跟近看才讀得到的牆面貼圖是兩個層級)
+       維持不動。交通錐擺在缺口出入口正前方(原本沿整段西側排,跟「這是
+       門口」的閱讀對不上)。 */
     landmarks.push({ x:cx, y:3.6, z:siteZ0, text:'施工中\n請小心安全' });
     /* 交通錐(2026-08-28,kc 開滑桿把縮放拉到 2.18 後說「定案」——把這個倍率
        直接烤進 propModel targetSize,不留在滑桿上,滑桿之後打開預設回到 1
