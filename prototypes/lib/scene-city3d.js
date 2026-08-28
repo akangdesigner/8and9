@@ -1947,6 +1947,37 @@ export function buildCity(THREE, scene){
     realSandbag(13, 104.5, .3);
     realSandbag(27, 106.2, -.5);
     realSandbag(20, 109.2, 1.1);
+
+    /* Decal 貼圖(2026-08-28,kc 生的第二張才有真的 alpha 通道——第一張是
+       四合一縮圖,RGB 沒有透明通道,那輪只接了柱子/樓板底/地面三張,見上面
+       那次的筆記)。原圖是一整張大 sprite sheet,不是切好的單一圖示,用
+       Python(PIL+scipy.ndimage.label,連通元件分析抓每個圖示的 bounding
+       box)裁出三塊乾淨、沒有跟旁邊圖示疊在一起的區域:警示膠帶條紋、
+       兩種裂縫/剝落痕跡,其餘(水泥字樣袋子、保特瓶、木板……)混在一起
+       裁不乾淨沒有用。貼法跟 propCard()/addProp() 同一套 alphaTest 卡片,
+       但這裡要平躺在地上(rotation.x=-PI/2),不是站著的立牌。 */
+    const decalMats = {};
+    function decalMat(name){
+      if(decalMats[name]) return decalMats[name];
+      const m = std({ color:0x9a9488, roughness:.9, transparent:true, alphaTest:.35, side:THREE.DoubleSide });
+      decalMats[name] = m;
+      new THREE.ImageLoader().load(TEX_DIR + `decal-${name}.png`, img => {
+        const t = new THREE.Texture(img);
+        t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+        m.map = t; m.color.setHex(0xffffff); m.needsUpdate = true;
+      }, undefined, () => {});
+      return m;
+    }
+    function groundDecal(name, x, z, w, h, ry){
+      const card = new THREE.Mesh(new THREE.PlaneGeometry(w,h), decalMat(name));
+      card.rotation.x = -Math.PI/2;
+      card.rotation.z = ry || 0;
+      add(card, x, .07, z, false, true);   // 地板箱體(高 .06,中心 y=.03)頂面在 y=.06,貼花要蓋在上面,不是埋進箱體裡
+    }
+    groundDecal('tape', 20, 104.2, 4, .85, 0);
+    groundDecal('tape', 12, 108, 3, .64, Math.PI/2 + .1);
+    groundDecal('crack1', 25, 111, 1.8, 3, .4);
+    groundDecal('crack2', 9, 112, 2, 2.9, -.6);
   })();
 
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
