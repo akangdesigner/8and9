@@ -1780,7 +1780,20 @@ export function buildCity(THREE, scene){
       const top = fenceEdgeMat(bigRepX, .3);
       return orient === 'z' ? [edge,edge,top,top,big,outward] : [big,big,top,top,edge,edge];
     }
+    /* 橘色收邊柱貼圖(2026-08-28,kc 生的 post-orange.png,鏽蝕橘漆鐵件,
+       可平鋪)——柱子是 CylinderGeometry,預設 UV 就是繞圓周方向 0~1、
+       高度方向 0~1,直接套材質會自動包住圓柱,不用另外處理面陣列。
+       圍籬正面的門楣橫樑(box 幾何)也共用同一顆材質,同一根柱子/橫樑
+       同一種鏽蝕鐵件,不用分開生一張。 */
     const postM = std({ color:0xe8862a, roughness:.6 });
+    new THREE.ImageLoader().load(TEX_DIR + 'post-orange.png', img => {
+      const t = new THREE.Texture(img);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      t.repeat.set(1, 3);
+      t.needsUpdate = true;
+      postM.map = t; postM.color.setHex(0xffffff); postM.needsUpdate = true;
+    }, undefined, () => {});
     const postsLong = 5, postsShort = 3;
     /* 2026-08-28,kc:「牆壁開一個門」——正面圍籬中間留一段缺口當出入口
        (gateW=8,置中),兩片牆各自變短,缺口兩側補一對比其他收邊柱粗一圈
