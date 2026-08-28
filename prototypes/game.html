@@ -730,8 +730,10 @@ const invOverlay = document.getElementById('invOverlay');
  * (DESIGN_NOTES「五條指標各自管什麼」),但一直沒有東西餵它,這裡把這個
  * 空位填上。沒有做賣衣服的商店(還沒被要求),先把幾件示範衣物直接放進
  * `owned`,開局都沒穿,穿脫時即時改 ST.cool。 */
-const WEAR_SLOTS = ['hat','top','bottom','shoes','neck'];
-const WEAR_SLOT_NAME = { hat:'帽子', top:'上衣', bottom:'褲子', shoes:'鞋子', neck:'項鍊' };
+/* tattoo 是獨立的第六個槽位(2026-08-28 加,見下面 WEAR_ITEMS 'tattoo'
+   那筆)——不跟 top/bottom 那些衣物搶格子,永遠只有這一件東西會佔用它。 */
+const WEAR_SLOTS = ['hat','top','bottom','shoes','neck','tattoo'];
+const WEAR_SLOT_NAME = { hat:'帽子', top:'上衣', bottom:'褲子', shoes:'鞋子', neck:'項鍊', tattoo:'刺青' };
 /* icon 是 emoji 佔位(2026-08-19 第二輪,照 kc 丟的參考截圖改成圖示格子)——
  * 這遊戲沒做過物品圖示素材,先用 emoji 頂著看版面,之後真的要換圖再整批
  * 換掉,見 DESIGN_NOTES「角色面板改三欄」底下的補記。 */
@@ -747,10 +749,19 @@ const WEAR_ITEMS = [
      `owned` 裡,要打工下班才會拿到(見 coEndShift() 那段)。同時帶
      cool/star 兩個效果,是這批衣物裡第一件會動風評的,見下面
      toggleWear() 那則筆記。 */
-  { id:'uniform', slot:'top', name:'超商制服', cool:-10, star:10, icon:'👔', locked:true }
+  { id:'uniform', slot:'top', name:'超商制服', cool:-10, star:10, icon:'👔', locked:true },
+  /* 刺青(2026-08-28,kc 糾正:「刺青刺完是獲得一個拿不下來的裝備才對,
+     除非洗掉,帥潮+10」)——上一輪 getTattoo() 直接 chg('cool', cool) 是
+     錯的,刺青不是一次性效果,是永久裝備,要走這套穿搭系統,只是這件
+     `removable:false`,不能像其他衣物一樣點一下脫掉(見下面 toggleWear()
+     那則筆記)。帥潮固定 +10,不分刺青尺寸大小(小的/半甲只影響價錢跟
+     劇情份量,不是帥潮加成的差異,世界觀上「刺了就是刺了」)。「洗掉」
+     (雷射除刺青)還沒做,`removable:false` 先卡著這個位置,之後真的要做
+     洗掉功能再開一個地方把它翻回 `true`。 */
+  { id:'tattoo', slot:'tattoo', name:'刺青', cool:10, icon:'🐉', locked:true, removable:false }
 ];
 const owned = WEAR_ITEMS.filter(w => !w.locked).map(w => w.id);
-const equipped = { hat:null, top:null, bottom:null, shoes:null, neck:null };
+const equipped = { hat:null, top:null, bottom:null, shoes:null, neck:null, tattoo:null };
 /* 角色欄兩側的裝備小圖示(2026-08-19 第二輪)怎麼分左右純粹是排版好看,
  * 沒有特別意義,3/2 只是配平衡,不喜歡可以直接改這兩個陣列。 */
 const EQUIP_BADGE_LEFT = ['hat','top','bottom'], EQUIP_BADGE_RIGHT = ['shoes','neck'];
@@ -773,6 +784,9 @@ function toggleWear(itemId){
     if(item.star) chg('star', item.star * sign);
   };
   if(prevId === itemId){
+    /* 拿不下來的裝備(2026-08-28,刺青那件 removable:false)——擋掉脫下
+       這個動作,跳提示交代原因,不要靜默失敗讓 kc 以為點擊沒反應。 */
+    if(it.removable === false){ toast('這個拿不下來——要去洗掉才行。', 2400); return; }
     equipped[slot] = null;
     applyDelta(it, -1);
   } else {
@@ -1153,6 +1167,10 @@ const WHO = {
      沒有真人照片(先退回 SF.person() 像素小人),見下面 PORTRAIT_IMGS 那則
      筆記的先例(worker/bo 都是這樣先接資料再補照片)。 */
   motoboss: { name:'旺鴻', opt:{ face:'F', skin:'#b98a63', hair:'#3a3a3a', top:'#4a5560', topD:'#38414a', pants:'#26241f' } },
+  /* 施工大哥(2026-08-28)——顏色跟街上那具 constructionForemanNPC buildNPC()
+     同步,安全背心橘色,沒有真人照片,退回 SF.person() 像素小人,跟
+     worker/bo/motoboss/fortune 同一套先例。 */
+  foreman:  { name:'老闆', opt:{ face:'F', skin:'#b98a63', hair:'#4a4a48', top:'#e8862a', topD:'#c46f1e', pants:'#33302b' } },
   /* 算命攤・神棍(2026-08-27)——顏色跟街上那具 buildNPC() 同步(見
      game.html NPCS 那段「神棍・算命攤」筆記):灰髮示意年紀,深紫上衣
      區隔其他攤販的居家色系。沒有真人照片,退回 SF.person() 像素小人,
@@ -1783,12 +1801,25 @@ const brotherNPC = NPCS[NPCS.length - 1];
 
 /* 施工大哥(2026-08-28,kc:「門口要有一個施工大哥」)——第一版站在西側門柱
    外面,kc 追加「大哥要站在門口」改成站在缺口正中央(x=cx=20),z 貼近
-   siteZ0 外緣(101.6,人行道帶),跟交通錐/怪手不同——他是活人,玩家會
-   繞過去,不用像交通錐那樣特地閃開缺口正中間。純裝飾,跟 motoBoss/
-   kaiNPC 同一套,沒有互動邏輯。安全背心配色呼應圍籬收邊柱的橘色
-   (0xe8862a),同一個色號不是巧合。 */
+   siteZ0 外緣(101.6,人行道帶)。安全背心配色呼應圍籬收邊柱的橘色
+   (0xe8862a),同一個色號不是巧合。
+   **2026-08-28,kc:「開啟打工劇情」**——第二份打工,跟超商班表並存
+   (workedDay 只鎖這份工自己,不動 workedDay 那個超商用的全域變數)。
+   玩法用小遊戲(kc 明講,不是純對話+扣數值),挑「扛磚」這個粗工最直觀
+   的動作配一支時機條(跟遊藝場推幣機同一套 agBar/agBarPin DOM,但那套
+   ARCADE_ANIM 只在 updateIndoor() 裡跑,這裡是戶外 3D 街景,改成自己的
+   FOREMAN_GAME 狀態、掛在 updateCity() 開頭跑,同一個「busy 鎖死移動」
+   前提沒變)。故事鉤子暫時只有書架那則「工地缺工荒、粗工日薪衝上新高」
+   社會新聞(見上面 SOCIAL_NEWS_ITEMS 那個新聞池),老闆本人沒有身世/
+   劇情分支——kc 原話「之後再發展新的」,這輪刻意不腦補。
+   ⚠ 那則新聞寫的時候(2026-08-27)註解明講「不是承諾之後一定會做,
+   避免玩家點進新聞以為缺人就真的能去應徵」——這輪 kc 直接推翻,新聞
+   內容不用跟著改(讀起來還是成立,只是從「鋪陳」變成「真的兌現」)。 */
+const FOREMAN = { x:20, z:101.6, workedDay:-1 };
+const FOREMAN_GAME = { active:false, round:0, rounds:5, barPos:0, barDir:1, earned:0 };
+let foremanShiftOn = false;   // 全程(startForemanShift→endForemanShift)開著,見下面 ESC 那條 guard 的筆記
 const constructionForemanNPC = buildNPC(THREE, scene, {
-  x:20, z:101.6, rotationY:Math.PI, rig:'m3',
+  x:FOREMAN.x, z:FOREMAN.z, rotationY:Math.PI, rig:'m3',
   skin:'#b98a63', hair:'#4a4a48',
   hood:'#e8862a', pants:'#33302b', shoe:'#1c1c1c'
 });
@@ -5316,6 +5347,7 @@ addEventListener('keydown', e => {
        會被 openIndoorSpot(IN.near) 那條路徑吃掉(那邊一開頭就 `if(busy||
        dlg.on) return;`,pusher 進行中 busy 是 true,空白鍵會直接失效)。 */
     if(ARCADE_ANIM.active && ARCADE_ANIM.kind === 'pusher'){ resolvePusherLockIn(); return; }
+    if(FOREMAN_GAME.active){ resolveForemanLockIn(); return; }
     if(advanceDialog()) return;
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
@@ -5330,7 +5362,11 @@ addEventListener('keydown', e => {
      這時候玩家已經按下「拉一次/投 $20」,金錢會在演出跑完(slot/roulette)
      或鎖定當下(pusher)才真的扣,ESC 跳出去會留在一個演出演到一半、
      cb() 卻永遠不會被呼叫的卡死狀態。 */
-  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active) closeArcadeGame();
+  /* 2026-08-28:扛磚小遊戲借用同一個 #arcadeGame 面板,但 closeArcadeGame()
+     是遊藝場專用(會摸 ARCADE_GAMBLE.momEchoPending),ESC 不能在扛磚進行
+     中誤觸——foremanShiftOn 全程(startForemanShift→endForemanShift)擋住,
+     不是只擋 FOREMAN_GAME.active 那個「單趟計時中」的窄窗口。 */
+  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active && !foremanShiftOn) closeArcadeGame();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
@@ -5384,6 +5420,18 @@ const eyePos = new THREE.Vector3(), camDir = new THREE.Vector3();
 const whereEl = document.getElementById('where');
 
 function updateCity(dt){
+  /* 工地扛磚時機條(2026-08-28)——跟 updateIndoor() 的 ARCADE_ANIM.active
+     那段同一個精神(整段搶走輸入,指示條每幀 ping-pong),但那段只在室內
+     tick 跑,這裡是戶外 3D 街景自己的頭,提早 return 不跑下面的移動/鏡頭
+     邏輯,只留 hero.animate() 讓角色不要卡在走路姿勢半途。 */
+  if(FOREMAN_GAME.active){
+    FOREMAN_GAME.barPos += FOREMAN_GAME.barDir * dt * .0024;
+    if(FOREMAN_GAME.barPos >= 1){ FOREMAN_GAME.barPos = 1; FOREMAN_GAME.barDir = -1; }
+    else if(FOREMAN_GAME.barPos <= 0){ FOREMAN_GAME.barPos = 0; FOREMAN_GAME.barDir = 1; }
+    agBarPin.style.left = (FOREMAN_GAME.barPos*100) + '%';
+    hero.animate(dt, false, 1, false);
+    return;
+  }
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -5554,6 +5602,8 @@ function updateCity(dt){
       nearProp = { type:'brother', ref:BROTHER };
     if(!nearProp && Math.hypot(pos.x-KAI.x, pos.z-KAI.z) < 3.2)
       nearProp = { type:'kai', ref:KAI };
+    if(!nearProp && Math.hypot(pos.x-FOREMAN.x, pos.z-FOREMAN.z) < 3.2)
+      nearProp = { type:'foreman', ref:FOREMAN };
     /* 路人搭話(2026-08-19,kc 要求「路邊人物都至少可以對話一句話」)——
        PEDESTRIANS 走位置會變,不能像 pets/litter 那樣讀固定的 x/z,直接
        讀 npc.group.position。純背景路人,不記名字、不分支對話,一句隨機
@@ -5628,6 +5678,7 @@ function updateCity(dt){
                       : nearProp.type === 'brother' ? '按 <b>空白鍵</b> 跟他說話'
                       : nearProp.type === 'kai' ? '按 <b>空白鍵</b> 找阿凱'
                       : nearProp.type === 'pedestrian' ? '按 <b>空白鍵</b> 打聲招呼'
+                      : nearProp.type === 'foreman' ? '按 <b>空白鍵</b> 找老闆'
                       : '按 <b>空白鍵</b> 撿起垃圾';
     hintEl.classList.add('on');
   } else if(ridingMoto && !dlg.on){
@@ -6455,15 +6506,15 @@ function talkToJiaoguanCorridor(){
  * 一個字就會自動生效——這是當初接學校線那輪就設計好的耦合,見
  * docs/DESIGN_NOTES.md「學校線接進 game.html」節那句「hasTattoo 換成讀
  * 真的完成條件之後,教官這邊不用跟著改」。
- * 兩個價位/帥潮加成直接沿用 `world.html`(這個專案更早的原型)`ink()`
- * 那組已經定案的數字($1500/+8、$8000/+22),不是我這輪自己抓的——舊版
- * 同時還會 `chg('star', 1)`,但那是舊「通緝 0~5,數字越大越可疑」語意
- * 下的 +1,對應到現在雙向 -100~100 的風評應該是反過來扣分,不是加分;
- * 這裡沒有照抄那個方向,直接不動風評——刺青對風評的影響已經交給教官/
- * 小美哥那三條既有劇情各自處理,這裡再疊一次會重複扣。金錢/體力之外的
- * 唯一直接效果是帥潮,呼應「帥潮只由外顯行頭決定」那條邊界的精神(刺青
- * 某種意義上也是一種外顯裝扮),跟同一天稍早撿垃圾/超商制服那兩個明著
- * 打破邊界的例子不同,這裡沒有違反。*/
+ * **✅ 2026-08-28 同一天再一輪,kc 糾正帥潮的算法**——原本 `getTattoo()`
+ * 直接 `chg('cool', cool)`,兩個尺寸各自 +8/+22(沿用 `world.html` 舊
+ * 原型的數字)。kc:「刺青刺完是獲得一個拿不下來的裝備才對,除非洗掉,
+ * 帥潮+10」——改成走 `WEAR_ITEMS`/`toggleWear()` 那套穿搭系統,新增
+ * `tattoo` 專屬槽位(不跟 top 那些衣物搶格子),`removable:false` 讓
+ * `toggleWear()` 擋掉脫下的動作。帥潮固定 +10,不再分尺寸——兩個價位
+ * 現在只影響花多少錢跟劇情份量,不影響帥潮加成,世界觀上「刺了就是
+ * 刺了」,大小不影響這件事對你的意義。風評維持上一輪的決定不動(刺青
+ * 對風評的影響交給教官/小美哥那三條既有劇情各自處理)。 */
 function talkToTattooMaster(){
   if(YUAN.hasTattoo){
     say('tattooMaster', '「你上次那隻還沒退紅呢，先讓它好。」');
@@ -6471,18 +6522,19 @@ function talkToTattooMaster(){
   }
   say('tattooMaster', '「要刺哪裡？」', () => {
     openMenu('刺青店', [
-      { label:'小的，手腕內側', cost: ST.money<1500 ? '錢不夠' : '$1500　帥潮 +8',
-        cls: ST.money<1500 ? 'bad' : '', run:() => getTattoo(1500, 8) },
-      { label:'半甲', cost: ST.money<8000 ? '錢不夠' : '$8000　帥潮 +22',
-        cls: ST.money<8000 ? 'bad' : '', run:() => getTattoo(8000, 22) },
+      { label:'小的，手腕內側', cost: ST.money<1500 ? '錢不夠' : '$1500　帥潮 +10',
+        cls: ST.money<1500 ? 'bad' : '', run:() => getTattoo(1500) },
+      { label:'半甲', cost: ST.money<8000 ? '錢不夠' : '$8000　帥潮 +10',
+        cls: ST.money<8000 ? 'bad' : '', run:() => getTattoo(8000) },
       { label:'只是看看', cls:'back', run:() => say('tattooMaster', '「牆上都有，自己看。」') }
     ]);
   });
 }
-function getTattoo(price, cool){
+function getTattoo(price){
   if(ST.money < price){ toast('錢不夠。', 2200); return; }
   chg('money', -price);
-  chg('cool', cool);
+  owned.push('tattoo');
+  toggleWear('tattoo');   // 永久裝備,+10 帥潮從這裡套用,見上面 toggleWear() 的 removable 筆記
   YUAN.hasTattoo = true;
   addTag('tattoo');
   advanceTime(90);
@@ -6639,6 +6691,79 @@ function talkToKai(){
   const lines = kaiCheckinLines();
   say('kai', lines[Math.floor(Math.random()*lines.length)]);
 }
+/* 工地打工(2026-08-28,見上面 FOREMAN/FOREMAN_GAME 那則筆記)——跟超商班表
+   並存,workedDay 只鎖這份工。玩法是「扛磚」時機小遊戲:時機條跟遊藝場
+   推幣機同一套 DOM(#arcadeGame/agBar/agBarPin),但那套 ARCADE_ANIM 是
+   updateIndoor() 專用,這裡是戶外 3D 街景,自己另開 FOREMAN_GAME 狀態、
+   掛在 updateCity() 開頭 tick(見那邊),keydown 空白鍵鎖定也另開一條
+   resolveForemanLockIn(),不動 resolvePusherLockIn() 那條(兩套游標各管
+   各的 active 旗標,不會互相搶按鍵)。 */
+function talkToForeman(){
+  if(FOREMAN.workedDay === day){
+    say('foreman', '「今天扛得差不多了，明天再來。」');
+    return;
+  }
+  say('foreman', '「工地缺人，要不要來扛磚？扛一趟給一趟的錢，看你手腳快不快。」', () => {
+    openMenu('工地・老闆', [
+      { label:'上工扛磚', cost:'體力 -20', cls: ST.stamina<20 ? 'bad' : '', run(){
+          if(ST.stamina < 20){ toast('你現在扛不動，先去休息。', 2200); return; }
+          startForemanShift();
+        } },
+      { label:'先不要', cls:'back', run(){} }
+    ]);
+  });
+}
+function agDrawForeman(){
+  agCtx.clearRect(0,0,agCanvas.width,agCanvas.height);
+  agCtx.fillStyle = '#3a342c'; agCtx.fillRect(0,0,agCanvas.width,agCanvas.height);
+  agCtx.fillStyle = '#e8862a'; agCtx.font = 'bold 32px sans-serif'; agCtx.textAlign = 'center'; agCtx.textBaseline = 'middle';
+  agCtx.fillText('工地・扛磚', agCanvas.width/2, agCanvas.height/2);
+}
+function startForemanShift(){
+  busy = true;
+  foremanShiftOn = true;
+  chg('stamina', -20);
+  FOREMAN.workedDay = day;
+  FOREMAN_GAME.round = 0; FOREMAN_GAME.earned = 0;
+  agEl.classList.add('on');
+  agCap.textContent = '工地・扛磚';
+  agActions.innerHTML = '';
+  agDrawForeman();
+  startForemanRound();
+}
+function startForemanRound(){
+  FOREMAN_GAME.active = true;
+  FOREMAN_GAME.barPos = 0; FOREMAN_GAME.barDir = 1;
+  agBarEl.style.display = 'block'; agBarPin.style.left = '0%';
+  agBody.innerHTML = `第 ${FOREMAN_GAME.round+1}/${FOREMAN_GAME.rounds} 趟——按空白鍵，抓準時機把磚放下`;
+}
+/* 命中判定跟賠率經濟學無關(這是老闆給的工錢,不是賭博機台,不用照
+   resolvePusherLockIn() 那套「三檔全負期望值」的顧慮)——純粹手感越準
+   工錢越高,沒有隨機骰勝負。 */
+function resolveForemanLockIn(){
+  if(!FOREMAN_GAME.active) return;
+  const dist = Math.abs(FOREMAN_GAME.barPos - .5);
+  FOREMAN_GAME.active = false;
+  agBarEl.style.display = 'none';
+  const tier = dist<=.05 ? 'great' : dist<=.2 ? 'ok' : dist<=.4 ? 'bad' : 'miss';
+  const pay  = { great:150, ok:90, bad:40, miss:0 }[tier];
+  const line = { great:'一次到位，磚疊得整整齊齊。', ok:'差不多，堆得還算穩。',
+                 bad:'歪了一點，老闆皺了下眉。', miss:'沒扶好，磚頭滾了一地。' }[tier];
+  FOREMAN_GAME.earned += pay;
+  FOREMAN_GAME.round++;
+  agBody.innerHTML = `${line}（+$${pay}）`;
+  setTimeout(() => {
+    if(FOREMAN_GAME.round >= FOREMAN_GAME.rounds) endForemanShift();
+    else startForemanRound();
+  }, 900);
+}
+function endForemanShift(){
+  agEl.classList.remove('on');
+  busy = false;
+  foremanShiftOn = false;
+  chg('money', FOREMAN_GAME.earned);
+  toast(`扛完 ${FOREMAN_GAME.rounds} 趟磚，老闆給了你 $${FOREMAN_GAME.earned}。`, 3200);
+}
 /* 旺鴻(機車行老闆,2026-08-25 kc 要求)——買車現在要先跟他對話,不是走到
    forSale 車旁邊直接跳選單(見上面 interactProp() 'moto'/'motoboss' 兩條
    分支的改動)。對話本體借 talkToStallVendor() 那套(跟阿姨/阿成同一條路:
@@ -6788,7 +6913,7 @@ function talkToWorker(w){
    根本扣不光,體力永遠見不了底,「過完一天」這個機制就形同虛設(玩家
    不需要回家睡覺,天數不會走)——kc 要求對話/讀書/打工三個全部調重,
    對話 −1→−5、讀書 −5→−10、打工 −20→−40,見下面讀書/打工那兩處。 */
-const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','mei','jiaoguan','aren','brother','pedestrian','fortune']);
+const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','mei','jiaoguan','aren','brother','pedestrian','fortune','foreman']);
 /* 情緒見底不想回話(2026-08-26,kc:「情緒低落的話會不想回話,提示想先
    散散心之類的」)——照體力=0 攔對話那套一模一樣的做法加一道情緒關卡,
    見 DESIGN_NOTES「情緒會影響什麼」那節。15 是這輪自己抓的門檻:預設值
@@ -6821,6 +6946,7 @@ function interactProp(prop){
   if(prop.type === 'aren'){ talkToAren(); return; }
   if(prop.type === 'brother'){ talkToBrother(); return; }
   if(prop.type === 'kai'){ talkToKai(); return; }
+  if(prop.type === 'foreman'){ talkToForeman(); return; }
   if(prop.type === 'statue'){
     toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
     return;
