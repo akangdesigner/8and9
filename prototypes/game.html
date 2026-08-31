@@ -9019,6 +9019,18 @@ window.__dbg = {
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
+  /* 警局三條中短期任務(2026-08-31)——跟 spotWatchJob() 同一個理由,方便
+     現場測試不用真的走完前置條件(有車/工地做滿3次/認識阿源/day到)。
+     MOTO_IMPOUND.reveal() 直接模擬 sleep() 那張拖吊通知單觸發,不用真的
+     睡一覺。 */
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, syncMiscQuestPanel,
+  MOTO_IMPOUND_reveal(){
+    MOTO_IMPOUND.active = true;
+    MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
+    if(MOTO_IMPOUND.motoRef && MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = false;
+    syncMiscQuestPanel();
+    return MOTO_IMPOUND;
+  },
   TATTOO_DOG, talkToTattooMaster, lookAtWaitingMagazine, lookAtFlashWall, TATTOO_BREAD, lookAtBench,
   talkToForeman,
   spotTattooDog(){ TATTOO_DOG.found = true; return TATTOO_DOG; },   // 跳過「走到工地」那段,方便現場測回報
