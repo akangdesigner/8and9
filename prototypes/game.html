@@ -6565,17 +6565,17 @@ function talkToFortune(){
    4. 兩個條件都滿足:觸發 becomeFriend 里程碑,friend 從此恆真,之後只是
       單純聊天(退回 talk[] 隨機句,不再檢查門檻)。 */
 const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
-/* 陣頭(TROUPE)——2026-08-21 這輪第一次真的接,見 npc-temple.js TROUPE
-   那則長筆記。門檻(cool≥25 且風評≥-30)一滿足就優先於下面「好朋友」
-   那條線,連續吃掉 5 次拜訪(4 次練習 + 1 次出陣),消耗完 `YUAN.debuted`
-   才 fall through 到原本邏輯——不會永久卡住友情線,因為 TROUPE 門檻
-   (cool≥25)比「好朋友」門檻(cool>30)低,通常會先被吃完。
-   ⚠ `rejectCool`/`rejectRep`(不夠格時看到什麼)**這輪沒有接**——門檻
-   沒到就直接 fall through,不會顯示拒絕場景。原因:阿源本來就有一套
-   按拜訪次數觸發的 lowCool events(at:3/at:6)在帥潮不夠時運作,如果
-   讓 TROUPE 未達標也搶著攔截每次對話,會把那套既有內容永久蓋掉——
-   這輪只接「夠格之後會發生什麼」,「不夠格主動去問會被怎麼拒絕」留給
-   之後真的要做陣頭音遊時一起處理。 */
+/* 陣頭(TROUPE)——2026-08-21 這輪第一次真的接,2026-08-31 改成選單問
+   (kc:「阿源也要有對話選單是可以跳陣頭的，如果數值不到會提示」)。
+   舊版是門檻一滿足就自動吃掉整次對話,不夠格就整個 fall through 假裝
+   沒這件事(見下面被取代的舊筆記)。現在改成:只要還沒出陣(!YUAN.debuted)
+   每次找他都先跳一個小選單「跳陣頭／先聊聊」——選「先聊聊」原本的
+   lowCool events(at:3/at:6)/talk[]/askFriend 那整套完全不受影響(移到
+   yuanCasualTalk() 裡,內容一行沒動);選「跳陣頭」才進 tryJoinTroupe(),
+   夠格就照舊接練習/出陣+音遊,不夠格就顯示 rejectCool/rejectRep 那段
+   拒絕場景(這兩則資料本來就寫好放在 npc-temple.js,只是一直沒接)。
+   多一次選單點擊,換來「不夠格主動去問會被怎麼拒絕」這件事變得到得了,
+   不用再靠 fall through 假裝沒發生。 */
 function talkToYuan(){
   /* 顧場子(2026-08-26)——見上面 WATCHJOB 那則長筆記+ DESIGN_NOTES「顧場子」節。
      兩個分支都攔在陣頭/朋友邏輯最前面:回報優先權最高(玩家正是為了這件事
@@ -6598,52 +6598,77 @@ function talkToYuan(){
     return;
   }
   if(!YUAN.debuted){
-    const gate = NpcTemple.TROUPE.need;
-    if(ST.cool >= gate.cool && ST.star >= gate.repMin){
-      joinedTroupe = true;
-      const practice = NpcTemple.TROUPE.practice;
-      /* 2026-08-31:練習/出陣中間插進陣頭音遊(見 startTroupeGame() 那則
-         筆記)——打好才真的算過這次(practiceIdx 前進/debuted 設 true),
-         打不好這次不算數,套 TROUPE.practiceFail/debutFail 那段安慰劇情,
-         下次找阿源可以重來。體力不管打好打壞都扣(人真的練了/演了)。 */
-      if(YUAN.practiceIdx < practice.length){
-        const ev = practice[YUAN.practiceIdx];
-        playBeats(ev.beats, 0, () => {
-          startTroupeGame('rongshen', (success) => {
-            if(ev.stamina) chg('stamina', ev.stamina);
-            if(success){
-              YUAN.practiceIdx++;
-              if(ev.calm) chg('calm', ev.calm);
-              if(ev.cool) chg('cool', ev.cool);
-              if(ev.quiet) toast(ev.quiet, 3400);
-            } else {
-              const fail = NpcTemple.TROUPE.practiceFail;
-              chg('calm', fail.calm);
-              playBeats(fail.beats, 0, () => { if(fail.quiet) toast(fail.quiet, 3000); });
-            }
-          });
-        });
-        return;
-      }
-      const ev = NpcTemple.TROUPE.debut;
-      playBeats(ev.beats, 0, () => {
-        startTroupeGame('wurenwang', (success) => {
-          if(ev.stamina) chg('stamina', ev.stamina);
-          if(success){
-            YUAN.debuted = true;
-            if(ev.calm) chg('calm', ev.calm);
-            if(ev.cool) chg('cool', ev.cool);
-            if(ev.quiet) toast(ev.quiet, 3400);
-          } else {
-            const fail = NpcTemple.TROUPE.debutFail;
-            chg('calm', fail.calm);
-            playBeats(fail.beats, 0, () => { if(fail.quiet) toast(fail.quiet, 3000); });
-          }
-        });
-      });
-      return;
-    }
+    say('yuan', '「欸，要不要一起？」', () => {
+      openMenu('阿源', [
+        { label:'跳陣頭', run(){ tryJoinTroupe(); } },
+        { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
+      ]);
+    });
+    return;
   }
+  yuanCasualTalk();
+}
+/* 選了「跳陣頭」才會呼叫——夠格就照舊接練習/出陣+音遊(邏輯原封不動
+   搬過來),不夠格顯示 rejectCool/rejectRep(見上面 talkToYuan() 那則
+   筆記)。帥潮不夠優先於風評不夠,跟原本判斷式的順序(cool 在前)一致。 */
+function tryJoinTroupe(){
+  const gate = NpcTemple.TROUPE.need;
+  if(ST.cool < gate.cool){
+    const r = NpcTemple.TROUPE.rejectCool;
+    playBeats(r.beats, 0, () => { if(r.quiet) toast(r.quiet, 3000); });
+    return;
+  }
+  if(ST.star < gate.repMin){
+    const r = NpcTemple.TROUPE.rejectRep;
+    playBeats(r.beats, 0, () => { if(r.quiet) toast(r.quiet, 3000); });
+    return;
+  }
+  joinedTroupe = true;
+  const practice = NpcTemple.TROUPE.practice;
+  /* 2026-08-31:練習/出陣中間插進陣頭音遊(見 startTroupeGame() 那則
+     筆記)——打好才真的算過這次(practiceIdx 前進/debuted 設 true),
+     打不好這次不算數,套 TROUPE.practiceFail/debutFail 那段安慰劇情,
+     下次找阿源可以重來。體力不管打好打壞都扣(人真的練了/演了)。 */
+  if(YUAN.practiceIdx < practice.length){
+    const ev = practice[YUAN.practiceIdx];
+    playBeats(ev.beats, 0, () => {
+      startTroupeGame('rongshen', (success) => {
+        if(ev.stamina) chg('stamina', ev.stamina);
+        if(success){
+          YUAN.practiceIdx++;
+          if(ev.calm) chg('calm', ev.calm);
+          if(ev.cool) chg('cool', ev.cool);
+          if(ev.quiet) toast(ev.quiet, 3400);
+        } else {
+          const fail = NpcTemple.TROUPE.practiceFail;
+          chg('calm', fail.calm);
+          playBeats(fail.beats, 0, () => { if(fail.quiet) toast(fail.quiet, 3000); });
+        }
+      });
+    });
+    return;
+  }
+  const ev = NpcTemple.TROUPE.debut;
+  playBeats(ev.beats, 0, () => {
+    startTroupeGame('wurenwang', (success) => {
+      if(ev.stamina) chg('stamina', ev.stamina);
+      if(success){
+        YUAN.debuted = true;
+        if(ev.calm) chg('calm', ev.calm);
+        if(ev.cool) chg('cool', ev.cool);
+        if(ev.quiet) toast(ev.quiet, 3400);
+      } else {
+        const fail = NpcTemple.TROUPE.debutFail;
+        chg('calm', fail.calm);
+        playBeats(fail.beats, 0, () => { if(fail.quiet) toast(fail.quiet, 3000); });
+      }
+    });
+  });
+}
+/* 選了「先聊聊」,或已經出陣過(YUAN.debuted)不用再問要不要跳陣頭——
+   內容原封不動從舊版 talkToYuan() 搬過來,friend/asked/events/lowCoolTalk
+   那整套順序/門檻都沒變。 */
+function yuanCasualTalk(){
   if(YUAN.friend){
     YUAN.visits++;
     say('yuan', YUAN_DATA.talk[Math.random()*YUAN_DATA.talk.length|0]);
