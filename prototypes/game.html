@@ -219,6 +219,17 @@
   #arcadeGame.on { display:flex; }
   #arcadeGame .agPanel { width:min(720px,90%); background:linear-gradient(180deg,rgba(14,18,26,.97),rgba(9,12,18,.98));
     border:2px solid #55617a; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.6); padding:20px 26px 24px; }
+  /* 陣頭音遊金紅 LED 邊框(2026-08-31 第六輪,kc 貼參考圖要「宮廟招牌風格」
+     的邊框)——只有 startTroupeGame() 開的時候加 .troupe 這個 class,跟
+     推幣機/扛磚共用的預設灰藍邊框拉開,animation 做輕微脈動呼應霓虹燈
+     牌的閃爍感,不要做到刺眼閃爍。 */
+  #arcadeGame.troupe .agPanel { border-color:#e0483a;
+    box-shadow:0 10px 40px rgba(0,0,0,.6), 0 0 18px rgba(216,178,74,.55), inset 0 0 14px rgba(224,72,58,.25);
+    animation: troupeGlow 2.2s ease-in-out infinite; }
+  @keyframes troupeGlow {
+    0%,100% { box-shadow:0 10px 40px rgba(0,0,0,.6), 0 0 18px rgba(216,178,74,.55), inset 0 0 14px rgba(224,72,58,.25); }
+    50% { box-shadow:0 10px 40px rgba(0,0,0,.6), 0 0 30px rgba(216,178,74,.85), inset 0 0 20px rgba(224,72,58,.4); }
+  }
   #arcadeGame .agCap { font-size:13px; letter-spacing:.24em; color:#d8b24a; margin-bottom:12px; text-align:center; }
   #arcadeGame canvas { display:block; width:100%; height:auto; border-radius:4px; box-shadow:0 4px 20px rgba(0,0,0,.5); }
   /* 推幣機的時機條(2026-08-26)——只有 pusher 那台會顯示(game.html
@@ -7638,7 +7649,7 @@ function startTroupeGame(songKey, onDone){
   TROUPE_GAME.audio.play().catch(()=>{});
   busy = true;
   troupeShiftOn = true;
-  agEl.classList.add('on');
+  agEl.classList.add('on', 'troupe');
   agCap.textContent = def.title + '・跳陣頭';
   agActions.innerHTML = '';
   agBarEl.style.display = 'none';
@@ -7669,9 +7680,12 @@ function troupeBadge(x, y, lane, r, alpha){
   }
   agCtx.restore();
 }
-function troupePopup(text, lane){
+/* 2026-08-31 第六輪(kc 貼了一張參考圖,要「89 跳陣頭」的爽感)——判定字
+   從「剛好/還行/普通」換成 PERFECT/讚/過/MISS,配台語俚語(水啦/落漆),
+   顏色也不再照 lane 的方向色,改成統一金/紅,呼應參考圖的字卡風格。 */
+function troupePopup(text, lane, color){
   const jx = troupeJudgeX(agCanvas.width), y = troupeTrackY(agCanvas.height);
-  TROUPE_GAME.popups.push({ text, x:jx, y:y-30, life:1, color:TROUPE_LANES[lane].color });
+  TROUPE_GAME.popups.push({ text, x:jx, y:y-34, life:1, color: color || TROUPE_LANES[lane].color });
 }
 /* 一次判定成立(不管是點一下的音符,還是拉長音按到尾端)才會走到這裡——
    加 combo/score、亮判定圈那個方向的 flash、噴判定字。 */
@@ -7680,7 +7694,9 @@ function troupeRegisterHit(lane, tier){
   TROUPE_GAME.dancerPulse = 1;
   TROUPE_GAME.combo++;
   TROUPE_GAME.score += tier==='great' ? 300 : tier==='ok' ? 120 : 60;
-  troupePopup(tier==='great' ? '剛好' : tier==='ok' ? '還行' : '普通', lane);
+  const label = tier==='great' ? 'PERFECT 水啦！' : tier==='ok' ? '讚！' : '過';
+  const color = tier==='great' ? '#ffd75e' : tier==='ok' ? '#d8b24a' : '#b8a08e';
+  troupePopup(label, lane, color);
 }
 function troupeDrawBg(){
   const w = agCanvas.width, h = agCanvas.height;
@@ -7714,32 +7730,36 @@ function troupeDrawLimb(img, pivotX, pivotY, angle, len, flip){
    一模一樣——那組資產其實已經做好會秒載入,這裡的 fallback 只是防閃爍。 */
 function troupeDrawDancers(elapsed){
   const w = agCanvas.width, h = agCanvas.height;
-  const shown = Math.min(TROUPE_DANCERS.length, 2+Math.floor(TROUPE_GAME.combo/8));
-  const baseY = h*0.86;
+  /* 2026-08-31 第六輪(kc:「那兩個人好小 而且顏色好淺好怪」)——起始就有
+     3 人(不是 2 人)、起始透明度從 .35 拉到 .7(combo=0 也要清楚看得見,
+     不是要練出 combo 才「淡出」出現),尺寸整組放大到接近原型
+     rhythm-linzitou.html 的原始比例(這裡先前縮太多)。 */
+  const shown = Math.min(TROUPE_DANCERS.length, 3+Math.floor(TROUPE_GAME.combo/6));
+  const baseY = h*0.88;
   TROUPE_DANCERS.slice(0, shown).forEach((d,i) => {
-    const alpha = Math.min(1, .35+TROUPE_GAME.combo/60);
+    const alpha = Math.min(1, .7+TROUPE_GAME.combo/80);
     const walk = elapsed*TROUPE_STEP_HZ + d.phase;
-    const stride = Math.sin(walk), bob = Math.abs(Math.sin(walk))*5, sway = Math.sin(walk*0.5)*2;
+    const stride = Math.sin(walk), bob = Math.abs(Math.sin(walk))*7, sway = Math.sin(walk*0.5)*3;
     const pulse = i===0 ? TROUPE_GAME.dancerPulse : 0;
-    const x = d.x*w + sway, y = baseY - bob*3 - pulse*10;
+    const x = d.x*w + sway, y = baseY - bob*4 - pulse*14;
 
     agCtx.save();
-    const glow = agCtx.createRadialGradient(x,y+46,2,x,y+46,30);
-    glow.addColorStop(0, `rgba(255,190,110,${.32*alpha})`); glow.addColorStop(1, 'rgba(255,190,110,0)');
-    agCtx.fillStyle = glow; agCtx.beginPath(); agCtx.arc(x,y+46,30,0,Math.PI*2); agCtx.fill();
+    const glow = agCtx.createRadialGradient(x,y+66,2,x,y+66,44);
+    glow.addColorStop(0, `rgba(255,190,110,${.4*alpha})`); glow.addColorStop(1, 'rgba(255,190,110,0)');
+    agCtx.fillStyle = glow; agCtx.beginPath(); agCtx.arc(x,y+66,44,0,Math.PI*2); agCtx.fill();
     agCtx.restore();
 
     agCtx.save(); agCtx.globalAlpha = alpha;
     if(troupePartsReady){
       const LEG_A=.5, ARM_A=.4;
-      troupeDrawLimb(TROUPE_PARTS.leg, x-5, y+38,  stride*LEG_A, 20, false);
-      troupeDrawLimb(TROUPE_PARTS.leg, x+5, y+38, -stride*LEG_A, 20, true);
-      const th=36, tw=th*(TROUPE_PARTS.torso.width/TROUPE_PARTS.torso.height);
-      agCtx.drawImage(TROUPE_PARTS.torso, x-tw/2, y+5, tw, th);
-      troupeDrawLimb(TROUPE_PARTS.arm, x-10, y+11, -stride*ARM_A, 16, false);
-      troupeDrawLimb(TROUPE_PARTS.arm, x+10, y+11,  stride*ARM_A, 16, true);
-      const hh=22, hw=hh*(TROUPE_PARTS.head.width/TROUPE_PARTS.head.height);
-      agCtx.drawImage(TROUPE_PARTS.head, x-hw/2, y-16, hw, hh);
+      troupeDrawLimb(TROUPE_PARTS.leg, x-8, y+56,  stride*LEG_A, 28, false);
+      troupeDrawLimb(TROUPE_PARTS.leg, x+8, y+56, -stride*LEG_A, 28, true);
+      const th=52, tw=th*(TROUPE_PARTS.torso.width/TROUPE_PARTS.torso.height);
+      agCtx.drawImage(TROUPE_PARTS.torso, x-tw/2, y+8, tw, th);
+      troupeDrawLimb(TROUPE_PARTS.arm, x-14, y+15, -stride*ARM_A, 23, false);
+      troupeDrawLimb(TROUPE_PARTS.arm, x+14, y+15,  stride*ARM_A, 23, true);
+      const hh=31, hw=hh*(TROUPE_PARTS.head.width/TROUPE_PARTS.head.height);
+      agCtx.drawImage(TROUPE_PARTS.head, x-hw/2, y-22, hw, hh);
     } else {
       agCtx.fillStyle = i%3===0 ? '#6e1c14' : (i%3===1 ? '#1c2731' : '#3a241c');
       agCtx.beginPath(); agCtx.arc(x, y, 14, 0, Math.PI*2); agCtx.fill();
@@ -7794,13 +7814,13 @@ function troupeUpdateNotes(elapsed){
       if(elapsed >= n.t + n.hold){
         const stillHeld = !!keys[TROUPE_LANES[n.lane].key];
         n.hit = stillHeld ? n.holdTier : 'miss';
-        if(n.hit === 'miss'){ TROUPE_GAME.combo = 0; troupePopup('MISS', n.lane); }
+        if(n.hit === 'miss'){ TROUPE_GAME.combo = 0; troupePopup('MISS 落漆…', n.lane, '#e0483a'); }
         else troupeRegisterHit(n.lane, n.hit);
       }
       return;
     }
     if(elapsed - n.t > TROUPE_HIT_WINDOW){
-      n.hit = 'miss'; TROUPE_GAME.combo = 0; troupePopup('MISS', n.lane);
+      n.hit = 'miss'; TROUPE_GAME.combo = 0; troupePopup('MISS 落漆…', n.lane, '#e0483a');
     }
   });
 }
@@ -7846,16 +7866,45 @@ function troupeRoundRect(x,y,w,h,r){
   agCtx.beginPath(); agCtx.moveTo(x+r,y); agCtx.arcTo(x+w,y,x+w,y+h,r);
   agCtx.arcTo(x+w,y+h,x,y+h,r); agCtx.arcTo(x,y+h,x,y,r); agCtx.arcTo(x,y,x+w,y,r); agCtx.closePath();
 }
+/* 2026-08-31 第六輪(kc 貼參考圖要「PERFECT/MISS 搭配文字特效」)——字放大
+   到 bold 18px、加 shadowBlur 做發光,不是原本 13px 的小字,才有參考圖
+   那種字卡爽感。 */
 function troupeDrawPopups(dtSec){
-  agCtx.textAlign = 'center'; agCtx.font = 'bold 13px "Noto Sans TC"';
+  agCtx.textAlign = 'center'; agCtx.font = 'bold 18px "Noto Sans TC"';
   TROUPE_GAME.popups.forEach(p => {
     agCtx.globalAlpha = Math.max(0,p.life);
+    agCtx.shadowColor = p.color; agCtx.shadowBlur = 14;
     agCtx.fillStyle = p.color;
-    agCtx.fillText(p.text, p.x, p.y-(1-p.life)*24);
-    p.life -= dtSec*1.6;
+    agCtx.fillText(p.text, p.x, p.y-(1-p.life)*30);
+    agCtx.shadowBlur = 0;
+    p.life -= dtSec*1.4;
   });
   agCtx.globalAlpha = 1;
   TROUPE_GAME.popups = TROUPE_GAME.popups.filter(p => p.life>0);
+}
+/* combo/score 大字 HUD(2026-08-31 第六輪,照參考圖左上「連莊 89 COMBO」/
+   右上「SCORE 888,888」那個排法)——直接畫在 agCanvas 角落,gauge 置中
+   佔畫面中間一半寬,兩邊角落留空剛好夠放,不會疊在一起。 */
+function troupeDrawHUD(){
+  const w = agCanvas.width;
+  agCtx.save();
+  agCtx.textAlign = 'left';
+  agCtx.fillStyle = '#d8b24a'; agCtx.font = 'bold 12px "Noto Sans TC"';
+  agCtx.fillText('連莊', 14, 26);
+  agCtx.fillStyle = TROUPE_GAME.combo >= 10 ? '#ffd75e' : '#f0e6d8';
+  agCtx.font = 'bold 32px "Noto Sans TC"';
+  agCtx.shadowColor = 'rgba(255,215,94,.6)'; agCtx.shadowBlur = TROUPE_GAME.combo >= 10 ? 10 : 0;
+  agCtx.fillText(String(TROUPE_GAME.combo), 14, 60);
+  agCtx.shadowBlur = 0;
+  agCtx.fillStyle = '#b8a08e'; agCtx.font = 'bold 11px "Noto Sans TC"';
+  agCtx.fillText('COMBO', 14, 74);
+
+  agCtx.textAlign = 'right';
+  agCtx.fillStyle = '#d8b24a'; agCtx.font = 'bold 11px "Noto Sans TC"';
+  agCtx.fillText('SCORE', w-14, 26);
+  agCtx.fillStyle = '#f0e6d8'; agCtx.font = 'bold 22px "Noto Sans TC"';
+  agCtx.fillText(String(TROUPE_GAME.score).replace(/\B(?=(\d{3})+(?!\d))/g, ','), w-14, 50);
+  agCtx.restore();
 }
 function agDrawTroupe(dt){
   const w = agCanvas.width, h = agCanvas.height;
@@ -7868,6 +7917,7 @@ function agDrawTroupe(dt){
   troupeUpdateNotes(elapsed);
   troupeDrawTrack(elapsed);
   troupeDrawGauge();
+  troupeDrawHUD();
   troupeDrawPopups((dt||16)/1000);
 
   if(def && elapsed >= def.clipLen){ finishTroupeGame(); }
@@ -7882,7 +7932,7 @@ function finishTroupeGame(){
   if(!TROUPE_GAME.active) return;
   TROUPE_GAME.active = false;
   TROUPE_GAME.audio.pause();
-  agEl.classList.remove('on');
+  agEl.classList.remove('on', 'troupe');
   busy = false;
   troupeShiftOn = false;
   const total = TROUPE_GAME.notes.length;
