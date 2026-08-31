@@ -1805,34 +1805,58 @@ const BROTHER  = { x:-78, z:98.5, met:false, path:null };
         沒有額外懲罰(這條份量比家裡兩條輕,不用做到「不選也要扣」那麼重)。
    三條都透過阿正/工地老闆既有的對話函式(talkToBrother()/talkToForeman())
    分流,沒有另外蓋新的互動點或 3D 場景。 */
-const MOTO_IMPOUND = { active:false, done:false, fine:1500, motoRef:null };
-/* 贖車選單那顆按鈕(2026-08-31)——talkToBrother() 裡有兩處會開這個選單
-   (剛揭露時/之後回頭處理時),抽成共用函式避免同一段 run() 邏輯貼兩份、
-   改一次要記得改兩處。 */
-/* 贖車還車地點(2026-08-31,kc:「白痴嗎但問題是我機車都馬隨便亂停」)——
-   第一版繳完錢只是把車藏起來那個位置的 visible 開回來,沒有搬位置。
-   kc 停車根本不固定,搬回原地等於「車可能出現在地圖任何一個角落」,
-   完全不像「牽回來」,玩家還要自己想辦法找到那個隨便停的舊位置。改成
-   繳完錢直接把車搬到警局門口旁邊(x=-74,z=97,用 __dbg.city.blocked()
-   核對過乾淨,離兩組警車 x≈-88/-93、x≈-64/-69 都有一段距離,不會疊在
-   一起)——「牽回來」這三個字才有意義,玩家繳完錢走出警局就看得到車。
-   純機車(m.x/m.z 是 nearProp 距離判斷用的邏輯座標,m.group.position 是
-   真的視覺位置,兩個要一起改,不然騎乘互動判定跟畫面對不上——見
-   dismountMoto() 那組 m.x=pos.x 的同一個坑)。 */
+/* 2026-08-31 第三輪:
+   ①kc:「事件發生的時候車真的會消失嗎 那應該是你出家門的時候會收到拖吊
+   通知單這樣比較合理」——原本揭露是走近阿正才觸發(talkToBrother() 裡
+   判斷),改成掛在 sleep() 那則「醒來」流程裡(跟 MOTO_LOAN 分期扣款、
+   TUITION_QUEST 逾期同一個位置,都是「一覺醒來,昨天欠的東西找上門」的
+   既有先例),車在 sleep() 當下就藏起來(不用等玩家真的走到阿正面前才
+   消失),toast 用「拖吊通知單」的說法呈現,更像真的收到一張單子,不是
+   警察本人堵你講。阿正那邊只負責「處理」,不負責「揭露」。
+   ②kc:「除了付錢應該要有其他任務的補救方法,比較合理,要辛苦一點的」
+   +「比如幫警察徒步巡邏城鎮一段範圍」——加一條 patrol 分支,跟
+   ACHENG.litterQuest 同一套「visited/need 進度」模式,不是每幀輪詢的
+   計時器。巡邏點沿後火車站那條路(z=84)從警局附近拉到中華路口,
+   `__dbg.city.blocked()` 核對過四點都乾淨。完成時另外扣一點體力
+   (走這麼一大段路是真的累,呼應「辛苦一點」),但不用錢。 */
+const MOTO_IMPOUND = { active:false, done:false, fine:1500, motoRef:null,
+  patrolActive:false, patrolVisited:0 };
 const MOTO_RETURN_SPOT = { x:-74, z:97 };
-function motoImpoundPayItem(){
-  return { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
-    if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
-    chg('money', -MOTO_IMPOUND.fine);
-    MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
-    const m = MOTO_IMPOUND.motoRef;
-    if(m){
-      m.x = MOTO_RETURN_SPOT.x; m.z = MOTO_RETURN_SPOT.z;
-      if(m.group){ m.group.position.set(MOTO_RETURN_SPOT.x, 0, MOTO_RETURN_SPOT.z); m.group.visible = true; }
-    }
-    syncMiscQuestPanel();
-    toast('車牽回來了，停在警局門口旁邊。（-$'+MOTO_IMPOUND.fine+'）', 2800);
-  } };
+const MOTO_PATROL_POINTS = [ [-78,90], [-50,84], [-20,84], [0,84] ];
+/* 贖車完成的收尾(付錢/巡邏兩條路都走到這裡)——車搬到警局門口旁邊
+   (x=-74,z=97,核對過乾淨,離兩組警車 x≈-88/-93、x≈-64/-69 都有一段
+   距離),m.x/m.z(互動判定用的邏輯座標)跟 m.group.position(真的視覺
+   位置)一起改,不然騎乘互動判定跟畫面對不上(dismountMoto() 那組
+   m.x=pos.x 的同一個坑)。 */
+function finishMotoImpound(msg){
+  MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
+  MOTO_IMPOUND.patrolActive = false;
+  const m = MOTO_IMPOUND.motoRef;
+  if(m){
+    m.x = MOTO_RETURN_SPOT.x; m.z = MOTO_RETURN_SPOT.z;
+    if(m.group){ m.group.position.set(MOTO_RETURN_SPOT.x, 0, MOTO_RETURN_SPOT.z); m.group.visible = true; }
+  }
+  syncMiscQuestPanel();
+  toast(msg, 2800);
+}
+/* 贖車選單那兩顆按鈕——talkToBrother() 只會開一次選單(揭露已經搬到
+   sleep() 那邊,阿正這裡只剩「處理」這一種進場方式),不用再像上一版
+   分兩處各貼一份。 */
+function motoImpoundMenuItems(){
+  return [
+    { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
+        if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
+        chg('money', -MOTO_IMPOUND.fine);
+        finishMotoImpound('車牽回來了，停在警局門口旁邊。（-$'+MOTO_IMPOUND.fine+'）');
+      } },
+    { label:'不繳錢，幫忙徒步巡邏抵', run(){
+        if(ST.stamina < 20){ toast('你現在太累了，先去休息。', 2200); return; }
+        MOTO_IMPOUND.patrolActive = true; MOTO_IMPOUND.patrolVisited = 0;
+        syncMiscQuestPanel();
+        toast('「那你幫忙沿路巡一段，巡完再回來。」', 2600);
+      } },
+    { label:'先不要', cls:'back', run(){} }
+  ];
 }
 const ID_CARD_QUEST = { active:false, requestedDay:-1, readyDay:-1, done:false };
 const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null };   // resolved: null|'reported'|'warned'|'expired'
@@ -1846,7 +1870,11 @@ const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null };   // resolve
 function syncMiscQuestPanel(){
   let idx = ACTIVE_QUESTS.findIndex(x => x.id === 'moto-impound');
   if(MOTO_IMPOUND.active){
-    const hint = `去警局跟阿正繳罰款贖車（$${MOTO_IMPOUND.fine}）`;
+    const hint = MOTO_IMPOUND.patrolActive
+      ? (MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length
+          ? '巡邏完了，回警局跟阿正報到'
+          : `沿後火車站巡邏中（${MOTO_IMPOUND.patrolVisited}/${MOTO_PATROL_POINTS.length}）`)
+      : `去警局跟阿正繳罰款贖車（$${MOTO_IMPOUND.fine}），或幫忙巡邏抵`;
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'moto-impound', title:'贖車', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
@@ -3966,7 +3994,7 @@ function paintArcadeBackdrop(){
    直接在 renderIndoor3D() 用 `schoolHeroPx(IN.py)` 按深度插值,見那邊
    跟下面 SCHOOL_HERO_TWEAK 的說明。 */
 const HERO_TARGET_PX = {
-  store: 106 * 1.3 * SC,   // 275.6,定案不再調
+  store: 106 * 1.3 * SC,   // 275.6——2026-08-31 起玩家本人在超商已經改用 storeHeroPx(IN.py) 近/遠透視,這個固定值只留給 spawnClerk 等除錯截圖工具/workerIndoor 用,不是「定案不再調」了
   home: 296,
   bedroom: 320,   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
   arcade: 296,   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
@@ -3989,6 +4017,42 @@ const SCHOOL_HERO_TWEAK = { nearPx: 420, farPx: 350 };
 function schoolHeroPx(py){
   const t = Math.max(0, Math.min(1, (py - SCHOOL.walkN) / (SCHOOL.walkS - SCHOOL.walkN)));
   return SCHOOL_HERO_TWEAK.farPx + t * (SCHOOL_HERO_TWEAK.nearPx - SCHOOL_HERO_TWEAK.farPx);
+}
+/* 超商深度縮放(2026-08-31,kc:「本人滑感我也要調整 透視的部分」)——
+   超商原本(2026-08-14)是 HERO_TARGET_PX.store 那個固定常數,註解寫死
+   「定案不再調」,這輪 kc 推翻,要跟 school/arcade/tattoo 一樣有近/遠
+   透視變化。跟 schoolHeroPx() 同一套算法,用 STORE.walkN/walkS(210/345,
+   店內既有的走動邊界)當深度區間。起始值抓舊常數 275.6 附近,近/遠各自
+   往外挪一點當起點,交給 __dbg.tweakStoreHero() 滑桿讓 kc 自己調。 */
+const STORE_HERO_TWEAK = { nearPx: 300, farPx: 250 };
+function storeHeroPx(py){
+  const t = Math.max(0, Math.min(1, (py - STORE.walkN) / (STORE.walkS - STORE.walkN)));
+  return STORE_HERO_TWEAK.farPx + t * (STORE_HERO_TWEAK.nearPx - STORE_HERO_TWEAK.farPx);
+}
+function tweakStoreHeroPanel(){
+  const old = document.getElementById('storeHeroPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['sth_near','近(靠鏡頭/門口)', 150, 600, 1, 'nearPx'],
+    ['sth_far','遠(靠貨架/櫃台)', 150, 600, 1, 'farPx']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'storeHeroPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">超商角色大小(近/遠透視)</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${STORE_HERO_TWEAK[key]}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${STORE_HERO_TWEAK[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakStoreHero()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      STORE_HERO_TWEAK[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = STORE_HERO_TWEAK[key];
+    });
+  });
 }
 /* 遊藝場深度縮放(2026-08-27,kc:「人物最多只能走到這個高度才對,然後
    也要稍微有一點透視的大小變化跟教室一樣」)——跟 schoolHeroPx() 同一套
@@ -4060,7 +4124,7 @@ const TATTOO_MASTER_PX = 460, TATTOO_MASTER_PY = 300;
    的 px 判斷式(碰撞、Y-sort 遮擋)天生共用同一套數字,不會再脫鉤。 */
 function renderIndoor3D(dt){
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
-  heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
+  heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : PLACE === 'store' ? storeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
@@ -5570,10 +5634,24 @@ function sleep(){
       triggerGameOver('tuition');
       return;
     }
+    /* 拖吊通知單(2026-08-31,kc:「事件發生的時候車真的會消失嗎 那應該是
+       你出家門的時候會收到拖吊通知單這樣比較合理」)——原本揭露掛在
+       talkToBrother(),改跟 MOTO_LOAN/TUITION_QUEST 同一個位置:一覺醒來
+       (=出門)發現昨天欠的東西找上門。車在這裡就藏起來(不用等玩家真的
+       走到阿正面前),阿正那邊(talkToBrother() 的 MOTO_IMPOUND.active
+       分支)只負責處理,不負責揭露。 */
+    let impoundMsg = '';
+    if(!MOTO_IMPOUND.done && !MOTO_IMPOUND.active && day >= 12 && city.motos.some(m => m.owned)){
+      MOTO_IMPOUND.active = true;
+      MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
+      if(MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = false;
+      syncMiscQuestPanel();
+      impoundMsg = '\n門縫塞了一張拖吊通知單：你的車違停被拖走了，罰款 $'+MOTO_IMPOUND.fine+'，要去警局處理。';
+    }
     syncHUD();
     toast('你回去睡了一覺，體力補滿了。'
       + (skippedSchool ? '\n（今天沒去學校，風評 −3）' : '')
-      + loanMsg, 3800);
+      + loanMsg + impoundMsg, 3800);
   });
 }
 /* 拆出來的「真的切進室內」那段(2026-08-28,kc:「你不要用走的.. 你用
@@ -6190,22 +6268,38 @@ function updateCity(dt){
      talkToBrother() 同一份判斷邏輯,這裡只是換一個呼叫時機,邏輯本身
      不用重寫;原本走到面前按空白鍵的互動路徑(interactProp() 'brother'
      分支)沒有拿掉,平常日子(沒有節點要播)靠近他還是可以主動聊閒聊句。 */
-  /* 2026-08-31 加碼:贖車/贓物協尋這兩條的「第一次揭露」也算主動觸發
-     (跟月長線節點同一個精神——kc 要的是「不用玩家自己想到要去找他」)。
-     故意只在「還沒揭露過」那一刻算 urgent,已經揭露、還沒解決的狀態
-     (MOTO_IMPOUND.active 一直是 true 直到繳錢)不會每次走近就重播一次
-     選單,不然會變成每次經過都被攔下來很煩——要繼續處理的話,任務面板
-     已經有提示,玩家自己按空白鍵走過去互動就好,見 interactProp()
-     'brother' 分支(這裡沒有動它)。良民證那條沒有加進來:它是工地老闆
-     開口的,不是阿正主動找你,語意上不該是「走近警局」觸發。 */
+  /* 2026-08-31 加碼:贓物協尋的「第一次揭露」也算主動觸發(跟月長線節點
+     同一個精神——kc 要的是「不用玩家自己想到要去找他」)。贖車那條的
+     揭露改成 sleep() 的拖吊通知單(見那則長筆記),不再靠走近阿正觸發,
+     這裡拿掉了。故意只在「還沒揭露過」那一刻算 urgent,已經揭露、還沒
+     解決的狀態不會每次走近就重播一次選單,要繼續處理的話任務面板已經
+     有提示,玩家自己按空白鍵走過去互動就好,見 interactProp() 'brother'
+     分支(這裡沒有動它)。良民證那條也沒有加進來:它是工地老闆開口的,
+     不是阿正主動找你,語意上不該是「走近警局」觸發。 */
   if(!busy && !dlg.on && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
-    const motoImpoundNew = !MOTO_IMPOUND.active && !MOTO_IMPOUND.done && day >= 12 && city.motos.some(m => m.owned);
     const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0;
     if(MEI.together && !BROTHER.met) talkToBrother();
-    else if(BROTHER.met && (nextBrotherArcDay() != null || motoImpoundNew || snitchNew)) talkToBrother();
+    else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) talkToBrother();
   }
   syncBrotherArcPanel();
   syncMiscQuestPanel();
+  /* 巡邏抵罰款(2026-08-31,kc:「比如幫警察徒步巡邏城鎮一段範圍」)——
+     跟 ACHENG.litterQuest 同一套「visited/need 進度」模式,不是計時器。
+     MOTO_PATROL_POINTS 沿後火車站那條路(z=84)從警局附近拉到中華路口,
+     每幀檢查下一個「還沒巡過」的點,半徑抓 6(比一般互動 3.2 寬一點,
+     巡邏本來就不用精準站在一個點上)。巡完四點不會自動結束(還是要
+     回警局跟阿正報到,見 talkToBrother() 那個分支),這裡只推進進度。 */
+  if(MOTO_IMPOUND.patrolActive && MOTO_IMPOUND.patrolVisited < MOTO_PATROL_POINTS.length){
+    const [px, pz] = MOTO_PATROL_POINTS[MOTO_IMPOUND.patrolVisited];
+    if(Math.hypot(pos.x-px, pos.z-pz) < 6){
+      MOTO_IMPOUND.patrolVisited++;
+      chg('stamina', -8);
+      syncMiscQuestPanel();
+      toast(MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length
+        ? '巡邏點都走過了，回警局跟阿正報到。'
+        : `巡到一個點了（${MOTO_IMPOUND.patrolVisited}/${MOTO_PATROL_POINTS.length}）。`, 2200);
+    }
+  }
 
   /* 小胖的連續劇情(2026-08-31,見上面 FAT 那則長筆記+ checkFatArc())——
      跟 BROTHER 月長線同一招「靠近才自動觸發」,但小胖沒有 3D 模型可以
@@ -7756,32 +7850,22 @@ function talkToBrother(){
 
   /* 贖車(2026-08-31,見上面 MOTO_IMPOUND 那則長筆記)——攔在月長線最前面,
      這是「有具體代價要處理」的事,優先權比純觀察性質的月長線節點高。
-     2026-08-31 第二輪,kc:「那玩家的車真的會不見或還回來嗎」——第一版
-     真的只做了抽象層,車在地圖上還在、還能騎,問完才回頭補上:被拖吊
-     那台(MOTO_IMPOUND.motoRef,揭露當下用 city.motos.find(owned) 抓)
-     `group.visible` 直接關掉,騎乘判定(nearProp 'moto' 那段,見 updateCity()
-     裡的迴圈)也要擋,不然隱形車還能騎上去。繳完罰款只是把 `visible` 開
-     回來,位置不動(停在原地),不是真的做「移到扣押場再牽回來」那種要
-     另外量座標、確認淨空的版本——kc 沒有要求要看到車停在扣押場,只問
-     「會不會不見」,這樣就夠回答那個問題,不用衝更大範圍的 3D 改動。 */
+     揭露(拖吊通知單)已經搬到 sleep() 那邊,阿正這裡只剩「處理」——
+     沒巡邏完就是繳錢/去巡邏兩選一,巡邏完了就是回報收尾,不會再重播
+     「你的車呢」那段開場(那段現在是 sleep() 的 toast 台詞)。 */
   if(MOTO_IMPOUND.active){
-    say('brother', '「車的事辦一辦吧。」', () => {
-      openMenu('阿正', [ motoImpoundPayItem(), { label:'先不要', cls:'back', run(){} } ]);
-    });
-    return;
-  }
-  if(!MOTO_IMPOUND.done && day >= 12 && city.motos.some(m => m.owned)){
-    MOTO_IMPOUND.active = true;
-    MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
-    if(MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = false;
-    syncMiscQuestPanel();
-    playBeats([
-      { who:'brother', text:'「你的車呢？」' },
-      { who:'brother', text:'「違停拖走了，在後面。」' },
-      { who:'pc',      text:'你想起前幾天隨手停在巷口。' }
-    ], 0, () => {
-      openMenu('阿正', [ motoImpoundPayItem(), { label:'先不要', cls:'back', run(){} }
-      ]);
+    if(MOTO_IMPOUND.patrolActive && MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length){
+      say('brother', '「巡完了？辛苦了，車還你。」', () => {
+        finishMotoImpound('車牽回來了，停在警局門口旁邊。');
+      });
+      return;
+    }
+    if(MOTO_IMPOUND.patrolActive){
+      say('brother', `「還沒巡完喔，${MOTO_IMPOUND.patrolVisited}/${MOTO_PATROL_POINTS.length}，繼續。」`);
+      return;
+    }
+    say('brother', '「車的事辦一辦吧，繳罰款，或者幫忙跑一趟。」', () => {
+      openMenu('阿正', motoImpoundMenuItems());
     });
     return;
   }
@@ -8906,6 +8990,7 @@ window.__dbg = {
   tweakConstruction: tweakConstructionPanel,
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
+  tweakStoreHero: tweakStoreHeroPanel,
   tweakForemanHelmet: tweakForemanHelmetPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
