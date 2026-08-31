@@ -173,6 +173,16 @@
     box-shadow:0 0 0 1px rgba(0,0,0,.6),0 10px 30px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.07); }
   .dname { font-size:14px; letter-spacing:.12em; color:#d8b24a; margin-bottom:7px; }
   .dbody { font-size:18px; line-height:1.8; color:#eef1f5; letter-spacing:.05em; white-space:pre-line; }
+  /* 旁白(2026-08-31,kc:「有些情境敘述的東西不要用我的頭像來呈現 因為
+     那不是我說話」)——who:'pc' 這個 channel 同時混著「玩家真的講的話」
+     (開頭一定是「」引號)跟「單純描述場景/動作的旁白」(不是引號開頭,
+     全遊戲 372 句 pc 台詞裡有 339 句是這種),原本兩者都套用玩家真人
+     照片+「你」名牌,旁白也長得像玩家在講話。判斷邏輯留在 say()(見那邊
+     的長筆記),這裡只負責旁白模式的樣式:藏頭像跟名牌,文字改用滿版
+     padding(跟頭像那 144px 對齊用的縮排一起拿掉),不用另外做置中/斜體
+     那類更大的視覺改版。 */
+  #dialog.narration #portrait, #dialog.narration .dname { display:none; }
+  #dialog.narration .frame { padding-left:22px; }
   .caret { display:inline-block; margin-left:6px; color:#d8b24a; opacity:0; animation:bob 1s infinite; }
   .caret.on { opacity:1; }
   @keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(3px);} }
@@ -1209,8 +1219,22 @@ function drawPortrait(who){
   dName.textContent = w.name;
 }
 let dlg = { on:false, full:'', shown:0, timer:0, done:false, after:null };
+/* 旁白判斷(2026-08-31,見上面 CSS #dialog.narration 那則長筆記)——只認
+   who:'pc' 這個 channel,而且看 text 開頭是不是「」引號:引號開頭是玩家
+   真的講出口的話,照舊套頭像+「你」名牌;不是引號開頭的一律當旁白,藏
+   頭像跟名牌。抓「開頭引號」當判準是核對過全遊戲 372 句 pc 台詞得出的
+   經驗法則(339 句旁白全部不是引號開頭,33 句真台詞全部是),不是憑感覺
+   猜的——已知例外是少數「敘述中間夾一句引號內心話」的句子(例如「你的
+   第一個念頭是\n「他打不動我了」。」),這種本來就該當旁白,例外剛好
+   不影響判準要的結果。其他角色(brother/mei/...)的台詞不受影響,他們的
+   旁白性質敘述本來就掛著自己的頭像,不是「玩家的頭像講不是玩家的話」
+   這個問題。 */
+function isNarrationLine(who, text){
+  return who === 'pc' && !text.trim().startsWith('「');
+}
 function say(who, text, after){
   drawPortrait(who);
+  dlgEl.classList.toggle('narration', isNarrationLine(who, text));
   dlg = { on:true, full:text, shown:0, timer:0, done:false, after:after||null };
   dTx.textContent = ''; dCaret.classList.remove('on'); dlgEl.classList.add('on');
 }
@@ -7611,20 +7635,25 @@ const TROUPE_LANES = {
   right: { key:'arrowright', color:'#d8b24a', dx:1,  dy:0  },
   space: { key:' ',          color:'#f0e6d8', dx:0,  dy:0  }   // 大鼓重拍,沒有方向,badge 畫菱形跟箭頭區分
 };
-/* 廟口背景+紙娃娃陣頭隊伍,直接沿用 rhythm-linzitou.html 已經生好的資產
-   (rhythm-bg-temple.png、char-parade-<part>.png),沒圖之前退回色塊,同一招
-   naturalWidth 判斷(跟 FOREMAN_BG_IMG 那套一樣)。 */
+/* 廟口背景(2026-08-31 第六輪換成 kc 重生的版本,更有煙火/人潮的戲劇感)。
+   沒圖之前退回色塊,同一招 naturalWidth 判斷(跟 FOREMAN_BG_IMG 那套一樣)。 */
 const TROUPE_BG_IMG = new Image();
 TROUPE_BG_IMG.src = '../assets/rhythm-bg-temple.png';
-const TROUPE_PARTS = {};
-let troupePartsReady = false;
-['head','torso','arm','leg'].forEach(k => {
-  const img = new Image();
-  img.onload = () => { TROUPE_PARTS[k] = img; troupePartsReady = ['head','torso','arm','leg'].every(x => TROUPE_PARTS[x]); };
-  img.src = '../assets/tex/char-parade-' + k + '.png';
-});
-const TROUPE_DANCERS = Array.from({length:8}, (_,i) => ({ x:0.2+(i/8)*0.7, faceSplit:i%2===0, phase:i*1.3 }));
-const TROUPE_BPM = 96, TROUPE_STEP_HZ = (TROUPE_BPM/60) * Math.PI * 2 / 2;   // 走路節拍跟音樂 BPM 綁在一起(踩點,不是隨機晃)
+/* 2026-08-31 第七輪(kc 貼參考圖後再回報「兩個人好小顏色好淺」)——原本
+   紙娃娃拆件(TROUPE_PARTS/char-parade-*.png,關節旋轉那套)換掉,改用
+   kc 生的三張真人定裝照(parade-perf-left/center/right.png,ChatGPT 直接
+   生成就帶乾淨 alpha,不用再跑 green-to-alpha.py)。真人照片做關節旋轉
+   會很假,所以不追求「走路動畫」,改成固定站位+呼吸感的浮動/打點縮放,
+   三個人一開場就全部顯示(不再靠 combo 累積才「現身」——kc 要的是清楚
+   看得到,不是要練出成績才看得到)。char-parade-*.png 那組舊資產沒刪,
+   `rhythm-linzitou.html` 那個獨立原型頁還在用。 */
+const TROUPE_PERF = [
+  { img:new Image(), src:'../assets/tex/parade-perf-left.png',   xFrac:.16, hFrac:.62, phase:0.3 },
+  { img:new Image(), src:'../assets/tex/parade-perf-center.png', xFrac:.50, hFrac:.80, phase:0    },
+  { img:new Image(), src:'../assets/tex/parade-perf-right.png',  xFrac:.85, hFrac:.60, phase:0.9  }
+];
+TROUPE_PERF.forEach(p => { p.img.src = p.src; });
+const TROUPE_BPM = 96, TROUPE_STEP_HZ = (TROUPE_BPM/60) * Math.PI * 2 / 2;   // 呼吸/晃動節拍跟音樂 BPM 綁在一起(踩點,不是隨機晃)
 
 function startTroupeGame(songKey, onDone){
   const def = RhythmTroupe.SONGS[songKey];
@@ -7706,7 +7735,10 @@ function troupeDrawBg(){
     if(ia > ca){ sh = TROUPE_BG_IMG.naturalHeight; sw = sh*ca; sy = 0; sx = (TROUPE_BG_IMG.naturalWidth-sw)/2; }
     else { sw = TROUPE_BG_IMG.naturalWidth; sh = sw/ca; sx = 0; sy = (TROUPE_BG_IMG.naturalHeight-sh)/2; }
     agCtx.drawImage(TROUPE_BG_IMG, sx, sy, sw, sh, 0, 0, w, h);
-    agCtx.fillStyle = 'rgba(10,6,5,.55)'; agCtx.fillRect(0,0,w,h);
+    /* 2026-08-31 第七輪:kc 新生的背景本身已經很有戲劇感(煙火/燈籠/人潮),
+       原本 .55 那層黑幕壓太暗,把新背景的顏色悶掉了,收到 .3——底下那條
+       地板漸層(壓暗給前景演出者站的區域用)維持不變,那個是刻意的。 */
+    agCtx.fillStyle = 'rgba(10,6,5,.3)'; agCtx.fillRect(0,0,w,h);
     const g = agCtx.createLinearGradient(0, h*.6, 0, h*.95);
     g.addColorStop(0,'rgba(6,3,2,0)'); g.addColorStop(1,'rgba(6,3,2,.75)');
     agCtx.fillStyle = g; agCtx.fillRect(0, h*.6, w, h*.35);
@@ -7716,55 +7748,32 @@ function troupeDrawBg(){
     agCtx.fillStyle = sky; agCtx.fillRect(0,0,w,h);
   }
 }
-function troupeDrawLimb(img, pivotX, pivotY, angle, len, flip){
-  const w = len * (img.width/img.height);
-  agCtx.save(); agCtx.translate(pivotX, pivotY); agCtx.rotate(flip ? -angle : angle);
-  if(flip) agCtx.scale(-1,1);
-  agCtx.drawImage(img, -w/2, 0, w, len);
-  agCtx.restore();
-}
-/* combo 越高,出來的陣頭隊伍越多人、越亮——照抄 rhythm-linzitou.html
-   drawDancers() 的走路數學(紙娃娃拆件繞關節旋轉),尺寸縮小配合這裡
-   640×420 的 agCanvas(原型是全螢幕 innerWidth/innerHeight)。沒圖之前
-   (troupePartsReady 是 false)退回簡單色塊圓點,不追求跟原型的幾何佔位
-   一模一樣——那組資產其實已經做好會秒載入,這裡的 fallback 只是防閃爍。 */
+/* 三個真人演出者(2026-08-31 第七輪,見上面 TROUPE_PERF 那則筆記)——固定
+   站位,一開場全部顯示、全不透明,只用垂直浮動(呼吸感)+ 打點縮放(呼應
+   節奏),不做關節動畫。中間那個(center,面對鏡頭蹲低)離鏡頭最近、畫
+   最大,兩側(left/right)較小、當左右護衛,呼應參考圖「中間主角+兩側
+   配角」的構圖,不是三個人等大排排站。沒圖之前(naturalWidth 是 0)整個
+   跳過那個人,不畫色塊佔位——真人照片沒有「幾何佔位版」可以退,乾脆先
+   不畫,圖秒載入完就會自己補上,不會一直空著。 */
 function troupeDrawDancers(elapsed){
   const w = agCanvas.width, h = agCanvas.height;
-  /* 2026-08-31 第六輪(kc:「那兩個人好小 而且顏色好淺好怪」)——起始就有
-     3 人(不是 2 人)、起始透明度從 .35 拉到 .7(combo=0 也要清楚看得見,
-     不是要練出 combo 才「淡出」出現),尺寸整組放大到接近原型
-     rhythm-linzitou.html 的原始比例(這裡先前縮太多)。 */
-  const shown = Math.min(TROUPE_DANCERS.length, 3+Math.floor(TROUPE_GAME.combo/6));
-  const baseY = h*0.88;
-  TROUPE_DANCERS.slice(0, shown).forEach((d,i) => {
-    const alpha = Math.min(1, .7+TROUPE_GAME.combo/80);
-    const walk = elapsed*TROUPE_STEP_HZ + d.phase;
-    const stride = Math.sin(walk), bob = Math.abs(Math.sin(walk))*7, sway = Math.sin(walk*0.5)*3;
-    const pulse = i===0 ? TROUPE_GAME.dancerPulse : 0;
-    const x = d.x*w + sway, y = baseY - bob*4 - pulse*14;
+  TROUPE_PERF.forEach((p,i) => {
+    if(!p.img.naturalWidth) return;
+    const walk = elapsed*TROUPE_STEP_HZ + p.phase;
+    const bob = Math.sin(walk) * 4;
+    const pulse = TROUPE_GAME.dancerPulse * (i===1 ? 1 : .5);   // 中間那個對打點反應最明顯
+    const drawH = h*p.hFrac * (1 + pulse*0.05);
+    const drawW = drawH * (p.img.naturalWidth/p.img.naturalHeight);
+    const cx = w*p.xFrac, baseY = h - drawH*0.04;   // 底部留一點點裁切,腳掌貼著畫面下緣不留空隙
+    const x = cx - drawW/2, y = baseY - drawH + bob - pulse*10;
 
     agCtx.save();
-    const glow = agCtx.createRadialGradient(x,y+66,2,x,y+66,44);
-    glow.addColorStop(0, `rgba(255,190,110,${.4*alpha})`); glow.addColorStop(1, 'rgba(255,190,110,0)');
-    agCtx.fillStyle = glow; agCtx.beginPath(); agCtx.arc(x,y+66,44,0,Math.PI*2); agCtx.fill();
+    const glow = agCtx.createRadialGradient(cx, baseY, 4, cx, baseY, drawW*0.55);
+    glow.addColorStop(0, `rgba(255,150,90,${.28+pulse*.2})`); glow.addColorStop(1, 'rgba(255,150,90,0)');
+    agCtx.fillStyle = glow; agCtx.beginPath(); agCtx.arc(cx, baseY, drawW*0.55, 0, Math.PI*2); agCtx.fill();
     agCtx.restore();
 
-    agCtx.save(); agCtx.globalAlpha = alpha;
-    if(troupePartsReady){
-      const LEG_A=.5, ARM_A=.4;
-      troupeDrawLimb(TROUPE_PARTS.leg, x-8, y+56,  stride*LEG_A, 28, false);
-      troupeDrawLimb(TROUPE_PARTS.leg, x+8, y+56, -stride*LEG_A, 28, true);
-      const th=52, tw=th*(TROUPE_PARTS.torso.width/TROUPE_PARTS.torso.height);
-      agCtx.drawImage(TROUPE_PARTS.torso, x-tw/2, y+8, tw, th);
-      troupeDrawLimb(TROUPE_PARTS.arm, x-14, y+15, -stride*ARM_A, 23, false);
-      troupeDrawLimb(TROUPE_PARTS.arm, x+14, y+15,  stride*ARM_A, 23, true);
-      const hh=31, hw=hh*(TROUPE_PARTS.head.width/TROUPE_PARTS.head.height);
-      agCtx.drawImage(TROUPE_PARTS.head, x-hw/2, y-22, hw, hh);
-    } else {
-      agCtx.fillStyle = i%3===0 ? '#6e1c14' : (i%3===1 ? '#1c2731' : '#3a241c');
-      agCtx.beginPath(); agCtx.arc(x, y, 14, 0, Math.PI*2); agCtx.fill();
-    }
-    agCtx.restore();
+    agCtx.drawImage(p.img, x, y, drawW, drawH);
   });
   TROUPE_GAME.dancerPulse = Math.max(0, TROUPE_GAME.dancerPulse-.07);
 }
