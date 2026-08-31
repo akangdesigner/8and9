@@ -705,10 +705,10 @@ function studyGainKnowledge(){
    消失 只留下選題目」——原本這版只是把對話框疊在還站著 3D 角色的教室/
    房間場景上面,改成跟 startPhoneGame() 同一招:coFade() 黑畫面淡出、
    角色(heroIndoor)在解題期間隱藏(見 renderIndoor3D() 開頭那個
-   `studyTakeover` 判斷),底圖重畫一次教室/房間背景(暫時沒有專屬的
-   「認真上課」照片,先重用 paintSchoolBackdrop()/paintBedroomBackdrop()
-   本來的照片,以後 kc 給對應素材再比照 school-phone.png 那套換掉),
-   畫面上只剩題目框。答完再 coFade() 淡出一次換回來、角色重新出現。 */
+   `studyTakeover` 判斷),底圖重畫一次(學校端後來換成專屬的「認真上課」
+   照片,見下面 paintSchoolStudyBackdrop() 那則第五輪筆記;家裡書桌暫時
+   還是重用 paintBedroomBackdrop() 本來的照片),畫面上只剩題目框。
+   答完再 coFade() 淡出一次換回來、角色重新出現。 */
 /* 2026-08-31 第四輪,kc:「認真上課 我希望會先顯示圖片1秒然後再跳對話匡
    然後題目改成三題 連續答對會有額外獎勵 多一個小小知識」——三處改動:
    ① 底圖淡入後先停 1 秒純場景(沒有題目框)才開始問第一題,不是黑畫面
@@ -717,6 +717,22 @@ function studyGainKnowledge(){
    判斷、自己發的,不透過 onDone——onDone 是逐題呼叫(呼叫端已經自己判斷
    「這題答對才 studyGainKnowledge()」),連續三題全對是跨題的整體判斷,
    混進 onDone 會變成呼叫端也要重寫一次「是不是連續三題」的邏輯。 */
+/* 2026-08-31 第五輪,kc 給了「認真上課」專屬底圖(跟 school-phone.png
+   同一套構圖,前排右邊那位同學從滑手機換成正常低頭讀書)——跟
+   paintSchoolBackdrop()/paintPhoneBackdrop() 同一招:naturalWidth 判斷
+   圖真的載入成功才畫,否則退回原本的教室照片,不會整段空白。家裡書桌
+   「讀書」還沒有專屬素材,維持原樣重用 paintBedroomBackdrop()。 */
+const SCHOOL_STUDY_IMG = new Image();
+SCHOOL_STUDY_IMG.src = '../assets/bg/school-study.png';
+function paintSchoolStudyBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  if(SCHOOL_STUDY_IMG.complete && SCHOOL_STUDY_IMG.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(SCHOOL_STUDY_IMG, 0,0,1280,720);
+  } else {
+    paintSchoolBackdrop();
+  }
+}
 let studyTakeover = false;
 function askStudyQuestion(onDone){
   const ROUNDS = 3;
@@ -725,7 +741,7 @@ function askStudyQuestion(onDone){
   busy = true;
   coFade(inSchool ? '認真上課' : '讀書', () => {
     studyTakeover = true;
-    if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
+    if(inSchool) paintSchoolStudyBackdrop(); else paintBedroomBackdrop();
     setTimeout(() => askRound(0, true), 1000);
   });
   function askRound(i, streak){
