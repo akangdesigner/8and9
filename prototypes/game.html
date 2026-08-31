@@ -6234,7 +6234,7 @@ function updateCity(dt){
     if(!nearProp) for(const p of city.play)
       if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'play', ref:p }; break; }
     if(!nearProp) for(const m of city.motos)
-      if(!m.ridden && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
+      if(!m.ridden && !(MOTO_IMPOUND.active && m === MOTO_IMPOUND.motoRef) && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
     if(!nearProp && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 3.2)
       nearProp = { type:'worker', ref:ALLEY_WORKER };
     if(!nearProp && Math.hypot(pos.x-STATUE.x, pos.z-STATUE.z) < 3.2)
