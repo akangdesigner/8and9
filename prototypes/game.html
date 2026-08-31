@@ -1805,7 +1805,20 @@ const BROTHER  = { x:-78, z:98.5, met:false, path:null };
         沒有額外懲罰(這條份量比家裡兩條輕,不用做到「不選也要扣」那麼重)。
    三條都透過阿正/工地老闆既有的對話函式(talkToBrother()/talkToForeman())
    分流,沒有另外蓋新的互動點或 3D 場景。 */
-const MOTO_IMPOUND = { active:false, done:false, fine:1500 };
+const MOTO_IMPOUND = { active:false, done:false, fine:1500, motoRef:null };
+/* 贖車選單那顆按鈕(2026-08-31)——talkToBrother() 裡有兩處會開這個選單
+   (剛揭露時/之後回頭處理時),抽成共用函式避免同一段 run() 邏輯貼兩份、
+   改一次要記得改兩處。 */
+function motoImpoundPayItem(){
+  return { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
+    if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
+    chg('money', -MOTO_IMPOUND.fine);
+    MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
+    if(MOTO_IMPOUND.motoRef && MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = true;
+    syncMiscQuestPanel();
+    toast('車牽回來了。（-$'+MOTO_IMPOUND.fine+'）', 2600);
+  } };
+}
 const ID_CARD_QUEST = { active:false, requestedDay:-1, readyDay:-1, done:false };
 const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null };   // resolved: null|'reported'|'warned'|'expired'
 /* 三條的任務面板統一走這個函式(2026-08-31)——跟阿正月長線那個
@@ -2467,7 +2480,15 @@ const c2dbg = document.getElementById('c2dbg'), gbg = c2dbg.getContext('2d');
    店員貼圖是整張畫上去,沒有跟著櫃台的前緣裁掉。改成畫的時候用 clip()
    卡住,矩形範圍以下(櫃台桌面延伸出去的地方)不畫,店員才會有「站在櫃台
    裡面」的感覺,不是疊在櫃台桌面上面。 */
-const CLERK_W = 94, CLERK_H = 276, CLERK_X = 1073, CLERK_Y = 140, CLERK_CLIP_Y = 274;
+/* 2026-08-31,kc 換了一批新的店員定裝照(正面/背面)——新照片是「胸口以上」
+   的半身照(比較接近一般證件照的構圖),不是舊照片那種「上半身、手在畫面
+   裡」的窄長條裁法,寬高比從舊的 94:276(很窄很高)變成新的 185:150
+   (比較接近方形、偏寬)。原本 CLIP_Y 那道裁切線(店員腰部藏到櫃台後面)
+   對這張新照片意義不大——新照片本來就已經是半身,不太需要再裁掉下半身,
+   CLIP_Y 現在只裁掉極少量(領口以下一點點),維持「站在櫃台裡面」的視覺
+   語言但不強求跟舊版一樣的裁切比例。這組數字是我先抓的,若跟畫面比例
+   看起來不對,直接調 CLERK_W/H/X/Y 四個數字,不用動下面的畫法邏輯。 */
+const CLERK_W = 185, CLERK_H = 150, CLERK_X = 982, CLERK_Y = 140, CLERK_CLIP_Y = 280;
 function paintStoreBackdrop(){
   gbg.clearRect(0,0,1280,720);
   gbg.imageSmoothingEnabled = true;
@@ -2521,9 +2542,9 @@ hotImg.src = '../assets/bg/store-hot-cabinet.png';
    看不到修好的版本(這個 session 已經在鮮食櫃圖上踩過同一個坑)——之後這兩張
    圖只要換內容,記得把 N 往上加一,不要以為存檔就會自動生效。 */
 const clerkFrontImg = new Image(); clerkFrontImg.onload = paintStoreBackdrop;
-clerkFrontImg.src = '../assets/bg/clerk-front.png?v=7';
+clerkFrontImg.src = '../assets/bg/clerk-front.png?v=8';
 const clerkBackImg = new Image(); clerkBackImg.onload = paintStoreBackdrop;
-clerkBackImg.src = '../assets/bg/clerk-back.png?v=4';
+clerkBackImg.src = '../assets/bg/clerk-back.png?v=5';
 
 /* 牆面家具(飲料櫃/貨架/櫃台)都已經畫進 `store-front.png` 這張整合背景圖
    裡,不再是 3D 物件、不需要幾何/材質。碰撞邊界直接用既有的 px 座標算,
@@ -7687,40 +7708,31 @@ function talkToBrother(){
 
   /* 贖車(2026-08-31,見上面 MOTO_IMPOUND 那則長筆記)——攔在月長線最前面,
      這是「有具體代價要處理」的事,優先權比純觀察性質的月長線節點高。
-     故意不碰 city.motos/3D 場景本身(共用檔案,風險比報酬高),只做「繳錢
-     辦手續」這個抽象層。 */
+     2026-08-31 第二輪,kc:「那玩家的車真的會不見或還回來嗎」——第一版
+     真的只做了抽象層,車在地圖上還在、還能騎,問完才回頭補上:被拖吊
+     那台(MOTO_IMPOUND.motoRef,揭露當下用 city.motos.find(owned) 抓)
+     `group.visible` 直接關掉,騎乘判定(nearProp 'moto' 那段,見 updateCity()
+     裡的迴圈)也要擋,不然隱形車還能騎上去。繳完罰款只是把 `visible` 開
+     回來,位置不動(停在原地),不是真的做「移到扣押場再牽回來」那種要
+     另外量座標、確認淨空的版本——kc 沒有要求要看到車停在扣押場,只問
+     「會不會不見」,這樣就夠回答那個問題,不用衝更大範圍的 3D 改動。 */
   if(MOTO_IMPOUND.active){
     say('brother', '「車的事辦一辦吧。」', () => {
-      openMenu('阿正', [
-        { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
-            if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
-            chg('money', -MOTO_IMPOUND.fine);
-            MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
-            syncMiscQuestPanel();
-            toast('車牽回來了。（-$'+MOTO_IMPOUND.fine+'）', 2600);
-          } },
-        { label:'先不要', cls:'back', run(){} }
-      ]);
+      openMenu('阿正', [ motoImpoundPayItem(), { label:'先不要', cls:'back', run(){} } ]);
     });
     return;
   }
   if(!MOTO_IMPOUND.done && day >= 12 && city.motos.some(m => m.owned)){
     MOTO_IMPOUND.active = true;
+    MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
+    if(MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = false;
     syncMiscQuestPanel();
     playBeats([
       { who:'brother', text:'「你的車呢？」' },
       { who:'brother', text:'「違停拖走了，在後面。」' },
       { who:'pc',      text:'你想起前幾天隨手停在巷口。' }
     ], 0, () => {
-      openMenu('阿正', [
-        { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
-            if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
-            chg('money', -MOTO_IMPOUND.fine);
-            MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
-            syncMiscQuestPanel();
-            toast('車牽回來了。（-$'+MOTO_IMPOUND.fine+'）', 2600);
-          } },
-        { label:'先不要', cls:'back', run(){} }
+      openMenu('阿正', [ motoImpoundPayItem(), { label:'先不要', cls:'back', run(){} }
       ]);
     });
     return;
