@@ -4003,6 +4003,12 @@ export function buildNPC(THREE, scene, opts){
   let baseRotationY = opts.rotationY || 0;
   let model = null, glancing = false, glanceT = 0, glanceTimer = 1200 + Math.random()*2400;
   let swayPhase = Math.random()*Math.PI*2;
+  /* setHelmet(frac, domeScale)——給滑桿現場調用,frac 是安全帽 Y 位置佔身高
+     的比例(預設 .88,見下面 opts.helmet 那則筆記),domeScale 是額外再乘一次
+     的整體縮放。用 helmetInvScale/helmetHeight 兩個外層變數存,函式定義在
+     .then() 裡面(那邊才拿得到 invScale/height),這裡先留 null 版本,
+     model 還沒載入完成之前呼叫是安全的空操作。 */
+  let setHelmet = () => {};
 
   /* 巡邏(path,2026-08-19 從純 2 點來回擴充成「多站來回、每站可以停留」):
    * targetIdx 指向 opts.path 裡「正在走去的那一點」,走到底(第一或最後一個
@@ -4025,6 +4031,51 @@ export function buildNPC(THREE, scene, opts){
     model.rotation.y = baseRotationY;
     g.add(model);
 
+    /* 安全帽(2026-08-28,kc:「工地老闆可以帶個安全帽嗎」)——opts.helmet
+       給顏色字串(或 true 用預設黃色)。掛在 model 底下當子物件,不是掛在
+       外層 g:model 有自己的縮放(riggedCharacter 內部量 bounding box校正
+       身高,縮放值只存在 model.scale,外面拿不到),用 1/model.scale.x
+       把安全帽的尺寸/位置反縮放抵銷掉,這樣安全帽本身大小才不會跟著身高
+       校正被放大或縮小。掛在 model 底下還有個好處:idle 待機轉頭(下面
+       animate() 每幀改的是 model.rotation.y)安全帽會自動跟著轉,不用
+       另外同步一份旋轉。 */
+    if(opts.helmet){
+      const hc = typeof opts.helmet === 'string' ? opts.helmet : '#e8b73a';
+      const hMat = new THREE.MeshStandardMaterial({ color:hc, roughness:.5 });
+      /* 2026-08-28 第三輪(kc:「工地老闆如果晃來晃去安全帽會破圖」)——
+         上一輪為了消除「浮空」把圓頂加深(phiLength .55→.68)、位置壓低,
+         結果圓頂跟頭部球體幾何互相穿插,兩片表面靠太近會 z-fighting(視角
+         一動,深度排序在畫面上抖動閃爍,看起來像「破圖」)。真正的解法不是
+         位置再喬一次(那只是把穿插點搬位置,治標不治本),是把圓頂半徑
+         加大(.24→.29)讓整顆頭完全包在帽子裡面、留出間隙,不要讓兩片
+         表面貼太近或穿模。 */
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(.29, 12, 8, 0, Math.PI*2, 0, Math.PI*.6), hMat);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(.32, .32, .045, 16), hMat);
+      brim.position.y = -.05;
+      const helmet = new THREE.Group();
+      helmet.add(dome); helmet.add(brim);
+      const invScale = 1 / model.scale.x;
+      const npcHeight = opts.height || PLAYER.height;
+      model.add(helmet);
+      /* setHelmet(frac, scaleMult, dx, dz)(2026-08-28,kc:「我要安全帽
+         定位」,第二輪加 X/Z——frac 是 Y 位置佔身高的比例(預設 .88),
+         scaleMult 是額外倍率(預設 1),dx/dz 是水平方向的世界單位偏移
+         (預設 0,正 dx 往角色右手邊、正 dz 往角色面向的方向——因為掛在
+         model 底下,dx/dz 是跟著角色朝向轉的「相對」方向,不是場景固定的
+         世界 X/Z)。外層 `let setHelmet` 先蓋掉上面那個空函式,讓 __dbg
+         那邊接的滑桿可以直接呼叫這個 NPC 的 setHelmet(),不用重開整個
+         場景。dx/dz 一樣要乘 invScale 抵銷 model 的縮放,道理跟 Y 一樣;
+         scaleMult 只乘進 helmet.scale,不要乘進 position,不然帽子縮放時
+         基準位置會跟著飄。 */
+      /* 預設值(.925/.9/.025/-.07)是 kc 用 __dbg.tweakForemanHelmet() 滑桿
+         現場調出來、截圖確認貼合之後給的最終數字(2026-08-28)。 */
+      setHelmet = (frac = .925, scaleMult = .9, dx = .025, dz = -.07) => {
+        helmet.scale.setScalar(invScale * scaleMult);
+        helmet.position.set(dx * invScale, npcHeight * frac * invScale, dz * invScale);
+      };
+      setHelmet();
+    }
+
     mixer = new THREE.AnimationMixer(model);
     /* opts.pose 借一顆額外動作蓋掉 idle(2026-08-17 起,先是 'sit' 給爸爸
        醉倒那張截圖用,2026-08-18 補 'lie' 給「醉倒攤在地上」用):跟
@@ -4044,6 +4095,14 @@ export function buildNPC(THREE, scene, opts){
         else if(idleAction) idleAction.play();
       }).catch(() => { if(idleAction) idleAction.play(); });
     } else if(idleAction) idleAction.play();
+    /* opts.stillFace 真正要凍住的是這個 mixer 播放的 idle 動作本身(呼吸/
+       重心微幅擺動那些烘進動畫檔的細節),不是只有下面 animate() 手動疊加
+       的「轉頭看玩家 + sin 波浮動」那層——2026-08-28 第一輪只擋了後面那層,
+       kc 說「工地老闆如果晃來晃去」代表其實是 idle 動畫本身在動,沒真的
+       靜止。這裡跑一次 mixer.update(0.0001) 把骨架從匯入時的 T-pose 撥到
+       idle 播放的第一格站姿,下面 animate() 每幀開頭那行改成 stillFace
+       就不再繼續 update mixer,姿勢定格在這一格,不會再跑動畫。 */
+    if(opts.stillFace && mixer) mixer.update(0.0001);
 
     /* opts.frozen(2026-08-20,圓環雕像用):呼叫端不會把這隻角色 push 進
        NPCS,所以永遠不會有人呼叫 animate() 幫 mixer 前進——但骨架不 tick
@@ -4088,7 +4147,7 @@ export function buildNPC(THREE, scene, opts){
   }).catch(() => {});
 
   function animate(dt, playerPos){
-    if(mixer) mixer.update(dt/1000);
+    if(mixer && !opts.stillFace) mixer.update(dt/1000);
     if(!model) return;
 
     /* 巡邏(2026-08-19 擴充成多站來回+停留,見上面 opts.path 那則長註解):
@@ -4128,6 +4187,12 @@ export function buildNPC(THREE, scene, opts){
       return;
     }
 
+    /* opts.stillFace(2026-08-28,kc:「人不要亂動」)——工地老闆截圖裡待機
+       轉頭+重心晃動看起來像亂動,不是每個站定 NPC 都要這個「有點活著」的
+       細節,加這個開關直接跳過下面 glance/sway 那整段,永遠釘死在
+       baseRotationY,不用另外挑掉某一段效果。 */
+    if(opts.stillFace){ model.rotation.y = baseRotationY; return; }
+
     glanceTimer -= dt;
     if(glanceTimer <= 0){
       const dist = playerPos ? Math.hypot(playerPos.x-g.position.x, playerPos.z-g.position.z) : Infinity;
@@ -4158,5 +4223,5 @@ export function buildNPC(THREE, scene, opts){
    * 把 baseRotationY 從 const 改 let,開一個 setter 讓呼叫端能真的改到
    * animate() 實際在用的那個值。 */
   function setFacing(angle){ baseRotationY = angle; }
-  return { group:g, animate, setFacing, getMixer: () => mixer };
+  return { group:g, animate, setFacing, getMixer: () => mixer, setHelmet: (frac, scaleMult, dx, dz) => setHelmet(frac, scaleMult, dx, dz) };
 }
