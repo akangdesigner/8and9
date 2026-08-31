@@ -3404,15 +3404,18 @@ function tweakPolicePanel(){
   });
 }
 /* 警車大小/位置滑桿(2026-08-27,kc:「你給我滑桿,我來調整大小跟位置」)——
-   跟 tweakPolicePanel() 同一招,改的是 city.policeCar.group 這個 Group 的
-   scale/position。每次滑動都重新讀 city.policeCar.group(不快取在開面板
-   當下),因為 glb 可能在面板開著的時候才載入完成、把 fallback 換掉——
-   拿到新的 group 之後滑桿要繼續對新的那顆生效,不能還抓著舊的 fallback。 */
+   2026-08-31 改成跟 tweakConstructionPanel() 同一招(kc:「都要一樣大小
+   ...然後讓我調整位置」抓到原本單一 ref 被 4 台互相覆蓋的坑,見
+   scene-city3d.js policeCarRef 那則筆記):city.policeCar.cars 是陣列,
+   每台各自的 baseX/baseY/baseZ(門口/路邊排開的不同站位)不變,滑桿套
+   同一個共用倍率/位移疊上去,4 台會一起變大變小、一起平移,但彼此的
+   相對站位不會被打亂。每次滑動都重新讀 car.group(不快取),因為 glb
+   可能在面板開著的時候才載入完成、把 fallback 換掉。 */
 function tweakPoliceCarPanel(){
   const old = document.getElementById('policeCarTweakPanel');
   if(old){ old.remove(); return; }
   const ref = city.policeCar;
-  if(!ref || !ref.group){
+  if(!ref || !ref.cars.length){
     alert('警車還沒生成,晚點再開一次滑桿');
     return;
   }
@@ -3427,7 +3430,7 @@ function tweakPoliceCarPanel(){
   panel.id = 'policeCarTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;box-shadow:0 4px 20px #000a';
   panel.innerHTML =
-    '<div style="font-weight:bold;margin-bottom:6px">警車大小/位置滑桿</div>' +
+    '<div style="font-weight:bold;margin-bottom:6px">警車大小/位置滑桿(4 台同動)</div>' +
     rows.map(([id,label,min,max,step]) =>
       `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${state[rows.find(r=>r[0]===id)[5]].toFixed(2)}</span><br>
        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="0" style="width:100%"></div>`
@@ -3436,10 +3439,11 @@ function tweakPoliceCarPanel(){
   document.body.appendChild(panel);
   document.getElementById('pc_scale').value = 1;
   function apply(){
-    const g = city.policeCar.group;
-    if(!g) return;
-    g.scale.setScalar(state.scale);
-    g.position.set(city.policeCar.baseX + state.dx, city.policeCar.baseY + state.dy, city.policeCar.baseZ + state.dz);
+    city.policeCar.cars.forEach(car => {
+      if(!car.group) return;
+      car.group.scale.setScalar(state.scale);
+      car.group.position.set(car.baseX + state.dx, car.baseY + state.dy, car.baseZ + state.dz);
+    });
   }
   rows.forEach(([id,,,,,key]) => {
     document.getElementById(id).addEventListener('input', e => {

@@ -490,10 +490,14 @@ export function buildCity(THREE, scene){
      .map.repeat/.map.offset,跟 stallValance 那套「暴露 mesh 給滑桿」同一招。 */
   const policeWall = {};
   /* 警車大小/位置滑桿(2026-08-27,kc:「你給我滑桿,我來調整大小跟位置」)——
-     同一招,realPoliceCar() 裡把目前的 group(先是灰模 fallback,glb 到了
-     再換成真模型)+ 基準座標/縮放塞進這裡,滑桿即時乘一個倍率/加一個位移,
-     不用重算 propModel 那組置中邏輯。 */
-  const policeCarRef = {};
+     2026-08-31 改成陣列(kc:「都要一樣大小...然後讓我調整位置」發現原本
+     單一物件的坑:4 台警車各自呼叫 realPoliceCar(),但都寫進同一個
+     policeCarRef,每呼叫一次(或每顆 glb 非同步載入完成)就整個覆蓋掉,
+     滑桿最後只會抓到隨機哪一台——改成跟下面 constructionRef.cones 同一招,
+     每台各自一筆 {group,baseX,baseY,baseZ} entry,push 進陣列,滑桿套
+     共用倍率/位移到全部台上,個別的基準座標(門口/路邊排開那些不同站位)
+     不會被互相蓋掉。 */
+  const policeCarRef = { cars: [] };
   /* 施工工地滑桿(2026-08-28,kc:「三角錐我也要調整」,同一輪也要能調怪手)
      ——跟 policeCarRef 同一招,但工地裡怪手/交通錐各有多台,不是單一 ref,
      用陣列蒐集每一台的 group/基準座標,滑桿套一個共用倍率/位移到全部
@@ -573,13 +577,14 @@ export function buildCity(THREE, scene){
     const s = scale || 1, y0 = yOff || 0;
     const fallback = box(2*s, .9*s, 4.4*s, std({ color:0x1c2226, roughness:.4, metalness:.3 }));
     const holder = add(fallback, x, .55*s+y0, z, true, false);
-    policeCarRef.group = holder; policeCarRef.baseX = x; policeCarRef.baseY = .55*s+y0; policeCarRef.baseZ = z;
+    const entry = { group:holder, baseX:x, baseY:.55*s+y0, baseZ:z };
+    policeCarRef.cars.push(entry);
     loadModel('police-car.glb').then(gltf => {
       scene.remove(holder);
       const g = propModel(THREE, gltf, 4.4, 'z', ry || 0);
       g.scale.setScalar(s);
       add(g, x, y0, z, true, false);
-      policeCarRef.group = g; policeCarRef.baseX = x; policeCarRef.baseY = y0; policeCarRef.baseZ = z;
+      entry.group = g; entry.baseY = y0;
     }).catch(() => {});
   }
   // 2026-08-28,kc 開滑桿把交通錐拉到 2.18 倍說「定案」——原本 targetSize .7,烤進去變 1.53,不留在滑桿上
@@ -1686,13 +1691,16 @@ export function buildCity(THREE, scene){
        滑桿現場拉定:縮放 1.96、位置在原基準 (cx-4, frontN-2.3) 上再加
        (dx:-4, dy:-.1, dz:-1.55),直接寫死。同一天「多放幾台才有感覺,
        不要擋到門」——原本那台已經在 cx-8 附近,再加兩台沿路邊排開,
-       避開 cx(門口)前後左右各留至少 4 個單位淨空。 */
+       避開 cx(門口)前後左右各留至少 4 個單位淨空。
+       2026-08-31,kc:「都要一樣大小」——後三台當初補放時隨手給了 1.3,
+       沒真的用滑桿確認過,只有第一台的 1.96 是滑桿現場拉定的最終數字,
+       統一改成 1.96,四台位置/朝向不動。 */
     realPoliceCar(cx-8, frontN-3.85, Math.PI, 1.96, -.1);
-    realPoliceCar(cx+6, frontN-2.3, Math.PI, 1.3);
-    realPoliceCar(cx-19, frontN-2.3, Math.PI * .9, 1.3);
+    realPoliceCar(cx+6, frontN-2.3, Math.PI, 1.96);
+    realPoliceCar(cx-19, frontN-2.3, Math.PI * .9, 1.96);
     /* 第四台,kc:「門口左右 2.2 的感覺」——貼近門口兩側站崗的距離感,
        不是沿路邊遠遠停的那種,擺在門口右側 2.2 個單位。 */
-    realPoliceCar(cx+2.2, frontN-2.1, Math.PI, 1.3);
+    realPoliceCar(cx+2.2, frontN-2.1, Math.PI, 1.96);
   })();
 
   (function constructionSite(){
