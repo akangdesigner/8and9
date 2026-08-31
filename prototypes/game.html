@@ -1754,7 +1754,16 @@ const NPCS = [
     tex:{ hood:'char-aren-shirt.png', pants:'char-aren-pants.png' }
   }),
   buildNPC(THREE, scene, {                             // 小美哥・警局門口站崗(見上面 BROTHER 那則筆記)
-    x:BROTHER.x, z:BROTHER.z, rotationY:0, rig:'m2',
+    /* 2026-08-31,kc:「這是特殊角色要特殊骨架」——原本用 'm2'(Leonard),
+       跟街頭藝人/算命仙/教官/一堆背景路人共用同一副身形,小美哥是有戲份
+       的具名角色(小美她哥,刺青店對峙、顧場子那條線都靠他),現在又固定
+       站在警局門口這種顯眼位置,不該跟背景路人撞臉。改成 'm3'(Brian,
+       光頭)——阿成/阿仁/工地老闆也用這副,但他們站的地方(麵攤/廟口/
+       工地)跟警局門口不會同框,不會互相撞臉;光頭成年男性的輪廓拿來演
+       警察也合理。這輪我先選 'm3',kc 不喜歡的話說一聲換別副。
+       同一天,kc:「你要背對門口啊 轉180度」——站崗面向街道(背對建築),
+       rotationY 從 0 轉成 Math.PI。 */
+    x:BROTHER.x, z:BROTHER.z, rotationY:Math.PI, rig:'m3',
     skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c'
   })
 ];
@@ -1875,7 +1884,8 @@ function startWatchJob(){
   WATCHJOB.active = true; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
   brotherNPC.group.visible = false;
   WATCHJOB.walker = buildNPC(THREE, scene, {
-    x:WATCHJOB_PATH[0][0], z:WATCHJOB_PATH[0][1], rotationY:-Math.PI*.5, rig:'m2',
+    // rig 跟固定站位那具同步換成 'm3'(見上面 BROTHER 那則筆記)——這是同一個角色走出來,不是另一個人
+    x:WATCHJOB_PATH[0][0], z:WATCHJOB_PATH[0][1], rotationY:-Math.PI*.5, rig:'m3',
     skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c',
     path: WATCHJOB_PATH
   });
