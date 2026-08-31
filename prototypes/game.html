@@ -701,29 +701,44 @@ function studyGainKnowledge(){
    做法:不呼叫 say(),直接設 dName/dTx 把題目整句放進對話框,選項用
    coShowOptions() 長在 `#coOpts`(CSS 寫死長在 `#dialog .frame` 裡,緊接
    在 `.dbody` 題目下面),題目跟選項自然是同一個灰底金框的盒子。
-   dlg.on 沒被動到(還是 false),不會被 advanceDialog() 那套打字機邏輯
-   誤觸;busy 這裡自己顧(openMenu 選「讀書」的當下已經被 closeMenu()
-   摸回 false,要自己重新鎖住,不然玩家能在解題畫面開著的時候到處走)。 */
+   2026-08-31 同一天第三輪,kc:「底圖直接換認真上課圖 所以真人3d會暫時
+   消失 只留下選題目」——原本這版只是把對話框疊在還站著 3D 角色的教室/
+   房間場景上面,改成跟 startPhoneGame() 同一招:coFade() 黑畫面淡出、
+   角色(heroIndoor)在解題期間隱藏(見 renderIndoor3D() 開頭那個
+   `studyTakeover` 判斷),底圖重畫一次教室/房間背景(暫時沒有專屬的
+   「認真上課」照片,先重用 paintSchoolBackdrop()/paintBedroomBackdrop()
+   本來的照片,以後 kc 給對應素材再比照 school-phone.png 那套換掉),
+   畫面上只剩題目框。答完再 coFade() 淡出一次換回來、角色重新出現。 */
+let studyTakeover = false;
 function askStudyQuestion(onDone){
   const q = Quiz.BANK[Math.random()*Quiz.BANK.length|0];
+  const inSchool = PLACE === 'school';
   busy = true;
-  drawPortrait('pc');
-  dName.textContent = '讀書';
-  dTx.textContent = `【${q.subj}】${q.q}`;
-  dCaret.classList.remove('on');
-  dlgEl.classList.add('on');
-  coShowOptions(q.opts.map((opt, i) => ({
-    label: opt,
-    run(){
-      dlgEl.classList.remove('on');
-      document.getElementById('coOpts').innerHTML = '';
-      busy = false;
-      const correct = i === q.a;
-      const flavor = correct ? Quiz.RIGHT[Math.random()*Quiz.RIGHT.length|0] : Quiz.WRONG[Math.random()*Quiz.WRONG.length|0];
-      toast(flavor + '\n' + q.note, 3600);
-      onDone(correct);
-    }
-  })));
+  coFade(inSchool ? '認真上課' : '讀書', () => {
+    studyTakeover = true;
+    if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
+    drawPortrait('pc');
+    dName.textContent = '讀書';
+    dTx.textContent = `【${q.subj}】${q.q}`;
+    dCaret.classList.remove('on');
+    dlgEl.classList.add('on');
+    coShowOptions(q.opts.map((opt, i) => ({
+      label: opt,
+      run(){
+        dlgEl.classList.remove('on');
+        document.getElementById('coOpts').innerHTML = '';
+        const correct = i === q.a;
+        const flavor = correct ? Quiz.RIGHT[Math.random()*Quiz.RIGHT.length|0] : Quiz.WRONG[Math.random()*Quiz.WRONG.length|0];
+        coFade(inSchool ? '教室' : '房間', () => {
+          studyTakeover = false;
+          busy = false;
+          if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
+          toast(flavor + '\n' + q.note, 3600);
+          onDone(correct);
+        });
+      }
+    })));
+  });
 }
 /* 偷玩手遊(2026-08-21,kc 給的「上課就好 或是偷玩手遊」兩個方向的第二個)
  * ——沒有真的一個「教官在不在看你」的狀態可以讀(跟 steal() 靠店員朝向
@@ -4338,6 +4353,10 @@ const TATTOO_MASTER_PX = 460, TATTOO_MASTER_PY = 300;
    見上面鏡頭設定的註解),Z 沒有意義,固定 0 就好。跟 STORE.hot 那些既有
    的 px 判斷式(碰撞、Y-sort 遮擋)天生共用同一套數字,不會再脫鉤。 */
 function renderIndoor3D(dt){
+  /* 讀書解題/偷玩手遊(2026-08-31,kc:「底圖直接換認真上課圖 所以真人3d
+     會暫時消失 只留下選題目」)——底圖換成场景本身的特寫時,角色不該還
+     疊在上面,見 askStudyQuestion()/startPhoneGame() 那兩則筆記。 */
+  heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active);
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
   heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : PLACE === 'store' ? storeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
