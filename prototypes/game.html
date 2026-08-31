@@ -6614,20 +6614,9 @@ function talkToYuan(){
     return;
   }
   if(!YUAN.debuted){
-    /* 選單本身要先顯示卡在哪一條(kc:「這種有任務的 會提示 數值哪裡不到」)
-       ——跟 openMenu() 既有的 cost/cls:'bad' 慣例同一套(讀書/翹課/上工那些
-       選項都是先在選單上就顯示「體力不夠」再讓你點下去確認),不能只靠點
-       進去之後才用 rejectCool/rejectRep 那段劇情告訴你。帥潮判斷優先於
-       風評,跟 tryJoinTroupe() 判斷式的順序一致。夠格的話這裡改顯示這次
-       要扣的體力,呼應其他任務選項也會先亮出成本。 */
-    const gate = NpcTemple.TROUPE.need;
-    const gateOk = ST.cool >= gate.cool && ST.star >= gate.repMin;
-    const troupeCost = ST.cool < gate.cool ? `帥潮不夠(${ST.cool}/${gate.cool})`
-                      : ST.star < gate.repMin ? `風評不夠(${ST.star}/${gate.repMin})`
-                      : `體力 ${YUAN.practiceIdx < NpcTemple.TROUPE.practice.length ? -10 : -25}`;
     say('yuan', '「欸，要不要一起？」', () => {
       openMenu('阿源', [
-        { label:'跳陣頭', cost:troupeCost, cls: gateOk ? '' : 'bad', run(){ tryJoinTroupe(); } },
+        { label:'跳陣頭', run(){ tryJoinTroupe(); } },
         { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
       ]);
     });
@@ -6637,17 +6626,28 @@ function talkToYuan(){
 }
 /* 選了「跳陣頭」才會呼叫——夠格就照舊接練習/出陣+音遊(邏輯原封不動
    搬過來),不夠格顯示 rejectCool/rejectRep(見上面 talkToYuan() 那則
-   筆記)。帥潮不夠優先於風評不夠,跟原本判斷式的順序(cool 在前)一致。 */
+   筆記)。帥潮不夠優先於風評不夠,跟原本判斷式的順序(cool 在前)一致。
+   2026-08-31 第三輪(kc:「提示是在對話之中 用（）在最後面」)——上一版
+   把提示塞進選單的 cost/cls:'bad'(讀書/翹課那套),kc 要的不是那個,是
+   跟 talkToMei() disdainTalk 分支同一套慣例:對話播完之後用 toast 補一句
+   「（帥潮要到 N 以上……目前 X）」,數字帶出來但不混進台詞本身(演出
+   台詞 rejectCool/rejectRep 的 beats 內容不動)。這裡原本是 kc 自己要的
+   懸念(TROUPE 刻意不講明數字,跟 talkToMei() 那則筆記寫的「兩者刻意不同」
+   相反),這輪明確推翻,兩邊統一都要有數字。 */
 function tryJoinTroupe(){
   const gate = NpcTemple.TROUPE.need;
   if(ST.cool < gate.cool){
     const r = NpcTemple.TROUPE.rejectCool;
-    playBeats(r.beats, 0, () => { if(r.quiet) toast(r.quiet, 3000); });
+    playBeats(r.beats, 0, () => {
+      toast(r.quiet + '\n（帥潮要到 ' + gate.cool + ' 以上，他們才會找你——目前 ' + ST.cool + '）', 3400);
+    });
     return;
   }
   if(ST.star < gate.repMin){
     const r = NpcTemple.TROUPE.rejectRep;
-    playBeats(r.beats, 0, () => { if(r.quiet) toast(r.quiet, 3000); });
+    playBeats(r.beats, 0, () => {
+      toast(r.quiet + '\n（風評要到 ' + gate.repMin + ' 以上，廟方才會收——目前 ' + ST.star + '）', 3400);
+    });
     return;
   }
   joinedTroupe = true;
@@ -6773,10 +6773,10 @@ function talkToMei(){
   }
   if(!MEI.met){
     /* 2026-08-21 kc 糾正:帥潮不夠不是「她沒看到你」,是「她嫌棄你」,
-       而且玩家要能看到門檻數字,不是自己瞎猜——跟 TROUPE(陣頭)那種刻意
-       不講明數字的做法不一樣,那邊是 kc 要的懸念,這裡 kc 明講要系統提示,
-       兩個不衝突,各自照各自的要求做。提示照現有「（$+30，歸屬感 +6）」
-       那種括號附註的慣例,跟在台詞後面用 toast 補一句,不混進台詞本身。 */
+       而且玩家要能看到門檻數字,不是自己瞎猜。提示照現有「（$+30，歸屬感
+       +6）」那種括號附註的慣例,跟在台詞後面用 toast 補一句,不混進台詞
+       本身——2026-08-31 起 tryJoinTroupe() 的 rejectCool/rejectRep 也改
+       走這套,不再是「刻意不講明數字」的懸念,兩邊現在統一。 */
     if(ST.cool < 22){
       say('mei', D.disdainTalk[Math.random()*D.disdainTalk.length|0], () => {
         toast('（帥潮要到 22 以上，她才會理你——目前 ' + ST.cool + '）', 2800);
