@@ -721,16 +721,22 @@ function studyGainKnowledge(){
    同一套構圖,前排右邊那位同學從滑手機換成正常低頭讀書)——跟
    paintSchoolBackdrop()/paintPhoneBackdrop() 同一招:naturalWidth 判斷
    圖真的載入成功才畫,否則退回原本的教室照片,不會整段空白。家裡書桌
-   「讀書」還沒有專屬素材,維持原樣重用 paintBedroomBackdrop()。 */
+   「讀書」還沒有專屬素材,維持原樣重用 paintBedroomBackdrop()。
+   2026-08-31 同一天第六輪,kc 糾正:「當我使用我的圖的時候要蓋在原本
+   圖片上面 不然會破圖」——原本這裡是 `clearRect()` 清空再畫新圖,新圖
+   來源(ChatGPT 整張重新生成)的像素尺寸(1676×938)跟原圖(1672×941)
+   沒有完全對齊,drawImage 硬拉伸貼滿 1280×720 邊緣可能留一絲清空後的
+   空白造成「破圖」。改成不清空、先確定原圖(paintSchoolBackdrop())已經
+   鋪好,新圖直接畫在原圖上面蓋掉,邊緣萬一沒完全蓋滿,底下露出來的是
+   原圖而不是空白,才不會破圖——用的仍然是 kc 給的整張新圖,不是裁一塊
+   疊上去(kc 糾正過「正確的是用我的新圖」,不要裁)。 */
 const SCHOOL_STUDY_IMG = new Image();
 SCHOOL_STUDY_IMG.src = '../assets/bg/school-study.png';
 function paintSchoolStudyBackdrop(){
-  gbg.clearRect(0,0,1280,720);
+  paintSchoolBackdrop();
   if(SCHOOL_STUDY_IMG.complete && SCHOOL_STUDY_IMG.naturalWidth){
     gbg.imageSmoothingEnabled = true;
     gbg.drawImage(SCHOOL_STUDY_IMG, 0,0,1280,720);
-  } else {
-    paintSchoolBackdrop();
   }
 }
 let studyTakeover = false;
@@ -816,16 +822,18 @@ function startPhoneGame(){
 }
 /* 跟 paintSchoolBackdrop() 同一張 gbg 畫布、同一個 1280×720 尺寸——這樣
    結束時只要再呼叫一次 paintSchoolBackdrop() 就能把「底圖」換回教室,
-   不用另外記一份「換回去要畫什麼」。 */
+   不用另外記一份「換回去要畫什麼」。
+   2026-08-31 kc 糾正:「當我使用我的圖的時候要蓋在原本圖片上面 不然會
+   破圖」——原本 clearRect() 清空再畫,新圖(整張重新生成,像素尺寸跟
+   原圖沒有完全對齊)硬拉伸貼滿邊緣可能留一絲空白造成破圖。改成不清空,
+   先鋪 paintSchoolBackdrop() 的原圖,新圖蓋在上面,萬一邊緣沒完全蓋滿,
+   底下露出來的是原圖而不是空白,見 paintSchoolStudyBackdrop() 那則
+   第六輪筆記,同一個修法。 */
 function paintPhoneBackdrop(){
-  gbg.clearRect(0,0,1280,720);
+  paintSchoolBackdrop();
   if(PHONE_BG_IMG.complete && PHONE_BG_IMG.naturalWidth){
     gbg.imageSmoothingEnabled = true;
     gbg.drawImage(PHONE_BG_IMG, 0,0,1280,720);
-  } else {
-    gbg.save(); gbg.scale(SC,SC);
-    SceneSchool.renderBackground(gbg, { vignette:true, deskFront:true });
-    gbg.restore();
   }
   if(PHONE_GAME.warning){
     gbg.fillStyle = 'rgba(224,72,58,.22)'; gbg.fillRect(0,0,1280,720);
