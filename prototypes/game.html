@@ -1636,18 +1636,43 @@ const _patrolV = new THREE.Vector3();
    連線方向,scale.x 撐長度、position 放在兩點中點,y=0.05 貼地(比走路
    碰撞判定用的 .15 再低一點,避免蓋住玩家腳,但要夠高不會被地面
    z-fighting 吃掉)。顏色跟 `.wlabel` 那個金色系(#d8b24a)呼應,同一套
-   「巡邏系提示」視覺語言。 */
-const PATROL_LINE_GEOM = new THREE.PlaneGeometry(1, .5);
+   「巡邏系提示」視覺語言。
+   2026-08-31 第二輪,kc:「效果對了但你的線怎這麼醜」——第一版是純色實心
+   長方形+關掉深度測試,兩個問題疊在一起:①一整條粗色塊,看起來像貼歪
+   的色紙,不像遊戲會出現的導航提示;②depthTest:false 讓它不管前面有沒有
+   建築物都畫在最上層,穿透感很怪,不像真的貼在地上的東西。這輪改用
+   canvas 現畫一張「箭頭往前流動」的重複貼圖(不是純色),寬度收窄到
+   0.28、加 AdditiveBlending 讓它像會發光的導引箭頭,並且**恢復
+   depthTest:true**(靠 Y 墊高到 .12、renderOrder 適度拉高,不是完全關掉
+   深度測試那種暴力解法)。貼圖 repeat.x 跟著 dist 縮放,不管線多長,
+   箭頭圖案大小都固定,不會被拉伸變形;offset.x 每幀往前推一點,箭頭會
+   有「往目的地流動」的動態感,比死板的靜態貼圖更看得出方向。 */
+const PATROL_ARROW_TEX = (() => {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 16;
+  const cx = c.getContext('2d');
+  cx.clearRect(0, 0, 64, 16);
+  cx.fillStyle = '#f2d888';
+  cx.beginPath();
+  cx.moveTo(4, 3); cx.lineTo(24, 8); cx.lineTo(4, 13); cx.lineTo(10, 8);
+  cx.closePath(); cx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.needsUpdate = true;
+  return tex;
+})();
+const PATROL_LINE_GEOM = new THREE.PlaneGeometry(1, .28);
 const PATROL_LINE_MAT = new THREE.MeshBasicMaterial({
-  color:0xd8b24a, transparent:true, opacity:.85, side:THREE.DoubleSide, depthWrite:false, depthTest:false
+  map:PATROL_ARROW_TEX, color:0xd8b24a, transparent:true, opacity:.9,
+  side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending
 });
 const patrolLine = new THREE.Mesh(PATROL_LINE_GEOM, PATROL_LINE_MAT);
 patrolLine.rotation.x = -Math.PI/2;   // PlaneGeometry 預設立在 XY 面,轉平躺到地面(XZ 面)
 patrolLine.visible = false;
 patrolLine.frustumCulled = false;
-patrolLine.renderOrder = 999;   // 加 depthTest:false 之前,測過只加 depthWrite:false 貼地那片色帶還是完全被地面 mesh 蓋掉(地面本身的碰撞厚度比 y=0.05 高),renderOrder 拉到最後 + 不測深度,保證一定畫在最上層
+patrolLine.renderOrder = 5;   // 有測深度(depthTest 沒關),但地面/道路那類貼地 mesh 常常也是 y≈0,同一個深度值誰先畫誰蓋過誰不保證,拉高一點 render order 避免被地面貼圖搶著畫
 scene.add(patrolLine);
-function updatePatrolMarker(){
+function updatePatrolMarker(dt){
   if(!MOTO_IMPOUND.patrolActive || MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length){
     patrolMarkerEl.style.display = 'none';
     patrolLine.visible = false;
@@ -1664,10 +1689,12 @@ function updatePatrolMarker(){
   const heroPos = hero.group.position;
   const dx = px - heroPos.x, dz = pz - heroPos.z;
   const dist = Math.hypot(dx, dz);
-  patrolLine.position.set((heroPos.x+px)/2, .05, (heroPos.z+pz)/2);
+  patrolLine.position.set((heroPos.x+px)/2, .12, (heroPos.z+pz)/2);
   patrolLine.rotation.z = -Math.atan2(dz, dx);
   patrolLine.scale.set(dist, 1, 1);
   patrolLine.visible = dist > .5;   // 太近(幾乎踩在點上)就不畫,避免縮成一個點還在那閃
+  PATROL_ARROW_TEX.repeat.x = dist / 1.6;   // 箭頭圖案固定約 1.6 個世界單位一組,不管線多長都不會被拉伸
+  PATROL_ARROW_TEX.offset.x = (PATROL_ARROW_TEX.offset.x + (dt||16)*.0012) % 1;   // 往前流動的動態感
 }
 function updateWorldLabels(){
   worldLabels.forEach(({ pos, el }) => {
@@ -9140,7 +9167,7 @@ renderer.setAnimationLoop(now => {
   if(gameOver) return;   // 失敗結局蓋上之後整個模擬凍結,見 triggerGameOver()
   const dt = Math.min(50, now-last); last = now;
   fit(); tickDialog(dt);
-  if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); updatePatrolMarker(); composer.render(); }
+  if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); updatePatrolMarker(dt); composer.render(); }
   else { updateIndoor(dt); renderIndoor3D(dt); renderIndoorForeground(); }
   acc += dt; frames++;
   if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc=0; frames=0; }
