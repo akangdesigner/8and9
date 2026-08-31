@@ -2480,15 +2480,16 @@ const c2dbg = document.getElementById('c2dbg'), gbg = c2dbg.getContext('2d');
    店員貼圖是整張畫上去,沒有跟著櫃台的前緣裁掉。改成畫的時候用 clip()
    卡住,矩形範圍以下(櫃台桌面延伸出去的地方)不畫,店員才會有「站在櫃台
    裡面」的感覺,不是疊在櫃台桌面上面。 */
-/* 2026-08-31,kc 換了一批新的店員定裝照(正面/背面)——新照片是「胸口以上」
-   的半身照(比較接近一般證件照的構圖),不是舊照片那種「上半身、手在畫面
-   裡」的窄長條裁法,寬高比從舊的 94:276(很窄很高)變成新的 185:150
-   (比較接近方形、偏寬)。原本 CLIP_Y 那道裁切線(店員腰部藏到櫃台後面)
-   對這張新照片意義不大——新照片本來就已經是半身,不太需要再裁掉下半身,
-   CLIP_Y 現在只裁掉極少量(領口以下一點點),維持「站在櫃台裡面」的視覺
-   語言但不強求跟舊版一樣的裁切比例。這組數字是我先抓的,若跟畫面比例
-   看起來不對,直接調 CLERK_W/H/X/Y 四個數字,不用動下面的畫法邏輯。 */
-const CLERK_W = 185, CLERK_H = 150, CLERK_X = 982, CLERK_Y = 140, CLERK_CLIP_Y = 280;
+/* 2026-08-31,kc 換了一批新的店員定裝照(正面/背面)——**直接用 kc 給的
+   原圖,不要自己先裁過**(上一版我自己先裁成半身照再算比例,kc 原話
+   「我給你的圖片已經裁好了你不用動」,是我畫蛇添足)。跟舊照片同一個
+   道理:整張原圖畫上去,靠 CLERK_CLIP_Y 那條線卡住櫃台桌面前緣以下不畫,
+   店員自然有「站在櫃台裡面、下半身被擋住」的效果,不需要我自己先裁圖。
+   四個數字(W/H/X/Y)+ CLIP_Y 從寫死的 const 改成 CLERK_TWEAK 物件,配
+   `__dbg.tweakClerk()` 拉滑桿——kc 說要自己縮放,跟 FOREMAN_TWEAK/
+   DAD_TWEAK 那些既有的滑桿面板同一套做法,不用我自己先猜數字。這裡的
+   起始值只是隨便抓的起點,拉滑桿定案後跟我說最終數字就好。 */
+const CLERK_TWEAK = { w:150, h:167, x:1017, y:140, clipY:274 };
 function paintStoreBackdrop(){
   gbg.clearRect(0,0,1280,720);
   gbg.imageSmoothingEnabled = true;
@@ -2501,13 +2502,45 @@ function paintStoreBackdrop(){
   const clerkImg = CO ? null : (IN.clerkFace === 'B' ? clerkBackImg : clerkFrontImg);
   if(clerkImg && clerkImg.complete){
     gbg.save();
-    gbg.beginPath(); gbg.rect(0,0,1280,CLERK_CLIP_Y); gbg.clip();
+    gbg.beginPath(); gbg.rect(0,0,1280,CLERK_TWEAK.clipY); gbg.clip();
     gbg.drawImage(clerkImg, 0,0,clerkImg.width,clerkImg.height,
-      CLERK_X, CLERK_Y, CLERK_W, CLERK_H);
+      CLERK_TWEAK.x, CLERK_TWEAK.y, CLERK_TWEAK.w, CLERK_TWEAK.h);
     gbg.restore();
   }
   if(hotImg.complete) gbg.drawImage(hotImg, 0,0,hotImg.width,hotImg.height,
     STORE.hot.x*SC, (STORE.hot.y-STORE.hot.h)*SC, STORE.hot.w*SC, STORE.hot.h*SC);
+}
+/* 店員定位滑桿(2026-08-31)——跟 tweakForemanPanel() 同一套模式,
+   __dbg.tweakClerk() 開/關,拉動每個滑桿即時呼叫 paintStoreBackdrop()
+   重畫,不用重整頁面看效果。 */
+function tweakClerkPanel(){
+  const old = document.getElementById('clerkTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['ck_w','寬度(w)', 40, 400, 1, 'w'],
+    ['ck_h','高度(h)', 40, 400, 1, 'h'],
+    ['ck_x','水平位置(x)', 700, 1280, 1, 'x'],
+    ['ck_y','垂直位置(y)', 0, 400, 1, 'y'],
+    ['ck_clip','櫃台裁切線(clipY)', 0, 500, 1, 'clipY']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'clerkTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">店員定位滑桿</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${CLERK_TWEAK[key]}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${CLERK_TWEAK[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakClerk()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      CLERK_TWEAK[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = CLERK_TWEAK[key];
+      paintStoreBackdrop();
+    });
+  });
 }
 /* 鮮食櫃遮擋用的裁切圖:用一塊小的重用畫布(hotCutBuf),每次真的需要遮擋
    (見 renderIndoorForeground())才當場從 c2dbg 裁一次,不是載入時預先做好
@@ -4749,7 +4782,7 @@ const CO_CLERK_PX = 540, CO_CLERK_PY = 210;   // 玩家上班時站的位置(原
    蓋住手臂稍微抬高、還沒抬到櫃檯桌面之上那個過渡帶。如果玩起來手還是
    露在左邊(客人那一側),下一步照上面第三輪筆記講的,把 CO_QUEUE_PX
    整條往左移遠,不要再往左收這個矩形。 */
-const CO_CLERK_CLIP = { x:1045, y:CLERK_CLIP_Y-20, w:130, h:220 };
+const CO_CLERK_CLIP = { x:1045, y:CLERK_TWEAK.clipY-20, w:130, h:220 };
 function coDrawClerkClip(){
   const r = CO_CLERK_CLIP;
   g2f.imageSmoothingEnabled = true;
@@ -8857,6 +8890,7 @@ window.__dbg = {
   tweakPoliceCar: tweakPoliceCarPanel,
   tweakConstruction: tweakConstructionPanel,
   tweakForeman: tweakForemanPanel,
+  tweakClerk: tweakClerkPanel,
   tweakForemanHelmet: tweakForemanHelmetPanel,
   tuitionQuest: () => TUITION_QUEST, motoLoan: () => MOTO_LOAN, maybeTriggerStoryNode, seenStoryDays, dadCheckinLines,
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
