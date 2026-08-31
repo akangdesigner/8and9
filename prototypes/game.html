@@ -565,7 +565,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -964,6 +964,21 @@ function closeInventory(){ invOverlay.classList.remove('on'); busy = false; }
 document.getElementById('charCardBtn').onclick = openInventory;
 document.getElementById('invClose').onclick = closeInventory;
 
+/* +7天 按鈕(2026-08-31,kc:「不要再叫我打 __dbg.day(8) 我不會 你要嘛就
+   直接給我按鈕」)——原本測按天觸發的長劇情(小美哥那條/家裡那兩條)只能
+   叫 kc 開 devtools 打 __dbg.day(n),對不寫 code 的人不友善。改成跟
+   `#bar` 裡原本就有的「重來」同一顆工具列按鈕,點了直接跳一週,不用
+   打字。抓 7 天(不是 1 天)是因為長劇情節點間距通常抓一週左右(小美哥
+   8/16/24/30、母賭 3/6/10/14/18/22 那種間距),點個 3~4 下就能跳過一整段,
+   比一天一天點實用。跳完直接呼叫 syncHUD() 讓右上角時鐘立刻更新,不用
+   等下一次遊戲內分鐘數自然推進才刷新。 */
+/* game.html 的主 script 是 type="module"(見檔案開頭那則長筆記),頂層
+   宣告不會自動掛到 window——跟 __dbg 需要手動 `window.__dbg = {...}`
+   才能從外面(devtools/inline onclick)存取同一個坑,inline onclick
+   屬性是在全域(sloppy)作用域執行,看不到 module 內部的頂層綁定,不手動
+   掛的話按鈕點下去會是「debugSkipDays is not defined」。 */
+function debugSkipDays(n){ day += n; syncHUD(); }
+window.debugSkipDays = debugSkipDays;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -1590,6 +1605,62 @@ const BUSH_SPOT = { x:-50, z:-113 };
 const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:false, hasGirlfriend:false, friend:false,
                practiceIdx:0, debuted:false, routineIdx:0, routineDay:-1 };
 
+/* 小胖的連續劇情(2026-08-31,見 npc-temple.js 小胖那則長筆記)——沒有 3D
+   模型(骨架跟現有的差太多,見 DESIGN_NOTES「3D 街上的角色」),整條線純靠
+   靠近廟口自動觸發+文字演出(見 updateCity() 那段 checkFatArc() 呼叫),
+   沒有可以手動走過去按空白鍵的入口。x/z 沿用 YUAN 那個廟口位置,兩個人
+   本來就站在同一塊廟埕。
+   ⚠ npc-temple.js 的 GONE 陣列裡原本也有一則「小胖 day400 消失」,那組
+   GONE 陣列整個沒接進 game.html(這輪才發現,跟 rejectCool/rejectRep
+   當初同一個坑)。這裡的消失是這條任務線自己獨立算的(10 天沒解就走),
+   跟 GONE 陣列那筆資料無關、不共用,兩邊之後真的要合併再看。 */
+const FAT = { x:-6, z:-86, seenAsk:false, seenWound:false, questActive:false, questStartDay:-1,
+              reminded:false, hasMedicine:false, resolved:false, gone:false };
+const FAT_DATA = NpcTemple.NPCS.find(n => n.id === 'fat');
+function checkFatArc(){
+  if(FAT.gone) return;
+  if(!FAT.seenAsk && YUAN.visits >= 1){
+    FAT.seenAsk = true;
+    playBeats(FAT_DATA.askBeats, 0, () => {
+      chg('calm', FAT_DATA.askCalm);
+      toast(FAT_DATA.askQuiet, 3000);
+    });
+    return;
+  }
+  if(FAT.seenAsk && !FAT.seenWound && YUAN.hasTattoo){
+    FAT.seenWound = true;
+    FAT.questActive = true; FAT.questStartDay = day;
+    ACTIVE_QUESTS.push({ id:'fat-wound', title:'小胖的傷口', hint:'去超商買消毒藥水給他' });
+    renderQuestPanel();
+    playBeats(FAT_DATA.woundBeats, 0, () => { toast(FAT_DATA.woundQuiet, 3200); });
+    return;
+  }
+  if(FAT.questActive && FAT.hasMedicine){
+    FAT.resolved = true; FAT.questActive = false;
+    const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'fat-wound');
+    if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+    renderQuestPanel();
+    playBeats(FAT_DATA.resolvedBeats, 0, () => {
+      chg('calm', FAT_DATA.resolvedCalm); chg('cool', FAT_DATA.resolvedCool);
+      toast(FAT_DATA.resolvedQuiet, 3000);
+    });
+    return;
+  }
+  if(FAT.questActive && !FAT.reminded && day >= FAT.questStartDay + 5){
+    FAT.reminded = true;
+    playBeats(FAT_DATA.reminderBeats, 0, () => {});
+    return;
+  }
+  if(FAT.questActive && day >= FAT.questStartDay + 10){
+    FAT.gone = true; FAT.questActive = false;
+    const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'fat-wound');
+    if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+    renderQuestPanel();
+    toast(FAT_DATA.goneLine, 3600);
+    return;
+  }
+}
+
 /* 學校三人(2026-08-21)——接 lib/quests.js SCHOOL 那組資料,見
    npc-school.js 開頭的筆記(哪幾條這輪做、哪幾條先跳過)。座標挑在中華路
    東側那座小公園裡(scene-city3d.js park(),x:42~61/z:-27~-16 那塊草地),
@@ -1685,7 +1756,7 @@ const KAI      = { x:6, z:-13, talked:false };
    z=100 起就撞牆,z=99 是最後一格淨空,這裡再留 .5 個單位餘裕,x 對齊
    建築中心 cx=-78(門的位置),沒有貼哪台警車(兩組警車分別停在 x≈-88/
    -93 跟 x≈-64/-69,離門口中心還有一段距離)。 */
-const BROTHER  = { x:-78, z:98.5, met:false };
+const BROTHER  = { x:-78, z:98.5, met:false, path:null };
 
 /* 街頭藝人(2026-08-20,kc 追加:「手上要拿吉他」)——拉出來宣告成獨立
  * 變數,因為要在模型載入完成後把吉他掛到他身上(骨架是非同步載入的,
@@ -4443,6 +4514,18 @@ function openIndoorSpot(id){
   else if(id === 'shelf') openMenu('貨架', [
     { label:'買泡麵', cost:'$25　飽足 +20　情緒 +1', run:() => addToBasket('泡麵', 25, 20, 1, '🍜') },
     { label:'買洋芋片', cost:'$40　飽足 +15　情緒 +6', run:() => addToBasket('洋芋片', 40, 15, 6, '🍟') },
+    /* 小胖的傷口任務用的藥水(2026-08-31,見上面 FAT 那則長筆記)——只在
+       任務開著、還沒買過的時候才出現,不會平白多一個跟食物架格格不入的
+       選項。不走 addToBasket()/FOOD 那套(那是給「角色面板點開才吃掉」
+       的食物用的),直接當場扣錢+設旗標,買了就是買了,不用另外去背包
+       點一次。 */
+    ...(FAT.questActive && !FAT.hasMedicine ? [{ label:'買消毒藥水', cost:'$40', cls: ST.money<40?'bad':'',
+      run:() => {
+        if(ST.money < 40){ toast('你身上不夠。', 2000); return; }
+        chg('money', -40);
+        toast('你買了瓶消毒藥水，收進口袋。', 2200);
+        FAT.hasMedicine = true;
+      } }] : []),
     { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(20) },
     { label:'離開', cls:'back', run(){} }
   ]);
@@ -5944,6 +6027,31 @@ function updateCity(dt){
     if(Math.hypot(wp.x-door[0], wp.z-door[1]) < 1.2) resolveWatchJob(false);
   }
 
+  /* 小美哥的月長線改成主動觸發(2026-08-31,kc:「不要用成天數觸發這樣
+     很容易錯過,應該要是天數到之後,不管啥時候去都會觸發第一次主動對話
+     (靠近警察局)」)——原本要玩家自己走到他面前按空白鍵,天數到了但
+     玩家那天沒想到要去警局就直接錯過那個節點。改成跟家裡劇情
+     (maybeTriggerStoryNode,「他主動來找你,你躲不掉」)同一個精神,不用
+     玩家自己按互動鍵。半徑抓 10——比 WATCHJOB 那組「遠遠看到人影」的
+     16 窄(這裡是他站在門口直接攔下你,不是遠遠瞥一眼),比一般互動判定
+     3.2 寬(不用精準走到面前)。busy/dlg.on 兩個鎖都要空,避免打斷玩家
+     正在做的其他事(開著選單/已經在對話中)。第一次質問跟按天推進的四個
+     節點共用 talkToBrother() 同一份判斷邏輯,這裡只是換一個呼叫時機,
+     邏輯本身不用重寫;原本走到面前按空白鍵的互動路徑(interactProp()
+     'brother' 分支)沒有拿掉,平常日子(沒有節點要播)靠近他還是可以
+     主動聊閒聊句。 */
+  if(!busy && !dlg.on && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 10){
+    if(MEI.together && !BROTHER.met) talkToBrother();
+    else if(BROTHER.met && nextBrotherArcDay() != null) talkToBrother();
+  }
+
+  /* 小胖的連續劇情(2026-08-31,見上面 FAT 那則長筆記+ checkFatArc())——
+     跟 BROTHER 月長線同一招「靠近才自動觸發」,但小胖沒有 3D 模型可以
+     靠近,直接沿用 YUAN 的座標當廟埕位置判斷。 */
+  if(!busy && !dlg.on && Math.hypot(pos.x-FAT.x, pos.z-FAT.z) < 10){
+    checkFatArc();
+  }
+
   /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
      dismountMoto()——角色本體不藏,坐姿疊在車上)。碰撞/邊界檢查都還是
      用 pos(hero.group.position),車只是換皮,不是另一套移動邏輯。
@@ -7381,20 +7489,68 @@ function lookAtBookshelf(){
 /* 小美哥(2026-08-21)——見 npc-school.js BROTHER 那則長筆記。刺青/知識
    兩邊獨立判定、效果疊加,不是二選一分支,所以這裡不是 openMenu 選單,
    是一路 playBeats 播下去,依序插入該插的段落。 */
+/* 小美哥的月長線(2026-08-31,見 npc-school.js BROTHER day8Beats 那則
+   長筆記)——四個節點按天解鎖(8/16/24/30,避開母賭 3/6/10/14/18/22、
+   父喝 4/9/15/20/26 撞期),`seenStoryDays` 記重複鍵(跟 bet/drink 同一套
+   dedupe,key 是 'brother-'+day),一次只推進一個節點,不會因為玩家隔了
+   好幾天沒來就一次補播全部。
+   day16/24 的分岔判準直接讀既有三個數值,沒有另開新旗標:
+     - brotherTrendGood()：day16 用,門檻鬆(風評回到 −10 以上、知識夠)——
+       這裡只是「風向」,講白提示,不是定案。
+     - brotherFinalGood()：day24 用,門檻嚴一點(風評轉正、知識夠、沒刺青)
+       ——這裡才是真的鎖定 BROTHER.path('A'/'B'),day30 直接讀鎖定結果,
+       不重新判一次(跟這遊戲「沒有安全選項、選了就不能回頭」的基本盤
+       一致,kc 這輪沒有要求開回頭路)。
+   day24 的「小任務」kc 留給我選一個小的可逆參數,這裡選最簡單的版本:
+   不是另外開一個「維持乾淨 N 天」的獨立任務物件,直接用 day24 當下的
+   即時數值做最終判定——不喜歡跟我說一聲,要換成真的任務物件也不難。 */
+const BROTHER_ARC_DAYS = [8, 16, 24, 30];
+function brotherTrendGood(){ return ST.star >= -10 && KNOWLEDGE.rough >= 1; }
+function brotherFinalGood(){ return ST.star >= 0 && KNOWLEDGE.rough >= 1 && !YUAN.hasTattoo; }
+function nextBrotherArcDay(){
+  return BROTHER_ARC_DAYS.find(d => day >= d && !seenStoryDays.has('brother-'+d));
+}
 function talkToBrother(){
   const D = NpcSchool.BROTHER;
   if(!MEI.together){ say('brother', D.idleBefore[Math.random()*D.idleBefore.length|0]); return; }
-  if(BROTHER.met){ say('brother', D.idleAfter[Math.random()*D.idleAfter.length|0]); return; }
-  BROTHER.met = true;
-  const beats = [...D.hookBeats];
-  if(YUAN.hasTattoo) beats.push(...D.tattooBadBeats);
-  beats.push(...(KNOWLEDGE.rough >= 1 ? D.knowledgeGoodBeats : D.knowledgeBadBeats));
-  beats.push(...D.closeBeats);
-  playBeats(beats, 0, () => {
-    if(YUAN.hasTattoo){ chg('calm', -8); chg('star', -6); }
-    chg('calm', KNOWLEDGE.rough >= 1 ? 6 : -4);
-    toast(D.quiet, 3200);
-  });
+  if(!BROTHER.met){
+    BROTHER.met = true;
+    const beats = [...D.hookBeats];
+    if(YUAN.hasTattoo) beats.push(...D.tattooBadBeats);
+    beats.push(...(KNOWLEDGE.rough >= 1 ? D.knowledgeGoodBeats : D.knowledgeBadBeats));
+    beats.push(...D.closeBeats);
+    playBeats(beats, 0, () => {
+      if(YUAN.hasTattoo){ chg('calm', -8); chg('star', -6); }
+      chg('calm', KNOWLEDGE.rough >= 1 ? 6 : -4);
+      toast(D.quiet, 3200);
+    });
+    return;
+  }
+  const arcDay = nextBrotherArcDay();
+  if(arcDay != null){
+    seenStoryDays.add('brother-'+arcDay);
+    if(arcDay === 8){
+      playBeats(D.day8Beats, 0, () => {});
+    } else if(arcDay === 16){
+      const good = brotherTrendGood();
+      playBeats(good ? D.day16GoodBeats : D.day16BadBeats, 0, () => {});
+    } else if(arcDay === 24){
+      const good = brotherFinalGood();
+      BROTHER.path = good ? 'B' : 'A';
+      playBeats(good ? D.day24GoodBeats : D.day24BadBeats, 0, () => {
+        if(good){ chg('calm', 12); chg('star', 10); toast('（歸屬感 +12／風評 +10）', 2600); }
+        else    { chg('star', -15); chg('calm', -10); toast('（風評 −15／歸屬感 −10）', 2600); }
+      });
+    } else if(arcDay === 30){
+      const good = BROTHER.path === 'B';
+      playBeats(good ? D.day30EndingB : D.day30EndingA, 0, () => {
+        if(good){ chg('money', 2000); chg('calm', 10); toast('（+$2000／歸屬感 +10）', 2600); }
+        else    { chg('star', -8); toast('（風評 −8）', 2600); }
+      });
+    }
+    return;
+  }
+  say('brother', D.idleAfter[Math.random()*D.idleAfter.length|0]);
 }
 /* 阿凱(2026-08-24 新角色,見上面 KAI 那則筆記)——閒聊句比照爸媽的
    DAD_CHECKIN_LINES/dadCheckinLines() 模式(依天數分桶、隨機抽一句),
@@ -8431,6 +8587,7 @@ window.__dbg = {
     return '測試模式：直接開始跳 ' + (songKey || 'rongshen') + '。';
   },
   TROUPE_GAME,
+  FAT, checkFatArc,
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
