@@ -1687,20 +1687,15 @@ export function buildCity(THREE, scene){
     placeAlleyLamp(cx+6.4, frontN-1.4);
 
     /* 警車停在門口路邊(路面上,不是建築腳印,純視覺道具,不擋路)。
-       真 3D 模型(realPoliceCar)。2026-08-27,kc 用 __dbg.tweakPoliceCar()
-       滑桿現場拉定:縮放 1.96、位置在原基準 (cx-4, frontN-2.3) 上再加
-       (dx:-4, dy:-.1, dz:-1.55),直接寫死。同一天「多放幾台才有感覺,
-       不要擋到門」——原本那台已經在 cx-8 附近,再加兩台沿路邊排開,
-       避開 cx(門口)前後左右各留至少 4 個單位淨空。
-       2026-08-31,kc:「都要一樣大小」——後三台當初補放時隨手給了 1.3,
-       沒真的用滑桿確認過,只有第一台的 1.96 是滑桿現場拉定的最終數字,
-       統一改成 1.96,四台位置/朝向不動。 */
-    realPoliceCar(cx-8, frontN-3.85, Math.PI, 1.96, -.1);
-    realPoliceCar(cx+6, frontN-2.3, Math.PI, 1.96);
-    realPoliceCar(cx-19, frontN-2.3, Math.PI * .9, 1.96);
-    /* 第四台,kc:「門口左右 2.2 的感覺」——貼近門口兩側站崗的距離感,
-       不是沿路邊遠遠停的那種,擺在門口右側 2.2 個單位。 */
-    realPoliceCar(cx+2.2, frontN-2.1, Math.PI, 1.96);
+       真 3D 模型(realPoliceCar)。
+       2026-08-31,kc:「我要個別調整」——改了 tweakPoliceCarPanel() 讓
+       4 台可以各自單獨拉(見 game.html 那則筆記),kc 現場調成「兩台一組
+       分站門口左右」確認過(截圖核對),座標直接改成絕對值寫死,不再用
+       cx/frontN 相對式子——4 台縮放統一 1.92,不是各自不同。 */
+    realPoliceCar(-87.7, 104.75, Math.PI, 1.92, -.1);
+    realPoliceCar(-64.15, 105.4, Math.PI, 1.92);
+    realPoliceCar(-93.4, 104.2, Math.PI * .9, 1.92);
+    realPoliceCar(-68.6, 105.3, Math.PI, 1.92);
   })();
 
   (function constructionSite(){
