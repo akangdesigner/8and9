@@ -1620,17 +1620,54 @@ patrolMarkerEl.textContent = '巡邏點';
 patrolMarkerEl.style.display = 'none';
 wlabelsEl.appendChild(patrolMarkerEl);
 const _patrolV = new THREE.Vector3();
+/* 走路提示線(2026-08-31,kc:「走路要有提示線」)——單靠螢幕上那顆
+   「巡邏點」文字標籤,玩家知道終點在哪但不知道路怎麼走(尤其巡邏點之間
+   隔了一整條街)。加一條真的貼在地上的提示,從玩家腳下一路連到下一個
+   巡邏點,跟 patrolMarkerEl 那組浮動文字是同一批「巡邏中才顯示」的
+   UI,但這是真的 3D 物件,不是投影算出來的螢幕座標。每幀重算(玩家
+   目前位置→下一點),不是畫死一次——玩家往前走,提示會跟著縮短,方向
+   感比單一個文字標籤更直覺。
+   第一版用 THREE.Line 畫細線,截圖核對發現幾乎看不到——WebGL 在大多數
+   平台(含這個專案在跑的桌面 Chrome)會直接忽略 LineBasicMaterial 的
+   `linewidth`,細線永遠只有 1px,再加上截圖 JPEG 壓縮,貼在暗色路面上
+   等於沒有。改用一條會跟著長度/角度即時變形的扁平色帶(PlaneGeometry
+   + MeshBasicMaterial,不受光照影響,永遠亮),寬度用真的世界座標(0.5
+   個單位)撐出來,不是線寬那種平台不保證的東西。旋轉用 atan2 對齊兩點
+   連線方向,scale.x 撐長度、position 放在兩點中點,y=0.05 貼地(比走路
+   碰撞判定用的 .15 再低一點,避免蓋住玩家腳,但要夠高不會被地面
+   z-fighting 吃掉)。顏色跟 `.wlabel` 那個金色系(#d8b24a)呼應,同一套
+   「巡邏系提示」視覺語言。 */
+const PATROL_LINE_GEOM = new THREE.PlaneGeometry(1, .5);
+const PATROL_LINE_MAT = new THREE.MeshBasicMaterial({
+  color:0xd8b24a, transparent:true, opacity:.85, side:THREE.DoubleSide, depthWrite:false, depthTest:false
+});
+const patrolLine = new THREE.Mesh(PATROL_LINE_GEOM, PATROL_LINE_MAT);
+patrolLine.rotation.x = -Math.PI/2;   // PlaneGeometry 預設立在 XY 面,轉平躺到地面(XZ 面)
+patrolLine.visible = false;
+patrolLine.frustumCulled = false;
+patrolLine.renderOrder = 999;   // 加 depthTest:false 之前,測過只加 depthWrite:false 貼地那片色帶還是完全被地面 mesh 蓋掉(地面本身的碰撞厚度比 y=0.05 高),renderOrder 拉到最後 + 不測深度,保證一定畫在最上層
+scene.add(patrolLine);
 function updatePatrolMarker(){
   if(!MOTO_IMPOUND.patrolActive || MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length){
     patrolMarkerEl.style.display = 'none';
+    patrolLine.visible = false;
     return;
   }
   const [px, pz] = MOTO_PATROL_POINTS[MOTO_IMPOUND.patrolVisited];
   _patrolV.set(px, 2.4, pz).project(camera);
-  if(_patrolV.z > 1 || _patrolV.z < -1){ patrolMarkerEl.style.display = 'none'; return; }
-  patrolMarkerEl.style.display = '';
-  patrolMarkerEl.style.left = ((_patrolV.x*.5+.5) * innerWidth) + 'px';
-  patrolMarkerEl.style.top  = ((1-(_patrolV.y*.5+.5)) * innerHeight) + 'px';
+  if(_patrolV.z > 1 || _patrolV.z < -1) patrolMarkerEl.style.display = 'none';
+  else {
+    patrolMarkerEl.style.display = '';
+    patrolMarkerEl.style.left = ((_patrolV.x*.5+.5) * innerWidth) + 'px';
+    patrolMarkerEl.style.top  = ((1-(_patrolV.y*.5+.5)) * innerHeight) + 'px';
+  }
+  const heroPos = hero.group.position;
+  const dx = px - heroPos.x, dz = pz - heroPos.z;
+  const dist = Math.hypot(dx, dz);
+  patrolLine.position.set((heroPos.x+px)/2, .05, (heroPos.z+pz)/2);
+  patrolLine.rotation.z = -Math.atan2(dz, dx);
+  patrolLine.scale.set(dist, 1, 1);
+  patrolLine.visible = dist > .5;   // 太近(幾乎踩在點上)就不畫,避免縮成一個點還在那閃
 }
 function updateWorldLabels(){
   worldLabels.forEach(({ pos, el }) => {
