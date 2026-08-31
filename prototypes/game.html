@@ -4024,7 +4024,7 @@ function schoolHeroPx(py){
    透視變化。跟 schoolHeroPx() 同一套算法,用 STORE.walkN/walkS(210/345,
    店內既有的走動邊界)當深度區間。起始值抓舊常數 275.6 附近,近/遠各自
    往外挪一點當起點,交給 __dbg.tweakStoreHero() 滑桿讓 kc 自己調。 */
-const STORE_HERO_TWEAK = { nearPx: 300, farPx: 250 };
+const STORE_HERO_TWEAK = { nearPx: 395, farPx: 291 };   // 2026-08-31 kc 拉滑桿定案的數字
 function storeHeroPx(py){
   const t = Math.max(0, Math.min(1, (py - STORE.walkN) / (STORE.walkS - STORE.walkN)));
   return STORE_HERO_TWEAK.farPx + t * (STORE_HERO_TWEAK.nearPx - STORE_HERO_TWEAK.farPx);
