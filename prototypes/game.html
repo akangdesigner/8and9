@@ -1045,12 +1045,16 @@ function advanceTime(min){
    建過),之後每次 keydown 呼叫都是白工但無害。
    2026-08-31 換成真人錄音(kc 用 Suno 寫的容身,見 lib/rhythm-troupe.js
    那段筆記):原本是純 Web Audio 合成五聲音階佔位唱腔,現在直接播放
-   RhythmTroupe.SONGS.rongshen 那個 mp3,loop 整首(不是只截音遊那段
-   clipStart/clipLen——街頭藝人是背景氣氛,聽整首比較自然)。 */
+   容身整首 mp3,loop 整首——街頭藝人是背景氣氛,聽整首比較自然,**故意
+   寫死 `assets/audio/rongshen.mp3` 這條路徑,不是讀
+   `RhythmTroupe.SONGS.rongshen.src`**:那個路徑 2026-08-31 第五輪改成
+   只給音遊用的 20 秒剪好片段(`rongshen-clip.mp3`,見那則筆記為什麼
+   要剪段),街頭藝人跟音遊用的是同一首歌但不同檔案,共用同一個變數會
+   把街頭藝人的歌聲也跟著剪短。 */
 let buskerAudioEl = null;
 function startBuskerAudio(){
   if(buskerAudioEl) { buskerAudioEl.play().catch(()=>{}); return; }
-  buskerAudioEl = new Audio(RhythmTroupe.SONGS.rongshen.src);
+  buskerAudioEl = new Audio('../assets/audio/rongshen.mp3');
   buskerAudioEl.loop = true;
   buskerAudioEl.volume = 0;
   buskerAudioEl.play().catch(()=>{});
@@ -7614,19 +7618,18 @@ function startTroupeGame(songKey, onDone){
   TROUPE_GAME.onDone = onDone;
   TROUPE_GAME.score = 0; TROUPE_GAME.combo = 0; TROUPE_GAME.popups = []; TROUPE_GAME.dancerPulse = 0;
   TROUPE_GAME.flash = { up:0, down:0, left:0, right:0, space:0 };
-  /* 2026-08-31 抓到的 bug(kc:「沒音樂沒音符啊」):在 metadata 都還沒載入
-     前就設 currentTime,瀏覽器會直接吃掉這行指定值——實測是整首歌從 0
-     秒正常播下去,seek 到 clipStart 那個指定完全沒生效,note.t 全部跟
-     elapsed 對不上,螢幕上自然一個音符都排不進可視範圍。改成等
-     'loadedmetadata'(duration 確定、seek 開始有效)才真的 seek,play()
-     可以照樣先呼叫不用等——播放器會先從 0 開始抓,等 seek 生效那一刻跳
-     到 clipStart,只會有一瞬間的空白,不影響後面的判定(判定全部照
-     audio.currentTime 現場讀,不是靠這裡的賦值時間點)。 */
+  /* 2026-08-31 抓到的真正 bug(kc:「沒音樂沒音符啊」,第一版猜是
+     loadedmetadata 時機沒等到,補了那個修法還是沒用,再查才找到根因):
+     `python -m http.server` 不支援 Range request,Chrome 的
+     `<audio>.seekable` 因此永遠回報 `[0,0]`——即使 `buffered` 早就顯示
+     整個檔案(5MB 這麼小,本地網路根本不用等)都下載完了,只要
+     seekable 說不能 seek,設 currentTime 就一律被吃掉,音樂只會從第 0
+     秒正常播,跟譜面時間點全部對不上。真正的修法是**不要在遊戲裡動態
+     seek**:改用 lib/rhythm-troupe.js 裡已經預先剪好的片段檔
+     (`*-clip.mp3`,ffmpeg 剪的,剪法見那份檔案的行內註解),直接從 0
+     秒放到結束,完全繞開 seekable 這個環境限制。 */
   TROUPE_GAME.audio = new Audio(def.src);
   TROUPE_GAME.audio.volume = .8;
-  TROUPE_GAME.audio.addEventListener('loadedmetadata', () => {
-    TROUPE_GAME.audio.currentTime = def.clipStart;
-  }, { once:true });
   TROUPE_GAME.audio.play().catch(()=>{});
   busy = true;
   troupeShiftOn = true;
@@ -7804,7 +7807,7 @@ function troupeUpdateNotes(elapsed){
    troupeUpdateNotes() 到尾端才算,不是按下去當下就給分。 */
 function resolveTroupeHit(lane){
   if(!TROUPE_GAME.active) return;
-  const elapsed = TROUPE_GAME.audio.currentTime - TROUPE_GAME.song.clipStart;
+  const elapsed = TROUPE_GAME.audio.currentTime;   // 片段檔本身就是從 0 秒開始,不用再減 clipStart
   let best = null, bestDist = Infinity;
   TROUPE_GAME.notes.forEach(n => {
     if(n.hit !== null || n.holding || n.lane !== lane) return;
@@ -7853,7 +7856,7 @@ function agDrawTroupe(dt){
   const w = agCanvas.width, h = agCanvas.height;
   agCtx.clearRect(0,0,w,h);
   const audio = TROUPE_GAME.audio, def = TROUPE_GAME.song;
-  const elapsed = audio ? audio.currentTime - def.clipStart : 0;
+  const elapsed = audio ? audio.currentTime : 0;   // 片段檔本身就是從 0 秒開始,不用再減 clipStart
 
   troupeDrawBg();
   troupeDrawDancers(elapsed);
