@@ -1588,7 +1588,7 @@ const BUSH_SPOT = { x:-50, z:-113 };
    會),還沒到 mei3(正式交往),語意上還不能撥成真,見 npc-school.js
    開頭那則筆記。 */
 const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:false, hasGirlfriend:false, friend:false,
-               practiceIdx:0, debuted:false };
+               practiceIdx:0, debuted:false, routineIdx:0, routineDay:-1 };
 
 /* 學校三人(2026-08-21)——接 lib/quests.js SCHOOL 那組資料,見
    npc-school.js 開頭的筆記(哪幾條這輪做、哪幾條先跳過)。座標挑在中華路
@@ -6688,16 +6688,18 @@ function talkToYuan(){
     });
     return;
   }
-  if(!YUAN.debuted){
-    say('yuan', '「欸，要不要一起？」', () => {
-      openMenu('阿源', [
-        { label:'跳陣頭', run(){ tryJoinTroupe(); } },
-        { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
-      ]);
-    });
-    return;
-  }
-  yuanCasualTalk();
+  /* 2026-08-31 第八輪(kc:「這邊劇情好像沒有延伸」)——原本出陣過
+     (YUAN.debuted)之後這個選單就再也不會出現,直接退回 yuanCasualTalk(),
+     TROUPE.routine[] 那兩則「出陣之後,練習變成日常」的資料因此永遠沒人
+     讀得到。改成選單不管有沒有出陣過都會出現,「跳陣頭」交給
+     tryJoinTroupe() 自己判斷要接練習/出陣,還是已經出陣過的 routine
+     日常那條分支(見那則筆記)。 */
+  say('yuan', YUAN.debuted ? '「欸，要不要跳一段？」' : '「欸，要不要一起？」', () => {
+    openMenu('阿源', [
+      { label:'跳陣頭', run(){ tryJoinTroupe(); } },
+      { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
+    ]);
+  });
 }
 /* 選了「跳陣頭」才會呼叫——夠格就照舊接練習/出陣+音遊(邏輯原封不動
    搬過來),不夠格顯示 rejectCool/rejectRep(見上面 talkToYuan() 那則
@@ -6710,6 +6712,7 @@ function talkToYuan(){
    懸念(TROUPE 刻意不講明數字,跟 talkToMei() 那則筆記寫的「兩者刻意不同」
    相反),這輪明確推翻,兩邊統一都要有數字。 */
 function tryJoinTroupe(){
+  if(YUAN.debuted){ offerTroupeRoutine(); return; }
   const gate = NpcTemple.TROUPE.need;
   if(ST.cool < gate.cool){
     const r = NpcTemple.TROUPE.rejectCool;
@@ -6767,9 +6770,43 @@ function tryJoinTroupe(){
     });
   });
 }
-/* 選了「先聊聊」,或已經出陣過(YUAN.debuted)不用再問要不要跳陣頭——
-   內容原封不動從舊版 talkToYuan() 搬過來,friend/asked/events/lowCoolTalk
-   那整套順序/門檻都沒變。 */
+/* 出陣過之後,「跳陣頭」變成可重複的日常內容(2026-08-31,kc:「這邊劇情
+   好像沒有延伸」)——TROUPE.routine[] 那兩則「出陣之後,練習變成日常」的
+   資料 2026-08-21 就寫好放在 npc-temple.js,卻一直沒接上,踩的是跟
+   rejectCool/rejectRep 同一個坑(資料寫了,接線那步漏掉)。一天一次
+   (routineDay 擋,跟 FOREMAN.workedDay/MEI.helpedDay 同一套「今天做過了」
+   慣例),接進來的同時順便解 kc 另一個要求「我可以選歌嗎」——練習/出陣
+   固定用哪首歌是敘事需要(見 rhythm-troupe.js 檔頭筆記),但已經是自己人
+   之後單純想跳哪首都行,先選歌再開始。打不好不會被踢出去(你已經是
+   自己人了),單純這次沒有歸屬感,不套 practiceFail/debutFail 那種拒絕
+   場景。routineIdx 循環播 routine[] 兩則內容,不會兩次都放同一則。 */
+function offerTroupeRoutine(){
+  if(YUAN.routineDay === day){
+    say('yuan', '「今天已經跳過了啦。」');
+    return;
+  }
+  openMenu('阿源', [
+    { label:'容身', run(){ playTroupeRoutine('rongshen'); } },
+    { label:'無人望', run(){ playTroupeRoutine('wurenwang'); } },
+    { label:'先不要', cls:'back', run(){} }
+  ]);
+}
+function playTroupeRoutine(songKey){
+  startTroupeGame(songKey, (success) => {
+    chg('stamina', -10);
+    YUAN.routineDay = day;
+    if(!success){ toast('今天手感有點生疏，阿源笑你「幹嘛啦」。', 2600); return; }
+    const routine = NpcTemple.TROUPE.routine;
+    const ev = routine[YUAN.routineIdx % routine.length];
+    YUAN.routineIdx++;
+    playBeats(ev.beats, 0, () => {
+      if(ev.calm) chg('calm', ev.calm);
+      if(ev.quiet) toast(ev.quiet, 3200);
+    });
+  });
+}
+/* 選了「先聊聊」——內容原封不動從舊版 talkToYuan() 搬過來,friend/asked/
+   events/lowCoolTalk 那整套順序/門檻都沒變。 */
 function yuanCasualTalk(){
   if(YUAN.friend){
     YUAN.visits++;

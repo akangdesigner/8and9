@@ -1590,6 +1590,21 @@ lowCool events/talk[]/askFriend 那整套完全不受影響;選「跳陣頭」�
 不要一次做太複雜,规矩先停在文字/世界觀層面。之後真的要加深再回來看
 這節。
 
+**2026-08-31 第八輪,出陣過之後接上「日常」+ 選歌(kc:「很棒 定案 但我
+可以選歌嗎 另外這邊劇情好像沒有延伸」)**——兩件事一起處理,因為是同一個
+坑:`TROUPE.routine[]`(出陣之後,練習變成日常,兩則短劇情)2026-08-21
+就寫好放在 `npc-temple.js`,卻沒接進 `talkToYuan()`——原本 `debuted`
+一設 true,選單就再也不出現,直接退回閒聊,`routine[]` 因此永遠沒人讀得
+到,這正是 kc 說的「劇情沒有延伸」。改成選單不管有沒有出陣過都會出現,
+`tryJoinTroupe()` 判斷:沒出陣走原本練習/出陣那條,出陣過改走
+`offerTroupeRoutine()`——一天一次(`routineDay` 擋,跟
+`FOREMAN.workedDay`/`MEI.helpedDay` 同一套「今天做過了」慣例),先選
+容身或無人望(這裡才真的開放選歌——練習/出陣固定用哪首是敘事需要,
+細節見 `rhythm-troupe.js` 檔頭筆記,那兩處不開放選),跳完照
+`routine[]` 給歸屬感,`routineIdx` 循環播不重複。打不好不會被踢出去
+(已經是自己人了),單純沒有這次的歸屬感,不套 `practiceFail`/`debutFail`
+那種拒絕場景。
+
 ### 任務系統(15 條,`lib/quests.js`,總表 `quests.html`)
 
 四條原則:
@@ -3316,7 +3331,7 @@ kc 要求「給我一個俯視圖,我們來完善這個小鎮」——用除錯�
 | `assets/bg/school-empty-desk.png` | 主角座位的空桌椅疊圖(同一張綠幕圖裁出來的另一半) | 2026-08-25 新增,接進 `SCHOOL_DESK_TWEAK`,同上 |
 | `prototypes/lib/story-bet.js` | 母親・賭的劇情資料(NODES 按天觸發) | **2026-08-17 接進 game.html** |
 | `prototypes/lib/story-drink.js` | 父親・酗酒的劇情資料 | **2026-08-17 接進 game.html** |
-| `prototypes/lib/npc-temple.js` | 廟口四個 NPC(阿源／阿姨／阿成〔已改乾麵攤〕／阿伯／小胖)的文字資料,另外還有 `TROUPE`(陣頭門檻/練習/出陣/`practiceFail`/`debutFail`) | 阿源／阿姨／阿成已接進 game.html;`TROUPE` 的練習/出陣 2026-08-21 接進 `talkToYuan()`(見「第七條:體力」節),`practiceFail`/`debutFail` 2026-08-31 隨陣頭音遊一起接進去(見「跳陣頭做成音遊」節),阿伯只有 WHO 頭像沒有 3D 模型;`rejectCool`/`rejectRep` 跟小胖體型跟現有骨架差太多,還沒接 |
+| `prototypes/lib/npc-temple.js` | 廟口四個 NPC(阿源／阿姨／阿成〔已改乾麵攤〕／阿伯／小胖)的文字資料,另外還有 `TROUPE`(陣頭門檻/練習/出陣/`practiceFail`/`debutFail`/`routine`) | 阿源／阿姨／阿成已接進 game.html;`TROUPE` 的練習/出陣 2026-08-21 接進 `talkToYuan()`(見「第七條:體力」節),`practiceFail`/`debutFail`/`rejectCool`/`rejectRep`/`routine` 2026-08-31 陸續隨陣頭音遊補接進去(見「跳陣頭做成音遊」節),`TROUPE` 這組資料現在全部都被消費了;阿伯只有 WHO 頭像沒有 3D 模型;小胖體型跟現有骨架差太多,還沒接 |
 | `prototypes/lib/npc-school.js` | 學校三個 NPC(小美／教官／阿仁)的文字資料,接 `quests.js` SCHOOL 那組 | **2026-08-21 接進 game.html**(見「學校線接進 game.html」節) |
 | `prototypes/lib/rhythm-troupe.js` | 陣頭音遊的歌曲/音符表資料(`SONGS.rongshen`/`SONGS.wurenwang`) | **2026-08-31 新增,已接進 game.html**,見「跳陣頭做成音遊」節 |
 | `assets/audio/rongshen.mp3`、`assets/audio/wurenwang.mp3` | kc 用 Suno 寫的兩首真歌(容身/無人望) | 2026-08-31 新增,容身兼街頭藝人歌聲來源 |
