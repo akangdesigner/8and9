@@ -1639,7 +1639,14 @@ const KAI      = { x:6, z:-13, talked:false };
    (id:'school',x:-36)這輪也是用同一招現場核對出 z=68 才是乾淨的
    sidewalk,兩邊算出來的「離路面偏移量」不是同一個數字(6 vs 11.5),
    不要假設整條路兩側偏移量對稱,每個新座標都要重新核對,不能用算的。 */
-const BROTHER  = { x:48, z:74, met:false };
+/* 2026-08-31,kc:「讓他站門口 不需要處理內部」——警局本身維持純裝飾
+   (不開門、不做室內場景),但小美哥的固定站位從後火車站挪到警局正門口,
+   身分(警察)跟站的地方對上。座標用 `__dbg.city.blocked()` 逐格量過:
+   警局正面(frontN=100,見 scene-city3d.js policeStation() 那則筆記)
+   z=100 起就撞牆,z=99 是最後一格淨空,這裡再留 .5 個單位餘裕,x 對齊
+   建築中心 cx=-78(門的位置),沒有貼哪台警車(兩組警車分別停在 x≈-88/
+   -93 跟 x≈-64/-69,離門口中心還有一段距離)。 */
+const BROTHER  = { x:-78, z:98.5, met:false };
 
 /* 街頭藝人(2026-08-20,kc 追加:「手上要拿吉他」)——拉出來宣告成獨立
  * 變數,因為要在模型載入完成後把吉他掛到他身上(骨架是非同步載入的,
@@ -1746,8 +1753,8 @@ const NPCS = [
        這個人設。 */
     tex:{ hood:'char-aren-shirt.png', pants:'char-aren-pants.png' }
   }),
-  buildNPC(THREE, scene, {                             // 小美哥・後火車站巡邏(見上面 BROTHER 那則筆記)
-    x:BROTHER.x, z:BROTHER.z, rotationY:Math.PI*.5, rig:'m2',
+  buildNPC(THREE, scene, {                             // 小美哥・警局門口站崗(見上面 BROTHER 那則筆記)
+    x:BROTHER.x, z:BROTHER.z, rotationY:0, rig:'m2',
     skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c'
   })
 ];
