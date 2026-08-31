@@ -3404,13 +3404,13 @@ function tweakPolicePanel(){
   });
 }
 /* 警車大小/位置滑桿(2026-08-27,kc:「你給我滑桿,我來調整大小跟位置」)——
-   2026-08-31 改成跟 tweakConstructionPanel() 同一招(kc:「都要一樣大小
-   ...然後讓我調整位置」抓到原本單一 ref 被 4 台互相覆蓋的坑,見
-   scene-city3d.js policeCarRef 那則筆記):city.policeCar.cars 是陣列,
-   每台各自的 baseX/baseY/baseZ(門口/路邊排開的不同站位)不變,滑桿套
-   同一個共用倍率/位移疊上去,4 台會一起變大變小、一起平移,但彼此的
-   相對站位不會被打亂。每次滑動都重新讀 car.group(不快取),因為 glb
-   可能在面板開著的時候才載入完成、把 fallback 換掉。 */
+   2026-08-31 第二輪改款(kc:「我要個別調整」)——第一輪(共用倍率/位移
+   套到全部台上,跟 tweakConstructionPanel() 同一招)不是 kc 要的,4 台
+   警車站位本來就各自不同(門口左右站崗/路邊排開),要能挑其中一台單獨
+   調。改成 states 陣列每台各自存一份 {scale,dx,dy,dz},面板上加一個
+   下拉選單切「現在在調第幾台」,slider 讀寫的是 states[cur],切換下拉
+   選單只換 cur 指標+刷新 slider 顯示值,不會動到其他台已經調好的數字
+   ——applyOne() 只套用單一台,不像上一輪的 apply() 掃全部。 */
 function tweakPoliceCarPanel(){
   const old = document.getElementById('policeCarTweakPanel');
   if(old){ old.remove(); return; }
@@ -3419,37 +3419,50 @@ function tweakPoliceCarPanel(){
     alert('警車還沒生成,晚點再開一次滑桿');
     return;
   }
-  const state = { scale:1, dx:0, dy:0, dz:0 };
+  const states = ref.cars.map(() => ({ scale:1, dx:0, dy:0, dz:0 }));
+  let cur = 0;
   const rows = [
     ['pc_scale','縮放倍率', 0.3, 3, 0.02, 'scale'],
-    ['pc_dx','位置 X 偏移', -4, 4, 0.05, 'dx'],
+    ['pc_dx','位置 X 偏移', -6, 6, 0.05, 'dx'],
     ['pc_dy','位置 Y 偏移(抬高)', -1, 2, 0.02, 'dy'],
-    ['pc_dz','位置 Z 偏移', -4, 4, 0.05, 'dz']
+    ['pc_dz','位置 Z 偏移', -6, 6, 0.05, 'dz']
   ];
   const panel = document.createElement('div');
   panel.id = 'policeCarTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;box-shadow:0 4px 20px #000a';
   panel.innerHTML =
-    '<div style="font-weight:bold;margin-bottom:6px">警車大小/位置滑桿(4 台同動)</div>' +
-    rows.map(([id,label,min,max,step]) =>
-      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${state[rows.find(r=>r[0]===id)[5]].toFixed(2)}</span><br>
-       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="0" style="width:100%"></div>`
+    '<div style="font-weight:bold;margin-bottom:6px">警車大小/位置滑桿(個別調整)</div>' +
+    '<div style="margin-bottom:10px">現在調第幾台: <select id="pc_car" style="width:100%;margin-top:4px">' +
+      ref.cars.map((_,i) => `<option value="${i}">第 ${i+1} 台</option>`).join('') +
+    '</select></div>' +
+    rows.map(([id,label,,,,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${(key==='scale'?1:0).toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${rows.find(r=>r[0]===id)[2]}" max="${rows.find(r=>r[0]===id)[3]}" step="${rows.find(r=>r[0]===id)[4]}" value="${key==='scale'?1:0}" style="width:100%"></div>`
     ).join('') +
-    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakPoliceCar()<br>拉到滿意後跟我說最終數字就好</div>';
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakPoliceCar()<br>拉到滿意後跟我說每台各自的最終數字就好</div>';
   document.body.appendChild(panel);
-  document.getElementById('pc_scale').value = 1;
-  function apply(){
-    city.policeCar.cars.forEach(car => {
-      if(!car.group) return;
-      car.group.scale.setScalar(state.scale);
-      car.group.position.set(car.baseX + state.dx, car.baseY + state.dy, car.baseZ + state.dz);
+  function applyOne(i){
+    const car = ref.cars[i], st = states[i];
+    if(!car.group) return;
+    car.group.scale.setScalar(st.scale);
+    car.group.position.set(car.baseX + st.dx, car.baseY + st.dy, car.baseZ + st.dz);
+  }
+  function refreshInputs(){
+    const st = states[cur];
+    rows.forEach(([id,,,,,key]) => {
+      document.getElementById(id).value = st[key];
+      document.getElementById(`${id}_v`).textContent = st[key].toFixed(2);
     });
   }
+  document.getElementById('pc_car').addEventListener('change', e => {
+    cur = +e.target.value;
+    refreshInputs();
+  });
   rows.forEach(([id,,,,,key]) => {
     document.getElementById(id).addEventListener('input', e => {
-      state[key] = +e.target.value;
-      document.getElementById(`${id}_v`).textContent = state[key].toFixed(2);
-      apply();
+      states[cur][key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = states[cur][key].toFixed(2);
+      applyOne(cur);
     });
   });
 }
