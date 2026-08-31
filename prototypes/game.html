@@ -709,36 +709,57 @@ function studyGainKnowledge(){
    「認真上課」照片,先重用 paintSchoolBackdrop()/paintBedroomBackdrop()
    本來的照片,以後 kc 給對應素材再比照 school-phone.png 那套換掉),
    畫面上只剩題目框。答完再 coFade() 淡出一次換回來、角色重新出現。 */
+/* 2026-08-31 第四輪,kc:「認真上課 我希望會先顯示圖片1秒然後再跳對話匡
+   然後題目改成三題 連續答對會有額外獎勵 多一個小小知識」——三處改動:
+   ① 底圖淡入後先停 1 秒純場景(沒有題目框)才開始問第一題,不是黑畫面
+   一結束題目就砸過來;② 一題改三題,連續問(askRound() 遞迴,i 從 0
+   數到 ROUNDS);③ 三題全對才多發一份小小知識,這顆獎勵是這個函式自己
+   判斷、自己發的,不透過 onDone——onDone 是逐題呼叫(呼叫端已經自己判斷
+   「這題答對才 studyGainKnowledge()」),連續三題全對是跨題的整體判斷,
+   混進 onDone 會變成呼叫端也要重寫一次「是不是連續三題」的邏輯。 */
 let studyTakeover = false;
 function askStudyQuestion(onDone){
-  const q = Quiz.BANK[Math.random()*Quiz.BANK.length|0];
+  const ROUNDS = 3;
+  const questions = coShuffle(Quiz.BANK.slice()).slice(0, ROUNDS);
   const inSchool = PLACE === 'school';
   busy = true;
   coFade(inSchool ? '認真上課' : '讀書', () => {
     studyTakeover = true;
     if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
+    setTimeout(() => askRound(0, true), 1000);
+  });
+  function askRound(i, streak){
+    if(i >= ROUNDS){
+      dlgEl.classList.remove('on');
+      coFade(inSchool ? '教室' : '房間', () => {
+        studyTakeover = false;
+        busy = false;
+        if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
+        if(streak){
+          studyGainKnowledge();
+          toast('三題你都答對了，狀態特別好。\n（額外多一份小小知識）', 3400);
+        }
+      });
+      return;
+    }
+    const q = questions[i];
     drawPortrait('pc');
-    dName.textContent = '讀書';
+    dName.textContent = `讀書 (${i+1}/${ROUNDS})`;
     dTx.textContent = `【${q.subj}】${q.q}`;
     dCaret.classList.remove('on');
     dlgEl.classList.add('on');
-    coShowOptions(q.opts.map((opt, i) => ({
+    coShowOptions(q.opts.map((opt, oi) => ({
       label: opt,
       run(){
-        dlgEl.classList.remove('on');
         document.getElementById('coOpts').innerHTML = '';
-        const correct = i === q.a;
+        const correct = oi === q.a;
         const flavor = correct ? Quiz.RIGHT[Math.random()*Quiz.RIGHT.length|0] : Quiz.WRONG[Math.random()*Quiz.WRONG.length|0];
-        coFade(inSchool ? '教室' : '房間', () => {
-          studyTakeover = false;
-          busy = false;
-          if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
-          toast(flavor + '\n' + q.note, 3600);
-          onDone(correct);
-        });
+        toast(flavor + '\n' + q.note, 3200);
+        onDone(correct);
+        askRound(i+1, streak && correct);
       }
     })));
-  });
+  }
 }
 /* 偷玩手遊(2026-08-21,kc 給的「上課就好 或是偷玩手遊」兩個方向的第二個)
  * ——沒有真的一個「教官在不在看你」的狀態可以讀(跟 steal() 靠店員朝向
