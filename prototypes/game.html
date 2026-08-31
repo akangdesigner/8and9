@@ -689,25 +689,41 @@ function studyGainKnowledge(){
   }
 }
 /* 讀書解題(2026-08-31,kc:「讀書得到知識 不管是家裡還是學校 我都希望
-   會解一題目 國英數社都好 國中難度」)——原本 studyGainKnowledge() 是純
-   數字累加,從來沒有真的解過題。改成讀書時先跳一題 lib/quiz.js 的題目
-   (國中程度,國英數社四科隨機抽),答對才真的呼叫 studyGainKnowledge(),
-   答錯這次不算,但體力/時間照樣扣在呼叫端(人真的坐下來讀了,只是這題
-   剛好不會)。家裡書桌「讀書」跟學校書桌「認真上課」兩個入口共用這個
-   函式,不用各寫一份判定邏輯。 */
+   會解一題目 國英數社都好 國中難度」,同一天第二輪玩過覺得太簡單改
+   高中難度,題庫細節見 lib/quiz.js)——原本 studyGainKnowledge() 是純
+   數字累加,從來沒有真的解過題。改成讀書時先跳一題 lib/quiz.js 的題目,
+   答對才真的呼叫 studyGainKnowledge(),答錯這次不算,但體力/時間照樣
+   扣在呼叫端(人真的坐下來讀了,只是這題剛好不會)。家裡書桌「讀書」
+   跟學校書桌「認真上課」兩個入口共用這個函式,不用各寫一份判定邏輯。
+   ⚠ 題目跟選項要「同個框框」(kc 糾正:第一版用 say() 開對話框問題目、
+   再另開 openMenu()/#menu 問答案,是兩個各自浮動的獨立元件)——改成照抄
+   coBeginAnswer()/coShowOptions() 那套 2026-08-19 已經解過同一個問題的
+   做法:不呼叫 say(),直接設 dName/dTx 把題目整句放進對話框,選項用
+   coShowOptions() 長在 `#coOpts`(CSS 寫死長在 `#dialog .frame` 裡,緊接
+   在 `.dbody` 題目下面),題目跟選項自然是同一個灰底金框的盒子。
+   dlg.on 沒被動到(還是 false),不會被 advanceDialog() 那套打字機邏輯
+   誤觸;busy 這裡自己顧(openMenu 選「讀書」的當下已經被 closeMenu()
+   摸回 false,要自己重新鎖住,不然玩家能在解題畫面開著的時候到處走)。 */
 function askStudyQuestion(onDone){
   const q = Quiz.BANK[Math.random()*Quiz.BANK.length|0];
-  say('pc', `【${q.subj}】\n${q.q}`, () => {
-    openMenu('讀書', q.opts.map((opt, i) => ({
-      label: opt,
-      run(){
-        const correct = i === q.a;
-        const flavor = correct ? Quiz.RIGHT[Math.random()*Quiz.RIGHT.length|0] : Quiz.WRONG[Math.random()*Quiz.WRONG.length|0];
-        toast(flavor + '\n' + q.note, 3600);
-        onDone(correct);
-      }
-    })));
-  });
+  busy = true;
+  drawPortrait('pc');
+  dName.textContent = '讀書';
+  dTx.textContent = `【${q.subj}】${q.q}`;
+  dCaret.classList.remove('on');
+  dlgEl.classList.add('on');
+  coShowOptions(q.opts.map((opt, i) => ({
+    label: opt,
+    run(){
+      dlgEl.classList.remove('on');
+      document.getElementById('coOpts').innerHTML = '';
+      busy = false;
+      const correct = i === q.a;
+      const flavor = correct ? Quiz.RIGHT[Math.random()*Quiz.RIGHT.length|0] : Quiz.WRONG[Math.random()*Quiz.WRONG.length|0];
+      toast(flavor + '\n' + q.note, 3600);
+      onDone(correct);
+    }
+  })));
 }
 /* 偷玩手遊(2026-08-21,kc 給的「上課就好 或是偷玩手遊」兩個方向的第二個)
  * ——沒有真的一個「教官在不在看你」的狀態可以讀(跟 steal() 靠店員朝向
