@@ -6611,9 +6611,20 @@ function talkToYuan(){
     return;
   }
   if(!YUAN.debuted){
+    /* 選單本身要先顯示卡在哪一條(kc:「這種有任務的 會提示 數值哪裡不到」)
+       ——跟 openMenu() 既有的 cost/cls:'bad' 慣例同一套(讀書/翹課/上工那些
+       選項都是先在選單上就顯示「體力不夠」再讓你點下去確認),不能只靠點
+       進去之後才用 rejectCool/rejectRep 那段劇情告訴你。帥潮判斷優先於
+       風評,跟 tryJoinTroupe() 判斷式的順序一致。夠格的話這裡改顯示這次
+       要扣的體力,呼應其他任務選項也會先亮出成本。 */
+    const gate = NpcTemple.TROUPE.need;
+    const gateOk = ST.cool >= gate.cool && ST.star >= gate.repMin;
+    const troupeCost = ST.cool < gate.cool ? `帥潮不夠(${ST.cool}/${gate.cool})`
+                      : ST.star < gate.repMin ? `風評不夠(${ST.star}/${gate.repMin})`
+                      : `體力 ${YUAN.practiceIdx < NpcTemple.TROUPE.practice.length ? -10 : -25}`;
     say('yuan', '「欸，要不要一起？」', () => {
       openMenu('阿源', [
-        { label:'跳陣頭', run(){ tryJoinTroupe(); } },
+        { label:'跳陣頭', cost:troupeCost, cls: gateOk ? '' : 'bad', run(){ tryJoinTroupe(); } },
         { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
       ]);
     });
