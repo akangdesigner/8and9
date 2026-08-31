@@ -1540,6 +1540,32 @@ hero.group.position.set(CITY.spawn.x, .3, CITY.spawn.z);
 const wlabelsEl = document.getElementById('wlabels');
 const worldLabels = [];
 const _wlabelV = new THREE.Vector3();
+/* 巡邏點提示(2026-08-31,kc:「地圖要給我提示點告訴我怎巡啊」)——上面
+   那組通用地標系統(city.landmarks/worldLabels)整套是關的(kc 2026-08-19
+   就要求先拿掉),不想連帶把警察局/宮廟那些也一起打開,所以這裡另外拉
+   一個獨立的 `.wlabel`(同一個 CSS class,樣式不用重畫)只給巡邏用,
+   一次只顯示「下一個還沒巡過的點」,不是四個一次全標出來(巡邏本來就是
+   照順序走,標一個比較不會眼花)。DOM 元素常駐(建一次),平常
+   display:none,updateCity() 那邊巡邏中才顯示+更新位置,見那段呼叫
+   updatePatrolMarker() 的地方。 */
+const patrolMarkerEl = document.createElement('div');
+patrolMarkerEl.className = 'wlabel';
+patrolMarkerEl.textContent = '巡邏點';
+patrolMarkerEl.style.display = 'none';
+wlabelsEl.appendChild(patrolMarkerEl);
+const _patrolV = new THREE.Vector3();
+function updatePatrolMarker(){
+  if(!MOTO_IMPOUND.patrolActive || MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length){
+    patrolMarkerEl.style.display = 'none';
+    return;
+  }
+  const [px, pz] = MOTO_PATROL_POINTS[MOTO_IMPOUND.patrolVisited];
+  _patrolV.set(px, 2.4, pz).project(camera);
+  if(_patrolV.z > 1 || _patrolV.z < -1){ patrolMarkerEl.style.display = 'none'; return; }
+  patrolMarkerEl.style.display = '';
+  patrolMarkerEl.style.left = ((_patrolV.x*.5+.5) * innerWidth) + 'px';
+  patrolMarkerEl.style.top  = ((1-(_patrolV.y*.5+.5)) * innerHeight) + 'px';
+}
 function updateWorldLabels(){
   worldLabels.forEach(({ pos, el }) => {
     _wlabelV.copy(pos).project(camera);
@@ -1854,13 +1880,19 @@ const BROTHER  = { x:-78, z:98.5, met:false, path:null };
    ②kc:「除了付錢應該要有其他任務的補救方法,比較合理,要辛苦一點的」
    +「比如幫警察徒步巡邏城鎮一段範圍」——加一條 patrol 分支,跟
    ACHENG.litterQuest 同一套「visited/need 進度」模式,不是每幀輪詢的
-   計時器。巡邏點沿後火車站那條路(z=84)從警局附近拉到中華路口,
-   `__dbg.city.blocked()` 核對過四點都乾淨。完成時另外扣一點體力
-   (走這麼一大段路是真的累,呼應「辛苦一點」),但不用錢。 */
+   計時器。完成時另外扣一點體力(走這麼一大段路是真的累,呼應「辛苦
+   一點」),但不用錢。
+   2026-08-31 第二輪,kc:「巡邏點太輕鬆了啦至少要尋到廟口」——原本 4 點
+   全擠在後火車站同一條路(z=84)上,警局走幾步就巡完了,跟「辛苦一點」
+   的原始要求不符。改成沿西園街(V_ROADS x=-84)整條縱貫,從警局附近
+   一路巡到廟口路(H_ROADS z=-84)、終點落在廟口,路程拉長成原本的兩倍
+   以上。`__dbg.city.blocked()` 逐點核對過都乾淨——中間試過 (-84,0) 剛好
+   卡在中華路口的路障/裝飾物上,撞了,往兩側各挪 40 個單位閃開,不是
+   整條西園街都能走直線。 */
 const MOTO_IMPOUND = { active:false, done:false, fine:1500, motoRef:null,
   patrolActive:false, patrolVisited:0 };
 const MOTO_RETURN_SPOT = { x:-74, z:97 };
-const MOTO_PATROL_POINTS = [ [-78,90], [-50,84], [-20,84], [0,84] ];
+const MOTO_PATROL_POINTS = [ [-78,90], [-84,40], [-84,-40], [-84,-84], [0,-84] ];
 /* 贖車完成的收尾(付錢/巡邏兩條路都走到這裡)——車搬到警局門口旁邊
    (x=-74,z=97,核對過乾淨,離兩組警車 x≈-88/-93、x≈-64/-69 都有一段
    距離),m.x/m.z(互動判定用的邏輯座標)跟 m.group.position(真的視覺
@@ -1911,7 +1943,7 @@ function syncMiscQuestPanel(){
     const hint = MOTO_IMPOUND.patrolActive
       ? (MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length
           ? '巡邏完了，回警局跟阿正報到'
-          : `沿後火車站巡邏中（${MOTO_IMPOUND.patrolVisited}/${MOTO_PATROL_POINTS.length}）`)
+          : `沿西園街巡邏中，往廟口方向（${MOTO_IMPOUND.patrolVisited}/${MOTO_PATROL_POINTS.length}）`)
       : `去警局跟阿正繳罰款贖車（$${MOTO_IMPOUND.fine}），或幫忙巡邏抵`;
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'moto-impound', title:'贖車', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
@@ -6339,19 +6371,30 @@ function updateCity(dt){
      有提示,玩家自己按空白鍵走過去互動就好,見 interactProp() 'brother'
      分支(這裡沒有動它)。良民證那條也沒有加進來:它是工地老闆開口的,
      不是阿正主動找你,語意上不該是「走近警局」觸發。 */
-  if(!busy && !dlg.on && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
+  /* 2026-08-31 抓到的 bug(kc:「卡bug 我接任務後他會一直提示我還沒尋完
+     我尋完會自己回報啦」)——巡邏第一個點(-78,90)離阿正只有 8.5 個單位,
+     整段都在他 22 半徑的主動觸發圈內。如果這時候剛好還有別的事(比如
+     月長線某個節點到期)也算 urgent,巡邏中每一幀都會被拉去
+     talkToBrother(),但 talkToBrother() 判斷順序是 MOTO_IMPOUND 優先,
+     顯示的是「還沒巡完喔」——關掉對話框、還站在原地(還在 22 半徑內)
+     下一幀又重新判定 urgent,變成無限彈出同一句,玩家會被卡死在原地。
+     修法很直接:巡邏中(patrolActive)整段主動觸發都跳過,巡邏是玩家
+     自己接下的任務,阿正不該在這期間主動打斷,回不回報交給玩家自己
+     走過去按空白鍵。 */
+  if(!busy && !dlg.on && !MOTO_IMPOUND.patrolActive && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
     const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0;
     if(MEI.together && !BROTHER.met) talkToBrother();
     else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) talkToBrother();
   }
   syncBrotherArcPanel();
   syncMiscQuestPanel();
-  /* 巡邏抵罰款(2026-08-31,kc:「比如幫警察徒步巡邏城鎮一段範圍」)——
-     跟 ACHENG.litterQuest 同一套「visited/need 進度」模式,不是計時器。
-     MOTO_PATROL_POINTS 沿後火車站那條路(z=84)從警局附近拉到中華路口,
-     每幀檢查下一個「還沒巡過」的點,半徑抓 6(比一般互動 3.2 寬一點,
-     巡邏本來就不用精準站在一個點上)。巡完四點不會自動結束(還是要
-     回警局跟阿正報到,見 talkToBrother() 那個分支),這裡只推進進度。 */
+  /* 巡邏抵罰款(2026-08-31,kc:「比如幫警察徒步巡邏城鎮一段範圍」,第二輪
+     「巡邏點太輕鬆了啦至少要尋到廟口」)——跟 ACHENG.litterQuest 同一套
+     「visited/need 進度」模式,不是計時器。MOTO_PATROL_POINTS 沿西園街
+     從警局附近一路巡到廟口(見那則長筆記),每幀檢查下一個「還沒巡過」
+     的點,半徑抓 6(比一般互動 3.2 寬一點,巡邏本來就不用精準站在一個點
+     上)。巡完五點不會自動結束(還是要回警局跟阿正報到,見
+     talkToBrother() 那個分支),這裡只推進進度。 */
   if(MOTO_IMPOUND.patrolActive && MOTO_IMPOUND.patrolVisited < MOTO_PATROL_POINTS.length){
     const [px, pz] = MOTO_PATROL_POINTS[MOTO_IMPOUND.patrolVisited];
     if(Math.hypot(pos.x-px, pos.z-pz) < 6){
@@ -8990,7 +9033,7 @@ renderer.setAnimationLoop(now => {
   if(gameOver) return;   // 失敗結局蓋上之後整個模擬凍結,見 triggerGameOver()
   const dt = Math.min(50, now-last); last = now;
   fit(); tickDialog(dt);
-  if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); composer.render(); }
+  if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); updatePatrolMarker(); composer.render(); }
   else { updateIndoor(dt); renderIndoor3D(dt); renderIndoorForeground(); }
   acc += dt; frames++;
   if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc=0; frames=0; }
