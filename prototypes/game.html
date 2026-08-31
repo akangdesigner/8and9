@@ -5700,20 +5700,21 @@ function sleep(){
       ];
     }
     syncHUD();
-    const finishWake = () => {
-      fade(city.whereAmI(returnTo.x, returnTo.z), () => {
-        MODE = 'city';
-        document.getElementById('indoor').classList.remove('on');
-        document.getElementById('city').style.display = '';
-        wlabelsEl.style.display = '';
-        hero.group.position.set(returnTo.x, .3, returnTo.z);
-        toast('你回去睡了一覺，體力補滿了。'
-          + (skippedSchool ? '\n（今天沒去學校，風評 −3）' : '')
-          + loanMsg, 3800);
-      });
+    /* 2026-08-31 第四輪,kc:「不要再自動跳轉街上了 不合理」——上一輪
+       finishWake() 播完通知單還會自動再淡出一次、把玩家搬到街上,邏輯是
+       「醒來就出門」,但玩家實際上還在房間裡,沒理由睡醒的下一刻人已經
+       站在街上。拿掉這個自動轉場,醒來後留在房間(MODE 還是 'indoor',
+       PLACE 還是 'bedroom'),要出門自己走房間門→客廳門那條既有路線
+       (leaveBedroom()/leaveIndoor()),跟平常從房間走出去同一套,不用
+       另外幫玩家做這個決定。 */
+    const wake = () => {
+      toast('你回去睡了一覺，體力補滿了。'
+        + (skippedSchool ? '\n（昨天沒去學校，風評 −3）' : '')
+        + loanMsg, 3800);
+      busy = false;
     };
-    if(impoundBeats) playBeats(impoundBeats, 0, finishWake);
-    else finishWake();
+    if(impoundBeats) playBeats(impoundBeats, 0, wake);
+    else wake();
   });
 }
 /* 拆出來的「真的切進室內」那段(2026-08-28,kc:「你不要用走的.. 你用
@@ -9091,7 +9092,7 @@ window.__dbg = {
      每次按鍵位移量很小,走不過去。直接掛出來,__dbg.enterBedroom() 一次
      到位站在房間裡(離床還有幾步,不是精準傳送到床邊——kc 自己走最後
      幾步、按空白鍵選睡覺,測的是真的睡覺流程,不是整段跳過)。 */
-  enterBedroom,
+  enterBedroom, sleep,
   /* atBed(2026-08-31)——enterBedroom() 只是傳送進房間,離床還有幾步要
      自己走,結果這個環境的自動化工具在室內 2D 場景按方向鍵幾乎測不到
      位移(WASD 大量重複按下畫面上人物完全沒有移動,懷疑是 updateIndoor()
