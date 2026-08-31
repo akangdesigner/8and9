@@ -1809,14 +1809,29 @@ const MOTO_IMPOUND = { active:false, done:false, fine:1500, motoRef:null };
 /* 贖車選單那顆按鈕(2026-08-31)——talkToBrother() 裡有兩處會開這個選單
    (剛揭露時/之後回頭處理時),抽成共用函式避免同一段 run() 邏輯貼兩份、
    改一次要記得改兩處。 */
+/* 贖車還車地點(2026-08-31,kc:「白痴嗎但問題是我機車都馬隨便亂停」)——
+   第一版繳完錢只是把車藏起來那個位置的 visible 開回來,沒有搬位置。
+   kc 停車根本不固定,搬回原地等於「車可能出現在地圖任何一個角落」,
+   完全不像「牽回來」,玩家還要自己想辦法找到那個隨便停的舊位置。改成
+   繳完錢直接把車搬到警局門口旁邊(x=-74,z=97,用 __dbg.city.blocked()
+   核對過乾淨,離兩組警車 x≈-88/-93、x≈-64/-69 都有一段距離,不會疊在
+   一起)——「牽回來」這三個字才有意義,玩家繳完錢走出警局就看得到車。
+   純機車(m.x/m.z 是 nearProp 距離判斷用的邏輯座標,m.group.position 是
+   真的視覺位置,兩個要一起改,不然騎乘互動判定跟畫面對不上——見
+   dismountMoto() 那組 m.x=pos.x 的同一個坑)。 */
+const MOTO_RETURN_SPOT = { x:-74, z:97 };
 function motoImpoundPayItem(){
   return { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
     if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
     chg('money', -MOTO_IMPOUND.fine);
     MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
-    if(MOTO_IMPOUND.motoRef && MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = true;
+    const m = MOTO_IMPOUND.motoRef;
+    if(m){
+      m.x = MOTO_RETURN_SPOT.x; m.z = MOTO_RETURN_SPOT.z;
+      if(m.group){ m.group.position.set(MOTO_RETURN_SPOT.x, 0, MOTO_RETURN_SPOT.z); m.group.visible = true; }
+    }
     syncMiscQuestPanel();
-    toast('車牽回來了。（-$'+MOTO_IMPOUND.fine+'）', 2600);
+    toast('車牽回來了，停在警局門口旁邊。（-$'+MOTO_IMPOUND.fine+'）', 2800);
   } };
 }
 const ID_CARD_QUEST = { active:false, requestedDay:-1, readyDay:-1, done:false };
