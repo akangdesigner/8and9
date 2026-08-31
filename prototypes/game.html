@@ -582,6 +582,7 @@
 <script src="lib/rhythm-troupe.js"></script>
 <script src="lib/story-motoboss.js"></script>
 <script src="lib/npc-school.js"></script>
+<script src="lib/quiz.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -686,6 +687,27 @@ function studyGainKnowledge(){
   } else {
     toast(`你看了一個小時的書，不確定記住了多少。\n（少少的知識 ${KNOWLEDGE.small}/10）`, 3200);
   }
+}
+/* 讀書解題(2026-08-31,kc:「讀書得到知識 不管是家裡還是學校 我都希望
+   會解一題目 國英數社都好 國中難度」)——原本 studyGainKnowledge() 是純
+   數字累加,從來沒有真的解過題。改成讀書時先跳一題 lib/quiz.js 的題目
+   (國中程度,國英數社四科隨機抽),答對才真的呼叫 studyGainKnowledge(),
+   答錯這次不算,但體力/時間照樣扣在呼叫端(人真的坐下來讀了,只是這題
+   剛好不會)。家裡書桌「讀書」跟學校書桌「認真上課」兩個入口共用這個
+   函式,不用各寫一份判定邏輯。 */
+function askStudyQuestion(onDone){
+  const q = Quiz.BANK[Math.random()*Quiz.BANK.length|0];
+  say('pc', `【${q.subj}】\n${q.q}`, () => {
+    openMenu('讀書', q.opts.map((opt, i) => ({
+      label: opt,
+      run(){
+        const correct = i === q.a;
+        const flavor = correct ? Quiz.RIGHT[Math.random()*Quiz.RIGHT.length|0] : Quiz.WRONG[Math.random()*Quiz.WRONG.length|0];
+        toast(flavor + '\n' + q.note, 3600);
+        onDone(correct);
+      }
+    })));
+  });
 }
 /* 偷玩手遊(2026-08-21,kc 給的「上課就好 或是偷玩手遊」兩個方向的第二個)
  * ——沒有真的一個「教官在不在看你」的狀態可以讀(跟 steal() 靠店員朝向
@@ -4587,7 +4609,7 @@ function openIndoorSpot(id){
         { label:'讀書', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           chg('stamina', -10); advanceTime(60);
-          studyGainKnowledge();
+          askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } }
       ];
       if(KNOWLEDGE.rough >= 5) items.push({
@@ -4647,7 +4669,7 @@ function openIndoorSpot(id){
         { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           chg('stamina', -10); chg('mood', -5); advanceTime(60);
-          studyGainKnowledge();
+          askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } },
         { label:'偷玩手遊', cost:'體力 −5　1 小時　看教官', cls:'risk', run: playPhoneInClass },
         { label:'不要', cls:'back', run(){} }
@@ -8996,7 +9018,7 @@ window.__dbg = {
   momTheft: () => ({ amount: MOM_THEFT, day: MOM_THEFT_DAY }),
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
   ARCADE_GAMBLE,
-  KNOWLEDGE, studyGainKnowledge,
+  KNOWLEDGE, studyGainKnowledge, askStudyQuestion,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
   lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
   /* 陣頭特價測試開關(2026-08-20),見 talkToAyi()/ayiBuyMenu() 那則筆記。
@@ -9024,6 +9046,12 @@ window.__dbg = {
      MOTO_IMPOUND.reveal() 直接模擬 sleep() 那張拖吊通知單觸發,不用真的
      睡一覺。 */
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, syncMiscQuestPanel,
+  /* enterBedroom(2026-08-31)——kc 要現場測 sleep() 那張拖吊通知單,原本
+     只能從客廳用方向鍵走到房間門口,室內 2D 場景這個環境的自動化工具
+     每次按鍵位移量很小,走不過去。直接掛出來,__dbg.enterBedroom() 一次
+     到位站在房間裡(離床還有幾步,不是精準傳送到床邊——kc 自己走最後
+     幾步、按空白鍵選睡覺,測的是真的睡覺流程,不是整段跳過)。 */
+  enterBedroom,
   MOTO_IMPOUND_reveal(){
     MOTO_IMPOUND.active = true;
     MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
