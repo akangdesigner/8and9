@@ -5625,11 +5625,6 @@ function sleep(){
   fade('回家睡了一覺', () => {
     chg('stamina', 100 - ST.stamina);
     minute = 7*60; day++;
-    MODE = 'city';
-    document.getElementById('indoor').classList.remove('on');
-    document.getElementById('city').style.display = '';
-    wlabelsEl.style.display = '';
-    hero.group.position.set(returnTo.x, .3, returnTo.z);
     if(skippedSchool) chg('star', -3);
     /* 機車分期扣款(2026-08-21)——見上面 MOTO_LOAN 那則長筆記:day 每次
        sleep() 才 +1,一次最多跨一天,不會一次錯過兩個到期日,不用 while。 */
@@ -5656,24 +5651,53 @@ function sleep(){
       triggerGameOver('tuition');
       return;
     }
-    /* 拖吊通知單(2026-08-31,kc:「事件發生的時候車真的會消失嗎 那應該是
-       你出家門的時候會收到拖吊通知單這樣比較合理」)——原本揭露掛在
-       talkToBrother(),改跟 MOTO_LOAN/TUITION_QUEST 同一個位置:一覺醒來
-       (=出門)發現昨天欠的東西找上門。車在這裡就藏起來(不用等玩家真的
-       走到阿正面前),阿正那邊(talkToBrother() 的 MOTO_IMPOUND.active
-       分支)只負責處理,不負責揭露。 */
-    let impoundMsg = '';
+    /* 拖吊通知單(2026-08-31 第三輪,kc 三個要求一次補齊:
+       ①「事件發生的時候車真的會消失嗎 那應該是你出家門的時候會收到拖吊
+       通知單這樣比較合理」——揭露掛在這裡(跟 MOTO_LOAN/TUITION_QUEST
+       同位置),不是走近阿正才觸發,阿正那邊只負責處理。
+       ②「這麼重要的事情應該要有自言自語的對話匡」——原本是折進這裡
+       (下面)那則 toast 的其中一行,改成 playBeats() 的 pc 自言自語,
+       跟一般路人閒聊的 toast 不同量級。
+       ③「啊要產生物品啊 拖吊通知單」——跟良民證(ID_CARD_QUEST)同一套,
+       TRASH.push 一張真的道具,不是純文字。
+       ④「床上睡起來還是會在床上啊」——這是這輪改動的關鍵:原本 MODE 在
+       這個 fade 回呼裡就直接切到 'city',畫面瞬間跳到街上,通知單那句話
+       是在已經站在街上時才跳出來的 toast,銜接感很怪。現在這個 fade 回呼
+       只處理「天數/體力/分期/註冊費」這些狀態,不切 MODE、不搬玩家座標
+       ——畫面淡回來時人還站在房間裡(MODE 還是 'indoor',PLACE 還是
+       'bedroom')。通知單的自言自語就在這個時候播,玩家看到的是「還在
+       房間裡,手機震了一下」,不是「已經走到街上才想起來」。播完才呼叫
+       finishWake()(見下面),那邊才是真的「離開家、回到街上」那一步,
+       另外包一層 fade 銜接,不是同一幀硬切。 */
+    let impoundBeats = null;
     if(!MOTO_IMPOUND.done && !MOTO_IMPOUND.active && day >= 12 && city.motos.some(m => m.owned)){
       MOTO_IMPOUND.active = true;
       MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
       if(MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = false;
       syncMiscQuestPanel();
-      impoundMsg = '\n門縫塞了一張拖吊通知單：你的車違停被拖走了，罰款 $'+MOTO_IMPOUND.fine+'，要去警局處理。';
+      TRASH.push({ name:'拖吊通知單', icon:'📋',
+        detail:'違規停車告知單。<br>罰款 $'+MOTO_IMPOUND.fine+'，要去警局處理。' });
+      impoundBeats = [
+        { who:'pc', text:'手機震了一下，是一則簡訊通知。' },
+        { who:'pc', text:'「違規停車告知單」——你的車昨晚被拖走了。' },
+        { who:'pc', text:'罰款 $'+MOTO_IMPOUND.fine+'，要去警局處理。' }
+      ];
     }
     syncHUD();
-    toast('你回去睡了一覺，體力補滿了。'
-      + (skippedSchool ? '\n（今天沒去學校，風評 −3）' : '')
-      + loanMsg + impoundMsg, 3800);
+    const finishWake = () => {
+      fade(city.whereAmI(returnTo.x, returnTo.z), () => {
+        MODE = 'city';
+        document.getElementById('indoor').classList.remove('on');
+        document.getElementById('city').style.display = '';
+        wlabelsEl.style.display = '';
+        hero.group.position.set(returnTo.x, .3, returnTo.z);
+        toast('你回去睡了一覺，體力補滿了。'
+          + (skippedSchool ? '\n（今天沒去學校，風評 −3）' : '')
+          + loanMsg, 3800);
+      });
+    };
+    if(impoundBeats) playBeats(impoundBeats, 0, finishWake);
+    else finishWake();
   });
 }
 /* 拆出來的「真的切進室內」那段(2026-08-28,kc:「你不要用走的.. 你用
@@ -9052,6 +9076,17 @@ window.__dbg = {
      到位站在房間裡(離床還有幾步,不是精準傳送到床邊——kc 自己走最後
      幾步、按空白鍵選睡覺,測的是真的睡覺流程,不是整段跳過)。 */
   enterBedroom,
+  /* atBed(2026-08-31)——enterBedroom() 只是傳送進房間,離床還有幾步要
+     自己走,結果這個環境的自動化工具在室內 2D 場景按方向鍵幾乎測不到
+     位移(WASD 大量重複按下畫面上人物完全沒有移動,懷疑是 updateIndoor()
+     那邊的按鍵狀態判斷跟這個工具送出的 keydown/keyup 對不上,3D 街上
+     同一套按鍵手法是正常的,只有室內 2D 這邊卡住)——直接把 IN.px 設到
+     床的 spot 中心,不用走。 */
+  atBed(){
+    const bed = BEDROOM.spots.find(s => s.id === 'bed');
+    if(bed) IN.px = bed.x + bed.w/2;
+    return { px: IN.px, bed };
+  },
   MOTO_IMPOUND_reveal(){
     MOTO_IMPOUND.active = true;
     MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
