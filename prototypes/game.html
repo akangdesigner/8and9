@@ -3421,11 +3421,14 @@ function tweakPoliceCarPanel(){
   }
   const states = ref.cars.map(() => ({ scale:1, dx:0, dy:0, dz:0 }));
   let cur = 0;
+  /* X/Z 範圍(2026-08-31 kc:「滑感數值不夠想偏更多」)——原本 ±6 是照
+     車身尺寸(4.4 長)抓的,不夠讓警車跨到馬路對面/挪去門口另一側那種
+     幅度,拉大到 ±20。 */
   const rows = [
     ['pc_scale','縮放倍率', 0.3, 3, 0.02, 'scale'],
-    ['pc_dx','位置 X 偏移', -6, 6, 0.05, 'dx'],
+    ['pc_dx','位置 X 偏移', -20, 20, 0.05, 'dx'],
     ['pc_dy','位置 Y 偏移(抬高)', -1, 2, 0.02, 'dy'],
-    ['pc_dz','位置 Z 偏移', -6, 6, 0.05, 'dz']
+    ['pc_dz','位置 Z 偏移', -20, 20, 0.05, 'dz']
   ];
   const panel = document.createElement('div');
   panel.id = 'policeCarTweakPanel';
