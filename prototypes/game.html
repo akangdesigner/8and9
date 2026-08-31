@@ -1787,6 +1787,58 @@ const KAI      = { x:6, z:-13, talked:false };
    -93 跟 x≈-64/-69,離門口中心還有一段距離)。 */
 const BROTHER  = { x:-78, z:98.5, met:false, path:null };
 
+/* 警局中短期任務(2026-08-31,kc:「每個角色都一個任務好無聊,可以是
+   中短期的任務」)——三條各自獨立、不跟阿正的月長線綁在一起,故意選三種
+   不同機制(純跑腿+錢/跑腿+等待/選邊站的道德抉擇),不是同一套模板複製
+   三次:
+     A. MOTO_IMPOUND(贖車)——day12 起,有真的自己的車(city.motos 裡
+        owned:true 那台)才會觸發,不碰 3D 場景/city.motos 本身(共用檔案
+        風險太高,這輪只做「繳錢辦手續」這個抽象層,不做「車真的在停車場
+        消失」那種要動 3D 的版本)。
+     B. ID_CARD_QUEST(良民證)——不是阿正主動提,是工地老闆做滿幾次
+        (FOREMAN.shiftsWorked)之後提的,呼應「想長期做要有良民證」這個
+        現實邏輯,阿正只是辦手續的窗口。申請要花錢+等天數,呼應官僚拖延
+        的摩擦感,不是選擇分支。
+     C. SNITCH_QUEST(贓物協尋)——day18 起,認識阿源(YUAN.visits>0)才會
+        觸發,一週內要嘛跟阿正報(拿錢+風評,但阿源那邊會知道)、要嘛去
+        跟阿源通風報信(阿源那邊人情+,阿正那邊風評-),不選就靜靜過期,
+        沒有額外懲罰(這條份量比家裡兩條輕,不用做到「不選也要扣」那麼重)。
+   三條都透過阿正/工地老闆既有的對話函式(talkToBrother()/talkToForeman())
+   分流,沒有另外蓋新的互動點或 3D 場景。 */
+const MOTO_IMPOUND = { active:false, done:false, fine:1500 };
+const ID_CARD_QUEST = { active:false, requestedDay:-1, readyDay:-1, done:false };
+const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null };   // resolved: null|'reported'|'warned'|'expired'
+/* 三條的任務面板統一走這個函式(2026-08-31)——跟阿正月長線那個
+   syncBrotherArcPanel() 是平行的兩套,不合併是因為觸發時機不同:月長線
+   那個要即時反映風評/知識(所以掛在 updateCity() 每幀跑),這三條狀態
+   變動的時機少很多(申請/繳錢/回報那幾個明確動作),事件觸發時呼叫就夠,
+   但 ID_CARD 的「還要等 N 天」倒數會被裸放著不刷新,所以還是把它排進
+   updateCity() 每幀跑(見下面 updateCity() 呼叫處),cheap operation 不用
+   省。 */
+function syncMiscQuestPanel(){
+  let idx = ACTIVE_QUESTS.findIndex(x => x.id === 'moto-impound');
+  if(MOTO_IMPOUND.active){
+    const hint = `去警局跟阿正繳罰款贖車（$${MOTO_IMPOUND.fine}）`;
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'moto-impound', title:'贖車', hint });
+  } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+
+  idx = ACTIVE_QUESTS.findIndex(x => x.id === 'id-card');
+  if(ID_CARD_QUEST.active){
+    const hint = ID_CARD_QUEST.requestedDay < 0
+      ? '去警局跟阿正申請良民證（$200）'
+      : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等${ID_CARD_QUEST.readyDay - day}天` : '良民證好了，去警局跟阿正拿');
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'id-card', title:'辦良民證', hint });
+  } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+
+  idx = ACTIVE_QUESTS.findIndex(x => x.id === 'snitch');
+  if(SNITCH_QUEST.active){
+    const hint = `一週內決定：跟阿正報、或去警告阿源（還有${Math.max(0, SNITCH_QUEST.startDay+7-day)}天，不選也沒關係）`;
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'snitch', title:'贓物協尋', hint });
+  } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+
+  renderQuestPanel();
+}
+
 /* 街頭藝人(2026-08-20,kc 追加:「手上要拿吉他」)——拉出來宣告成獨立
  * 變數,因為要在模型載入完成後把吉他掛到他身上(骨架是非同步載入的,
  * loadModel().then() 才 g.add(model),所以掛吉他要等,見下面
@@ -1929,7 +1981,7 @@ const brotherNPC = NPCS[NPCS.length - 1];
    ⚠ 那則新聞寫的時候(2026-08-27)註解明講「不是承諾之後一定會做,
    避免玩家點進新聞以為缺人就真的能去應徵」——這輪 kc 直接推翻,新聞
    內容不用跟著改(讀起來還是成立,只是從「鋪陳」變成「真的兌現」)。 */
-const FOREMAN = { x:20, z:101.6, workedDay:-1 };
+const FOREMAN = { x:20, z:101.6, workedDay:-1, shiftsWorked:0 };   // shiftsWorked(2026-08-31)——見上面 ID_CARD_QUEST 那則筆記,做滿 3 次才會提良民證
 /* stack/fallen 是畫面用的疊磚狀態(2026-08-28 改款,見下面 agDrawForeman()
    那則筆記),跟賠率/tier 判定(barPos 距離 0.5 多遠)完全脫鉤,只是拿同一個
    barPos 順便當畫面上的水平位移,不是另開一條真值。 */
@@ -6069,11 +6121,22 @@ function updateCity(dt){
      talkToBrother() 同一份判斷邏輯,這裡只是換一個呼叫時機,邏輯本身
      不用重寫;原本走到面前按空白鍵的互動路徑(interactProp() 'brother'
      分支)沒有拿掉,平常日子(沒有節點要播)靠近他還是可以主動聊閒聊句。 */
+  /* 2026-08-31 加碼:贖車/贓物協尋這兩條的「第一次揭露」也算主動觸發
+     (跟月長線節點同一個精神——kc 要的是「不用玩家自己想到要去找他」)。
+     故意只在「還沒揭露過」那一刻算 urgent,已經揭露、還沒解決的狀態
+     (MOTO_IMPOUND.active 一直是 true 直到繳錢)不會每次走近就重播一次
+     選單,不然會變成每次經過都被攔下來很煩——要繼續處理的話,任務面板
+     已經有提示,玩家自己按空白鍵走過去互動就好,見 interactProp()
+     'brother' 分支(這裡沒有動它)。良民證那條沒有加進來:它是工地老闆
+     開口的,不是阿正主動找你,語意上不該是「走近警局」觸發。 */
   if(!busy && !dlg.on && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
+    const motoImpoundNew = !MOTO_IMPOUND.active && !MOTO_IMPOUND.done && day >= 12 && city.motos.some(m => m.owned);
+    const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0;
     if(MEI.together && !BROTHER.met) talkToBrother();
-    else if(BROTHER.met && nextBrotherArcDay() != null) talkToBrother();
+    else if(BROTHER.met && (nextBrotherArcDay() != null || motoImpoundNew || snitchNew)) talkToBrother();
   }
   syncBrotherArcPanel();
+  syncMiscQuestPanel();
 
   /* 小胖的連續劇情(2026-08-31,見上面 FAT 那則長筆記+ checkFatArc())——
      跟 BROTHER 月長線同一招「靠近才自動觸發」,但小胖沒有 3D 模型可以
@@ -6826,6 +6889,25 @@ function talkToYuan(){
     });
     return;
   }
+  /* 贓物協尋・通風報信分支(2026-08-31,見上面 SNITCH_QUEST 那則長筆記)
+     ——跟阿正報是在 talkToBrother() 那邊,這裡是對立的另一條路。攔在
+     WATCHJOB 後面、陣頭邀約前面,優先權比日常閒聊高但不搶顧場子的位置
+     (兩條都是「阿源找你」相關,顧場子先)。選了之後直接鎖 resolved,
+     跟報警那條一樣不能反悔(這遊戲的基本盤——沒有安全選項)。 */
+  if(SNITCH_QUEST.active && SNITCH_QUEST.resolved === null){
+    say('yuan', '「怎樣？」', () => {
+      openMenu('阿源', [
+        { label:'警察在查你那批贓物，小心點', run(){
+            chg('calm', 8); chg('star', -6);
+            SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'warned';
+            syncMiscQuestPanel();
+            toast('他點了點頭，眼神變了一下。（歸屬感 +8／風評 −6）', 3000);
+          } },
+        { label:'先不要', cls:'back', run(){} }
+      ]);
+    });
+    return;
+  }
   /* 2026-08-31 第八輪(kc:「這邊劇情好像沒有延伸」)——原本出陣過
      (YUAN.debuted)之後這個選單就再也不會出現,直接退回 yuanCasualTalk(),
      TROUPE.routine[] 那兩則「出陣之後,練習變成日常」的資料因此永遠沒人
@@ -7565,7 +7647,20 @@ function syncBrotherArcPanel(){
     if(idx >= 0){ ACTIVE_QUESTS.splice(idx, 1); renderQuestPanel(); }
     return;
   }
-  const hint = `略懂書本內容 ${KNOWLEDGE.rough}/1、風評 ${ST.star}/0（不是任務門檻，會決定阿正後面怎麼待你）`;
+  /* 時間提示(2026-08-31,kc:「而且要有時間提示吧 會懲罰那天當deadline」)
+     ——原本只給進度數字,沒講「什麼時候」,玩家沒辦法規劃要在哪天之前
+     把知識/風評補到位。加一段倒數,用既有 dayToDate() 轉成跟 HUD 時鐘/
+     註冊單截止日同一種「9/24」格式,不是裸的 day 數字。day24 是真的會
+     套用獎懲、鎖定 path 的那個節點(kc 說的「懲罰那天」),標成「定案」
+     特別標出來;其餘三個(8/16/30)只是「下一步」,語氣輕一點。用
+     BROTHER_ARC_DAYS.find(...) 直接找下一個還沒播過的節點,不看 day>=d
+     (那是 nextBrotherArcDay() 給「現在就能觸發」用的,這裡要找的是還沒
+     到、用來倒數的下一個)。 */
+  const nd = BROTHER_ARC_DAYS.find(d => !seenStoryDays.has('brother-'+d));
+  const deadline = nd == null ? '' :
+    nd === 24 ? `　下次 ${dayToDate(nd)}（還有${Math.max(0,nd-day)}天）——這天定案，風評/知識要在這之前到位`
+              : `　下次 ${dayToDate(nd)}（還有${Math.max(0,nd-day)}天）`;
+  const hint = `略懂書本內容 ${KNOWLEDGE.rough}/1、風評 ${ST.star}/0（不是任務門檻，會決定阿正後面怎麼待你）${deadline}`;
   if(idx >= 0){
     if(ACTIVE_QUESTS[idx].hint !== hint){ ACTIVE_QUESTS[idx].hint = hint; renderQuestPanel(); }
   } else {
@@ -7589,6 +7684,117 @@ function talkToBrother(){
     });
     return;
   }
+
+  /* 贖車(2026-08-31,見上面 MOTO_IMPOUND 那則長筆記)——攔在月長線最前面,
+     這是「有具體代價要處理」的事,優先權比純觀察性質的月長線節點高。
+     故意不碰 city.motos/3D 場景本身(共用檔案,風險比報酬高),只做「繳錢
+     辦手續」這個抽象層。 */
+  if(MOTO_IMPOUND.active){
+    say('brother', '「車的事辦一辦吧。」', () => {
+      openMenu('阿正', [
+        { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
+            if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
+            chg('money', -MOTO_IMPOUND.fine);
+            MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
+            syncMiscQuestPanel();
+            toast('車牽回來了。（-$'+MOTO_IMPOUND.fine+'）', 2600);
+          } },
+        { label:'先不要', cls:'back', run(){} }
+      ]);
+    });
+    return;
+  }
+  if(!MOTO_IMPOUND.done && day >= 12 && city.motos.some(m => m.owned)){
+    MOTO_IMPOUND.active = true;
+    syncMiscQuestPanel();
+    playBeats([
+      { who:'brother', text:'「你的車呢？」' },
+      { who:'brother', text:'「違停拖走了，在後面。」' },
+      { who:'pc',      text:'你想起前幾天隨手停在巷口。' }
+    ], 0, () => {
+      openMenu('阿正', [
+        { label:'繳罰款贖車', cost:'$'+MOTO_IMPOUND.fine, cls: ST.money<MOTO_IMPOUND.fine ? 'bad' : '', run(){
+            if(ST.money < MOTO_IMPOUND.fine){ toast('錢不夠，改天再來。', 2200); return; }
+            chg('money', -MOTO_IMPOUND.fine);
+            MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
+            syncMiscQuestPanel();
+            toast('車牽回來了。（-$'+MOTO_IMPOUND.fine+'）', 2600);
+          } },
+        { label:'先不要', cls:'back', run(){} }
+      ]);
+    });
+    return;
+  }
+
+  /* 良民證(2026-08-31,見上面 ID_CARD_QUEST 那則長筆記)——工地老闆開口
+     才會 active=true(talkToForeman() 那邊),這裡只負責申請/等待/領取
+     三段。申請要花錢,等待期間純告知(不開選單),領到直接給道具+關掉
+     任務,不用再點一次確認。 */
+  if(ID_CARD_QUEST.active){
+    if(ID_CARD_QUEST.requestedDay < 0){
+      say('brother', '「良民證喔,兩百塊,證件放著,大概要等四天。」', () => {
+        openMenu('阿正', [
+          { label:'申請', cost:'$200', cls: ST.money<200 ? 'bad' : '', run(){
+              if(ST.money < 200){ toast('錢不夠，改天再來。', 2200); return; }
+              chg('money', -200);
+              ID_CARD_QUEST.requestedDay = day;
+              ID_CARD_QUEST.readyDay = day + 4;
+              syncMiscQuestPanel();
+              toast('（-$200）四天後再來拿。', 2600);
+            } },
+          { label:'先不要', cls:'back', run(){} }
+        ]);
+      });
+      return;
+    }
+    if(day < ID_CARD_QUEST.readyDay){
+      say('brother', `「還沒好，再等${ID_CARD_QUEST.readyDay - day}天。」`);
+      return;
+    }
+    TRASH.push({ name:'良民證', icon:'📄', detail:'警局辦的，證明你這陣子是乾淨的。<br>工地老闆說要看這個。' });
+    ID_CARD_QUEST.active = false; ID_CARD_QUEST.done = true;
+    chg('calm', 6);
+    syncMiscQuestPanel();
+    say('brother', '「好了，這給你。」');
+    toast('拿到良民證了。（歸屬感 +6）', 2600);
+    return;
+  }
+
+  /* 贓物協尋(2026-08-31,見上面 SNITCH_QUEST 那則長筆記)——一週內玩家
+     可以來這裡報(拿錢+風評)、或去跟阿源通風報信(talkToYuan() 那邊接的
+     'warned' 分支)、或什麼都不做(過期,靜靜關掉,不額外罰)。過期判斷
+     放在 active 分支最前面,不另外開一個每幀輪詢的計時器。 */
+  if(SNITCH_QUEST.active){
+    if(SNITCH_QUEST.resolved === null && day > SNITCH_QUEST.startDay + 7){
+      SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'expired';
+      syncMiscQuestPanel();
+    } else {
+      say('brother', '「查得怎樣？」', () => {
+        openMenu('阿正', [
+          { label:'把你知道的告訴他', run(){
+              chg('money', 800); chg('star', 10);
+              SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'reported';
+              YUAN.betrayed = true;
+              syncMiscQuestPanel();
+              toast('（+$800／風評 +10）', 2600);
+            } },
+          { label:'還沒有', cls:'back', run(){} }
+        ]);
+      });
+      return;
+    }
+  }
+  if(SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0){
+    SNITCH_QUEST.active = true; SNITCH_QUEST.startDay = day;
+    syncMiscQuestPanel();
+    playBeats([
+      { who:'brother', text:'「你跟阿源熟嘛。」' },
+      { who:'brother', text:'「最近在查一批贓物，聽說跟他那邊有關。」' },
+      { who:'brother', text:'「你聽到什麼，跟我說一聲。」' }
+    ], 0, () => {});
+    return;
+  }
+
   const arcDay = nextBrotherArcDay();
   if(arcDay != null){
     seenStoryDays.add('brother-'+arcDay);
@@ -7668,6 +7874,17 @@ function foremanDogItem(){
   } };
 }
 function talkToForeman(){
+  /* 良民證任務開口(2026-08-31,見上面 ID_CARD_QUEST 那則長筆記)——做滿
+     3 次才提,不是第一次上工就講,理由是「想長期做」這句話要先有點交情
+     鋪墊才合理。一次性(active/done 任一為真就不會再講),攔在原本的
+     workedDay/dogItem 分支最前面,同一天講完這句,後面還是照舊接today
+     已經扛過/邀約扛磚那兩條分支,不衝突。 */
+  if(FOREMAN.shiftsWorked >= 3 && !ID_CARD_QUEST.active && !ID_CARD_QUEST.done){
+    ID_CARD_QUEST.active = true;
+    syncMiscQuestPanel();
+    say('foreman', '「你做得不錯，想長期做的話，去警局辦張良民證，我比較放心跟你排班。」');
+    return;
+  }
   const dogItem = foremanDogItem();
   if(FOREMAN.workedDay === day){
     if(dogItem){
@@ -7812,6 +8029,7 @@ function startForemanShift(){
   foremanShiftOn = true;
   chg('stamina', -20);
   FOREMAN.workedDay = day;
+  FOREMAN.shiftsWorked++;
   FOREMAN_GAME.round = 0; FOREMAN_GAME.earned = 0;
   FOREMAN_GAME.stack = []; FOREMAN_GAME.fallen = null;
   agEl.classList.add('on');
