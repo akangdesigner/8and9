@@ -1833,17 +1833,22 @@ const FOREMAN_BG_IMG = new Image();
 FOREMAN_BG_IMG.src = '../assets/bg/foreman-site.png';
 let foremanShiftOn = false;   // 全程(startForemanShift→endForemanShift)開著,見下面 ESC 那條 guard 的筆記
 
-/* 陣頭音遊(2026-08-31)——照扛磚(FOREMAN_GAME)同一套模式:專屬 canvas
-   借用 #arcadeGame 大面板,不另開新畫面。跟扛磚不同的是這裡有真的音樂
-   在播(見 lib/rhythm-troupe.js),判定靠對照 <audio> 的 currentTime,不是
-   靠 dt 累加——currentTime 是播放器自己的時鐘,不會因為掉幀而跟音樂脫拍。
+/* 陣頭音遊(2026-08-31,第二輪改成太鼓達人手感,見 startTroupeGame() 那則
+   長筆記)——照扛磚(FOREMAN_GAME)同一套模式:專屬 canvas 借用 #arcadeGame
+   大面板,不另開新畫面。跟扛磚不同的是這裡有真的音樂在播(見
+   lib/rhythm-troupe.js),判定靠對照 <audio> 的 currentTime,不是靠 dt
+   累加——currentTime 是播放器自己的時鐘,不會因為掉幀而跟音樂脫拍。
    notes 陣列複製一份(不是直接改 RhythmTroupe.SONGS 裡的原始資料),每個
-   音符 hit 欄位:null=還沒判定,'great'/'ok'/'bad'=打中,'miss'=飄過去沒打到。
-   onDone(success, rate) 是呼叫端(talkToYuan())傳進來的收尾 callback,見
-   那邊 practice/debut 兩段怎麼用。 */
-const TROUPE_GAME = { active:false, song:null, audio:null, notes:[], onDone:null };
+   音符 { t, lane, hold, hit, holding }:lane 是 up/down/left/right/space
+   五個判定鍵之一,hold>0 是拉長音(要按住到 t+hold,holding 標記正在按住
+   等結算),hit 欄位 null=還沒判定,'great'/'ok'/'bad'=打中,'miss'=沒打到。
+   score/combo/popups/flash/dancerPulse 是畫面回饋用的暫存狀態,每次
+   startTroupeGame() 重置。onDone(success, rate) 是呼叫端(talkToYuan())
+   傳進來的收尾 callback,見那邊 practice/debut 兩段怎麼用。 */
+const TROUPE_GAME = { active:false, song:null, audio:null, notes:[], onDone:null,
+  score:0, combo:0, popups:[], flash:{}, dancerPulse:0 };
 let troupeShiftOn = false;   // 跟 foremanShiftOn 同精神,擋 ESC 誤觸
-const TROUPE_APPROACH = 1.7;   // 音符從畫面頂端掉到判定線要花幾秒
+const TROUPE_APPROACH = 1.7;   // 音符從畫面右緣飄到判定圈要花幾秒(太鼓達人式水平軌道)
 const TROUPE_HIT_WINDOW = 0.28;   // 秒,超過這個誤差就判 miss(見 resolveTroupeHit())
 const constructionForemanNPC = buildNPC(THREE, scene, {
   x:FOREMAN.x, z:FOREMAN.z, rotationY:Math.PI, rig:'m3',
@@ -5722,11 +5727,21 @@ function maybeTriggerStoryNode(){
    輸入 / 主迴圈
    =================================================================== */
 const keys = {};
+/* 陣頭音遊的五個判定鍵(2026-08-31 第二輪,太鼓達人四方向+kc 加碼的空白鍵
+   重拍)——擋在最前面單獨處理,不跟下面 ' '/'enter' 那個共用區塊混,因為
+   上下左右平常另有用途(WASD 替代鍵,見 updateCity()/updateIndoor() 移動
+   那段),只有 TROUPE_GAME.active 期間才搶下來當判定鍵。 */
+const TROUPE_KEY_LANE = { arrowup:'up', arrowdown:'down', arrowleft:'left', arrowright:'right', ' ':'space' };
 addEventListener('keydown', e => {
   if(gameOver) return;   // 失敗結局蓋上之後不接受任何操作,見 triggerGameOver()
   const k = e.key.toLowerCase();
   keys[k] = true;
   startBuskerAudio();          // 第一次按鍵才建立 AudioContext,見上面那段註解
+  if(TROUPE_GAME.active && TROUPE_KEY_LANE[k]){
+    e.preventDefault();
+    resolveTroupeHit(TROUPE_KEY_LANE[k]);
+    return;
+  }
   if(k === ' ' || k === 'enter'){
     e.preventDefault();
     /* 推幣機小遊戲(2026-08-26)——攔在 advanceDialog() 前面,不然這個空白鍵
@@ -5734,7 +5749,6 @@ addEventListener('keydown', e => {
        dlg.on) return;`,pusher 進行中 busy 是 true,空白鍵會直接失效)。 */
     if(ARCADE_ANIM.active && ARCADE_ANIM.kind === 'pusher'){ resolvePusherLockIn(); return; }
     if(FOREMAN_GAME.active){ resolveForemanLockIn(); return; }
-    if(TROUPE_GAME.active){ resolveTroupeHit(); return; }
     if(advanceDialog()) return;
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
@@ -5812,7 +5826,7 @@ function updateCity(dt){
      tick 跑,這裡是戶外 3D 街景自己的頭,提早 return 不跑下面的移動/鏡頭
      邏輯,只留 hero.animate() 讓角色不要卡在走路姿勢半途。 */
   if(TROUPE_GAME.active){
-    agDrawTroupe();
+    agDrawTroupe(dt);
     hero.animate(dt, false, 1, false);
     return;
   }
@@ -7562,15 +7576,44 @@ function endForemanShift(){
   chg('money', FOREMAN_GAME.earned);
   toast(`今天疊到第 ${FOREMAN_GAME.stack.length} 層磚塌了，老闆給了你 $${FOREMAN_GAME.earned}。`, 3200);
 }
-/* 陣頭音遊本體(2026-08-31)——見上面 TROUPE_GAME 那則筆記。startTroupeGame()
-   由 talkToYuan() 呼叫,songKey 對應 lib/rhythm-troupe.js 的 SONGS 鍵名,
-   onDone(success, rate) 是判定完之後要接回劇情的收尾。 */
+/* 陣頭音遊本體(2026-08-31 第二輪,太鼓達人手感)——見上面 TROUPE_GAME 那則
+   長筆記。這輪把 `prototypes/rhythm-linzitou.html`(2026-08-20 的原型,
+   kc 提醒「之前我們有做好太鼓達人的玩遊戲畫面」才發現這輪漏看)的機制/
+   資產搬進 #arcadeGame,音符軌改成水平飄向左邊的判定圈,不是垂直落下,
+   加了 kc 要的「拉長音」(hold>0,要按住到尾端)跟「空白鍵」(第五個判定
+   鍵,沒有方向,當大鼓重拍)兩種變化。startTroupeGame() 由 talkToYuan()
+   呼叫,songKey 對應 lib/rhythm-troupe.js 的 SONGS 鍵名,onDone(success,
+   rate) 是判定完之後要接回劇情的收尾。 */
+const TROUPE_LANES = {
+  up:    { key:'arrowup',    color:'#e0483a', dx:0,  dy:-1 },
+  down:  { key:'arrowdown',  color:'#4fa3c8', dx:0,  dy:1  },
+  left:  { key:'arrowleft',  color:'#5fb87a', dx:-1, dy:0  },
+  right: { key:'arrowright', color:'#d8b24a', dx:1,  dy:0  },
+  space: { key:' ',          color:'#f0e6d8', dx:0,  dy:0  }   // 大鼓重拍,沒有方向,badge 畫菱形跟箭頭區分
+};
+/* 廟口背景+紙娃娃陣頭隊伍,直接沿用 rhythm-linzitou.html 已經生好的資產
+   (rhythm-bg-temple.png、char-parade-<part>.png),沒圖之前退回色塊,同一招
+   naturalWidth 判斷(跟 FOREMAN_BG_IMG 那套一樣)。 */
+const TROUPE_BG_IMG = new Image();
+TROUPE_BG_IMG.src = '../assets/rhythm-bg-temple.png';
+const TROUPE_PARTS = {};
+let troupePartsReady = false;
+['head','torso','arm','leg'].forEach(k => {
+  const img = new Image();
+  img.onload = () => { TROUPE_PARTS[k] = img; troupePartsReady = ['head','torso','arm','leg'].every(x => TROUPE_PARTS[x]); };
+  img.src = '../assets/tex/char-parade-' + k + '.png';
+});
+const TROUPE_DANCERS = Array.from({length:8}, (_,i) => ({ x:0.2+(i/8)*0.7, faceSplit:i%2===0, phase:i*1.3 }));
+const TROUPE_BPM = 96, TROUPE_STEP_HZ = (TROUPE_BPM/60) * Math.PI * 2 / 2;   // 走路節拍跟音樂 BPM 綁在一起(踩點,不是隨機晃)
+
 function startTroupeGame(songKey, onDone){
   const def = RhythmTroupe.SONGS[songKey];
   TROUPE_GAME.active = true;
   TROUPE_GAME.song = def;
-  TROUPE_GAME.notes = def.notes.map(t => ({ t, hit:null }));
+  TROUPE_GAME.notes = def.chart.map(n => ({ t:n.t, lane:n.lane, hold:n.hold, hit:null, holding:false, holdTier:null }));
   TROUPE_GAME.onDone = onDone;
+  TROUPE_GAME.score = 0; TROUPE_GAME.combo = 0; TROUPE_GAME.popups = []; TROUPE_GAME.dancerPulse = 0;
+  TROUPE_GAME.flash = { up:0, down:0, left:0, right:0, space:0 };
   TROUPE_GAME.audio = new Audio(def.src);
   TROUPE_GAME.audio.currentTime = def.clipStart;
   TROUPE_GAME.audio.volume = .8;
@@ -7581,65 +7624,242 @@ function startTroupeGame(songKey, onDone){
   agCap.textContent = def.title + '・跳陣頭';
   agActions.innerHTML = '';
   agBarEl.style.display = 'none';
-  agBody.innerHTML = '按空白鍵，跟上鼓點';
-  agDrawTroupe();
+  agBody.innerHTML = '↑↓←→ 跟拍，空白鍵是重拍，拉長音要按住到尾端';
+  agDrawTroupe(16);
 }
-/* 音符從 agCanvas 頂端掉到判定線(近底部),跟畫面上的位置直接掛勾——
-   跟 agDrawForeman() 那則筆記同一個原則,判定看得見的位置,不是看不見的
-   指標。elapsed 用 <audio>.currentTime 算,不用 dt 累加(見 TROUPE_GAME
-   那則筆記),掉幀也不會跟音樂脫拍。 */
-function agDrawTroupe(){
-  const w = agCanvas.width, h = agCanvas.height, cx = w/2;
-  const hitY = h - 70, topY = 40;
-  agCtx.clearRect(0,0,w,h);
-  const sky = agCtx.createLinearGradient(0,0,0,h);
-  sky.addColorStop(0,'#2a1414'); sky.addColorStop(1,'#4a1c1c');
-  agCtx.fillStyle = sky; agCtx.fillRect(0,0,w,h);
+function troupeJudgeX(w){ return w*0.16; }
+function troupeTrackY(h){ return h*0.34; }
+/* 一顆判定圖示:圓底色=該方向專屬顏色,裡面畫三角形指向 dx/dy;space 沒有
+   方向,改畫實心菱形(呼應太鼓達人的「大鼓中心」跟兩側鈸聲視覺上要分得
+   出來),不用字型畫箭頭符號(不同字型渲染高度對不齊,自己畫圖形比較穩,
+   照抄 rhythm-linzitou.html drawArrowBadge() 那套)。 */
+function troupeBadge(x, y, lane, r, alpha){
+  const L = TROUPE_LANES[lane];
+  agCtx.save(); agCtx.globalAlpha = alpha;
+  agCtx.beginPath(); agCtx.arc(x,y,r,0,Math.PI*2);
+  agCtx.fillStyle = L.color; agCtx.fill();
+  agCtx.strokeStyle = 'rgba(255,255,255,.55)'; agCtx.lineWidth = 2; agCtx.stroke();
+  if(lane === 'space'){
+    agCtx.translate(x,y); agCtx.rotate(Math.PI/4);
+    const s = r*.45;
+    agCtx.fillStyle = '#3a1010'; agCtx.fillRect(-s,-s,s*2,s*2);
+  } else {
+    agCtx.translate(x,y); agCtx.rotate(Math.atan2(L.dy, L.dx));
+    const s = r*.5;
+    agCtx.beginPath(); agCtx.moveTo(s,0); agCtx.lineTo(-s*.6,-s*.75); agCtx.lineTo(-s*.6,s*.75); agCtx.closePath();
+    agCtx.fillStyle = '#fff'; agCtx.fill();
+  }
+  agCtx.restore();
+}
+function troupePopup(text, lane){
+  const jx = troupeJudgeX(agCanvas.width), y = troupeTrackY(agCanvas.height);
+  TROUPE_GAME.popups.push({ text, x:jx, y:y-30, life:1, color:TROUPE_LANES[lane].color });
+}
+/* 一次判定成立(不管是點一下的音符,還是拉長音按到尾端)才會走到這裡——
+   加 combo/score、亮判定圈那個方向的 flash、噴判定字。 */
+function troupeRegisterHit(lane, tier){
+  TROUPE_GAME.flash[lane] = 1;
+  TROUPE_GAME.dancerPulse = 1;
+  TROUPE_GAME.combo++;
+  TROUPE_GAME.score += tier==='great' ? 300 : tier==='ok' ? 120 : 60;
+  troupePopup(tier==='great' ? '剛好' : tier==='ok' ? '還行' : '普通', lane);
+}
+function troupeDrawBg(){
+  const w = agCanvas.width, h = agCanvas.height;
+  if(TROUPE_BG_IMG.naturalWidth){
+    const ia = TROUPE_BG_IMG.naturalWidth/TROUPE_BG_IMG.naturalHeight, ca = w/h;
+    let sw, sh, sx, sy;
+    if(ia > ca){ sh = TROUPE_BG_IMG.naturalHeight; sw = sh*ca; sy = 0; sx = (TROUPE_BG_IMG.naturalWidth-sw)/2; }
+    else { sw = TROUPE_BG_IMG.naturalWidth; sh = sw/ca; sx = 0; sy = (TROUPE_BG_IMG.naturalHeight-sh)/2; }
+    agCtx.drawImage(TROUPE_BG_IMG, sx, sy, sw, sh, 0, 0, w, h);
+    agCtx.fillStyle = 'rgba(10,6,5,.55)'; agCtx.fillRect(0,0,w,h);
+    const g = agCtx.createLinearGradient(0, h*.6, 0, h*.95);
+    g.addColorStop(0,'rgba(6,3,2,0)'); g.addColorStop(1,'rgba(6,3,2,.75)');
+    agCtx.fillStyle = g; agCtx.fillRect(0, h*.6, w, h*.35);
+  } else {
+    const sky = agCtx.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0,'#2a1414'); sky.addColorStop(1,'#4a1c1c');
+    agCtx.fillStyle = sky; agCtx.fillRect(0,0,w,h);
+  }
+}
+function troupeDrawLimb(img, pivotX, pivotY, angle, len, flip){
+  const w = len * (img.width/img.height);
+  agCtx.save(); agCtx.translate(pivotX, pivotY); agCtx.rotate(flip ? -angle : angle);
+  if(flip) agCtx.scale(-1,1);
+  agCtx.drawImage(img, -w/2, 0, w, len);
+  agCtx.restore();
+}
+/* combo 越高,出來的陣頭隊伍越多人、越亮——照抄 rhythm-linzitou.html
+   drawDancers() 的走路數學(紙娃娃拆件繞關節旋轉),尺寸縮小配合這裡
+   640×420 的 agCanvas(原型是全螢幕 innerWidth/innerHeight)。沒圖之前
+   (troupePartsReady 是 false)退回簡單色塊圓點,不追求跟原型的幾何佔位
+   一模一樣——那組資產其實已經做好會秒載入,這裡的 fallback 只是防閃爍。 */
+function troupeDrawDancers(elapsed){
+  const w = agCanvas.width, h = agCanvas.height;
+  const shown = Math.min(TROUPE_DANCERS.length, 2+Math.floor(TROUPE_GAME.combo/8));
+  const baseY = h*0.86;
+  TROUPE_DANCERS.slice(0, shown).forEach((d,i) => {
+    const alpha = Math.min(1, .35+TROUPE_GAME.combo/60);
+    const walk = elapsed*TROUPE_STEP_HZ + d.phase;
+    const stride = Math.sin(walk), bob = Math.abs(Math.sin(walk))*5, sway = Math.sin(walk*0.5)*2;
+    const pulse = i===0 ? TROUPE_GAME.dancerPulse : 0;
+    const x = d.x*w + sway, y = baseY - bob*3 - pulse*10;
 
-  const audio = TROUPE_GAME.audio, def = TROUPE_GAME.song;
-  const elapsed = audio ? audio.currentTime - def.clipStart : 0;
+    agCtx.save();
+    const glow = agCtx.createRadialGradient(x,y+46,2,x,y+46,30);
+    glow.addColorStop(0, `rgba(255,190,110,${.32*alpha})`); glow.addColorStop(1, 'rgba(255,190,110,0)');
+    agCtx.fillStyle = glow; agCtx.beginPath(); agCtx.arc(x,y+46,30,0,Math.PI*2); agCtx.fill();
+    agCtx.restore();
 
-  /* 判定線 */
-  agCtx.strokeStyle = 'rgba(216,178,74,.85)'; agCtx.lineWidth = 3;
-  agCtx.beginPath(); agCtx.moveTo(cx-70, hitY); agCtx.lineTo(cx+70, hitY); agCtx.stroke();
-  agCtx.fillStyle = 'rgba(216,178,74,.18)';
-  agCtx.beginPath(); agCtx.arc(cx, hitY, 26, 0, Math.PI*2); agCtx.fill();
+    agCtx.save(); agCtx.globalAlpha = alpha;
+    if(troupePartsReady){
+      const LEG_A=.5, ARM_A=.4;
+      troupeDrawLimb(TROUPE_PARTS.leg, x-5, y+38,  stride*LEG_A, 20, false);
+      troupeDrawLimb(TROUPE_PARTS.leg, x+5, y+38, -stride*LEG_A, 20, true);
+      const th=36, tw=th*(TROUPE_PARTS.torso.width/TROUPE_PARTS.torso.height);
+      agCtx.drawImage(TROUPE_PARTS.torso, x-tw/2, y+5, tw, th);
+      troupeDrawLimb(TROUPE_PARTS.arm, x-10, y+11, -stride*ARM_A, 16, false);
+      troupeDrawLimb(TROUPE_PARTS.arm, x+10, y+11,  stride*ARM_A, 16, true);
+      const hh=22, hw=hh*(TROUPE_PARTS.head.width/TROUPE_PARTS.head.height);
+      agCtx.drawImage(TROUPE_PARTS.head, x-hw/2, y-16, hw, hh);
+    } else {
+      agCtx.fillStyle = i%3===0 ? '#6e1c14' : (i%3===1 ? '#1c2731' : '#3a241c');
+      agCtx.beginPath(); agCtx.arc(x, y, 14, 0, Math.PI*2); agCtx.fill();
+    }
+    agCtx.restore();
+  });
+  TROUPE_GAME.dancerPulse = Math.max(0, TROUPE_GAME.dancerPulse-.07);
+}
+/* 判定圈固定畫在畫面左側(judgeX),音符從右邊飄過來——跟垂直落下版最大的
+   差別。拉長音額外畫一條從音符頭到尾端的粗線(寬度=hold 秒數換算的
+   像素),按住時比較亮,呼應「這條要按住撐到底」的視覺提示。 */
+function troupeDrawTrack(elapsed){
+  const w = agCanvas.width, h = agCanvas.height;
+  const y = troupeTrackY(h), jx = troupeJudgeX(w), speed = (w-jx)/TROUPE_APPROACH;
+  agCtx.strokeStyle = 'rgba(216,178,74,.35)'; agCtx.lineWidth = 3;
+  agCtx.beginPath(); agCtx.moveTo(0,y); agCtx.lineTo(w,y); agCtx.stroke();
 
-  TROUPE_GAME.notes.forEach(n => {
-    if(n.hit === null && elapsed - n.t > TROUPE_HIT_WINDOW){ n.hit = 'miss'; }
-    if(n.hit !== null) return;   // 已判定的音符不用再畫
-    const progress = 1 - (n.t - elapsed) / TROUPE_APPROACH;   // 0=剛出現在頂端,1=正好在判定線
-    if(progress < 0 || progress > 1.08) return;
-    const y = topY + (hitY - topY) * progress;
-    agCtx.fillStyle = '#f0d78a';
-    agCtx.beginPath(); agCtx.arc(cx, y, 15, 0, Math.PI*2); agCtx.fill();
-    agCtx.strokeStyle = '#8a5a1a'; agCtx.lineWidth = 2; agCtx.stroke();
+  agCtx.beginPath(); agCtx.arc(jx, y, 22, 0, Math.PI*2);
+  agCtx.strokeStyle = 'rgba(216,178,74,.5)'; agCtx.lineWidth = 3; agCtx.stroke();
+  Object.keys(TROUPE_LANES).forEach(lane => {
+    const f = TROUPE_GAME.flash[lane];
+    if(f>0) troupeBadge(jx, y, lane, 20+f*7, .5+f*.5);
+    TROUPE_GAME.flash[lane] = Math.max(0, f-.08);
   });
 
-  if(def && elapsed >= def.clipLen){ finishTroupeGame(); }
+  TROUPE_GAME.notes.forEach(n => {
+    if(n.hit !== null) return;
+    const dt = n.t - elapsed;
+    if(!n.holding && dt < -TROUPE_HIT_WINDOW) return;   // 已經在 troupeUpdateNotes() 判 miss,不用再畫
+    if(dt > TROUPE_APPROACH) return;
+    const x = jx + dt*speed;
+    if(n.hold > 0){
+      const tailX = jx + (dt+n.hold)*speed;
+      agCtx.save();
+      agCtx.strokeStyle = TROUPE_LANES[n.lane].color; agCtx.lineWidth = 9; agCtx.lineCap = 'round';
+      agCtx.globalAlpha = n.holding ? .85 : .5;
+      agCtx.beginPath(); agCtx.moveTo(Math.max(x,jx-30), y); agCtx.lineTo(Math.max(tailX,jx-30), y); agCtx.stroke();
+      agCtx.restore();
+    }
+    if(x <= w+24) troupeBadge(x, y, n.lane, 17, 1);
+  });
 }
-/* 判定分四檔(跟扛磚 resolveForemanLockIn() 同精神,誤差越小越好)——
-   great/ok/bad 都算「打中」,只有超過 TROUPE_HIT_WINDOW(0.28s)或這次
-   按下去附近沒有音符才算沒打到。找「還沒判定的音符裡,時間最接近現在」
-   那一個,不是固定抓下一個索引——玩家可能連按或漏按,音符不一定照順序
-   判定。 */
-function resolveTroupeHit(){
+/* 每幀先跑判定/miss 狀態轉移,再畫圖(troupeDrawTrack 只負責畫,不改
+   hit/holding)。拉長音**簡化過**:只在尾端那一瞬間採樣 keys[...] 看
+   有沒有按著,不是逐幀盯著「中途放開就立刻算失敗」——這樣可以在中途
+   鬆一下手又搶在尾端前按回去照樣過關,是刻意的簡化,不是漏做,真的要
+   做逐幀盯防再回來加。 */
+function troupeUpdateNotes(elapsed){
+  TROUPE_GAME.notes.forEach(n => {
+    if(n.hit !== null) return;
+    if(n.holding){
+      if(elapsed >= n.t + n.hold){
+        const stillHeld = !!keys[TROUPE_LANES[n.lane].key];
+        n.hit = stillHeld ? n.holdTier : 'miss';
+        if(n.hit === 'miss'){ TROUPE_GAME.combo = 0; troupePopup('MISS', n.lane); }
+        else troupeRegisterHit(n.lane, n.hit);
+      }
+      return;
+    }
+    if(elapsed - n.t > TROUPE_HIT_WINDOW){
+      n.hit = 'miss'; TROUPE_GAME.combo = 0; troupePopup('MISS', n.lane);
+    }
+  });
+}
+/* 判定分三檔(跟扛磚 resolveForemanLockIn() 同精神,誤差越小越好),按鍵
+   對應的 lane 由呼叫端(keydown 那段 TROUPE_KEY_LANE)決定,只在同一個
+   lane 的「還沒判定、還沒進入 holding」音符裡找時間最接近現在那一個——
+   玩家可能連按或漏按,音符不一定照順序判定,也不會跨方向誤判到別條音符。
+   拉長音只在這裡標記 holding=true+holdTier,真的計分/失敗要等
+   troupeUpdateNotes() 到尾端才算,不是按下去當下就給分。 */
+function resolveTroupeHit(lane){
   if(!TROUPE_GAME.active) return;
   const elapsed = TROUPE_GAME.audio.currentTime - TROUPE_GAME.song.clipStart;
   let best = null, bestDist = Infinity;
   TROUPE_GAME.notes.forEach(n => {
-    if(n.hit !== null) return;
+    if(n.hit !== null || n.holding || n.lane !== lane) return;
     const dist = Math.abs(n.t - elapsed);
     if(dist < bestDist){ bestDist = dist; best = n; }
   });
-  if(best && bestDist <= TROUPE_HIT_WINDOW){
-    best.hit = bestDist<=.07 ? 'great' : bestDist<=.15 ? 'ok' : 'bad';
-  }
+  if(!best || bestDist > TROUPE_HIT_WINDOW) return;   // 打錯拍子或這條沒音符,不算也不清 combo
+  const tier = bestDist<=.07 ? 'great' : bestDist<=.15 ? 'ok' : 'bad';
+  if(best.hold > 0){ best.holding = true; best.holdTier = tier; TROUPE_GAME.flash[lane] = 1; }
+  else { best.hit = tier; troupeRegisterHit(lane, tier); }
+}
+/* 「阿伯認可度」完成度條(照抄 rhythm-linzitou.html drawGauge(),連文字都
+   沿用)——great/ok/bad 三檔加權(1/.7/.4),miss 不計分,算的是「已判定
+   的音符」佔全部音符的加權比例,不是只看已經飄過去的音符,song 還沒放完
+   時這條會持續往上補。 */
+function troupeDrawGauge(){
+  const w = agCanvas.width;
+  const gw = w*0.5, gx = w/2-gw/2, gy = 10, gh = 8;
+  const weight = { great:1, ok:.7, bad:.4, miss:0 };
+  const total = TROUPE_GAME.notes.length;
+  const sum = TROUPE_GAME.notes.reduce((s,n) => s + (n.hit ? (weight[n.hit]||0) : 0), 0);
+  const pct = total ? sum/total : 0;
+  agCtx.fillStyle = 'rgba(255,255,255,.08)'; troupeRoundRect(gx,gy,gw,gh,4); agCtx.fill();
+  agCtx.fillStyle = pct>0.55 ? '#5fb87a' : (pct>0.3 ? '#d8b24a' : '#8d3a30');
+  troupeRoundRect(gx,gy,gw*pct,gh,4); agCtx.fill();
+  agCtx.strokeStyle = 'rgba(255,255,255,.25)'; agCtx.lineWidth = 1; troupeRoundRect(gx,gy,gw,gh,4); agCtx.stroke();
+  agCtx.fillStyle = '#b8a08e'; agCtx.font = '10px "Noto Sans TC"'; agCtx.textAlign = 'center';
+  agCtx.fillText('阿伯認可度', w/2, gy+gh+13);
+}
+function troupeRoundRect(x,y,w,h,r){
+  agCtx.beginPath(); agCtx.moveTo(x+r,y); agCtx.arcTo(x+w,y,x+w,y+h,r);
+  agCtx.arcTo(x+w,y+h,x,y+h,r); agCtx.arcTo(x,y+h,x,y,r); agCtx.arcTo(x,y,x+w,y,r); agCtx.closePath();
+}
+function troupeDrawPopups(dtSec){
+  agCtx.textAlign = 'center'; agCtx.font = 'bold 13px "Noto Sans TC"';
+  TROUPE_GAME.popups.forEach(p => {
+    agCtx.globalAlpha = Math.max(0,p.life);
+    agCtx.fillStyle = p.color;
+    agCtx.fillText(p.text, p.x, p.y-(1-p.life)*24);
+    p.life -= dtSec*1.6;
+  });
+  agCtx.globalAlpha = 1;
+  TROUPE_GAME.popups = TROUPE_GAME.popups.filter(p => p.life>0);
+}
+function agDrawTroupe(dt){
+  const w = agCanvas.width, h = agCanvas.height;
+  agCtx.clearRect(0,0,w,h);
+  const audio = TROUPE_GAME.audio, def = TROUPE_GAME.song;
+  const elapsed = audio ? audio.currentTime - def.clipStart : 0;
+
+  troupeDrawBg();
+  troupeDrawDancers(elapsed);
+  troupeUpdateNotes(elapsed);
+  troupeDrawTrack(elapsed);
+  troupeDrawGauge();
+  troupeDrawPopups((dt||16)/1000);
+
+  if(def && elapsed >= def.clipLen){ finishTroupeGame(); }
 }
 /* 完成度門檻(2026-08-31,我先抓的數字,kc 覺得太嚴/太鬆再調):great/ok/bad
-   都算打中,miss 不算,打中率 ≥55% 算過。DESIGN_NOTES「打不好的後果」那節
-   定案:打不好不是純粹空氣牆,呼叫端(talkToYuan())的 onDone 會接
-   TROUPE.practiceFail/debutFail 那段安慰劇情。 */
+   都算打中,miss 不算,打中率 ≥55% 算過(跟畫面上的「阿伯認可度」不是
+   同一把尺——那條是加權過的即時進度條,這裡是最終單純算「判定次數」,
+   兩個故意不同,一個是氣氛回饋一個是真的門檻)。DESIGN_NOTES「打不好的
+   後果」那節定案:打不好不是純粹空氣牆,呼叫端(talkToYuan())的 onDone
+   會接 TROUPE.practiceFail/debutFail 那段安慰劇情。 */
 function finishTroupeGame(){
   if(!TROUPE_GAME.active) return;
   TROUPE_GAME.active = false;
