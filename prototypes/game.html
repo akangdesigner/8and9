@@ -733,12 +733,20 @@ function askStudyQuestion(onDone){
  * +6,**沒有知識**——這是重點,偷懶就是換不到「認真上課」那份累積。
  *
  * 2026-08-31,kc 貼了一張「低頭偷滑手機」的參考圖,要求「換成這張 然後
- * 會有一點點小遊戲」——原本純骰子的 30% 被抓,換成看手速的小反應遊戲:
- * 畫面換成 assets/bg/school-phone.png(跟 school-classroom.png 同規格),
- * 借用 #arcadeGame 大面板(跟扛磚/推幣機同一套「大面板接管畫面」做法)。
- * 玩法:畫面不定期閃警示(「教官往這邊看了」),要在時限內按空白鍵「低頭
- * 裝作在抄筆記」;反應太慢算被抓到,連續撐過 PHONE_GAME.totalRounds 輪
- * 才算僥倖沒被抓。抓到/沒抓到的獎懲數字沿用舊版數字沒動(星 −4/歸屬感
+ * 會有一點點小遊戲」——原本純骰子的 30% 被抓,換成看手速的小反應遊戲。
+ * 第一輪做成 #arcadeGame 大面板疊在教室上面,kc 糾正:「不是 點完選項後
+ * 會黑畫面淡出 跳轉 然後底圖就會變這個了 結束再跳回來」——改成跟教室⇄
+ * 走廊(enterCorridor()/leaveCorridorToClassroom())同一招:黑畫面淡出、
+ * 教室的「底圖」本身換成 assets/bg/school-phone.png(畫在 gbg 這張共用
+ * 2D 畫布上,跟 paintSchoolBackdrop() 同一張畫布同一張尺寸),不開額外
+ * 面板;結束再淡出一次換回教室背景。PLACE 全程留在 'school',只是
+ * gbg 畫的內容換掉,跟換場景(PLACE 換值)是兩回事。
+ * 用 coFade()(上面 startCheckoutShift() 那組收銀班用的「自己控制 busy,
+ * 不被 fade() 1150ms 自動解鎖打斷」轉場)不用 fade()——這個小遊戲要整段
+ * 鎖住輸入到玩家真的撐完/被抓才放開,跟收銀班同一個需求。
+ * 玩法不變:畫面不定期閃警示(「教官往這邊看了」),要在時限內按空白鍵
+ * 「低頭裝作在抄筆記」;反應太慢算被抓到,連續撐過 PHONE_GAME.totalRounds
+ * 輪才算僥倖沒被抓。抓到/沒抓到的獎懲數字沿用舊版數字沒動(星 −4/歸屬感
  * −6 被抓;情緒 +6 沒被抓),只是判定方式從骰子換成手速。 */
 const PHONE_BG_IMG = new Image();
 PHONE_BG_IMG.src = '../assets/bg/school-phone.png';
@@ -748,41 +756,46 @@ function startPhoneGame(){
   if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
   chg('stamina', -5); advanceTime(60);
   busy = true;
-  PHONE_GAME.active = true; PHONE_GAME.round = 0; PHONE_GAME.warning = false;
-  PHONE_GAME.sinceLast = 0; PHONE_GAME.nextWarnAt = 900 + Math.random()*1200;
-  agEl.classList.add('on');
-  agCap.textContent = '偷玩手遊';
-  agActions.innerHTML = '';
-  agBarEl.style.display = 'none';
-  agBody.innerHTML = '低頭滑手機——教官往這邊看的時候，按空白鍵假裝在抄筆記';
-  agDrawPhone();
+  coFade('偷滑手機', () => {
+    PHONE_GAME.active = true; PHONE_GAME.round = 0; PHONE_GAME.warning = false;
+    PHONE_GAME.sinceLast = 0; PHONE_GAME.nextWarnAt = 900 + Math.random()*1200;
+    paintPhoneBackdrop();
+  });
 }
-function agDrawPhone(){
-  const w = agCanvas.width, h = agCanvas.height;
-  agCtx.clearRect(0,0,w,h);
-  if(PHONE_BG_IMG.naturalWidth) agCtx.drawImage(PHONE_BG_IMG, 0, 0, w, h);
-  else { agCtx.fillStyle = '#1c2027'; agCtx.fillRect(0,0,w,h); }
-  if(PHONE_GAME.warning){
-    agCtx.fillStyle = 'rgba(224,72,58,.22)'; agCtx.fillRect(0,0,w,h);
-    agCtx.textAlign = 'center'; agCtx.font = 'bold 26px "Noto Sans TC"';
-    agCtx.fillStyle = '#ffdede'; agCtx.shadowColor = 'rgba(224,72,58,.8)'; agCtx.shadowBlur = 12;
-    agCtx.fillText('教官往這邊看了！', w/2, 60);
-    agCtx.shadowBlur = 0;
+/* 跟 paintSchoolBackdrop() 同一張 gbg 畫布、同一個 1280×720 尺寸——這樣
+   結束時只要再呼叫一次 paintSchoolBackdrop() 就能把「底圖」換回教室,
+   不用另外記一份「換回去要畫什麼」。 */
+function paintPhoneBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  if(PHONE_BG_IMG.complete && PHONE_BG_IMG.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(PHONE_BG_IMG, 0,0,1280,720);
+  } else {
+    gbg.save(); gbg.scale(SC,SC);
+    SceneSchool.renderBackground(gbg, { vignette:true, deskFront:true });
+    gbg.restore();
   }
-  agCtx.textAlign = 'left'; agCtx.font = '13px "Noto Sans TC"';
-  agCtx.fillStyle = 'rgba(255,255,255,.75)';
-  agCtx.fillText(`撐過 ${PHONE_GAME.round}/${PHONE_GAME.totalRounds} 輪`, 14, h-14);
+  if(PHONE_GAME.warning){
+    gbg.fillStyle = 'rgba(224,72,58,.22)'; gbg.fillRect(0,0,1280,720);
+    gbg.textAlign = 'center'; gbg.font = 'bold 44px "Noto Sans TC"';
+    gbg.fillStyle = '#ffdede'; gbg.shadowColor = 'rgba(224,72,58,.85)'; gbg.shadowBlur = 20;
+    gbg.fillText('教官往這邊看了！', 640, 100);
+    gbg.shadowBlur = 0;
+  }
+  gbg.textAlign = 'left'; gbg.font = '20px "Noto Sans TC"';
+  gbg.fillStyle = 'rgba(255,255,255,.8)';
+  gbg.fillText(`撐過 ${PHONE_GAME.round}/${PHONE_GAME.totalRounds} 輪 —— 警示亮起時按空白鍵`, 24, 690);
 }
 function tickPhoneGame(dt){
   if(!PHONE_GAME.active) return;
   if(PHONE_GAME.warning){
     PHONE_GAME.warnT += dt;
-    if(PHONE_GAME.warnT > PHONE_REACT_WINDOW){ resolvePhoneGame(false); return; }
+    if(PHONE_GAME.warnT > PHONE_REACT_WINDOW){ endPhoneGame(false); return; }
   } else {
     PHONE_GAME.sinceLast += dt;
     if(PHONE_GAME.sinceLast >= PHONE_GAME.nextWarnAt){ PHONE_GAME.warning = true; PHONE_GAME.warnT = 0; }
   }
-  agDrawPhone();
+  paintPhoneBackdrop();
 }
 /* 空白鍵反應(2026-08-31)——攔在 keydown 的空白/enter 那個共用區塊裡,
    見那段筆記。警示還沒亮的時候按空白鍵不算數(不用懲罰亂按,單純沒事
@@ -792,21 +805,23 @@ function resolvePhoneReact(){
   PHONE_GAME.warning = false;
   PHONE_GAME.round++;
   PHONE_GAME.sinceLast = 0; PHONE_GAME.nextWarnAt = 900 + Math.random()*1200;
-  if(PHONE_GAME.round >= PHONE_GAME.totalRounds){ resolvePhoneGame(true); return; }
-  agDrawPhone();
+  if(PHONE_GAME.round >= PHONE_GAME.totalRounds){ endPhoneGame(true); return; }
+  paintPhoneBackdrop();
 }
-function resolvePhoneGame(success){
+function endPhoneGame(success){
   if(!PHONE_GAME.active) return;
   PHONE_GAME.active = false;
-  agEl.classList.remove('on');
-  busy = false;
-  if(success){
-    chg('mood', 6);
-    toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
-  } else {
-    chg('star', -4); chg('calm', -6);
-    say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
-  }
+  coFade('教室', () => {
+    busy = false;
+    paintSchoolBackdrop();
+    if(success){
+      chg('mood', 6);
+      toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
+    } else {
+      chg('star', -4); chg('calm', -6);
+      say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
+    }
+  });
 }
 
 /* 角色面板(2026-08-18 起做,2026-08-19 這輪照參考截圖改成三欄殼:
@@ -6351,7 +6366,7 @@ addEventListener('keydown', e => {
      是遊藝場專用(會摸 ARCADE_GAMBLE.momEchoPending),ESC 不能在扛磚進行
      中誤觸——foremanShiftOn 全程(startForemanShift→endForemanShift)擋住,
      不是只擋 FOREMAN_GAME.active 那個「單趟計時中」的窄窗口。 */
-  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active && !foremanShiftOn && !troupeShiftOn && !PHONE_GAME.active) closeArcadeGame();
+  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active && !foremanShiftOn && !troupeShiftOn) closeArcadeGame();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
@@ -6528,12 +6543,21 @@ function updateCity(dt){
      從警局附近一路巡到廟口(見那則長筆記),每幀檢查下一個「還沒巡過」
      的點,半徑抓 6(比一般互動 3.2 寬一點,巡邏本來就不用精準站在一個點
      上)。巡完五點不會自動結束(還是要回警局跟阿正報到,見
-     talkToBrother() 那個分支),這裡只推進進度。 */
+     talkToBrother() 那個分支),這裡只推進進度。
+     2026-08-31 第三輪,kc:「你模擬玩我做完任務 我會餓死 在廟口前快巡邏完
+     的階段」——抓到真正的原因:chg() 裡有一條全專案共用的規則
+     (2026-08-28 就定案,見那則筆記)「扣體力會同步扣飽足感,比例
+     1:1」,不是這條任務獨有的邏輯,是我加的時候沒注意到。原本每點扣
+     -8、五點扣滿 -40,不是只扣體力,是體力跟飽足感各扣 40——`ST.full`
+     新遊戲開局只有 42,扣 40 幾乎等於扣到見底,路線又剛好比原本(4 點,
+     總扣 32)拉更長,兩件事疊在一起才會走到廟口前夕差點餓死。改成每點
+     -3(五點扣滿 -15,體力/飽足感各少 15),量級對齊工地扛磚一次
+     (-20)的七成左右,不是免費,但不會走一趟長路線走到餓死。 */
   if(MOTO_IMPOUND.patrolActive && MOTO_IMPOUND.patrolVisited < MOTO_PATROL_POINTS.length){
     const [px, pz] = MOTO_PATROL_POINTS[MOTO_IMPOUND.patrolVisited];
     if(Math.hypot(pos.x-px, pos.z-pz) < 6){
       MOTO_IMPOUND.patrolVisited++;
-      chg('stamina', -8);
+      chg('stamina', -3);
       syncMiscQuestPanel();
       toast(MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length
         ? '巡邏點都走過了，回警局跟阿正報到。'
