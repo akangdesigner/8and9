@@ -379,6 +379,35 @@
       calm:+26, cool:+12, stamina:-25
     },
 
+    /* 陣頭音遊打不好的收尾(2026-08-31,DESIGN_NOTES「打不好的後果」節定案:
+       這次不算數〔practiceIdx 不前進/debuted 不設 true〕,扣歸屬感,但阿源
+       要接住,不能是純粹的懲罰空氣牆)。practiceFail 跟 debutFail 分開寫是
+       因為出陣的場面比練習大(整條街的人在看),扣分跟安慰的份量都要重一
+       截,不是複製貼上同一段換個數字。 */
+    practiceFail: {
+      beats:[
+        { who:'pc',   text:'鼓點一下子就把你甩開了。' },
+        { who:'pc',   text:'腳步亂了，你站到旁邊。' },
+        { who:'yuan', text:'阿源走過來，拍了拍你的肩膀。' },
+        { who:'yuan', text:'「沒事，我們也是這樣練出來的。」' },
+        { who:'yuan', text:'「下次再來。」' }
+      ],
+      quiet:'你站在旁邊看他們收拾，手還是抖的。（歸屬感 -8）',
+      calm:-8
+    },
+    debutFail: {
+      beats:[
+        { who:'pc', text:'鑼聲第二輪的時候你就跟不上了。' },
+        { who:'pc', text:'隊伍散了個口，你被拉到後面去。' },
+        { who:'bo', text:'阿伯沒有講話，收陣之後才走過來。' },
+        { who:'bo', text:'「今天先這樣。」' },
+        { who:'yuan', text:'阿源遞水給你。' },
+        { who:'yuan', text:'「我第一次出陣也亂，正常。」' }
+      ],
+      quiet:'你坐在廟埕的階梯上，臉上的妝還沒卸。（歸屬感 -12）',
+      calm:-12
+    },
+
     /* 出過陣之後,練習變成日常 */
     routine: [
       { title:'又一場', beats:[

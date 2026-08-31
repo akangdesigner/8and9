@@ -558,6 +558,7 @@
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
 <script src="lib/npc-temple.js"></script>
+<script src="lib/rhythm-troupe.js"></script>
 <script src="lib/story-motoboss.js"></script>
 <script src="lib/npc-school.js"></script>
 <script type="importmap">
@@ -1037,45 +1038,30 @@ function advanceTime(min){
   syncHUD();
 }
 
-/* 街頭藝人的歌聲(見上面 BUSKER_POS 那段註解)。AudioContext 一定要在使用者
-   互動(keydown)裡才准建立/resume,不能頁面一載入就開——瀏覽器的 autoplay
+/* 街頭藝人的歌聲(見上面 BUSKER_POS 那段註解)。<audio> 一定要在使用者
+   互動(keydown)裡才准 play(),不能頁面一載入就開——瀏覽器的 autoplay
    政策會直接擋掉,靜音也不報錯,踩了會覺得「明明寫了怎麼沒聲音」,先在這裡
-   說清楚。startBuskerAudio() 只會真的跑一次(靠 buskerGain 判斷有沒有建過),
-   之後每次 keydown 呼叫都是白工但無害。 */
-let audioCtx = null, buskerGain = null;
+   說清楚。startBuskerAudio() 只會真的跑一次(靠 buskerAudioEl 判斷有沒有
+   建過),之後每次 keydown 呼叫都是白工但無害。
+   2026-08-31 換成真人錄音(kc 用 Suno 寫的容身,見 lib/rhythm-troupe.js
+   那段筆記):原本是純 Web Audio 合成五聲音階佔位唱腔,現在直接播放
+   RhythmTroupe.SONGS.rongshen 那個 mp3,loop 整首(不是只截音遊那段
+   clipStart/clipLen——街頭藝人是背景氣氛,聽整首比較自然)。 */
+let buskerAudioEl = null;
 function startBuskerAudio(){
-  if(buskerGain) { if(audioCtx.state === 'suspended') audioCtx.resume(); return; }
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  buskerGain = audioCtx.createGain();
-  buskerGain.gain.value = 0;
-  buskerGain.connect(audioCtx.destination);
-  /* 五聲音階(C D E G A)迴圈當佔位唱腔,不是真的歌——單音 sine 波,ADSR
-     只做簡單的淡入淡出,避免每個音之間喀一聲(click)。600ms 一個音,
-     8 個音一輪,跟 mood/stamina 那些數值改動無關,純氣氛。 */
-  const notes = [261.6, 293.7, 329.6, 392.0, 440.0, 392.0, 329.6, 293.7];
-  let i = 0;
-  (function playNote(){
-    const t = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    osc.type = 'sine'; osc.frequency.value = notes[i % notes.length];
-    const g = audioCtx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(.5, t + .06);
-    g.gain.linearRampToValueAtTime(0, t + .55);
-    osc.connect(g); g.connect(buskerGain);
-    osc.start(t); osc.stop(t + .6);
-    i++;
-    setTimeout(playNote, 600);
-  })();
+  if(buskerAudioEl) { buskerAudioEl.play().catch(()=>{}); return; }
+  buskerAudioEl = new Audio(RhythmTroupe.SONGS.rongshen.src);
+  buskerAudioEl.loop = true;
+  buskerAudioEl.volume = 0;
+  buskerAudioEl.play().catch(()=>{});
 }
 /* 靠近淡入、走遠淡出——20 單位外完全聽不到,站在他面前(距離 0)音量封頂
    在 .55,不是開到最大聲,街頭藝人不該蓋過其他環境音。updateCity() 每幀
    呼叫,數字沒特別校過,kc 覺得聽起來範圍不對再調。 */
 function updateBuskerAudio(px, pz){
-  if(!buskerGain) return;
+  if(!buskerAudioEl) return;
   const d = Math.hypot(px-BUSKER_POS.x, pz-BUSKER_POS.z);
-  const vol = Math.max(0, 1 - d/20) * .55;
-  buskerGain.gain.setTargetAtTime(vol, audioCtx.currentTime, .3);
+  buskerAudioEl.volume = Math.max(0, 1 - d/20) * .55;
 }
 
 /* ===================================================================
@@ -1830,6 +1816,19 @@ const FOREMAN_TWEAK = { groundY:380, bgDx:0, bgDy:0, workerH:170, workerDy:0, ca
 const FOREMAN_BG_IMG = new Image();
 FOREMAN_BG_IMG.src = '../assets/bg/foreman-site.png';
 let foremanShiftOn = false;   // 全程(startForemanShift→endForemanShift)開著,見下面 ESC 那條 guard 的筆記
+
+/* 陣頭音遊(2026-08-31)——照扛磚(FOREMAN_GAME)同一套模式:專屬 canvas
+   借用 #arcadeGame 大面板,不另開新畫面。跟扛磚不同的是這裡有真的音樂
+   在播(見 lib/rhythm-troupe.js),判定靠對照 <audio> 的 currentTime,不是
+   靠 dt 累加——currentTime 是播放器自己的時鐘,不會因為掉幀而跟音樂脫拍。
+   notes 陣列複製一份(不是直接改 RhythmTroupe.SONGS 裡的原始資料),每個
+   音符 hit 欄位:null=還沒判定,'great'/'ok'/'bad'=打中,'miss'=飄過去沒打到。
+   onDone(success, rate) 是呼叫端(talkToYuan())傳進來的收尾 callback,見
+   那邊 practice/debut 兩段怎麼用。 */
+const TROUPE_GAME = { active:false, song:null, audio:null, notes:[], onDone:null };
+let troupeShiftOn = false;   // 跟 foremanShiftOn 同精神,擋 ESC 誤觸
+const TROUPE_APPROACH = 1.7;   // 音符從畫面頂端掉到判定線要花幾秒
+const TROUPE_HIT_WINDOW = 0.28;   // 秒,超過這個誤差就判 miss(見 resolveTroupeHit())
 const constructionForemanNPC = buildNPC(THREE, scene, {
   x:FOREMAN.x, z:FOREMAN.z, rotationY:Math.PI, rig:'m3',
   skin:'#b98a63', hair:'#4a4a48',
@@ -5698,6 +5697,7 @@ addEventListener('keydown', e => {
        dlg.on) return;`,pusher 進行中 busy 是 true,空白鍵會直接失效)。 */
     if(ARCADE_ANIM.active && ARCADE_ANIM.kind === 'pusher'){ resolvePusherLockIn(); return; }
     if(FOREMAN_GAME.active){ resolveForemanLockIn(); return; }
+    if(TROUPE_GAME.active){ resolveTroupeHit(); return; }
     if(advanceDialog()) return;
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
@@ -5716,7 +5716,7 @@ addEventListener('keydown', e => {
      是遊藝場專用(會摸 ARCADE_GAMBLE.momEchoPending),ESC 不能在扛磚進行
      中誤觸——foremanShiftOn 全程(startForemanShift→endForemanShift)擋住,
      不是只擋 FOREMAN_GAME.active 那個「單趟計時中」的窄窗口。 */
-  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active && !foremanShiftOn) closeArcadeGame();
+  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active && !foremanShiftOn && !troupeShiftOn) closeArcadeGame();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
@@ -5774,6 +5774,11 @@ function updateCity(dt){
      那段同一個精神(整段搶走輸入,指示條每幀 ping-pong),但那段只在室內
      tick 跑,這裡是戶外 3D 街景自己的頭,提早 return 不跑下面的移動/鏡頭
      邏輯,只留 hero.animate() 讓角色不要卡在走路姿勢半途。 */
+  if(TROUPE_GAME.active){
+    agDrawTroupe();
+    hero.animate(dt, false, 1, false);
+    return;
+  }
   if(FOREMAN_GAME.active){
     /* 難度隨疊高提升(2026-08-28,kc:「為何堆的都不會倒」)——原本速度
        固定,miss 門檻(resolveForemanLockIn 那邊 dist>.4)又只佔擺盪範圍
@@ -6593,24 +6598,44 @@ function talkToYuan(){
     if(ST.cool >= gate.cool && ST.star >= gate.repMin){
       joinedTroupe = true;
       const practice = NpcTemple.TROUPE.practice;
+      /* 2026-08-31:練習/出陣中間插進陣頭音遊(見 startTroupeGame() 那則
+         筆記)——打好才真的算過這次(practiceIdx 前進/debuted 設 true),
+         打不好這次不算數,套 TROUPE.practiceFail/debutFail 那段安慰劇情,
+         下次找阿源可以重來。體力不管打好打壞都扣(人真的練了/演了)。 */
       if(YUAN.practiceIdx < practice.length){
         const ev = practice[YUAN.practiceIdx];
-        YUAN.practiceIdx++;
         playBeats(ev.beats, 0, () => {
-          if(ev.calm) chg('calm', ev.calm);
-          if(ev.cool) chg('cool', ev.cool);
-          if(ev.stamina) chg('stamina', ev.stamina);
-          if(ev.quiet) toast(ev.quiet, 3400);
+          startTroupeGame('rongshen', (success) => {
+            if(ev.stamina) chg('stamina', ev.stamina);
+            if(success){
+              YUAN.practiceIdx++;
+              if(ev.calm) chg('calm', ev.calm);
+              if(ev.cool) chg('cool', ev.cool);
+              if(ev.quiet) toast(ev.quiet, 3400);
+            } else {
+              const fail = NpcTemple.TROUPE.practiceFail;
+              chg('calm', fail.calm);
+              playBeats(fail.beats, 0, () => { if(fail.quiet) toast(fail.quiet, 3000); });
+            }
+          });
         });
         return;
       }
       const ev = NpcTemple.TROUPE.debut;
-      YUAN.debuted = true;
       playBeats(ev.beats, 0, () => {
-        if(ev.calm) chg('calm', ev.calm);
-        if(ev.cool) chg('cool', ev.cool);
-        if(ev.stamina) chg('stamina', ev.stamina);
-        if(ev.quiet) toast(ev.quiet, 3400);
+        startTroupeGame('wurenwang', (success) => {
+          if(ev.stamina) chg('stamina', ev.stamina);
+          if(success){
+            YUAN.debuted = true;
+            if(ev.calm) chg('calm', ev.calm);
+            if(ev.cool) chg('cool', ev.cool);
+            if(ev.quiet) toast(ev.quiet, 3400);
+          } else {
+            const fail = NpcTemple.TROUPE.debutFail;
+            chg('calm', fail.calm);
+            playBeats(fail.beats, 0, () => { if(fail.quiet) toast(fail.quiet, 3000); });
+          }
+        });
       });
       return;
     }
@@ -7464,6 +7489,98 @@ function endForemanShift(){
   chg('money', FOREMAN_GAME.earned);
   toast(`今天疊到第 ${FOREMAN_GAME.stack.length} 層磚塌了，老闆給了你 $${FOREMAN_GAME.earned}。`, 3200);
 }
+/* 陣頭音遊本體(2026-08-31)——見上面 TROUPE_GAME 那則筆記。startTroupeGame()
+   由 talkToYuan() 呼叫,songKey 對應 lib/rhythm-troupe.js 的 SONGS 鍵名,
+   onDone(success, rate) 是判定完之後要接回劇情的收尾。 */
+function startTroupeGame(songKey, onDone){
+  const def = RhythmTroupe.SONGS[songKey];
+  TROUPE_GAME.active = true;
+  TROUPE_GAME.song = def;
+  TROUPE_GAME.notes = def.notes.map(t => ({ t, hit:null }));
+  TROUPE_GAME.onDone = onDone;
+  TROUPE_GAME.audio = new Audio(def.src);
+  TROUPE_GAME.audio.currentTime = def.clipStart;
+  TROUPE_GAME.audio.volume = .8;
+  TROUPE_GAME.audio.play().catch(()=>{});
+  busy = true;
+  troupeShiftOn = true;
+  agEl.classList.add('on');
+  agCap.textContent = def.title + '・跳陣頭';
+  agActions.innerHTML = '';
+  agBarEl.style.display = 'none';
+  agBody.innerHTML = '按空白鍵，跟上鼓點';
+  agDrawTroupe();
+}
+/* 音符從 agCanvas 頂端掉到判定線(近底部),跟畫面上的位置直接掛勾——
+   跟 agDrawForeman() 那則筆記同一個原則,判定看得見的位置,不是看不見的
+   指標。elapsed 用 <audio>.currentTime 算,不用 dt 累加(見 TROUPE_GAME
+   那則筆記),掉幀也不會跟音樂脫拍。 */
+function agDrawTroupe(){
+  const w = agCanvas.width, h = agCanvas.height, cx = w/2;
+  const hitY = h - 70, topY = 40;
+  agCtx.clearRect(0,0,w,h);
+  const sky = agCtx.createLinearGradient(0,0,0,h);
+  sky.addColorStop(0,'#2a1414'); sky.addColorStop(1,'#4a1c1c');
+  agCtx.fillStyle = sky; agCtx.fillRect(0,0,w,h);
+
+  const audio = TROUPE_GAME.audio, def = TROUPE_GAME.song;
+  const elapsed = audio ? audio.currentTime - def.clipStart : 0;
+
+  /* 判定線 */
+  agCtx.strokeStyle = 'rgba(216,178,74,.85)'; agCtx.lineWidth = 3;
+  agCtx.beginPath(); agCtx.moveTo(cx-70, hitY); agCtx.lineTo(cx+70, hitY); agCtx.stroke();
+  agCtx.fillStyle = 'rgba(216,178,74,.18)';
+  agCtx.beginPath(); agCtx.arc(cx, hitY, 26, 0, Math.PI*2); agCtx.fill();
+
+  TROUPE_GAME.notes.forEach(n => {
+    if(n.hit === null && elapsed - n.t > TROUPE_HIT_WINDOW){ n.hit = 'miss'; }
+    if(n.hit !== null) return;   // 已判定的音符不用再畫
+    const progress = 1 - (n.t - elapsed) / TROUPE_APPROACH;   // 0=剛出現在頂端,1=正好在判定線
+    if(progress < 0 || progress > 1.08) return;
+    const y = topY + (hitY - topY) * progress;
+    agCtx.fillStyle = '#f0d78a';
+    agCtx.beginPath(); agCtx.arc(cx, y, 15, 0, Math.PI*2); agCtx.fill();
+    agCtx.strokeStyle = '#8a5a1a'; agCtx.lineWidth = 2; agCtx.stroke();
+  });
+
+  if(def && elapsed >= def.clipLen){ finishTroupeGame(); }
+}
+/* 判定分四檔(跟扛磚 resolveForemanLockIn() 同精神,誤差越小越好)——
+   great/ok/bad 都算「打中」,只有超過 TROUPE_HIT_WINDOW(0.28s)或這次
+   按下去附近沒有音符才算沒打到。找「還沒判定的音符裡,時間最接近現在」
+   那一個,不是固定抓下一個索引——玩家可能連按或漏按,音符不一定照順序
+   判定。 */
+function resolveTroupeHit(){
+  if(!TROUPE_GAME.active) return;
+  const elapsed = TROUPE_GAME.audio.currentTime - TROUPE_GAME.song.clipStart;
+  let best = null, bestDist = Infinity;
+  TROUPE_GAME.notes.forEach(n => {
+    if(n.hit !== null) return;
+    const dist = Math.abs(n.t - elapsed);
+    if(dist < bestDist){ bestDist = dist; best = n; }
+  });
+  if(best && bestDist <= TROUPE_HIT_WINDOW){
+    best.hit = bestDist<=.07 ? 'great' : bestDist<=.15 ? 'ok' : 'bad';
+  }
+}
+/* 完成度門檻(2026-08-31,我先抓的數字,kc 覺得太嚴/太鬆再調):great/ok/bad
+   都算打中,miss 不算,打中率 ≥55% 算過。DESIGN_NOTES「打不好的後果」那節
+   定案:打不好不是純粹空氣牆,呼叫端(talkToYuan())的 onDone 會接
+   TROUPE.practiceFail/debutFail 那段安慰劇情。 */
+function finishTroupeGame(){
+  if(!TROUPE_GAME.active) return;
+  TROUPE_GAME.active = false;
+  TROUPE_GAME.audio.pause();
+  agEl.classList.remove('on');
+  busy = false;
+  troupeShiftOn = false;
+  const total = TROUPE_GAME.notes.length;
+  const hitCount = TROUPE_GAME.notes.filter(n => n.hit && n.hit !== 'miss').length;
+  const rate = total ? hitCount/total : 0;
+  const onDone = TROUPE_GAME.onDone;
+  TROUPE_GAME.onDone = null;
+  if(onDone) onDone(rate >= .55, rate);
+}
 /* 旺鴻(機車行老闆,2026-08-25 kc 要求)——買車現在要先跟他對話,不是走到
    forSale 車旁邊直接跳選單(見上面 interactProp() 'moto'/'motoboss' 兩條
    分支的改動)。對話本體借 talkToStallVendor() 那套(跟阿姨/阿成同一條路:
@@ -7891,9 +8008,22 @@ window.__dbg = {
   KNOWLEDGE, studyGainKnowledge,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
   lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
-  /* 陣頭特價測試開關(2026-08-20)——陣頭音遊本身還沒做,先用這個手動切,
-     見 talkToAyi()/ayiBuyMenu() 那則筆記。 */
+  /* 陣頭特價測試開關(2026-08-20),見 talkToAyi()/ayiBuyMenu() 那則筆記。
+     陣頭音遊本體 2026-08-31 已經接上(見 talkToYuan()/startTroupeGame()),
+     這個 helper 現在只管特價那個布林值,不是音遊本身的測試入口——音遊
+     測試直接呼叫下面的 troupeTest()。 */
   joinedTroupe: (v) => { if(v != null) joinedTroupe = v; return joinedTroupe; },
+  /* 陣頭音遊測試開關(2026-08-31)——跳過帥潮/風評門檻+對話鋪陳,直接開始
+     跳,onDone 印在 console 給 kc 看判定結果,跟 foreman() 那個測試開關
+     同精神。songKey 是 'rongshen' 或 'wurenwang'。 */
+  troupeTest(songKey){
+    if(busy) return '目前忙線中(可能上一輪還沒結束),等它跑完再呼叫。';
+    startTroupeGame(songKey || 'rongshen', (success, rate) => {
+      console.log('[troupeTest] success=' + success + ' rate=' + rate.toFixed(2));
+    });
+    return '測試模式：直接開始跳 ' + (songKey || 'rongshen') + '。';
+  },
+  TROUPE_GAME,
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
