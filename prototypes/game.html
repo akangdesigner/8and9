@@ -7614,9 +7614,19 @@ function startTroupeGame(songKey, onDone){
   TROUPE_GAME.onDone = onDone;
   TROUPE_GAME.score = 0; TROUPE_GAME.combo = 0; TROUPE_GAME.popups = []; TROUPE_GAME.dancerPulse = 0;
   TROUPE_GAME.flash = { up:0, down:0, left:0, right:0, space:0 };
+  /* 2026-08-31 抓到的 bug(kc:「沒音樂沒音符啊」):在 metadata 都還沒載入
+     前就設 currentTime,瀏覽器會直接吃掉這行指定值——實測是整首歌從 0
+     秒正常播下去,seek 到 clipStart 那個指定完全沒生效,note.t 全部跟
+     elapsed 對不上,螢幕上自然一個音符都排不進可視範圍。改成等
+     'loadedmetadata'(duration 確定、seek 開始有效)才真的 seek,play()
+     可以照樣先呼叫不用等——播放器會先從 0 開始抓,等 seek 生效那一刻跳
+     到 clipStart,只會有一瞬間的空白,不影響後面的判定(判定全部照
+     audio.currentTime 現場讀,不是靠這裡的賦值時間點)。 */
   TROUPE_GAME.audio = new Audio(def.src);
-  TROUPE_GAME.audio.currentTime = def.clipStart;
   TROUPE_GAME.audio.volume = .8;
+  TROUPE_GAME.audio.addEventListener('loadedmetadata', () => {
+    TROUPE_GAME.audio.currentTime = def.clipStart;
+  }, { once:true });
   TROUPE_GAME.audio.play().catch(()=>{});
   busy = true;
   troupeShiftOn = true;
