@@ -3538,7 +3538,27 @@ const MODELS = {
   m4: { idle:'base-human-m4-idle.glb', walk:'base-human-m4-walk.glb',
         sit:'base-human-m4-sit.glb',
         parts: { Ch42_Body1:'skin', Ch42_Shirt:'hood', Ch42_Shorts:'pants',
-                  Ch42_Sneakers:'shoe', Ch42_Hair1:'hair', Ch42__Eyelashes:'eyes' } }
+                  Ch42_Sneakers:'shoe', Ch42_Hair1:'hair', Ch42__Eyelashes:'eyes' } },
+  /* 2026-08-31,kc:「這是特殊角色要特殊骨架」+「旺宏也要下載新的」——小美哥
+     (警局門口)、旺鴻(機車行)原本都借用 m3(Brian),但 m3 同時也是阿成/
+     阿仁/工地老闆共用的那副,具名角色撞臉。Mixamo 抓「casual」分類挑的:
+     m5 = Joe(西裝,平頭),m6 = Josh(深色外套+襯衫,蓬髮),兩個都是
+     Fuse 角色包(部件名字前綴 Ch33_/Ch23_),跟 Remy/Leonard 同一種
+     Body/Tops/Bottoms 分開的拓樸,不是 kid 那種全身一顆 mesh 換不了色。
+     ⚠ 這輪先試過「Lewis」(單一 mesh 節點 `Ch12`,套色系統會把全身染
+     成同一色,臉跟衣服分不開),不能用,換成 Joe 才成功分件——之後再抓
+     新骨架前,先用「怎麼查一副新骨架的部件名字」那節的方法核對 glb 節點
+     數量,只有 1 個 mesh 節點就代表分不了色,不要下載完才發現要重來。
+     Suit/Shirt/Tie/Belt 這幾件外層衣服統一疊到 hood 色(跟 m2 的
+     Sweater+Collar 同招),讀起來像一套制服,不用逐件分開染。 */
+  m5: { idle:'base-human-m5-idle.glb', walk:'base-human-m5-walk.glb',
+        parts: { Ch33_Body:'skin', Ch33_Shirt:'hood', Ch33_Suit:'hood', Ch33_Tie:'hood',
+                  Ch33_Belt:'pants', Ch33_Pants:'pants', Ch33_Shoes:'shoe',
+                  Ch33_Hair:'hair', Ch33_Eyelashes:'eyes' } },
+  m6: { idle:'base-human-m6-idle.glb', walk:'base-human-m6-walk.glb',
+        parts: { Ch23_Body:'skin', Ch23_Shirt:'hood', Ch23_Suit:'hood',
+                  Ch23_Belt:'pants', Ch23_Pants:'pants', Ch23_Shoes:'shoe',
+                  Ch23_Hair:'hair', Ch23_Eyelashes:'eyes' } }
 };
 
 /* 快取:每個 glb 只 fetch+parse 一次,buildPlayer 跟 buildNPC(2026-08-12 起

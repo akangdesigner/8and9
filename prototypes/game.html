@@ -1761,13 +1761,14 @@ const NPCS = [
     /* 2026-08-31,kc:「這是特殊角色要特殊骨架」——原本用 'm2'(Leonard),
        跟街頭藝人/算命仙/教官/一堆背景路人共用同一副身形,小美哥是有戲份
        的具名角色(小美她哥,刺青店對峙、顧場子那條線都靠他),現在又固定
-       站在警局門口這種顯眼位置,不該跟背景路人撞臉。改成 'm3'(Brian,
-       光頭)——阿成/阿仁/工地老闆也用這副,但他們站的地方(麵攤/廟口/
-       工地)跟警局門口不會同框,不會互相撞臉;光頭成年男性的輪廓拿來演
-       警察也合理。這輪我先選 'm3',kc 不喜歡的話說一聲換別副。
+       站在警局門口這種顯眼位置,不該跟背景路人撞臉。第一輪先換成 'm3'
+       (Brian),但同一天 kc 又指出「光頭有很多人用了 工地老闆刺青店
+       機車行」——m3 早就被阿成/阿仁/工地老闆/刺青師傅/旺鴻共用,撞臉
+       問題沒解決,真的要抓一副全新骨架(見 MODELS.m5 那則筆記,Mixamo
+       角色 Joe,西裝平頭)。
        同一天,kc:「你要背對門口啊 轉180度」——站崗面向街道(背對建築),
        rotationY 從 0 轉成 Math.PI。 */
-    x:BROTHER.x, z:BROTHER.z, rotationY:Math.PI, rig:'m3',
+    x:BROTHER.x, z:BROTHER.z, rotationY:Math.PI, rig:'m5',
     skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c'
   })
 ];
@@ -1893,8 +1894,8 @@ function startWatchJob(){
   WATCHJOB.active = true; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
   brotherNPC.group.visible = false;
   WATCHJOB.walker = buildNPC(THREE, scene, {
-    // rig 跟固定站位那具同步換成 'm3'(見上面 BROTHER 那則筆記)——這是同一個角色走出來,不是另一個人
-    x:WATCHJOB_PATH[0][0], z:WATCHJOB_PATH[0][1], rotationY:-Math.PI*.5, rig:'m3',
+    // rig 跟固定站位那具同步換成 'm5'(見上面 BROTHER 那則筆記)——這是同一個角色走出來,不是另一個人
+    x:WATCHJOB_PATH[0][0], z:WATCHJOB_PATH[0][1], rotationY:-Math.PI*.5, rig:'m5',
     skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c',
     path: WATCHJOB_PATH
   });
@@ -1968,9 +1969,13 @@ const PISS_SPOT = { x:-24, z:-48 };
    x=-1(貼近門口中央)、rotationY=0(面向街道/玩家)才對。
    2026-08-21 同一天,kc 追加「只會有一間機車行」——原本後火車站那間同名
    分店已經拆掉(見 scene-city3d.js row() 那則筆記),機車行只剩這一間,
-   不用再考慮要不要幫第二間也放老闆。 */
+   不用再考慮要不要幫第二間也放老闆。
+   2026-08-31,kc:「旺宏也要下載新的」——原本借用 'm3'(Brian),跟阿成/
+   阿仁/工地老闆/小美哥/刺青師傅共用同一副光頭身形撞臉,換成 'm6'
+   (Mixamo 角色 Josh,深色外套疊短版襯衫,見 scene-city3d.js MODELS.m6
+   那則筆記)。 */
 const motoBoss = buildNPC(THREE, scene, {
-  x:-1, z:-13.2, rotationY:0, rig:'m3',
+  x:-1, z:-13.2, rotationY:0, rig:'m6',
   skin:'#b98a63', hair:'#3a3a3a',
   hood:'#4a5560', pants:'#26241f', shoe:'#1c1c1c'
 });
