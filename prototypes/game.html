@@ -730,16 +730,82 @@ function askStudyQuestion(onDone){
  * 判定不同層級,教室這輪只是灰模,還沒有那種細節),先用機率(30% 被抓)
  * 頂著,量級比刺青那種大事輕很多(星 −4、歸屬感 −6),抓到人用既有的
  * JIAOGUAN 角色,呼應他本來就是校內巡邏抓人的定位。沒被抓只有情緒
- * +6,**沒有知識**——這是重點,偷懶就是換不到「認真上課」那份累積。 */
-function playPhoneInClass(){
+ * +6,**沒有知識**——這是重點,偷懶就是換不到「認真上課」那份累積。
+ *
+ * 2026-08-31,kc 貼了一張「低頭偷滑手機」的參考圖,要求「換成這張 然後
+ * 會有一點點小遊戲」——原本純骰子的 30% 被抓,換成看手速的小反應遊戲:
+ * 畫面換成 assets/bg/school-phone.png(跟 school-classroom.png 同規格),
+ * 借用 #arcadeGame 大面板(跟扛磚/推幣機同一套「大面板接管畫面」做法)。
+ * 玩法:畫面不定期閃警示(「教官往這邊看了」),要在時限內按空白鍵「低頭
+ * 裝作在抄筆記」;反應太慢算被抓到,連續撐過 PHONE_GAME.totalRounds 輪
+ * 才算僥倖沒被抓。抓到/沒抓到的獎懲數字沿用舊版數字沒動(星 −4/歸屬感
+ * −6 被抓;情緒 +6 沒被抓),只是判定方式從骰子換成手速。 */
+const PHONE_BG_IMG = new Image();
+PHONE_BG_IMG.src = '../assets/bg/school-phone.png';
+const PHONE_REACT_WINDOW = 650;   // ms,警示出現後要按下的時限,反應太慢算被抓
+const PHONE_GAME = { active:false, round:0, totalRounds:3, warning:false, warnT:0, sinceLast:0, nextWarnAt:0 };
+function startPhoneGame(){
   if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
   chg('stamina', -5); advanceTime(60);
-  if(Math.random() < 0.3){
-    chg('star', -4); chg('calm', -6);
-    say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
+  busy = true;
+  PHONE_GAME.active = true; PHONE_GAME.round = 0; PHONE_GAME.warning = false;
+  PHONE_GAME.sinceLast = 0; PHONE_GAME.nextWarnAt = 900 + Math.random()*1200;
+  agEl.classList.add('on');
+  agCap.textContent = '偷玩手遊';
+  agActions.innerHTML = '';
+  agBarEl.style.display = 'none';
+  agBody.innerHTML = '低頭滑手機——教官往這邊看的時候，按空白鍵假裝在抄筆記';
+  agDrawPhone();
+}
+function agDrawPhone(){
+  const w = agCanvas.width, h = agCanvas.height;
+  agCtx.clearRect(0,0,w,h);
+  if(PHONE_BG_IMG.naturalWidth) agCtx.drawImage(PHONE_BG_IMG, 0, 0, w, h);
+  else { agCtx.fillStyle = '#1c2027'; agCtx.fillRect(0,0,w,h); }
+  if(PHONE_GAME.warning){
+    agCtx.fillStyle = 'rgba(224,72,58,.22)'; agCtx.fillRect(0,0,w,h);
+    agCtx.textAlign = 'center'; agCtx.font = 'bold 26px "Noto Sans TC"';
+    agCtx.fillStyle = '#ffdede'; agCtx.shadowColor = 'rgba(224,72,58,.8)'; agCtx.shadowBlur = 12;
+    agCtx.fillText('教官往這邊看了！', w/2, 60);
+    agCtx.shadowBlur = 0;
+  }
+  agCtx.textAlign = 'left'; agCtx.font = '13px "Noto Sans TC"';
+  agCtx.fillStyle = 'rgba(255,255,255,.75)';
+  agCtx.fillText(`撐過 ${PHONE_GAME.round}/${PHONE_GAME.totalRounds} 輪`, 14, h-14);
+}
+function tickPhoneGame(dt){
+  if(!PHONE_GAME.active) return;
+  if(PHONE_GAME.warning){
+    PHONE_GAME.warnT += dt;
+    if(PHONE_GAME.warnT > PHONE_REACT_WINDOW){ resolvePhoneGame(false); return; }
   } else {
+    PHONE_GAME.sinceLast += dt;
+    if(PHONE_GAME.sinceLast >= PHONE_GAME.nextWarnAt){ PHONE_GAME.warning = true; PHONE_GAME.warnT = 0; }
+  }
+  agDrawPhone();
+}
+/* 空白鍵反應(2026-08-31)——攔在 keydown 的空白/enter 那個共用區塊裡,
+   見那段筆記。警示還沒亮的時候按空白鍵不算數(不用懲罰亂按,單純沒事
+   發生),避免玩家用連續狂按洗掉判定。 */
+function resolvePhoneReact(){
+  if(!PHONE_GAME.active || !PHONE_GAME.warning) return;
+  PHONE_GAME.warning = false;
+  PHONE_GAME.round++;
+  PHONE_GAME.sinceLast = 0; PHONE_GAME.nextWarnAt = 900 + Math.random()*1200;
+  if(PHONE_GAME.round >= PHONE_GAME.totalRounds){ resolvePhoneGame(true); return; }
+  agDrawPhone();
+}
+function resolvePhoneGame(success){
+  if(!PHONE_GAME.active) return;
+  PHONE_GAME.active = false;
+  agEl.classList.remove('on');
+  busy = false;
+  if(success){
     chg('mood', 6);
     toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
+  } else {
+    chg('star', -4); chg('calm', -6);
+    say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
   }
 }
 
@@ -4719,7 +4785,7 @@ function openIndoorSpot(id){
           chg('stamina', -10); chg('mood', -5); advanceTime(60);
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } },
-        { label:'偷玩手遊', cost:'體力 −5　1 小時　看教官', cls:'risk', run: playPhoneInClass },
+        { label:'偷玩手遊', cost:'體力 −5　1 小時　看教官', cls:'risk', run: startPhoneGame },
         { label:'不要', cls:'back', run(){} }
       ]);
     }
@@ -5295,6 +5361,9 @@ function updateIndoor(dt){
      跟下一段對話中間有一小段 busy/dlg.on 都是 false 的空檔,那段空檔方向鍵
      還是會動,所以要在這裡明講擋掉,不是繞個彎湊巧擋住)。 */
   if(PLACE === 'massage') return;
+  /* 偷玩手遊小遊戲進行中(2026-08-31)——跟下面 ARCADE_ANIM 那段同精神,
+     整段搶走輸入,每幀跑 tickPhoneGame() 算警示計時+重畫。 */
+  if(PHONE_GAME.active){ tickPhoneGame(dt); IN.near = null; return; }
   /* 機台演出/推幣機小遊戲進行中(2026-08-26,第二輪改成畫在 #arcadeGame
      大面板,見上面 agDrawSpin() 那則筆記)——整段搶走輸入,跟 walkTarget
      那段同一個精神。pusher 的指示條每幀來回跑(ping-pong,0~1 之間),
@@ -6199,6 +6268,7 @@ addEventListener('keydown', e => {
        dlg.on) return;`,pusher 進行中 busy 是 true,空白鍵會直接失效)。 */
     if(ARCADE_ANIM.active && ARCADE_ANIM.kind === 'pusher'){ resolvePusherLockIn(); return; }
     if(FOREMAN_GAME.active){ resolveForemanLockIn(); return; }
+    if(PHONE_GAME.active){ resolvePhoneReact(); return; }
     if(advanceDialog()) return;
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
@@ -6217,7 +6287,7 @@ addEventListener('keydown', e => {
      是遊藝場專用(會摸 ARCADE_GAMBLE.momEchoPending),ESC 不能在扛磚進行
      中誤觸——foremanShiftOn 全程(startForemanShift→endForemanShift)擋住,
      不是只擋 FOREMAN_GAME.active 那個「單趟計時中」的窄窗口。 */
-  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active && !foremanShiftOn && !troupeShiftOn) closeArcadeGame();
+  if(k === 'escape' && agEl.classList.contains('on') && !ARCADE_ANIM.active && !foremanShiftOn && !troupeShiftOn && !PHONE_GAME.active) closeArcadeGame();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
@@ -9103,6 +9173,7 @@ window.__dbg = {
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
   ARCADE_GAMBLE,
   KNOWLEDGE, studyGainKnowledge, askStudyQuestion,
+  PHONE_GAME, startPhoneGame,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
   lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
   /* 陣頭特價測試開關(2026-08-20),見 talkToAyi()/ayiBuyMenu() 那則筆記。
