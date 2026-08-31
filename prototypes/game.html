@@ -565,7 +565,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -979,6 +979,23 @@ document.getElementById('invClose').onclick = closeInventory;
    掛的話按鈕點下去會是「debugSkipDays is not defined」。 */
 function debugSkipDays(n){ day += n; syncHUD(); }
 window.debugSkipDays = debugSkipDays;
+/* 跳廟口按鈕(2026-08-31,kc:「記住 我不會打這種指令 再重來旁邊加按鈕
+   跳轉畫面」)——跟上面 +7天 同一個坑,不要再叫 kc 開 devtools 打
+   __dbg.at(...)。點了直接把角色傳到廟口(YUAN/FAT 那個定點),街上/室內
+   都能點。⚠ 室內時不能先呼叫 leaveIndoor() 再自己 set position——
+   leaveIndoor() 內部是 fade()(淡出淡入,非同步),它自己的 callback
+   最後也會把 hero 位置設到 returnTo.x/z,晚於這裡同步執行的 set(),
+   會把這裡指定的座標蓋回超商門口。改成先把 returnTo 改成廟口座標,
+   讓 leaveIndoor() 自己那套流程把人放到正確位置,不用跟它搶。 */
+function debugGotoTemple(){
+  if(MODE === 'indoor'){
+    returnTo.x = -6; returnTo.z = -84;
+    leaveIndoor();
+  } else {
+    hero.group.position.set(-6, .3, -84);
+  }
+}
+window.debugGotoTemple = debugGotoTemple;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -1137,7 +1154,13 @@ const WHO = {
   jiaoguan: { name:'教官', opt:{ face:'F', skin:'#c9a077', hair:'#232323', top:'#5c6a4a', topD:'#3f4a36', pants:'#2c3a2c' } },
   aren:     { name:'阿仁', opt:{ face:'F', skin:'#c9976e', hair:'#2c2420', top:'#f2f0ea', topD:'#d8d4c8', pants:'#28304a' } },
   /* 小美哥(2026-08-21)——警察制服深藍,跟其他角色的便服拉開差異。 */
-  brother:  { name:'小美哥', opt:{ face:'F', skin:'#c2a17e', hair:'#1c1c1c', top:'#2b3a52', topD:'#1e2a3c', pants:'#1c2430' } },
+  /* 2026-08-31,kc:「小美哥要自己的名字吧 還有頭像」——一路只用「小美哥」
+     這個關係代稱當正式名字掛在對話框名牌上,這輪補一個真的名字。挑
+     「阿正」:跟阿源/阿成/阿仁/阿凱同一套「阿+一字」街頭小名registry,
+     沒有跟現有角色撞名(grep 過 prototypes/ 全專案),「正」順便呼應他
+     警察身分,不是硬湊。id/變數名(BROTHER/'brother')不動,那是 code
+     內部代稱,跟玩家看到的名字是兩件事。 */
+  brother:  { name:'阿正', opt:{ face:'F', skin:'#c2a17e', hair:'#1c1c1c', top:'#2b3a52', topD:'#1e2a3c', pants:'#1c2430' } },
   /* 老師(2026-08-25)——沒有單獨的頭像照片(教室背景照 school-classroom.png
      裡他已經在講台上,但那是遠景合圖,不能裁大頭貼用,見 PORTRAIT_IMGS
      acheng/worker 那則筆記的先例:沒照片先退回 SF.person() 像素小人),
@@ -1215,7 +1238,13 @@ const PORTRAIT_IMGS = {
      亮,擋得掉,又不會咬到安全帽的黃)去背,不是這裡才第一次踩到「AI
      生圖工具自己的透明示意畫面被存成真的像素」這個坑,以後遇到同款
      棋盤格背景圖都可以先試同一支腳本。 */
-  foreman: loadPortraitImg('../assets/bg/foreman-portrait.png?v=1')
+  foreman: loadPortraitImg('../assets/bg/foreman-portrait.png?v=1'),
+  /* 阿正(2026-08-31)——先接資料,照片還沒生,跟 worker/bo/motoboss/foreman
+     當初同一套先例:檔案還沒存在時 img.naturalWidth 是 0,drawPortrait()
+     自動退回 SF.person() 像素小人,不會壞,kc 丟真的照片進來對話框會
+     自動換上,不用再回來改這裡。生圖 prompt 見這輪聊天紀錄,沒有寫進
+     PROMPTS.md(見 feedback_prompts_in_chat_not_md 那條慣例)。 */
+  brother: loadPortraitImg('../assets/bg/brother-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
@@ -6032,18 +6061,19 @@ function updateCity(dt){
      (靠近警察局)」)——原本要玩家自己走到他面前按空白鍵,天數到了但
      玩家那天沒想到要去警局就直接錯過那個節點。改成跟家裡劇情
      (maybeTriggerStoryNode,「他主動來找你,你躲不掉」)同一個精神,不用
-     玩家自己按互動鍵。半徑抓 10——比 WATCHJOB 那組「遠遠看到人影」的
-     16 窄(這裡是他站在門口直接攔下你,不是遠遠瞥一眼),比一般互動判定
-     3.2 寬(不用精準走到面前)。busy/dlg.on 兩個鎖都要空,避免打斷玩家
-     正在做的其他事(開著選單/已經在對話中)。第一次質問跟按天推進的四個
-     節點共用 talkToBrother() 同一份判斷邏輯,這裡只是換一個呼叫時機,
-     邏輯本身不用重寫;原本走到面前按空白鍵的互動路徑(interactProp()
-     'brother' 分支)沒有拿掉,平常日子(沒有節點要播)靠近他還是可以
-     主動聊閒聊句。 */
-  if(!busy && !dlg.on && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 10){
+     玩家自己按互動鍵。半徑原本抓 10,kc 現場測完反應「觸發範圍太小」,
+     這輪放大到 22(WATCHJOB 那組「遠遠看到人影」是 16,這裡再寬一點——
+     他是站在警局門口攔人,街上老遠看到玩家經過就會開口,不用真的走到
+     門口台階上)。busy/dlg.on 兩個鎖都要空,避免打斷玩家正在做的其他事
+     (開著選單/已經在對話中)。第一次質問跟按天推進的四個節點共用
+     talkToBrother() 同一份判斷邏輯,這裡只是換一個呼叫時機,邏輯本身
+     不用重寫;原本走到面前按空白鍵的互動路徑(interactProp() 'brother'
+     分支)沒有拿掉,平常日子(沒有節點要播)靠近他還是可以主動聊閒聊句。 */
+  if(!busy && !dlg.on && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
     if(MEI.together && !BROTHER.met) talkToBrother();
     else if(BROTHER.met && nextBrotherArcDay() != null) talkToBrother();
   }
+  syncBrotherArcPanel();
 
   /* 小胖的連續劇情(2026-08-31,見上面 FAT 那則長筆記+ checkFatArc())——
      跟 BROTHER 月長線同一招「靠近才自動觸發」,但小胖沒有 3D 模型可以
@@ -7510,6 +7540,39 @@ function brotherFinalGood(){ return ST.star >= 0 && KNOWLEDGE.rough >= 1 && !YUA
 function nextBrotherArcDay(){
   return BROTHER_ARC_DAYS.find(d => day >= d && !seenStoryDays.has('brother-'+d));
 }
+/* 任務面板提示(2026-08-31,kc 第一輪:「提示不夠,比如需要最高級知識0/1
+   之類的,當然不要強制要求玩家」→ 補了『讀書 0/1、風評不夠』這版,kc
+   測完第二輪嫌太不明顯,三個具體毛病:①「讀書」講太籠統,場上讀書系統
+   本來就有正式物品名(小知識碎片→略懂書本內容→精通知識三階,見上面
+   K_ENTRIES 那個表),要講就講對名字,不要自己發明一個模糊詞;②風評
+   「不夠」沒講清楚要多少才算夠,要秀出目標門檻(跟 rough 那個 0/1 進度
+   同一種格式);③一定要註明這不是任務門檻、不會卡玩家,只是決定小美哥
+   day24/30 那兩段劇情走哪個分支。
+   門檻數字直接對齊 brotherFinalGood() 真正在判的兩個值(rough≥1、
+   star≥0),不是另外編好記的假數字——標籤用「略懂書本內容」(K_ENTRIES
+   裡 rough 那階的正式物品名),不是自創的「讀書」。風評這裡例外顯示
+   精確數字(跟現在/目標門檻做「x/0」格式,呼應知識那半的 x/1),不是
+   之前想避免跟 HUD 重複的「及格/不夠」——kc 明確要「風評要多少才對」,
+   精確數字比方向性判斷更符合這個要求,寧可跟 HUD 的風評條資訊重疊一點,
+   也不要讓玩家猜門檻在哪。BROTHER.met 之後、四個節點還沒全部播完之前
+   都顯示,day30 播完自動消失。 */
+function brotherArcActive(){
+  return MEI.together && BROTHER.met && !BROTHER_ARC_DAYS.every(d => seenStoryDays.has('brother-'+d));
+}
+function syncBrotherArcPanel(){
+  const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'brother-arc');
+  if(!brotherArcActive()){
+    if(idx >= 0){ ACTIVE_QUESTS.splice(idx, 1); renderQuestPanel(); }
+    return;
+  }
+  const hint = `略懂書本內容 ${KNOWLEDGE.rough}/1、風評 ${ST.star}/0（不是任務門檻，會決定阿正後面怎麼待你）`;
+  if(idx >= 0){
+    if(ACTIVE_QUESTS[idx].hint !== hint){ ACTIVE_QUESTS[idx].hint = hint; renderQuestPanel(); }
+  } else {
+    ACTIVE_QUESTS.push({ id:'brother-arc', title:'阿正的觀察', hint });
+    renderQuestPanel();
+  }
+}
 function talkToBrother(){
   const D = NpcSchool.BROTHER;
   if(!MEI.together){ say('brother', D.idleBefore[Math.random()*D.idleBefore.length|0]); return; }
@@ -8539,6 +8602,7 @@ window.__dbg = {
     return MODE;
   },
   at(x, z){ hero.group.position.set(x, .3, z); return `已移到 (${x}, ${z})`; },
+  pos(){ return { x: hero.group.position.x, y: hero.group.position.y, z: hero.group.position.z, mode: MODE }; },
   near(x, z, r){ return scene.children.filter(o => o.isMesh && Math.hypot(o.position.x-x, o.position.z-z) < (r||3))
     .map(o => ({ pos:[+o.position.x.toFixed(2),+o.position.y.toFixed(2),+o.position.z.toFixed(2)],
                  rot:[+o.rotation.x.toFixed(3),+o.rotation.y.toFixed(3),+o.rotation.z.toFixed(3)],
