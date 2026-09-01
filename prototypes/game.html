@@ -2418,9 +2418,9 @@ function syncMiscQuestPanel(){
      永安公車站,任何時候都能去找她,所以「還沒解決」直接當「進行中」。 */
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'axia');
   if(!AXIA.resolved){
-    const hint = ridingMoto
-      ? '騎車經過永安公車站，載阿霞一程'
-      : '去永安公車站找阿霞——給她計程車錢，或有機車的話載她一程';
+    const hint = axiaRiding ? '載阿霞去中華路，到了按空白鍵下車'
+      : ridingMoto ? '騎車經過永安公車站，載阿霞去中華路'
+      : '去永安公車站找阿霞——給她計程車錢，或有機車的話載她去中華路';
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'axia', title:'阿霞等公車', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
@@ -5352,6 +5352,13 @@ function openIndoorSpot(id){
     else if(id === 'kai'){ talkToKai(); return; }
     else if(id === 'bookshelf'){ lookAtBookshelf(); return; }
     else if(id === 'desk'){
+      /* 2026-09-01,kc 糾正兩輪:第一輪「應該是點書桌的時候就會提示 課堂
+         時間已經過了」——把提示從選單裡逐項變灰改成點書桌當下就講。
+         第二輪「是對話選單 不會有不要的選項了」——連「開一個只剩不要
+         按鈕的選單」都不對,今天已經做過的話直接是一句對話(say()),
+         不開 openMenu(),沒有選單框、沒有「不要」可按,按空白鍵關掉就
+         結束互動。 */
+      if(deskActionDay === day){ say('pc', '課堂時間已經過了。'); return; }
       openMenu('座位', [
         /* 讀書扣情緒(2026-08-26,kc:「讀書工作本身會扣情緒」)——見
            DESIGN_NOTES「情緒會影響什麼」那節,情緒 −5 跟結帳算錯同一個
@@ -5361,12 +5368,21 @@ function openIndoorSpot(id){
            文字。偷玩手遊的結果是機率性的(resolvePhoneReact() 撐過去才算
            成功),沒辦法保證拿到,補一句「成功/被抓」對照,不是寫死一個
            保證到手的數字。 */
-        { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1 小時　答對 +知識', cls: ST.stamina<=0?'bad':'', run:() => {
+        { label:'認真上課',
+          cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1 小時　答對 +知識',
+          cls: ST.stamina<=0 ? 'bad' : '', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+          deskActionDay = day;
           chg('stamina', -10); chg('mood', -5); advanceTime(60);
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } },
-        { label:'偷玩手遊', cost:'體力 −5　1 小時　成功 +情緒／被抓 −風評−歸屬感', cls:'risk', run: startPhoneGame },
+        { label:'偷玩手遊',
+          cost:'體力 −5　1 小時　成功 +情緒／被抓 −風評−歸屬感',
+          cls:'risk', run:() => {
+          if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+          deskActionDay = day;
+          startPhoneGame();
+        } },
         /* 小考換成績單(2026-09-01,見上面 maybeAnnounceExam() 那則長筆記)——
            選單裡只有「老師已經宣布過、而且不是宣布的當次進教室」才會出現
            這個選項,宣布前/宣布當次都直接不列(用 filter(Boolean) 濾掉
@@ -5722,6 +5738,11 @@ let workedDay = -1;   // 上次上班是哪一天,見上面「上班」選單那
  * 提醒、正常結算。改回 -1(任何合法 day 值都不會等於它),第一天就會
  * 跟之後每一天同一套規則走,沒有特殊放水。 */
 let lastSchoolDay = -1;
+/* 座位一天只能做一件事(2026-09-01,kc:「一天只能上一次課或玩一次手機」)
+   ——「認真上課」「偷玩手遊」共用同一個旗標,選了其中一個,今天回來
+   座位兩個都變灰,不是各自獨立算一次。不影響「考小考」/「補考」(那兩個
+   本來就各自被公告週期卡住,不是每天能重複點的日常選項)。 */
+let deskActionDay = -1;
 /* 體力低於 50 又還沒去學校的提醒(2026-08-21,kc:「體力如果低於50會
  * 提醒今天還沒去上學呢」)——跟 lastSchoolDay 同一套「記今天有沒有做過」
  * 旗標,擋掉一天只跳一次,不是體力每掉一點就跳一次吵死人。判斷點放在
@@ -7384,9 +7405,9 @@ function updateCity(dt){
   if(!AXIA.resolved && !AXIA.rideAsked && ridingMoto && !dlg.on && !busy &&
      Math.hypot(pos.x-AXIA.x, pos.z-AXIA.z) < 6){
     AXIA.rideAsked = true;
-    say('axia', '「咦——你有機車？」她看了一眼末班車時刻表，又看看你。「載我一程好不好？」', () => {
+    say('axia', '「咦——你有機車？」她看了一眼末班車時刻表，又看看你。「載我到中華路那邊好不好？我家巷子在那附近，不會很遠。」', () => {
       openMenu('阿霞', [
-        { label:'載她一程', cls:'', run(){ startAxiaRide(); } },
+        { label:'載她去中華路', cls:'', run(){ startAxiaRide(); } },
         { label:'「不順路欸。」', cls:'back', run(){
             say('axia', '「喔……好啦，沒關係。」她轉回頭繼續看時刻表。');
           } }
@@ -7506,7 +7527,7 @@ function mountMoto(m){
 function startAxiaRide(){
   axiaRiding = true;
   AXIA_NPC.mountRide();
-  toast('她坐上後座，手搭著你的肩膀。', 2400);
+  toast('她坐上後座，手搭著你的肩膀。「中華路那邊就好，謝謝你。」', 2600);
 }
 function dismountMoto(){
   const m = ridingMoto; if(!m) return;
@@ -7546,7 +7567,7 @@ function talkToAxia(){
   }
   say('axia', '「末班車……我看是搭不到了齁。」她手上拎著打包的晚餐廚餘，一臉下班的疲態。', () => {
     openMenu('阿霞', [
-      { label:'載她一程', cls:'', run(){
+      { label:'載她去中華路', cls:'', run(){
           if(ridingMoto) startAxiaRide();
           else say('axia', '「你有車再說吧。」她笑了一下，搖搖頭。');
         } },
@@ -10104,6 +10125,7 @@ window.__dbg = {
   examAnnouncedDay: (n) => { if(n != null) examAnnouncedDay = n; return examAnnouncedDay; },
   makeupAnnouncedDay: (n) => { if(n != null) makeupAnnouncedDay = n; return makeupAnnouncedDay; },
   openIndoorSpot, TEACHER_STATE, BOOKSHELF_CLUES, talkToTeacher, maybeRemindAid,
+  deskActionDay: (n) => { if(n != null) deskActionDay = n; return deskActionDay; },
   gotTranscript: (v) => { if(v != null) gotTranscript = v; return gotTranscript; },
   PHONE_GAME, startPhoneGame, PHONE_BG_IMG, SCHOOL_STUDY_IMG, imgReady,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
