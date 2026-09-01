@@ -720,6 +720,29 @@ let gotTranscript = false;
    makeupAnnouncedDay 通過/沒通過都會在 askMakeupExam() 結算時收回 -1、
    同時把 lastExamDay 重設成今天,讓小考的冷卻期重新起算,不會卡死。 */
 let makeupAnnouncedDay = -1;
+/* 清寒補助延遲撥款(2026-09-01,見 TEACHER_STATE/talkToTeacher() 那組
+   筆記)——跟小考/補考公告同一招:進教室自動檢查,不用玩家自己想到要
+   去找老師領。塞進 maybeAnnounceExam() 的 after 鏈尾端,只在這次沒有
+   撞到小考/補考公告時才會檢查,避免兩個自動彈出的對話疊在一起。
+   2026-09-01 第三輪,kc 糾正:「是進去教室後 老師會主動叫你過去」——上一輪
+   拆成「進教室只提醒、要另外去找老師才拿得到錢」理解錯了方向,實際上
+   一步到位:進教室當下老師就主動叫過去、當場給信封,不用玩家事後再多走
+   一趟。payAidNow() 抽成獨立函式,talkToTeacher() 保留同一段當安全網
+   (萬一玩家在到期日之後是先主動找老師講話、還沒先進過教室觸發這段,
+   一樣拿得到,不會卡住)。 */
+const AID_WAIT_DAYS = 30;
+function payAidNow(){
+  TEACHER_STATE.aidPaid = true;
+  playBeats([
+    { who:'teacher', text:'「欸，你過來一下。」' },
+    { who:'teacher', text:'他從抽屜裡翻出一個信封，遞給你。' },
+    { who:'teacher', text:'「補助下來了，拿去。」' }
+  ], 0, () => { chg('money', 1000); toast('清寒補助入帳了。（$+1000）', 3000); });
+}
+function maybeRemindAid(){
+  if(!(TEACHER_STATE.aidApplied && !TEACHER_STATE.aidPaid && day >= TEACHER_STATE.aidDueDay)) return;
+  payAidNow();
+}
 function maybeAnnounceExam(){
   if(makeupAnnouncedDay >= 0) return;
   if(examAnnouncedDay >= 0 && !gotTranscript && (day - examAnnouncedDay) >= EXAM_COOLDOWN_DAYS){
@@ -731,7 +754,9 @@ function maybeAnnounceExam(){
   if(examAnnouncedDay < 0 && !owned.includes('transcript') && (day - lastExamDay) >= EXAM_COOLDOWN_DAYS){
     examAnnouncedDay = day;
     say('teacher', '「下次上課要小考，自己看著辦。」');
+    return;
   }
+  maybeRemindAid();
 }
 /* 補考的解題流程(2026-09-01)——跟 askStudyQuestion() 共用同一套 UI
    元件(coFade/coShowOptions/coShuffle/dName/dTx/coOpts),但判定規則不同:
@@ -1548,6 +1573,10 @@ const WHO = {
      worker 同一套「沒有真人照片,退回 SF.person() 像素小人」的做法,見上面
      PORTRAIT_IMGS 表的說明。 */
   customer:{ name:'客人', opt:{ face:'F', skin:'#c2a17e', hair:'#2c2622', top:'#3a4a5c', topD:'#2b3542', pants:'#2b2b2b' } },
+  /* 阿霞(永安公車站,2026-09-01)——顏色跟街上那具 AXIA_NPC buildNPC()
+     同步(rig f2),沒有真人照片,退回 SF.person() 像素小人,跟 worker/bo/
+     motoboss 同一套先例。 */
+  axia: { name:'阿霞', opt:{ face:'F', skin:'#c2a17e', hair:'#3a2e26', top:'#5c4a3a', topD:'#3a2e26', pants:'#232323' } },
   /* 刺青店師傅(2026-08-28)——顏色直接借 scene-tattoo.js 的 P.mSkin/mHair/
      mTop/mTopD/mPants(那份場景資料本來就有替他準備一套配色,見
      SceneTattoo.P),沒有真人照片,退回 SF.person() 像素小人,跟
@@ -1640,6 +1669,17 @@ function say(who, text, after){
   dlg = { on:true, full:text, shown:0, timer:0, done:false, after:after||null };
   dTx.textContent = ''; dCaret.classList.remove('on'); dlgEl.classList.add('on');
 }
+/* 公告/新聞/告示這種「唸一段長文字」的場景改成手動關(2026-09-01,kc:
+   「這種彈出來的公告 我希望用戶讀完之後再按空白鍵不要自己消失 比如書架
+   那邊的新聞之類」)——書架社會新聞/政府公告、走失狗協尋雜誌、雕像牌子
+   這幾則原本是塞進 toast() 用計時器(3600~5600ms)自動消失,文章長、
+   讀得慢的話字都還沒讀完就不見了。改成借用 say() 那套對話框:傳
+   who:'pc' 加上文字開頭不是「,會自動套用既有的旁白模式(isNarrationLine,
+   隱藏頭像/名牌),空白鍵按一次跳完打字機、再按一次才真的關掉,不再靠
+   計時器,讀多久都可以。原本接在計時器後面的「要不要去問問看」那種
+   短提示,改成 say() 的 after callback,讀完公告關掉之後才會跳出來,
+   不是跟公告本身疊在一起搶畫面。 */
+function readNotice(text, after){ say('pc', text, after); }
 function tickDialog(dt){
   if(!dlg.on || dlg.done) return;
   dlg.timer += dt;
@@ -2164,7 +2204,10 @@ const AREN     = { x:45, z:-22,   offered:false };
 /* 導師的清寒補助(2026-08-26,kc:「書架上有廣告可以去找老師申請清寒家庭
    補助」)——狀態放這裡,跟其他學校角色的旗標放一起,見下面 talkToTeacher()
    的判斷跟 lookAtBookshelf()。 */
-const TEACHER_STATE = { aidApplied:false };
+/* aidDueDay/aidPaid(2026-09-01,kc:「下個月會播下來 怎麼馬上就加一千了
+   應該是...改下個月」)——申請當下不再馬上撥款,見 talkToTeacher()/
+   maybeRemindAid() 那組筆記。 */
+const TEACHER_STATE = { aidApplied:false, aidDueDay:-1, aidPaid:false };
 /* 書架線索(2026-08-26,kc:「裡面會有一些廣告或新聞,比如可以去找老師申請
    清寒家庭補助,然後新聞就是旺宏老闆之前做過的壞事,讀完新聞後可以回去
    問老闆」)——前兩次翻書架固定翻到這兩樣東西,不是隨機(順序:先補助
@@ -2819,6 +2862,22 @@ function tweakStatuePedsPanel(){
     });
   });
 }
+/* 阿霞(永安公車站,2026-09-01,kc:「這邊的路人我希望有一些專屬對話甚至
+   任務」→「中量」)——自助餐打工的中年阿姨,晚班下班要搭車回家,呼應
+   這站「班次爛」的既定設定(公共建設寒酸)。原本是公車站三個純背景路人
+   之一(rig:'f2',x:-31.2,z:104),挑她是因為 f2 這副骨架有 sit 動畫
+   (MODELS.f2.sit,見 scene-city3d.js MODELS registry——m2 那隻沒有 sit,
+   不能拿來做這條),不是隨便選的。走近按空白鍵:講她的處境,選項「給
+   計程車錢」($50,解決,不會再觸發)或「先走了」(不解決,隔天再路過
+   還是會講同一句)。**騎機車經過**(ridingMoto)另外觸發一次「載她一程」
+   邀請(跟 MEI.rideAsked 那條「小美騎車搭話」同一招),選了之後她真的
+   坐上後座(mountRide()/setRideTransform(),見 scene-city3d.js buildNPC()
+   那組新函式+下面 updateCity() 的逐幀同步),下車(dismountMoto())時
+   結算。兩條路都能讓 AXIA.resolved 變 true,彼此獨立、不衝突。 */
+const AXIA = { x:-31.2, z:104, resolved:false, rideAsked:false };
+const AXIA_NPC = buildNPC(THREE, scene, { x:AXIA.x, z:AXIA.z, rotationY:Math.PI*.85, rig:'f2',
+  skin:'#c2a17e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' });
+
 const PEDESTRIANS = [
   // 超商 ⇄ 機車行,各停 3 秒——中間 (-6.5,-11) 是繞開路燈柱的轉角點
   buildNPC(THREE, scene, { x:-12, z:-13.6, path:[[-12,-13.6,3000],[-6.5,-11],[3,-13,3000]], rig:'m',
@@ -2892,8 +2951,7 @@ const PEDESTRIANS = [
     skin:'#c9a077', hair:'#241f1c', hood:'#4a3a5c', pants:'#333333', shoe:'#4a4038' }),
   buildNPC(THREE, scene, { x:-36.4, z:104, rotationY:Math.PI*1.05, rig:'m2',
     skin:'#b98a63', hair:'#3a3128', hood:'#3a4a5c', pants:'#26241f', shoe:'#3a3430' }),
-  buildNPC(THREE, scene, { x:-31.2, z:104, rotationY:Math.PI*.85, rig:'f2',
-    skin:'#c2a17e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' })
+  AXIA_NPC   // 第三隻(原本這裡是匿名 f2 路人)換成有名字/對話/任務的阿霞,見上面 AXIA 那則筆記
 ];
 NPCS.push(...PEDESTRIANS);
 
@@ -6896,6 +6954,13 @@ let ridingMoto = null;
 const MOTO_MULT = 3.2;
 const MOTO_SEAT_OFFSET = 0.75;   // 2026-08-17 定案值(正值 = 往後輪方向)
 const MOTO_SEAT_Y = 0.95;        // 同上,座墊高度
+/* 後座乘客(2026-09-01,阿霞任務)——PASSENGER_SEAT_OFFSET 是「乘客站在
+   騎士後方多遠」(沿騎士朝向的反方向,單位/方向跟 MOTO_SEAT_OFFSET 同一套
+   算法,只是往後不是往前),PASSENGER_SEAT_Y 是座墊高度,先抓跟騎士同高
+   當初始值,數字都還沒定案——kc:「新增動畫好了...我在調整位置就好 你
+   開給我調」,見下面 __dbg.tweakPassengerSeat()。 */
+let PASSENGER_SEAT_OFFSET = 1.4, PASSENGER_SEAT_Y = 0.95;
+let axiaRiding = false;
 /* 買機車(2026-08-17,kc 要求「只有機車行能買,騎別人的扣風評」)——
    MOTO_PRICE 是我先湊的數字,沒跟 kc 對過,價位刻意訂得比現在身上的錢
    ($63)高一大截,呼應這遊戲「想翻身但每條路都關著」的基準線(見
@@ -7118,6 +7183,15 @@ function updateCity(dt){
     ridingMoto.group.rotation.y = hero.group.rotation.y;
   }
 
+  /* 阿霞後座(2026-09-01)——跟上面機車本身的同步同一招,往騎士朝向的
+     反方向(-fx/-fz)退 PASSENGER_SEAT_OFFSET,不是往前——騎士在前座、
+     乘客在後座。setRideTransform() 只負責套用,算座標的邏輯留在呼叫端,
+     跟 scene-city3d.js 那邊的分工說明一致。 */
+  if(axiaRiding){
+    const fx = Math.sin(hero.group.rotation.y), fz = Math.cos(hero.group.rotation.y);
+    AXIA_NPC.setRideTransform(pos.x - fx*PASSENGER_SEAT_OFFSET, PASSENGER_SEAT_Y, pos.z - fz*PASSENGER_SEAT_OFFSET, hero.group.rotation.y);
+  }
+
   if(ridingMoto){
     /* 座墊高度,數字來源見上面 MOTO_SEAT_Y 那行註解。 */
     pos.y += (MOTO_SEAT_Y - pos.y) * .3;
@@ -7274,6 +7348,22 @@ function updateCity(dt){
       ]);
     });
   }
+  /* 阿霞・載她一程(2026-09-01)——跟上面 MEI.rideAsked 同一招,騎車經過
+     公車站才會問(不是走近就問,走近按空白鍵是 talkToAxia() 那條不同的
+     入口,見 interactProp() pedestrian 分支)。resolved 之後(不管是搭
+     計程車還是已經載過)兩條路都不會再觸發。 */
+  if(!AXIA.resolved && !AXIA.rideAsked && ridingMoto && !dlg.on && !busy &&
+     Math.hypot(pos.x-AXIA.x, pos.z-AXIA.z) < 6){
+    AXIA.rideAsked = true;
+    say('axia', '「咦——你有機車？」她看了一眼末班車時刻表，又看看你。「載我一程好不好？」', () => {
+      openMenu('阿霞', [
+        { label:'載她一程', cls:'', run(){ startAxiaRide(); } },
+        { label:'「不順路欸。」', cls:'back', run(){
+            say('axia', '「喔……好啦，沒關係。」她轉回頭繼續看時刻表。');
+          } }
+      ]);
+    });
+  }
 
   if(nearDoor && !busy && !dlg.on){
     hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> 進去';
@@ -7380,6 +7470,15 @@ function mountMoto(m){
     toast('騎上別人的車——不是你的,先別想太多。', 2000);
   }
 }
+/* 阿霞真的坐上後座(2026-09-01)——呼叫 scene-city3d.js buildNPC() 那組
+   新函式讓她的骨架借同一副 rig 的 sit 動畫+疊跨坐姿,座標/朝向每幀在
+   updateCity() 裡用 PASSENGER_SEAT_OFFSET/PASSENGER_SEAT_Y 算好丟給她
+   (見 setRideTransform() 呼叫處),這裡只負責啟動。 */
+function startAxiaRide(){
+  axiaRiding = true;
+  AXIA_NPC.mountRide();
+  toast('她坐上後座，手搭著你的肩膀。', 2400);
+}
 function dismountMoto(){
   const m = ridingMoto; if(!m) return;
   const pos = hero.group.position;
@@ -7391,7 +7490,71 @@ function dismountMoto(){
   motoMountPos = null;
   m.x = pos.x; m.z = pos.z;                     // 車停在下車當下的位置,不是彈回原地
   m.ridden = false; ridingMoto = null;
+  /* 阿霞下車結算(2026-09-01)——跟一般下車共用同一個時機點,她的結算
+     文字優先顯示,不疊兩則 toast(toast() 是單一插槽,連續呼叫兩次只會
+     看到後面那則,直接 return 跳過下面那句一般的「把車停好」)。 */
+  if(axiaRiding){
+    axiaRiding = false;
+    AXIA_NPC.dismountRide();
+    AXIA.resolved = true;
+    chg('calm', 10);
+    toast('「謝謝你載我一程，路上小心。」她朝你揮揮手，走進巷子裡。（歸屬感 +10）', 2800);
+    return;
+  }
   toast(joyrode ? '騎了一圈,風吹過來整個人鬆一點。把車停好,下車走路。' : '把車停好,下車走路。', 1600);
+}
+/* 阿霞・走近按空白鍵(2026-09-01)——跟騎車經過的「載她一程」邀請
+   (見上面 AXIA.rideAsked 那段)是兩個獨立入口,這條給不騎車、純走過去
+   的玩家用,選項是給錢解決或先走。resolved 之後(不管走哪條路)固定
+   回一句,不會再開選單。 */
+function talkToAxia(){
+  if(AXIA.resolved){
+    toast('「謝謝你那天啊。」她笑了笑，繼續等車。', 2200);
+    return;
+  }
+  say('axia', '「末班車……我看是搭不到了齁。」她手上拎著打包的晚餐廚餘，一臉下班的疲態。', () => {
+    openMenu('阿霞', [
+      { label:'給她計程車錢', cls:'', cost:'-$50', disabled: ST.money < 50, run(){
+          chg('money', -50); chg('calm', 4);
+          AXIA.resolved = true;
+          toast('「這樣就好，謝謝你。」她轉身走進暗處攔車。（$-50，歸屬感 +4）', 2600);
+        } },
+      { label:'「先走了。」', cls:'back', run(){} }
+    ]);
+  });
+}
+/* 後座位置滑桿(2026-09-01,kc:「新增動畫好了...我在調整位置就好 你開
+   給我調」)——調的是 PASSENGER_SEAT_OFFSET/PASSENGER_SEAT_Y 這兩個
+   let 變數,跟上面 updateCity() 裡「每幀重算 setRideTransform()」直接
+   讀同一份變數,滑桿一拖動畫面立刻跟著變,不用額外的 apply()。要能看到
+   效果得先真的在騎乘中(axiaRiding),所以下面另外開一個
+   __dbg.axiaTestRide() 方便現場測,不用真的滿足「有機車+騎車經過她」
+   這串前置條件。 */
+function tweakPassengerSeatPanel(){
+  const old = document.getElementById('passengerSeatTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['ps_off','後座前後距離(往後退多遠)', 0, 3, 0.02, () => PASSENGER_SEAT_OFFSET, v => PASSENGER_SEAT_OFFSET = v],
+    ['ps_y','座墊高度', 0.3, 1.6, 0.02, () => PASSENGER_SEAT_Y, v => PASSENGER_SEAT_Y = v]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'passengerSeatTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">後座位置滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">還沒在騎乘阿霞的話先打 __dbg.axiaTestRide()<br>關掉:再打一次 __dbg.tweakPassengerSeat()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,, set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value;
+      set(v);
+      document.getElementById(`${id}_v`).textContent = v.toFixed(2);
+    });
+  });
 }
 /* 跟機車行買車(2026-08-17)——m.forSale 那台才會走這條,其餘車(包括這台
    買下之前)按空白鍵直接是 mountMoto(),見下面 interactProp() 那段判斷。
@@ -8322,8 +8485,8 @@ const TATTOO_DOG = { newsFound:false, revealed:false, active:false, found:false,
 function lookAtWaitingMagazine(){
   if(!TATTOO_DOG.newsFound){
     TATTOO_DOG.newsFound = true;
-    toast('【協尋】黑棕色米克斯，走失於永安街\n\n上禮拜在永安街巷口不見的，脖子上有咖啡色項圈，怕生但不會咬人。有看到的話拜託通知張貼者，會付謝金。\n\n雜誌那一角被原子筆用力圈起來，圈的人看起來很急。', 5000);
-    setTimeout(() => toast('要不要問問老闆看過這隻狗嗎？', 2600), 5200);
+    readNotice('【協尋】黑棕色米克斯，走失於永安街\n\n上禮拜在永安街巷口不見的，脖子上有咖啡色項圈，怕生但不會咬人。有看到的話拜託通知張貼者，會付謝金。\n\n雜誌那一角被原子筆用力圈起來，圈的人看起來很急。',
+      () => toast('要不要問問老闆看過這隻狗嗎？', 2600));
     return;
   }
   toast('塑膠椅上放著一本翻爛的雜誌，茶几上還有喝到一半的飲料。', 2600);
@@ -8521,15 +8684,24 @@ function talkToTeacher(){
      跟我說要多少。 */
   if(BOOKSHELF_CLUES.tuitionAdFound && !TEACHER_STATE.aidApplied){
     TEACHER_STATE.aidApplied = true;
+    /* 2026-09-01,kc 糾正:「下個月會播下來 怎麼馬上就加一千了」——申請
+       當下只是送件,不是現領。撥款延到 AID_WAIT_DAYS(30 天,呼應台詞
+       「下個月」,天數是我自己抓的)之後,下一次進教室由 maybeRemindAid()
+       自動提醒+入帳,見那則筆記。 */
+    TEACHER_STATE.aidDueDay = day + AID_WAIT_DAYS;
     playBeats([
       { who:'pc',      text:'「老師，我想申請清寒家庭補助。」' },
       { who:'teacher', text:'他愣了一下，翻了翻抽屜，找出一疊表格。' },
       { who:'teacher', text:'「早該來申請了。」他邊蓋章邊說，沒有多問什麼。' },
       { who:'teacher', text:'「下個月會撥下來，先去忙你的。」' }
-    ], 0, () => {
-      chg('money', 1000);
-      toast('補助申請下來了。（$+1000）', 3000);
-    });
+    ], 0, () => toast('申請送出了，下個月會撥下來。', 3000));
+    return;
+  }
+  /* 安全網(2026-09-01)——正常流程是 maybeRemindAid() 一進教室就自動叫過去
+     當場給信封(見那則筆記),這裡只防萬一玩家到期日之後是先主動找老師
+     講話、還沒先進過一次教室觸發那段,一樣拿得到,不會卡住。 */
+  if(TEACHER_STATE.aidApplied && !TEACHER_STATE.aidPaid && day >= TEACHER_STATE.aidDueDay){
+    payAidNow();
     return;
   }
   say('teacher', D.idleTalk[Math.random()*D.idleTalk.length|0]);
@@ -8560,17 +8732,17 @@ function lookAtBookshelf(){
     { label:'社會新聞區', run(){
         if(!BOOKSHELF_CLUES.motoNewsFound){
           BOOKSHELF_CLUES.motoNewsFound = true;
-          toast('【中華路收保護費案　三嫌到案】\n\n（記者　林○○／中華路報導）中華路一帶多間店家上月接連接獲不明人士恐嚇取財，要求按月繳交「保護費」，不從即揚言砸店。警方獲報後埋伏跟監，前日將三名嫌犯當場逮捕，主嫌供稱姓名「旺鴻」，年僅二十出頭，訊後依恐嚇取財罪嫌移送法辦。\n\n你盯著那個名字看了很久——跟機車行老闆同名同姓，年紀也對得上。', 5600);
-          setTimeout(() => toast('要不要回去問問旺鴻？', 2600), 5800);
+          readNotice('【中華路收保護費案　三嫌到案】\n\n（記者　林○○／中華路報導）中華路一帶多間店家上月接連接獲不明人士恐嚇取財，要求按月繳交「保護費」，不從即揚言砸店。警方獲報後埋伏跟監，前日將三名嫌犯當場逮捕，主嫌供稱姓名「旺鴻」，年僅二十出頭，訊後依恐嚇取財罪嫌移送法辦。\n\n你盯著那個名字看了很久——跟機車行老闆同名同姓，年紀也對得上。',
+            () => toast('要不要回去問問旺鴻？', 2600));
           return;
         }
-        toast(SOCIAL_NEWS_ITEMS[Math.random()*SOCIAL_NEWS_ITEMS.length|0], 4600);
+        readNotice(SOCIAL_NEWS_ITEMS[Math.random()*SOCIAL_NEWS_ITEMS.length|0]);
       } },
     { label:'政府公告區', run(){
         if(!BOOKSHELF_CLUES.tuitionAdFound){
           BOOKSHELF_CLUES.tuitionAdFound = true;
-          toast('【公告】清寒家庭子女助學金申請須知\n\n一、申請資格：本校在學學生，家庭經濟因素符合低收入戶／中低收入戶標準，或經導師認定確有清寒事實者。\n二、應備文件：申請表、戶籍謄本、低收入戶證明（或導師推薦函）。\n三、受理窗口：輔導室。\n\n你把公告看了一遍，截止日期那一欄被撕掉了一半，只看得到「本學期」三個字。', 5600);
-          setTimeout(() => toast('要不要找老師問問看？', 2600), 5800);
+          readNotice('【公告】清寒家庭子女助學金申請須知\n\n一、申請資格：本校在學學生，家庭經濟因素符合低收入戶／中低收入戶標準，或經導師認定確有清寒事實者。\n二、應備文件：申請表、戶籍謄本、低收入戶證明（或導師推薦函）。\n三、受理窗口：輔導室。\n\n你把公告看了一遍，截止日期那一欄被撕掉了一半，只看得到「本學期」三個字。',
+            () => toast('要不要找老師問問看？', 2600));
           return;
         }
         toast(D.idleTalk[Math.random()*D.idleTalk.length|0], 3000);
@@ -9592,7 +9764,7 @@ function interactProp(prop){
   if(prop.type === 'kai'){ talkToKai(); return; }
   if(prop.type === 'foreman'){ talkToForeman(); return; }
   if(prop.type === 'statue'){
-    toast('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。', 3600);
+    readNotice('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。');
     return;
   }
   /* 功德箱(2026-08-26)——見上面 ALTAR 那則筆記。丟錢/拿錢兩個方向都是
@@ -9701,6 +9873,10 @@ function interactProp(prop){
     /* statueLine(2026-08-20):圓環雕像旁那隻路人專屬台詞,優先於下面的
        共用池——不受風評檔位影響,他講的是雕像的來歷,不是關於玩家的閒話。 */
     if(prop.ref.statueLine){ toast(prop.ref.statueLine, 3200); return; }
+    /* 阿霞(2026-09-01)——同一招,身分比對用 prop.ref === AXIA_NPC(她沒有
+       statueLine 那種掛在資料上的固定台詞,對話要開選單,所以另外呼叫
+       talkToAxia() 而不是單純 toast)。 */
+    if(prop.ref === AXIA_NPC){ talkToAxia(); return; }
     /* 風評 <=-10 才會扯到家人(2026-08-19 kc 從 -40 改成 -10,門檻拉低,
        家人話題更容易觸發),-10~0 之間只是冷淡防備,>=0 維持原本的閒聊。
        聽到最難聽那檔扣一點心情,呼應「這種話真的會傷人」,不是聽聽就算了。 */
@@ -9831,6 +10007,22 @@ window.__dbg = {
   tweakBusStopWall: tweakBusStopWallPanel,
   tweakBusStopBoards: tweakBusStopBoardsPanel,
   tweakBusStopProps: tweakBusStopPropsPanel,
+  tweakPassengerSeat: tweakPassengerSeatPanel,
+  /* 阿霞後座測試開關(2026-09-01)——不用真的滿足「有機車+騎車經過她」
+     這串前置條件就能現場測後座位置,跟 troupeTest()/spotWatchJob() 同一
+     個理由。 */
+  axiaTestRide(){
+    axiaRiding = true;
+    AXIA_NPC.mountRide();
+    return '阿霞上車測試中,打 __dbg.tweakPassengerSeat() 開滑桿調位置,測完打 __dbg.axiaTestStop() 恢復。';
+  },
+  axiaTestStop(){
+    axiaRiding = false;
+    AXIA_NPC.dismountRide();
+    AXIA_NPC.group.position.set(AXIA.x, .3, AXIA.z);
+    return '阿霞測試結束,恢復原位。';
+  },
+  AXIA, AXIA_NPC,
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
   tweakStoreHero: tweakStoreHeroPanel,
@@ -9847,7 +10039,7 @@ window.__dbg = {
   lastExamDay: (n) => { if(n != null) lastExamDay = n; return lastExamDay; },
   examAnnouncedDay: (n) => { if(n != null) examAnnouncedDay = n; return examAnnouncedDay; },
   makeupAnnouncedDay: (n) => { if(n != null) makeupAnnouncedDay = n; return makeupAnnouncedDay; },
-  openIndoorSpot,
+  openIndoorSpot, TEACHER_STATE, BOOKSHELF_CLUES, talkToTeacher, maybeRemindAid,
   gotTranscript: (v) => { if(v != null) gotTranscript = v; return gotTranscript; },
   PHONE_GAME, startPhoneGame, PHONE_BG_IMG, SCHOOL_STUDY_IMG, imgReady,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,

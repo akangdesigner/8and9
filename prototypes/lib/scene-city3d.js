@@ -4299,6 +4299,15 @@ export function buildNPC(THREE, scene, opts){
   const patrolSpeed = opts.speed || .0022;
   let targetIdx = 1, dir = 1, waitT = 0, idleAction = null, walkAction = null, activeAction = null;
 
+  /* 機車後座(2026-09-01,阿霞公車站任務——kc:「新增動畫好了」,要真的
+     坐在後座,不是文字帶過)——只收大腿骨,乘客不需要騎士那套手臂平伸
+     姿勢(見 applyRidePose() 內部本來就有的 bones.LeftArm 判斷,沒收集
+     就自動跳過那段,不會壞)。riding 開著時 animate() 提早 return,座標/
+     朝向完全交給呼叫端的 setRideTransform(),跟騎乘中的機車本身「呼叫端
+     算好座標,這裡只負責套用」同一個分工。 */
+  const RIDE_BONES = {};
+  let riding = false, sitAction = null;
+
   let mixer = null;
   loadModel(rig.idle).then(idleGltf => {
     model = riggedCharacter(THREE, idleGltf, M, opts.height || PLAYER.height, rig.parts);
@@ -4349,6 +4358,8 @@ export function buildNPC(THREE, scene, opts){
       };
       setHelmet();
     }
+
+    ['LeftUpLeg','RightUpLeg'].forEach(n => { RIDE_BONES[n] = model.getObjectByName('mixamorig'+n); });
 
     mixer = new THREE.AnimationMixer(model);
     /* opts.pose 借一顆額外動作蓋掉 idle(2026-08-17 起,先是 'sit' 給爸爸
@@ -4420,9 +4431,47 @@ export function buildNPC(THREE, scene, opts){
     }
   }).catch(() => {});
 
+  /* mountRide()/dismountRide():借同一副骨架的 rig.sit 動畫(跟 opts.pose
+     的 poseFile 同一份檔案,不是另外做一套)當後座坐姿的底,疊上面
+     RIDE_BONES 收集的大腿骨 + animate() 裡的 applyRidePose()。這副骨架
+     沒有 sit 檔(見 MODELS registry,不是每副都有)就靜靜維持 idle,不會
+     報錯或壞掉——跟 opts.pose 原本「沒有就退回 idle」的容錯慣例一致。 */
+  function mountRide(){
+    riding = true;
+    if(!mixer) return;                      // idle 都還沒載完就被叫到,riding 旗標先記著,下面 animate() 會補套
+    const poseFile = rig.sit;
+    if(!poseFile) return;
+    if(sitAction){
+      if(activeAction !== sitAction){ activeAction.fadeOut(.2); sitAction.reset().fadeIn(.2).play(); activeAction = sitAction; }
+      return;
+    }
+    loadModel(poseFile).then(sitGltf => {
+      if(!sitGltf.animations[0]) return;
+      sitAction = mixer.clipAction(sitGltf.animations[0]);
+      if(riding){ activeAction.fadeOut(.2); sitAction.reset().fadeIn(.2).play(); activeAction = sitAction; }
+    }).catch(() => {});
+  }
+  function dismountRide(){
+    riding = false;
+    if(idleAction && activeAction !== idleAction){
+      activeAction.fadeOut(.2); idleAction.reset().fadeIn(.2).play(); activeAction = idleAction;
+    }
+  }
+  /* setRideTransform():呼叫端(game.html)每幀直接指定座位座標/朝向,
+     這裡只負責套用——跟騎乘中的機車本身「呼叫端算好座標,這裡只套用」
+     同一個分工,不在這個檔案裡算後座偏移量。 */
+  function setRideTransform(x, y, z, ry){
+    g.position.set(x, y, z);
+    if(model) model.rotation.y = ry;
+  }
+
   function animate(dt, playerPos){
     if(mixer && !opts.stillFace) mixer.update(dt/1000);
     if(!model) return;
+    if(riding){
+      if(RIDE_BONES.LeftUpLeg) applyRidePose(RIDE_BONES);
+      return;
+    }
 
     /* 巡邏(2026-08-19 擴充成多站來回+停留,見上面 opts.path 那則長註解):
        沿路徑走直線,走到底掉頭,走到「有停留時間」的點先罰站 waitT 毫秒
@@ -4497,5 +4546,6 @@ export function buildNPC(THREE, scene, opts){
    * 把 baseRotationY 從 const 改 let,開一個 setter 讓呼叫端能真的改到
    * animate() 實際在用的那個值。 */
   function setFacing(angle){ baseRotationY = angle; }
-  return { group:g, animate, setFacing, getMixer: () => mixer, setHelmet: (frac, scaleMult, dx, dz) => setHelmet(frac, scaleMult, dx, dz) };
+  return { group:g, animate, setFacing, getMixer: () => mixer, setHelmet: (frac, scaleMult, dx, dz) => setHelmet(frac, scaleMult, dx, dz),
+    mountRide, dismountRide, setRideTransform };
 }
