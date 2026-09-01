@@ -1027,10 +1027,19 @@ function tickPhoneGame(dt){
   paintPhoneBackdrop();
 }
 /* 空白鍵反應(2026-08-31)——攔在 keydown 的空白/enter 那個共用區塊裡,
-   見那段筆記。警示還沒亮的時候按空白鍵不算數(不用懲罰亂按,單純沒事
-   發生),避免玩家用連續狂按洗掉判定。 */
+   見那段筆記。
+   2026-09-01,kc 糾正兩輪:第一輪我以為「警示沒亮按空白鍵」該是無傷大雅
+   的調味 toast,kc 說「沒有 這就是失敗」——警示沒亮就低頭裝抄筆記,
+   等於沒事裝可疑,一樣算被盯上,跟真的沒躲過警示同一個懲罰(星 −4／
+   歸屬感 −6),只是台詞換成自己嚇自己的自言自語(PHONE_JITTER_LINES),
+   不是教官那句「你在幹嘛」——教官沒有真的靠近,是玩家自己疑神疑鬼。 */
+const PHONE_JITTER_LINES = ['早知道不玩了。', '疑神疑鬼，真掃興。', '手心都是汗。'];
 function resolvePhoneReact(){
-  if(!PHONE_GAME.active || !PHONE_GAME.warning) return;
+  if(!PHONE_GAME.active) return;
+  if(!PHONE_GAME.warning){
+    endPhoneGame(false, PHONE_JITTER_LINES[Math.random()*PHONE_JITTER_LINES.length|0]);
+    return;
+  }
   PHONE_GAME.warning = false;
   PHONE_GAME.round++;
   PHONE_GAME.sinceLast = 0; PHONE_GAME.nextWarnAt = 900 + Math.random()*1200;
@@ -1039,8 +1048,11 @@ function resolvePhoneReact(){
 }
 /* 2026-08-31 kc:「玩遊戲結束的時候要直接跳回去不要再過度了 又會破圖」
    ——結束不再走 coFade() 黑畫面轉場,直接切回教室,見 askRound() 收尾
-   那則同一天的筆記,同一個修法。 */
-function endPhoneGame(success){
+   那則同一天的筆記,同一個修法。
+   jitterLine(2026-09-01)——「疑神疑鬼自己按錯」那種失敗傳自己的自言自語
+   進來,取代下面預設的「被教官抓到」那句,見上面 resolvePhoneReact() 的
+   筆記。 */
+function endPhoneGame(success, jitterLine){
   if(!PHONE_GAME.active) return;
   PHONE_GAME.active = false;
   busy = false;
@@ -1048,6 +1060,9 @@ function endPhoneGame(success){
   if(success){
     chg('mood', 6);
     toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
+  } else if(jitterLine){
+    chg('star', -4); chg('calm', -6);
+    toast(jitterLine, 2200);
   } else {
     chg('star', -4); chg('calm', -6);
     say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
@@ -10047,6 +10062,16 @@ window.__dbg = {
     m.x = pos.x + fx*2.5; m.z = pos.z + fz*2.5;
     if(m.group) m.group.position.set(m.x, m.group.position.y, m.z);
     return `機車開到你面前了(${m.x.toFixed(1)}, ${m.z.toFixed(1)}),走過去按空白鍵上車。`;
+  },
+  /* 阿霞任務重置(2026-09-01,kc:「任務做完了 要回到任務前」)——
+     resolved/rideAsked 兩個旗標都要清,不然 talkToAxia() 一律走
+     「已解決」那句固定回應、騎車經過也不會再自動問一次,測不到完整
+     流程。不退錢(如果是走給錢那條解決的),純粹是測試用的狀態重置,
+     不是真的遊戲內「反悔」機制。 */
+  axiaReset(){
+    AXIA.resolved = false;
+    AXIA.rideAsked = false;
+    return '阿霞任務重置了,可以再觸發一次。';
   },
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
