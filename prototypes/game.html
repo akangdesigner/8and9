@@ -4423,45 +4423,43 @@ function tweakBusStopBoardsPanel(){
     });
   });
 }
-/* 長椅/垃圾桶真模型比例滑桿(2026-09-01,kc:「比例要調整」——換成真
-   glb 之後原始比例不保證跟舊 box 一樣順眼)——跟 tweakBusStopBoards 同
-   一招,調的是 `busStopRef.benchMeshes`/`binMeshes`(每個 group 的
-   position 已經是底部貼地的基準點,直接 scale.setScalar 不會讓底部懸空
-   或陷進地板)。長椅/垃圾桶分開兩顆滑桿,因為兩者原始比例落差不保證
-   一致,要能分開調。 */
+/* 長椅/垃圾桶/資源回收桶真模型比例滑桿(2026-09-01,kc:「比例要調整」
+   ——換成真 glb 之後原始比例不保證跟舊 box 一樣順眼;長椅滑桿拉到 2.46
+   定案後烤進 scene-city3d.js 當基準值,見 busStop() 那則筆記)。垃圾桶/
+   資源回收桶原本共用一顆滑桿,kc:「垃圾桶兩個要分開」——改成三顆獨立
+   滑桿,`busStopRef.trashBinMesh`/`recycleBinMesh` 各自是單一 ref 不是
+   陣列。滑桿顯示/控制的是絕對縮放值(不是疊加倍率),初始值直接讀
+   mesh 目前的 scale.x,跟 kc 上次看到的面板數字對得上。 */
 function tweakBusStopPropsPanel(){
   const old = document.getElementById('busStopPropsTweakPanel');
   if(old){ old.remove(); return; }
   const ref = city.busStop;
-  if(!ref || !ref.benchMeshes || !ref.benchMeshes.length || !ref.binMeshes || !ref.binMeshes.length){
+  if(!ref || !ref.benchMeshes || !ref.benchMeshes.length || !ref.trashBinMesh || !ref.recycleBinMesh){
     alert('長椅/垃圾桶還沒載入完成,晚點再開一次滑桿');
     return;
   }
-  const state = { benchScale:1, binScale:1 };
   const rows = [
-    ['bp_bench','長椅大小倍率', 0.3, 3, 0.02, 'benchScale'],
-    ['bp_bin','垃圾桶大小倍率', 0.3, 3, 0.02, 'binScale']
+    ['bp_bench','長椅大小倍率', 0.3, 3, 0.02, () => ref.benchMeshes[0].mesh.scale.x, v => ref.benchMeshes.forEach(b => b.mesh.scale.setScalar(v))],
+    ['bp_trash','垃圾桶大小倍率', 0.3, 3, 0.02, () => ref.trashBinMesh.mesh.scale.x, v => ref.trashBinMesh.mesh.scale.setScalar(v)],
+    ['bp_recyc','資源回收桶大小倍率', 0.3, 3, 0.02, () => ref.recycleBinMesh.mesh.scale.x, v => ref.recycleBinMesh.mesh.scale.setScalar(v)]
   ];
   const panel = document.createElement('div');
   panel.id = 'busStopPropsTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a';
   panel.innerHTML =
     '<div style="font-weight:bold;margin-bottom:6px">長椅/垃圾桶比例滑桿</div>' +
-    rows.map(([id,label,min,max,step,key]) =>
-      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${state[key].toFixed(2)}</span><br>
-       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${state[key]}" style="width:100%"></div>`
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
     ).join('') +
     '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakBusStopProps()<br>拉到滿意後跟我說最終倍率就好</div>';
   document.body.appendChild(panel);
-  document.getElementById('bp_bench').addEventListener('input', e => {
-    state.benchScale = +e.target.value;
-    document.getElementById('bp_bench_v').textContent = state.benchScale.toFixed(2);
-    ref.benchMeshes.forEach(b => b.mesh.scale.setScalar(state.benchScale));
-  });
-  document.getElementById('bp_bin').addEventListener('input', e => {
-    state.binScale = +e.target.value;
-    document.getElementById('bp_bin_v').textContent = state.binScale.toFixed(2);
-    ref.binMeshes.forEach(b => b.mesh.scale.setScalar(state.binScale));
+  rows.forEach(([id,,,,,, set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value;
+      set(v);
+      document.getElementById(`${id}_v`).textContent = v.toFixed(2);
+    });
   });
 }
 /* 工地扛磚滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——跟
@@ -9848,6 +9846,8 @@ window.__dbg = {
   owned, equipped, toggleWear, WEAR_ITEMS, maybeAnnounceExam,
   lastExamDay: (n) => { if(n != null) lastExamDay = n; return lastExamDay; },
   examAnnouncedDay: (n) => { if(n != null) examAnnouncedDay = n; return examAnnouncedDay; },
+  makeupAnnouncedDay: (n) => { if(n != null) makeupAnnouncedDay = n; return makeupAnnouncedDay; },
+  openIndoorSpot,
   gotTranscript: (v) => { if(v != null) gotTranscript = v; return gotTranscript; },
   PHONE_GAME, startPhoneGame, PHONE_BG_IMG, SCHOOL_STUDY_IMG, imgReady,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,

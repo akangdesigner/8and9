@@ -1783,9 +1783,14 @@ export function buildCity(THREE, scene){
          CC-BY,授權見 assets/models/CREDITS.md。先蓋灰模占位,glb 到了
          再替換(跟 realPoliceCar/realTrafficCone 同一套手法),位置/座標
          完全沿用原本 box 版本的數字,只換掉最後那個 box() 呼叫。 */
-      /* 模型存進 busStopRef.benchMeshes/binMeshes,給 __dbg.tweakBusStopProps()
-         滑桿調比例(kc:「比例要調整」——真模型的原始比例不保證跟舊 box
-         尺寸一樣順眼,開滑桿讓 kc 自己現場調,不用再用截圖互相比對猜)。 */
+      /* 模型存進 busStopRef.benchMeshes/trashBinMesh/recycleBinMesh,給
+         __dbg.tweakBusStopProps() 滑桿調比例(kc:「比例要調整」)。長椅
+         比例 2026-09-01 kc 現場拉滑桿拉到 2.46 定案,直接烤進去當基準值
+         (scale.setScalar(BENCH_SCALE),不是 1)。垃圾桶/資源回收桶原本
+         共用一顆滑桿,kc:「垃圾桶兩個要分開」——改成兩顆獨立 ref,各自
+         基準值先沿用 kc 拉過的 2.32(還沒進一步分開調之前兩個一樣),
+         滑桿再開會是從這個基準各自往上疊。 */
+      const BENCH_SCALE = 2.46, BIN_SCALE = 2.32;
       const benchN = 4;
       busStopRef.benchMeshes = [];
       for(let i=0;i<benchN;i++){
@@ -1794,19 +1799,24 @@ export function buildCity(THREE, scene){
         loadModel('bench.glb').then(gltf => {
           busStopGroup.remove(fallback);
           const g = addG(propModel(THREE, gltf, 1.8, 'x'), bx, platH, bz, true, true);
+          g.scale.setScalar(BENCH_SCALE);
           busStopRef.benchMeshes.push({ mesh:g, baseX:bx, baseY:platH, baseZ:bz });
         }).catch(() => {});
       }
 
-      /* 垃圾桶+資源回收桶,擺在站務室旁。 */
-      busStopRef.binMeshes = [];
-      [[xW+openW-1.1, 'trash-bin.glb', binMat], [xW+openW-.2, 'recycle-bin.glb', recycMat]].forEach(([bx, file, mat]) => {
+      /* 垃圾桶+資源回收桶,擺在站務室旁——兩個各自獨立的 ref,不再共用
+         一個陣列/一顆滑桿。 */
+      [
+        { x:xW+openW-1.1, file:'trash-bin.glb', mat:binMat, key:'trashBinMesh' },
+        { x:xW+openW-.2,  file:'recycle-bin.glb', mat:recycMat, key:'recycleBinMesh' }
+      ].forEach(({x:bx, file, mat, key}) => {
         const bz = backRowZ-.5;
         const fallback = addG(box(.6,.8,.55, mat), bx, platH+.4, bz, false, true);
         loadModel(file).then(gltf => {
           busStopGroup.remove(fallback);
           const g = addG(propModel(THREE, gltf, .8, 'y'), bx, platH, bz, true, true);
-          busStopRef.binMeshes.push({ mesh:g, baseX:bx, baseY:platH, baseZ:bz });
+          g.scale.setScalar(BIN_SCALE);
+          busStopRef[key] = { mesh:g, baseX:bx, baseY:platH, baseZ:bz };
         }).catch(() => {});
       });
 
