@@ -498,6 +498,13 @@ export function buildCity(THREE, scene){
      共用倍率/位移到全部台上,個別的基準座標(門口/路邊排開那些不同站位)
      不會被互相蓋掉。 */
   const policeCarRef = { cars: [] };
+  /* 公車亭高度滑桿(2026-09-01)——kc 兩輪都說尺寸不對(先嫌矮、又嫌
+     「改回來」的版本怪),用猜的數字第三次還是有可能猜錯。跟
+     policeCarRef 同一招,把整組公車亭包進一個 THREE.Group,滑桿只調
+     group.scale(以地面 y=0 為軸心整組縮放,原點固定住地面不會飄走),
+     kc 現場拉到滿意直接看最終倍率,我再把倍率乘回底下的常數寫死,不用
+     再靠螢幕截圖來回猜。 */
+  const busStopRef = {};
   /* 施工工地滑桿(2026-08-28,kc:「三角錐我也要調整」,同一輪也要能調怪手)
      ——跟 policeCarRef 同一招,但工地裡怪手/交通錐各有多台,不是單一 ref,
      用陣列蒐集每一台的 group/基準座標,滑桿套一個共用倍率/位移到全部
@@ -1522,7 +1529,19 @@ export function buildCity(THREE, scene){
       const xW = cx - L/2, xE = cx + L/2;            // 西端(招牌)/東端(站務室)
       const openCx = xW + openW/2;
       const officeCx = xE - officeW/2;
-      const postH = 9, canopyT = .5;   // 2026-09-01,kc:「高度改回來 原本的才是正常的」——雨遮/柱子/站務室高度退回舊火車站站體的量級(9),不是公車亭該縮小的那個猜測
+      const postH = 3.6, canopyT = .3;   // 基準值,實際顯示大小由下面的 group.scale 滑桿即時決定
+
+      /* 整組包進一個 group,底部貼地(y=0)當縮放軸心——group.scale 由
+         tweakBusStop() 滑桿即時改,數字定案後把最終倍率乘回這裡再拿掉
+         group 包裝。 */
+      const busStopGroup = new THREE.Group();
+      scene.add(busStopGroup);
+      busStopRef.group = busStopGroup;
+      const addG = (mesh,x,y,z,cast,recv) => {
+        mesh.position.set(x,y,z);
+        mesh.castShadow = cast !== false; mesh.receiveShadow = recv !== false;
+        busStopGroup.add(mesh); return mesh;
+      };
 
       const concrete = std({ color:0xb0b4ae, roughness:.85 });
       const canopyMat = std({ color:0x2c5aa0, roughness:.5 });
@@ -1540,23 +1559,24 @@ export function buildCity(THREE, scene){
       const signMat = std({ color:0x14315e, roughness:.4 });
 
       /* 候車區地面,墊成人行道緣石高度(整塊含站務室那段一起蓋一顆
-         collider,玩家繞不進去,跟原本火車站同一個做法)。 */
-      add(box(L, platH, platD, concrete), cx, platH/2, platCz);
+         collider,玩家繞不進去,跟原本火車站同一個做法——collider 用
+         世界座標,不放進 group,縮放滑桿不會影響碰撞範圍)。 */
+      addG(box(L, platH, platD, concrete), cx, platH/2, platCz);
       solid(cx, platCz, L/2, platD/2);
-      add(box(L, .05, .35, yellow), cx, platH+.03, nearZ+.15, false, true);
+      addG(box(L, .05, .35, yellow), cx, platH+.03, nearZ+.15, false, true);
 
       /* 背牆:深藍色,只擋開放候車區那段(站務室自己有牆)。 */
-      add(box(openW, postH-.2, .2, wallMat), openCx, (postH-.2)/2, farZ, false, true);
+      addG(box(openW, postH-.2, .2, wallMat), openCx, (postH-.2)/2, farZ, false, true);
 
       /* 雨遮:單斜、貼長,整條(含站務室上方)連成一片,前緣柱子撐開放區。 */
-      add(box(L+1, canopyT, platD+1, canopyMat), cx, postH+canopyT/2, platCz, false, true);
+      addG(box(L+1, canopyT, platD+1, canopyMat), cx, postH+canopyT/2, platCz, false, true);
       const postN = 5;
       for(let i=0;i<postN;i++){
         const px = xW + i*(openW/(postN-1));
-        add(box(.3, postH, .3, postMat), px, postH/2, nearZ+.2);
+        addG(box(.3, postH, .3, postMat), px, postH/2, nearZ+.2);
         solid(px, nearZ+.2, .25, .25);
       }
-      add(box(.3, postH, .3, postMat), xE-.3, postH/2, nearZ+.2);   // 東端收邊柱,撐住站務室上方那段雨遮
+      addG(box(.3, postH, .3, postMat), xE-.3, postH/2, nearZ+.2);   // 東端收邊柱,撐住站務室上方那段雨遮
 
       /* 候車資訊看板,貼在背牆上,3 張色塊看板 + 1 張廣告看板——這種細碎
          時刻表文字生圖效益低,跟月台其他小道具同一套判斷,先用色塊。 */
@@ -1564,32 +1584,32 @@ export function buildCity(THREE, scene){
       for(let i=0;i<boardN;i++){
         const bx = xW + (openW/(boardN+1))*(i+1);
         const isAd = i === boardN-1;
-        add(box(2.0, 1.6, .12, isAd?adMat:boardMat), bx, platH+1.9, farZ-.2, false, true);
+        addG(box(2.0, 1.6, .12, isAd?adMat:boardMat), bx, platH+1.9, farZ-.2, false, true);
         /* 疊在廣告看板上的亮色色塊,z 要跟看板本體明顯拉開(不是差 .01),
            不然兩片板子正面幾乎共平面,會 z-fighting 閃爍出雜訊格紋
            (2026-09-01 現場截圖抓到,教訓記在這裡)。 */
-        if(isAd) add(box(1.4, .9, .14, std({color:0xdfe8d8,roughness:.5})), bx, platH+2.1, farZ-.4, false, true);
+        if(isAd) addG(box(1.4, .9, .14, std({color:0xdfe8d8,roughness:.5})), bx, platH+2.1, farZ-.4, false, true);
       }
 
       /* 長椅,對著背牆排開。 */
       const benchN = 4;
       for(let i=0;i<benchN;i++){
         const bx = xW + (openW/(benchN+1))*(i+1);
-        add(box(1.8,.5,.6, benchMat), bx, platH+.25, platCz+1, false, true);
+        addG(box(1.8,.5,.6, benchMat), bx, platH+.25, platCz+1, false, true);
       }
 
       /* 垃圾桶+資源回收桶,擺在站務室旁(跟參考圖同一側)。 */
-      add(box(.6,.8,.55, binMat), xW+openW-1.1, platH+.4, platCz+1.5, false, true);
-      add(box(.6,.8,.55, recycMat), xW+openW-.2, platH+.4, platCz+1.5, false, true);
+      addG(box(.6,.8,.55, binMat), xW+openW-1.1, platH+.4, platCz+1.5, false, true);
+      addG(box(.6,.8,.55, recycMat), xW+openW-.2, platH+.4, platCz+1.5, false, true);
 
       /* 站務室:小房間,取代原本整棟候車室大樓——公車亭量體本來就該比
          火車站小,跟旁邊辦公大樓的對比是刻意的(這裡本來就不該是地標)。 */
       const officeH = postH;
-      add(box(officeW, officeH, platD, officeWallMat), officeCx, platH+officeH/2, farZ-platD/2);
+      addG(box(officeW, officeH, platD, officeWallMat), officeCx, platH+officeH/2, farZ-platD/2);
       solid(officeCx, farZ-platD/2, officeW/2, platD/2);
-      add(box(2.0, 1.7, .1, M.glassLit), officeCx+1, platH+1.9, nearZ+.05, false, true);
-      add(box(1.0, 2.1, .12, doorMat), officeCx-1.3, platH+1.05, nearZ+.05, false, true);
-      add(box(1.6, .55, .15, signMat), officeCx-1.3, platH+2.5, nearZ+.1, false, true);
+      addG(box(2.0, 1.7, .1, M.glassLit), officeCx+1, platH+1.9, nearZ+.05, false, true);
+      addG(box(1.0, 2.1, .12, doorMat), officeCx-1.3, platH+1.05, nearZ+.05, false, true);
+      addG(box(1.6, .55, .15, signMat), officeCx-1.3, platH+2.5, nearZ+.1, false, true);
       lampSpots.push({ x:officeCx, y:platH+1.6, z:nearZ+.3, c:0xf4e8c8, i:10, r:12 });
       landmarks.push({ x:officeCx, y:officeH+1, z:farZ-platD/2, text:'站務室' });
 
@@ -1597,14 +1617,14 @@ export function buildCity(THREE, scene){
       for(let i=0;i<postN;i++){
         const px = xW + i*(openW/(postN-1)) + (openW/(postN-1))/2;
         if(px > xW+openW) continue;
-        add(box(.5,.06,.25, lightMat), px, postH-.08, nearZ+.6, false, true);
+        addG(box(.5,.06,.25, lightMat), px, postH-.08, nearZ+.6, false, true);
         lampSpots.push({ x:px, y:postH-.3, z:platCz, c:0xdce8f2, i:9, r:11 });
       }
 
       /* 招牌:西端雨遮上方,文字用既有 landmarks 飄浮字系統,不用另外生
          招牌貼圖。字串照 kc 給的參考圖照抄(「後火車站(公車站)」)——地名
          沿用歷史稱呼、但實際只是公車站的落差是刻意的,不是筆誤。 */
-      add(box(6, 1.4, .2, signMat), xW+2.5, postH+canopyT+1, nearZ+.1, false, true);
+      addG(box(6, 1.4, .2, signMat), xW+2.5, postH+canopyT+1, nearZ+.1, false, true);
       landmarks.push({ x:xW+2.5, y:postH+canopyT+2, z:nearZ+.1, text:'後火車站(公車站)' });
     })();
   })();
@@ -3294,7 +3314,7 @@ export function buildCity(THREE, scene){
        不要看到舊註解就自動接回這批 tower。 */
   })();
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef };
 }
 
 /* ---------------- 角色 ----------------

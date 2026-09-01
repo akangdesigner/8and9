@@ -214,6 +214,13 @@
   #menu button:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; transform:translateX(3px); }
   #menu button .cost { font-size:12.5px; color:#8d96a4; white-space:nowrap; }
   #menu button.bad { color:#8c7a72; } #menu button.bad .cost { color:#a2564c; }
+  /* 2026-09-01,kc:「知識不夠會無法選該選項」——cls:'bad' 原本只是變色,
+     按鈕還是能點(其他地方靠 run() 裡的 if(blocked) return 擋,體力不夠
+     那種會順便跳 toast 講原因)。這裡加真的 disabled 支援,給「這個選項
+     這次真的按不下去」的情況用(見 openMenu() it.disabled 那段),不是
+     全部 bad 選項都要跟著改成 disabled——體力不夠那種原本點了會跳 toast
+     講原因的行為不動它。 */
+  #menu button:disabled { cursor:not-allowed; opacity:.55; pointer-events:none; }
   #menu button.risk { border-left-color:#a2564c; }
   #menu button.back { border-left-color:#39424f; color:#97a0ad; font-size:14px; }
 
@@ -578,6 +585,7 @@
 <script src="lib/scene-arcade.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
+<script src="lib/story-school.js"></script>
 <script src="lib/npc-temple.js"></script>
 <script src="lib/rhythm-troupe.js"></script>
 <script src="lib/story-motoboss.js"></script>
@@ -678,6 +686,35 @@ function dayToDate(d){
    只做蒐集/升級/兌換這條鏈,先把資料結構立起來,是可累加、可消耗的
    數字,獨立開一個物件。 */
 let KNOWLEDGE = { small: 0, rough: 0, mastery: 0 };
+/* 小考換成績單(2026-09-01)——見下面 openIndoorSpot() 'desk' 分支跟
+   WEAR_ITEMS 'transcript' 那則筆記。lastExamDay 初始 -14,讓一開局就能
+   考(day 從 3 起算,3-(-14)=17 ≥ 14),不用真的等滿兩週才能第一次考。 */
+let lastExamDay = -14;
+const EXAM_COOLDOWN_DAYS = 14, EXAM_KNOWLEDGE_COST = 2;
+/* 2026-09-01 第二輪,kc 糾正:「考小考是前一次上課,進教室老師會說下一次
+   要考小考(要注意我是跳著的天數)」——原本設計成隨時進教室就能點的選單,
+   改成兩段:①進教室那一刻,冷卻期滿的話老師先口頭宣布(這裡設
+   `examAnnouncedDay=day`,還不能考),②**之後任何一次**再進教室(不是
+   同一天,是嚴格更晚的 day)才會在座位選單冒出「考小考」選項。用
+   `day > examAnnouncedDay` 判斷「下一次」,不是 `day===examAnnouncedDay+1`
+   ——這遊戲的天數是玩家自己選要跳幾天過去的(DESIGN_NOTES「跳著過」),
+   中間可能一次跳 5 天、10 天,不能假設剛好差 1 天,只要是比宣布那天晚
+   就算「下一次上課」。examAnnouncedDay=-1 代表還沒宣布,宣布前選單裡
+   完全不會出現這個選項(見下面 openIndoorSpot() desk 分支),不是灰字
+   佔位——玩家本來就不該在老師開口前知道有小考這回事。 */
+let examAnnouncedDay = -1;
+/* 2026-09-01 第三輪,kc 糾正:「成績單是在雜物不是穿搭」——撤回穿搭系統
+   那套(WEAR_ITEMS 'transcript'/'doc' 槽位已經拿掉),改成跟良民證同一個
+   先例:進 TRASH(雜物分頁)當一張展示卡,拿到手風評就直接加,不用另外
+   跑去穿搭分頁點一下才生效。gotTranscript 記「有沒有拿過」,擋重複發放,
+   跟 ID_CARD_QUEST.done 同精神但不用整組物件,一個布林夠。 */
+let gotTranscript = false;
+function maybeAnnounceExam(){
+  if(examAnnouncedDay < 0 && !owned.includes('transcript') && (day - lastExamDay) >= EXAM_COOLDOWN_DAYS){
+    examAnnouncedDay = day;
+    say('teacher', '「下次上課要小考，自己看著辦。」');
+  }
+}
 function studyGainKnowledge(){
   KNOWLEDGE.small++;
   if(KNOWLEDGE.small >= 10){
@@ -1019,8 +1056,14 @@ function renderWearTab(){
     el.className = 'itemCard' + (equipped[it.slot] === id ? ' on' : '');
     /* 徽章文字(2026-08-28):制服帥潮是負的,原本寫死的 `+${it.cool}` 會
        印成「+-10」——改成正負號自己判斷,順便把風評加成也顯示出來(制服
-       是第一件帶 star 的衣物)。 */
-    const badge = (it.cool>=0?'+':'')+it.cool + (it.star ? `／風評${it.star>=0?'+':''}${it.star}` : '');
+       是第一件帶 star 的衣物)。
+       2026-09-01 補:成績單只有 star、沒有 cool,原本的字串接法在 cool
+       是 undefined 時會印出「undefined／風評+10」,改成兩段各自判斷有沒有
+       這個欄位再拼,cool-only/star-only/cool+star 三種組合都印得對。 */
+    const badgeParts = [];
+    if(it.cool != null) badgeParts.push((it.cool>=0?'+':'')+it.cool);
+    if(it.star) badgeParts.push(`風評${it.star>=0?'+':''}${it.star}`);
+    const badge = badgeParts.join('／');
     el.innerHTML = `<div class="badge">${badge}</div><div class="ic">${it.icon}</div><div class="lb">${it.name}</div>`;
     el.onclick = () => toggleWear(id);
     host.appendChild(el);
@@ -1522,6 +1565,10 @@ function openMenu(cap, items){
   items.forEach(it => {
     const b = document.createElement('button');
     if(it.cls) b.className = it.cls;
+    /* it.disabled(2026-09-01)——選擇性欄位,舊選項不傳這個欄位就完全沒變化
+       (`undefined` 不會設 disabled 屬性)。真的擋掉點擊,不是只變色,見上面
+       CSS `#menu button:disabled` 那則筆記。 */
+    if(it.disabled) b.disabled = true;
     b.innerHTML = '<span>'+it.label+'</span><span class="cost">'+(it.cost||'')+'</span>';
     b.onclick = () => { closeMenu(); it.run(); };
     menuEl.appendChild(b);
@@ -2187,7 +2234,8 @@ function syncMiscQuestPanel(){
   if(ID_CARD_QUEST.active){
     const hint = ID_CARD_QUEST.requestedDay < 0
       ? '去警局跟阿正申請良民證（$200）'
-      : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等${ID_CARD_QUEST.readyDay - day}天` : '良民證好了，去警局跟阿正拿');
+      : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等${ID_CARD_QUEST.readyDay - day}天`
+         : (ST.star < -10 ? '良民證辦好了，但風評太差阿正不肯發（風評要到 -10 以上）' : '良民證好了，去警局跟阿正拿'));
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'id-card', title:'辦良民證', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
@@ -4146,6 +4194,36 @@ function tweakConstructionPanel(){
     });
   });
 }
+/* 公車亭大小滑桿(2026-09-01,kc:「嚴格按照我給你的規格啦 你尺寸好怪」)
+   ——猜的數字兩輪都不對(先嫌矮、改高又嫌怪),不要再用截圖猜第三次。
+   `scene-city3d.js` `busStop()` 把整組公車亭包進一個 group,這裡只用
+   一顆縮放滑桿(以地面 y=0 為軸心,footprint x/z 跟著等比縮放不會飄走)
+   讓 kc 現場拉到跟參考圖對得上為止,拉到滿意直接跟我說最終倍率就好,
+   我再把倍率乘回 scene-city3d.js 裡的 postH/canopyT/L 等常數寫死。 */
+function tweakBusStopPanel(){
+  const old = document.getElementById('busStopTweakPanel');
+  if(old){ old.remove(); return; }
+  const ref = city.busStop;
+  if(!ref || !ref.group){
+    alert('公車亭還沒生成,晚點再開一次滑桿');
+    return;
+  }
+  const state = { scale:1 };
+  const panel = document.createElement('div');
+  panel.id = 'busStopTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">公車亭縮放滑桿</div>' +
+    '<div style="margin-bottom:8px">整體縮放倍率: <span id="bs_scale_v">1.00</span><br>' +
+    '<input type="range" id="bs_scale" min="0.3" max="3" step="0.02" value="1" style="width:100%"></div>' +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakBusStop()<br>拉到滿意後跟我說最終倍率就好</div>';
+  document.body.appendChild(panel);
+  document.getElementById('bs_scale').addEventListener('input', e => {
+    state.scale = +e.target.value;
+    document.getElementById('bs_scale_v').textContent = state.scale.toFixed(2);
+    ref.group.scale.setScalar(state.scale);
+  });
+}
 /* 工地扛磚滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——跟
    tweakPoliceCarPanel 同一招,調的是 FOREMAN_TWEAK(見那則筆記),不用
    等場景生成(不像警車/工地道具那些要等 3D 物件建好),隨時開都能拉。 */
@@ -4953,14 +5031,50 @@ function openIndoorSpot(id){
         /* 讀書扣情緒(2026-08-26,kc:「讀書工作本身會扣情緒」)——見
            DESIGN_NOTES「情緒會影響什麼」那節,情緒 −5 跟結帳算錯同一個
            量級,是苦差事但不到讓人不想讀書的地步。 */
-        { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
+        /* 2026-09-01,kc 看了選單截圖糾正:「選項都有問題,要補上能獲得的
+           東西」——三個選項原本只列代價,認真上課/考小考的收穫補進 cost
+           文字。偷玩手遊的結果是機率性的(resolvePhoneReact() 撐過去才算
+           成功),沒辦法保證拿到,補一句「成功/被抓」對照,不是寫死一個
+           保證到手的數字。 */
+        { label:'認真上課', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1 小時　答對 +知識', cls: ST.stamina<=0?'bad':'', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           chg('stamina', -10); chg('mood', -5); advanceTime(60);
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } },
-        { label:'偷玩手遊', cost:'體力 −5　1 小時　看教官', cls:'risk', run: startPhoneGame },
+        { label:'偷玩手遊', cost:'體力 −5　1 小時　成功 +情緒／被抓 −風評−歸屬感', cls:'risk', run: startPhoneGame },
+        /* 小考換成績單(2026-09-01,見上面 maybeAnnounceExam() 那則長筆記)——
+           選單裡只有「老師已經宣布過、而且不是宣布的當次進教室」才會出現
+           這個選項,宣布前/宣布當次都直接不列(用 filter(Boolean) 濾掉
+           null,不是灰字佔位——沒被通知的事不該出現在選單裡)。
+           2026-09-01 第二輪,kc 糾正兩點:①cost 要補「獲得成績單」,順便
+           加一筆情緒 +3(考完的小小成就感,跟認真上課的情緒 −5 對照,不是
+           照抄他給的例子數字不改就用,是小的可逆參數,不喜歡跟我說一聲
+           就改)。②略懂知識不夠時「無法選該選項」——原本 cls:'bad' 只是
+           變色,按鈕還是能點只是點了沒反應,改成真的 `disabled:true`(見
+           openMenu() it.disabled 那段)。
+           2026-09-01 第三輪,kc 糾正:「成績單是在雜物不是穿搭」——拿到手
+           直接 chg('star',10) + TRASH.push,跟良民證同一招,不用像制服/
+           刺青那樣走穿搭系統再手動穿上。 */
+        (() => {
+          if(examAnnouncedDay < 0 || day <= examAnnouncedDay) return null;
+          const short = KNOWLEDGE.rough < EXAM_KNOWLEDGE_COST;
+          const blocked = gotTranscript || short;
+          const cost = gotTranscript ? '已經有成績單了'
+            : short ? `略懂知識不夠（要 ${EXAM_KNOWLEDGE_COST}）`
+            : `略懂知識 −${EXAM_KNOWLEDGE_COST}　情緒 +3　風評 +10　獲得成績單`;
+          return { label:'考小考', cost, cls: blocked ? 'bad' : '', disabled: blocked, run(){
+            if(blocked) return;
+            KNOWLEDGE.rough -= EXAM_KNOWLEDGE_COST;
+            lastExamDay = day;
+            examAnnouncedDay = -1;
+            gotTranscript = true;
+            chg('mood', 3); chg('star', 10);
+            TRASH.push({ name:'成績單', icon:'📜', detail:'兩週一次的小考，你真的坐下來寫完了。<br>風評 +10，別人看得到這張。' });
+            toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +10）', 4200);
+          } };
+        })(),
         { label:'不要', cls:'back', run(){} }
-      ]);
+      ].filter(Boolean));
     }
     return;
   }
@@ -4971,7 +5085,10 @@ function openIndoorSpot(id){
      繳掉,見 docs/DESIGN_NOTES.md「沒誘因去做別的事」節。 */
   if(PLACE === 'corridor'){
     if(id === 'classroom'){ leaveCorridorToClassroom(); return; }
-    else if(id === 'outside'){ leaveIndoor(); return; }
+    /* story-school.js day13(排氣管,「放學,校門口那排車」)——這節本身就是
+       離校那一刻的場景,所以節點播完(或這輪沒輪到)才真的 leaveIndoor(),
+       不能兩個一起做,不然對話開著人已經淡出離開學校了(2026-09-01)。 */
+    else if(id === 'outside'){ maybeTriggerStoryNode([['school', schoolStorySource([13])]], leaveIndoor); return; }
     else if(id === 'kiosk'){ openTuitionKiosk(); return; }
     else if(id === 'jiaoguan'){ talkToJiaoguanCorridor(); return; }
     return;
@@ -6029,6 +6146,9 @@ function warpIntoPlace(door){
        `where` 標籤卻顯示上一個場景的背景。這裡補回來,每次真的走進
        超商都重畫一次,不能只靠頁面載入那一次。 */
     paintStoreBackdrop();
+    /* story-school.js day36(鮮食櫃)——這節設在超商,不是校內,見
+       maybeTriggerStoryNode() 旁邊的長筆記(2026-09-01)。 */
+    maybeTriggerStoryNode([['school', schoolStorySource([36])]]);
   } else if(PLACE === 'school'){
     /* 一進門站在走廊門口(SCHOOL.spots id:'door',在畫面右側,見
        scene-school.js「往右走可以走到走廊」那則筆記),照 store 的
@@ -6038,6 +6158,12 @@ function warpIntoPlace(door){
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
     lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
+    /* story-school.js day5(樓梯間)/day21(打牌)——這兩節本來就設在教室/
+       教室附近,一進教室就檢查,跟 home 那邊 maybeTriggerStoryNode() 同一招
+       (2026-09-01,見 maybeTriggerStoryNode() 旁邊的長筆記)。小考宣布
+       (maybeAnnounceExam())排在 after,只在這次沒有撞到劇情節點時才會
+       檢查,避免兩個自動彈出的對話疊在一起搶畫面。 */
+    maybeTriggerStoryNode([['school', schoolStorySource([5, 21])]], maybeAnnounceExam);
   } else if(PLACE === 'arcade'){
     /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
        scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
@@ -6188,6 +6314,11 @@ function enterCorridor(){
     IN.px = 70; IN.py = CORRIDOR.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '走廊';
     paintCorridorBackdrop();
+    /* story-school.js day28(導師找你,「他把你叫到走廊」)——原本的筆記
+       (見 talkToTeacher() 上面那則)寫這節該掛在教室門口那支,但實際接
+       的時候發現「一進走廊就播」跟 home 那套「一進客廳就播」是同一招,
+       不用另外攔在門的 click handler 裡,2026-09-01 定案接這裡。 */
+    maybeTriggerStoryNode([['school', schoolStorySource([28])]]);
   });
 }
 function leaveCorridorToClassroom(){
@@ -6197,6 +6328,7 @@ function leaveCorridorToClassroom(){
     IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
+    maybeTriggerStoryNode([['school', schoolStorySource([5, 21])]], maybeAnnounceExam);
   });
 }
 
@@ -6391,6 +6523,12 @@ function playBeats(beats, i, done){
 function applyStoryChoice(item){
   if(item.calm) chg('calm', item.calm);
   if(item.mood) chg('mood', item.mood);
+  /* cool/full/star 補上(2026-09-01,接 story-school.js 用到這三個 story-bet.js/
+     story-drink.js 沒用過的欄位——day5 樓梯間用 star、day13 排氣管用 cool、
+     day36 鮮食櫃用 full,原本這裡沒接會讓那幾個選項的數值變化悄悄消失)。 */
+  if(item.cool) chg('cool', item.cool);
+  if(item.full) chg('full', item.full);
+  if(item.star) chg('star', item.star);
   if(item.money) chg('money', item.money);
   if(item.moneyAll) chg('money', -ST.money);
   if(item.debt) chg('money', -item.debt);
@@ -6404,8 +6542,14 @@ function applyStoryChoice(item){
  * openMenu 本身就會靠 dlg.on/busy 擋住移動,不用額外加鎖)。兩條線目前
  * 觸發天數沒有重疊(bet: 3/6/10/14/18/22,drink: 4/9/15/20/26),一天最多
  * 只會撞到一個,所以先不處理「同一天兩條都要播」的排隊邏輯。 */
-function maybeTriggerStoryNode(){
-  const sources = [['bet', StoryBet], ['drink', StoryDrink]];
+/* sources 預設是家裡那組(bet/drink),學校那幾個呼叫點各自傳 school 專用的
+ * sources(見下面 schoolStorySource()),因為 story-school.js 五個節點分散在
+ * 不同地點觸發(教室/走廊/校門口/超商),不能像 bet/drink 那樣單一地點一次
+ * 檢查全部,見那五個呼叫點旁邊各自的筆記。
+ * after:節點播完(或這輪沒有節點可播)之後要接著做的事——只有校門口那個
+ * 節點(day13)用到,因為那個節點本身就是「放學」的場景,播完才能真的
+ * leaveIndoor() 離開學校,見下面 corridor 'outside' 那支的呼叫。 */
+function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrink]], after){
   for(const [key, src] of sources){
     const node = src.NODES.find(n => n.day === day);
     if(node && !seenStoryDays.has(key+'-'+node.day)){
@@ -6417,12 +6561,20 @@ function maybeTriggerStoryNode(){
         }
         openMenu(node.title, node.menu.map(item => ({
           label: item.label, cost: item.cost,
-          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => {}); }
+          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, after || (() => {})); }
         })));
       });
       return;
     }
   }
+  if(after) after();
+}
+/* story-school.js NODES 全部塞在同一個陣列(day 5/13/21/28/36),但五個
+ * 地點不同,這裡照呼叫點篩出「只有這幾天才輪得到這裡問」的子集,避免
+ * A 地點的節點在 B 地點被誤觸發(例如玩家在 day13 那天先走進教室,不該
+ * 在教室裡就播出「放學,校門口那排車」這種對不上場景的台詞)。 */
+function schoolStorySource(days){
+  return { NODES: StorySchool.NODES.filter(n => days.includes(n.day)) };
 }
 
 /* ===================================================================
@@ -6633,8 +6785,17 @@ function updateCity(dt){
      下一幀又重新判定 urgent,變成無限彈出同一句,玩家會被卡死在原地。
      修法很直接:巡邏中(patrolActive)整段主動觸發都跳過,巡邏是玩家
      自己接下的任務,阿正不該在這期間主動打斷,回不回報交給玩家自己
-     走過去按空白鍵。 */
-  if(!busy && !dlg.on && !MOTO_IMPOUND.patrolActive && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
+     走過去按空白鍵。
+     **2026-09-01 擴大同一個修法:**上面那個坑不是只有「巡邏中」會踩到——
+     `MOTO_IMPOUND.active` 為 true 但玩家還沒選繳錢/巡邏(`patrolActive`
+     還是 false)、或 `ID_CARD_QUEST.active` 為 true 但玩家還沒申請,都是
+     同一種「talkToBrother() 被攔在還沒解決的事前面,那件事的選單重複
+     跳出來」——只堵 `patrolActive` 不夠,`!patrolActive` 兩個字拿掉,
+     直接用 `!MOTO_IMPOUND.active`(涵蓋巡邏中跟還沒選兩種狀態),再加
+     `!ID_CARD_QUEST.active`(良民證那條照 6662 那則筆記本來就不該算進
+     主動觸發,這裡補齊排除)。玩家還是可以自己走過去按空白鍵處理這兩件
+     事,只是不會被「贓物協尋」的靠近自動觸發搶著重播。 */
+  if(!busy && !dlg.on && !MOTO_IMPOUND.active && !ID_CARD_QUEST.active && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
     const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0;
     if(MEI.together && !BROTHER.met) talkToBrother();
     else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) talkToBrother();
@@ -8263,6 +8424,15 @@ function talkToBrother(){
       say('brother', `「還沒好，再等${ID_CARD_QUEST.readyDay - day}天。」`);
       return;
     }
+    /* 2026-09-01,kc:「良民證風評不能小於-10」——證件本身辦好了(readyDay
+       到了),但核發那一刻讀當下的風評,太差就是不給,不是走到就一定拿得到。
+       $200 沒退(公文已經跑完流程,是被卡在「核發」這關,不是申請失敗),
+       active 也沒關掉——風評回到 -10 以上之後再來,同一句還是會再判一次,
+       不用重新申請。 */
+    if(ST.star < -10){
+      say('brother', '「你這風評，我批不下去，先把自己弄乾淨一點再來。」');
+      return;
+    }
     TRASH.push({ name:'良民證', icon:'📄', detail:'警局辦的，證明你這陣子是乾淨的。<br>工地老闆說要看這個。' });
     ID_CARD_QUEST.active = false; ID_CARD_QUEST.done = true;
     chg('calm', 6);
@@ -8395,6 +8565,15 @@ function talkToForeman(){
     ID_CARD_QUEST.active = true;
     syncMiscQuestPanel();
     say('foreman', '「你做得不錯，想長期做的話，去警局辦張良民證，我比較放心跟你排班。」');
+    return;
+  }
+  /* 2026-09-01,kc:「靠北 那一定要規定啊」——原本良民證只是老闆嘴上說說,
+     辦不辦都能繼續扛磚,不是真的門檻。改成真的擋:做滿 3 次之後,良民證
+     還掛著沒辦完(active 但沒 done),這裡直接拒絕排班,連工作選單都不
+     開,逼玩家先去警局處理。狗線索(foremanDogItem())也一起擋——「不敢
+     排你班」講的是整個信任關係,不是只擋扛磚這一項。 */
+  if(FOREMAN.shiftsWorked >= 3 && ID_CARD_QUEST.active && !ID_CARD_QUEST.done){
+    say('foreman', '「良民證辦了沒？辦好再來，不然我不敢排你班。」');
     return;
   }
   const dogItem = foremanDogItem();
@@ -9356,6 +9535,7 @@ window.__dbg = {
   tweakPolice: tweakPolicePanel,
   tweakPoliceCar: tweakPoliceCarPanel,
   tweakConstruction: tweakConstructionPanel,
+  tweakBusStop: tweakBusStopPanel,
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
   tweakStoreHero: tweakStoreHeroPanel,
@@ -9365,6 +9545,13 @@ window.__dbg = {
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
   ARCADE_GAMBLE,
   KNOWLEDGE, studyGainKnowledge, askStudyQuestion,
+  /* 成績單/穿搭系統測試用(2026-09-01)——owned/equipped/toggleWear 原本
+     只有 DOM 點擊能碰到,補這幾個方便現場測試不用真的點角色面板。
+     lastExamDay 給讀寫,方便跳過兩週冷卻。 */
+  owned, equipped, toggleWear, WEAR_ITEMS, maybeAnnounceExam,
+  lastExamDay: (n) => { if(n != null) lastExamDay = n; return lastExamDay; },
+  examAnnouncedDay: (n) => { if(n != null) examAnnouncedDay = n; return examAnnouncedDay; },
+  gotTranscript: (v) => { if(v != null) gotTranscript = v; return gotTranscript; },
   PHONE_GAME, startPhoneGame, PHONE_BG_IMG, SCHOOL_STUDY_IMG, imgReady,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
   lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
