@@ -7504,9 +7504,12 @@ function dismountMoto(){
   toast(joyrode ? '騎了一圈,風吹過來整個人鬆一點。把車停好,下車走路。' : '把車停好,下車走路。', 1600);
 }
 /* 阿霞・走近按空白鍵(2026-09-01)——跟騎車經過的「載她一程」邀請
-   (見上面 AXIA.rideAsked 那段)是兩個獨立入口,這條給不騎車、純走過去
-   的玩家用,選項是給錢解決或先走。resolved 之後(不管走哪條路)固定
-   回一句,不會再開選單。 */
+   (見上面 AXIA.rideAsked 那段)是兩個獨立入口,原本走路過去只有給錢/
+   先走兩個選項,kc:「走路過去也要觸發選項 只是他會說你有車再說吧」——
+   「載她一程」現在兩邊選單都會出現,差別只在走路過去(!ridingMoto)點下
+   去不會真的上車,她只回一句「你有車再說吧」,不改 resolved、不觸發
+   startAxiaRide()。resolved 之後(不管走哪條路解決)固定回一句,不會
+   再開選單。 */
 function talkToAxia(){
   if(AXIA.resolved){
     toast('「謝謝你那天啊。」她笑了笑，繼續等車。', 2200);
@@ -7514,6 +7517,10 @@ function talkToAxia(){
   }
   say('axia', '「末班車……我看是搭不到了齁。」她手上拎著打包的晚餐廚餘，一臉下班的疲態。', () => {
     openMenu('阿霞', [
+      { label:'載她一程', cls:'', run(){
+          if(ridingMoto) startAxiaRide();
+          else say('axia', '「你有車再說吧。」她笑了一下，搖搖頭。');
+        } },
       { label:'給她計程車錢', cls:'', cost:'-$50', disabled: ST.money < 50, run(){
           chg('money', -50); chg('calm', 4);
           AXIA.resolved = true;
@@ -10023,6 +10030,24 @@ window.__dbg = {
     return '阿霞測試結束,恢復原位。';
   },
   AXIA, AXIA_NPC,
+  /* 把機車叫過來(2026-09-01,kc:「幫我把機車叫過來 我要觸發看看」)——
+     測完整條真實流程(騎車過去→自動問→載她一程→下車結算)要先有一台
+     機車可以騎。優先抓已經 owned 的那台(不打亂 city.motos 裡其他台的
+     狀態),沒有的話挑一台不是 forSale 的直接標成 owned(跳過機車行
+     買車那道流程,純測試用,跟其他 __dbg 測試開關同一個「跳過前置條件」
+     邏輯)。x/z 跟 group.position 都要更新——nearProp 判斷讀的是前者,
+     3D 顯示讀的是後者,兩個沒同步的話會出現「按空白鍵有反應但車還在
+     原地」的落差。 */
+  callMoto(){
+    const m = city.motos.find(mm => mm.owned) || city.motos.find(mm => !mm.forSale) || city.motos[0];
+    if(!m) return '場上找不到任何機車。';
+    m.owned = true; m.ridden = false;
+    const pos = hero.group.position;
+    const fx = Math.sin(hero.group.rotation.y), fz = Math.cos(hero.group.rotation.y);
+    m.x = pos.x + fx*2.5; m.z = pos.z + fz*2.5;
+    if(m.group) m.group.position.set(m.x, m.group.position.y, m.z);
+    return `機車開到你面前了(${m.x.toFixed(1)}, ${m.z.toFixed(1)}),走過去按空白鍵上車。`;
+  },
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
   tweakStoreHero: tweakStoreHeroPanel,
