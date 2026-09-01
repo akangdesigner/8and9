@@ -1529,7 +1529,7 @@ export function buildCity(THREE, scene){
       const xW = cx - L/2, xE = cx + L/2;            // 西端(招牌)/東端(站務室)
       const openCx = xW + openW/2;
       const officeCx = xE - officeW/2;
-      const postH = 3.6, canopyT = .3;   // 基準值,實際顯示大小由下面的 group.scale 滑桿即時決定
+      const postH = 9, canopyT = .5;   // 2026-09-01,kc:「改回原本的高度」——上一輪材質重寫時我把它靜默改回 3.6,退回 kc 先前定案的 9,實際顯示大小仍可由下面的 group.scale 滑桿即時調
 
       /* 整組包進一個 group,底部貼地(y=0)當縮放軸心——group.scale 由
          tweakBusStop() 滑桿即時改,數字定案後把最終倍率乘回這裡再拿掉
