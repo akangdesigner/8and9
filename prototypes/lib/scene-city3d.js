@@ -1685,11 +1685,18 @@ export function buildCity(THREE, scene){
         ctx.fillText('Rear Station Bus Stop', w/2, h*.78);
       }), roughness:.5 });
 
-      /* 底座(月台):完整尺寸,柱子/雨遮之後會內縮在裡面,四周留出一圈
-         走道/緣石可見的邊界。 */
-      addG(box(L, platH, platD, concrete), cx, platH/2, platCz);
-      solid(cx, platCz, L/2, platD/2);
-      addG(box(L, .05, .35, yellow), cx, platH+.03, nearZ+.15, false, true);
+      /* 底座(月台):往外再長更多單位(kc:「底座要往外長更多單位」)——
+         兩側各多 baseExtra、後側(遠離馬路那端)多 baseExtra,前緣(靠
+         馬路那側,nearZ)不動,不然會壓到馬路(跟舊筆記「不要壓到馬路」
+         同一個理由)。柱子/雨遮/背牆/長椅/站務室全部維持原座標不動,
+         只有這塊底座本身變大,margin(內縮量)沒有跟著變,所以底座
+         看起來會比雨遮/柱子多露出一大圈。 */
+      const baseExtra = 3;
+      const baseW = L + baseExtra*2, baseD = platD + baseExtra;
+      const baseCz = nearZ + baseD/2;
+      addG(box(baseW, platH, baseD, concrete), cx, platH/2, baseCz);
+      solid(cx, baseCz, baseW/2, baseD/2);
+      addG(box(baseW, .05, .35, yellow), cx, platH+.03, nearZ+.15, false, true);
 
       /* 背牆,貼在後排柱子後面。 */
       addG(box(openW, postH-.2, .2, wallMat), openCx, (postH-.2)/2, wallZ, false, true);
