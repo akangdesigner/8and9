@@ -728,9 +728,30 @@ function studyGainKnowledge(){
    原圖再疊新圖(兩張都畫,怕新圖邊緣蓋不滿露出空白),那個「重複畫兩張」
    本身才是 kc 要我拿掉的東西。正解很單純:黑畫面淡出之後就是換成
    「獨立的」新圖(kc 給的圖本身就是完整的一張,不是拿去跟原圖合成用的
-   素材),`clearRect()` 清空、只畫新圖這一張,不用先鋪原圖。 */
+   素材),`clearRect()` 清空、只畫新圖這一張,不用先鋪原圖。
+   2026-08-31 同一天第八輪,kc 實測抓到真的 bug(不是理解問題):讀書
+   解題那格畫面還是顯示原本教室照片,不是新圖——根因是圖片載入競速。
+   這兩張圖(2.3~2.4MB)在 `new Image()` 當下就開始下載,但畫底圖那一刻
+   (coFade 淡出後 480ms)`.complete && .naturalWidth` 只判斷一次,冷快取
+   時很容易還沒載完,判斷失敗就永久退回原本教室照片,之後圖真的載完也
+   不會重畫。檔案裡其他每一張背景照片(schoolClassroomImg/homeLivingImg/
+   tattooShopImg...)都有 `.onload` 主動重畫的慣例,唯獨這兩張漏掉——但
+   kc 這次要求「不要用原本的教室圖」沒有給「短暫顯示也算可以接受」的
+   空間,比被動重畫更嚴格,所以不是補 onload 就好,是在黑畫面淡出期間
+   主動等圖片就緒(`imgReady()`),等到了才畫,畫面出現的當下保證已經是
+   新圖。6 秒逾時當安全網,真的載入失敗才會落到下面 `.complete` 判斷的
+   fallback。 */
+function imgReady(img, timeoutMs = 6000){
+  if(img.complete && img.naturalWidth) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const done = ok => { img.onload = img.onerror = null; resolve(ok); };
+    img.onload = () => done(!!img.naturalWidth);
+    img.onerror = () => done(false);
+    setTimeout(() => done(img.complete && !!img.naturalWidth), timeoutMs);
+  });
+}
 const SCHOOL_STUDY_IMG = new Image();
-SCHOOL_STUDY_IMG.src = '../assets/bg/school-study.png';
+SCHOOL_STUDY_IMG.src = '../assets/bg/school-study.png?v=1';
 function paintSchoolStudyBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(SCHOOL_STUDY_IMG.complete && SCHOOL_STUDY_IMG.naturalWidth){
@@ -746,9 +767,10 @@ function askStudyQuestion(onDone){
   const questions = coShuffle(Quiz.BANK.slice()).slice(0, ROUNDS);
   const inSchool = PLACE === 'school';
   busy = true;
-  coFade(inSchool ? '認真上課' : '讀書', () => {
+  coFade(inSchool ? '認真上課' : '讀書', async () => {
     studyTakeover = true;
-    if(inSchool) paintSchoolStudyBackdrop(); else paintBedroomBackdrop();
+    if(inSchool){ await imgReady(SCHOOL_STUDY_IMG); paintSchoolStudyBackdrop(); }
+    else paintBedroomBackdrop();
     setTimeout(() => askRound(0, true), 1000);
   });
   function askRound(i, streak){
@@ -808,16 +830,17 @@ function askStudyQuestion(onDone){
  * 輪才算僥倖沒被抓。抓到/沒抓到的獎懲數字沿用舊版數字沒動(星 −4/歸屬感
  * −6 被抓;情緒 +6 沒被抓),只是判定方式從骰子換成手速。 */
 const PHONE_BG_IMG = new Image();
-PHONE_BG_IMG.src = '../assets/bg/school-phone.png';
+PHONE_BG_IMG.src = '../assets/bg/school-phone.png?v=1';
 const PHONE_REACT_WINDOW = 650;   // ms,警示出現後要按下的時限,反應太慢算被抓
 const PHONE_GAME = { active:false, round:0, totalRounds:3, warning:false, warnT:0, sinceLast:0, nextWarnAt:0 };
 function startPhoneGame(){
   if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
   chg('stamina', -5); advanceTime(60);
   busy = true;
-  coFade('偷滑手機', () => {
+  coFade('偷滑手機', async () => {
     PHONE_GAME.active = true; PHONE_GAME.round = 0; PHONE_GAME.warning = false;
     PHONE_GAME.sinceLast = 0; PHONE_GAME.nextWarnAt = 900 + Math.random()*1200;
+    await imgReady(PHONE_BG_IMG);
     paintPhoneBackdrop();
   });
 }
@@ -5208,10 +5231,14 @@ function coDespawnQueue(){
    在 1150ms 那個固定時間點強制解鎖 busy 卡到,跟收銀小遊戲整段都要鎖住
    輸入互相打架。這裡自己控制 busy,不去動 `fade()` 本體,其他呼叫端
    (進門、睡覺)不受影響。 */
+/* 2026-08-31 補:`mid` 可以是 async 函式(讀書解題/偷玩手遊要在黑畫面
+   淡出期間 await 圖片真的載完才畫,見 imgReady() 那則筆記)——`await mid()`
+   對原本傳同步函式的呼叫端(上班/下班)沒有副作用,只是多等一個
+   microtask,畫面淡入的計時器照樣是圖畫完才排。 */
 function coFade(label, mid){
   fPlace.textContent = label;
   fadeEl.classList.add('on');
-  setTimeout(() => { mid(); setTimeout(() => fadeEl.classList.remove('on'), 480); }, 480);
+  setTimeout(async () => { await mid(); setTimeout(() => fadeEl.classList.remove('on'), 480); }, 480);
 }
 
 let CO = null;   // 一整個班的執行狀態,null 表示沒在上班
@@ -9329,7 +9356,7 @@ window.__dbg = {
   momGiven: () => MOM_GIVEN, momCheckinLines, trash: () => TRASH,
   ARCADE_GAMBLE,
   KNOWLEDGE, studyGainKnowledge, askStudyQuestion,
-  PHONE_GAME, startPhoneGame,
+  PHONE_GAME, startPhoneGame, PHONE_BG_IMG, SCHOOL_STUDY_IMG, imgReady,
   day: (n) => { if(n != null) day = n; return day; }, dayToDate,
   lastSchoolDay: (n) => { if(n != null) lastSchoolDay = n; return lastSchoolDay; }, sleep,
   /* 陣頭特價測試開關(2026-08-20),見 talkToAyi()/ayiBuyMenu() 那則筆記。
