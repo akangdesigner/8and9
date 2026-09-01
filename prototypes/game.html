@@ -2012,6 +2012,48 @@ function updatePatrolMarker(dt){
   PATROL_ARROW_TEX.repeat.x = dist / 1.6;   // 箭頭圖案固定約 1.6 個世界單位一組,不管線多長都不會被拉伸
   PATROL_ARROW_TEX.offset.x = (PATROL_ARROW_TEX.offset.x + (dt||16)*.0012) % 1;   // 往前流動的動態感
 }
+/* 阿霞導引線(2026-09-01,kc:「要給導引線 跟巡邏一樣」)——完全比照上面
+   patrolMarkerEl/patrolLine 那組寫法,共用同一張箭頭貼圖/幾何/材質
+   (PATROL_ARROW_TEX/PATROL_LINE_GEOM/PATROL_LINE_MAT,純視覺資源,兩條
+   導引線不會同時搶著用同一顆 Mesh——各自是獨立的 Mesh 實例),只是目標點
+   換成固定的 AXIA_DEST(不是像巡邏那樣一路換點),顯示條件也換成
+   axiaRiding(載到人才需要導引,還沒上車不用指路)。 */
+const axiaMarkerEl = document.createElement('div');
+axiaMarkerEl.className = 'wlabel';
+axiaMarkerEl.textContent = '載阿霞去這裡';
+axiaMarkerEl.style.display = 'none';
+wlabelsEl.appendChild(axiaMarkerEl);
+const _axiaV = new THREE.Vector3();
+const axiaLine = new THREE.Mesh(PATROL_LINE_GEOM, PATROL_LINE_MAT);
+axiaLine.rotation.x = -Math.PI/2;
+axiaLine.visible = false;
+axiaLine.frustumCulled = false;
+axiaLine.renderOrder = 5;
+scene.add(axiaLine);
+function updateAxiaMarker(dt){
+  if(!axiaRiding){
+    axiaMarkerEl.style.display = 'none';
+    axiaLine.visible = false;
+    return;
+  }
+  const px = AXIA_DEST.x, pz = AXIA_DEST.z;
+  _axiaV.set(px, 2.4, pz).project(camera);
+  if(_axiaV.z > 1 || _axiaV.z < -1) axiaMarkerEl.style.display = 'none';
+  else {
+    axiaMarkerEl.style.display = '';
+    axiaMarkerEl.style.left = ((_axiaV.x*.5+.5) * innerWidth) + 'px';
+    axiaMarkerEl.style.top  = ((1-(_axiaV.y*.5+.5)) * innerHeight) + 'px';
+  }
+  const heroPos = hero.group.position;
+  const dx = px - heroPos.x, dz = pz - heroPos.z;
+  const dist = Math.hypot(dx, dz);
+  axiaLine.position.set((heroPos.x+px)/2, .12, (heroPos.z+pz)/2);
+  axiaLine.rotation.z = -Math.atan2(dz, dx);
+  axiaLine.scale.set(dist, 1, 1);
+  axiaLine.visible = dist > .5;
+  PATROL_ARROW_TEX.repeat.x = dist / 1.6;
+  PATROL_ARROW_TEX.offset.x = (PATROL_ARROW_TEX.offset.x + (dt||16)*.0012) % 1;
+}
 function updateWorldLabels(){
   worldLabels.forEach(({ pos, el }) => {
     _wlabelV.copy(pos).project(camera);
@@ -2904,6 +2946,10 @@ function tweakStatuePedsPanel(){
    那組新函式+下面 updateCity() 的逐幀同步),下車(dismountMoto())時
    結算。兩條路都能讓 AXIA.resolved 變 true,彼此獨立、不衝突。 */
 const AXIA = { x:-31.2, z:104, resolved:false, rideAsked:false };
+/* 阿霞下車點(2026-09-01,kc:「為何沒說要載到哪裡」補的目的地)——中華路
+   (H_ROADS z:0)上一個離宏吉機車行/安康藥局那排店面(x:-12~3)有段距離
+   的路段,單純挑一個乾淨的路面座標,不對應任何真的店家。 */
+const AXIA_DEST = { x:20, z:0 };
 const AXIA_NPC = buildNPC(THREE, scene, { x:AXIA.x, z:AXIA.z, rotationY:Math.PI*.85, rig:'f2',
   skin:'#c2a17e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' });
 
@@ -7542,13 +7588,29 @@ function dismountMoto(){
   m.ridden = false; ridingMoto = null;
   /* 阿霞下車結算(2026-09-01)——跟一般下車共用同一個時機點,她的結算
      文字優先顯示,不疊兩則 toast(toast() 是單一插槽,連續呼叫兩次只會
-     看到後面那則,直接 return 跳過下面那句一般的「把車停好」)。 */
+     看到後面那則,直接 return 跳過下面那句一般的「把車停好」)。
+     2026-09-01 補目的地判定(kc:「要給導引線 跟巡邏一樣」——跟巡邏點
+     visited 同一個精神,不是隨便哪裡下車都算數):要在 AXIA_DEST 附近
+     (半徑 8,跟巡邏點觸發半徑 6 同量級,騎車速度快留寬一點)才算真的
+     送到,resolved 才會變 true、才會給獎勵。中途下車她會下去but沒解決,
+     人留在原地(不強制傳送回公車站,街上隨便一個定點路過還能再問一次
+     載不載,跟原本 rideAsked 只擋「主動搭話邀請」不擋 talkToAxia() 空白鍵
+     入口同一個道理)。 */
   if(axiaRiding){
     axiaRiding = false;
     AXIA_NPC.dismountRide();
-    AXIA.resolved = true;
-    chg('calm', 10);
-    toast('「謝謝你載我一程，路上小心。」她朝你揮揮手，走進巷子裡。（歸屬感 +10）', 2800);
+    const dest = AXIA_DEST, nearDest = Math.hypot(pos.x-dest.x, pos.z-dest.z) < 8;
+    if(nearDest){
+      AXIA.resolved = true;
+      AXIA_NPC.group.position.set(pos.x-1, .3, pos.z-1);
+      chg('calm', 10);
+      toast('「謝謝你載我一程，路上小心。」她朝你揮揮手，走進巷子裡。（歸屬感 +10）', 2800);
+    } else {
+      /* 沒送到地方就下車:把她放回公車站(不是留在半路),任務面板的
+         「去永安公車站找阿霞」提示才會繼續對得上她實際站的位置。 */
+      AXIA_NPC.group.position.set(AXIA.x, .3, AXIA.z);
+      toast('「呃……這裡還沒到吧？」她有點尷尬地下車，往回走了。', 2600);
+    }
     return;
   }
   toast(joyrode ? '騎了一圈,風吹過來整個人鬆一點。把車停好,下車走路。' : '把車停好,下車走路。', 1600);
@@ -9999,7 +10061,7 @@ renderer.setAnimationLoop(now => {
   if(gameOver) return;   // 失敗結局蓋上之後整個模擬凍結,見 triggerGameOver()
   const dt = Math.min(50, now-last); last = now;
   fit(); tickDialog(dt);
-  if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); updatePatrolMarker(dt); composer.render(); }
+  if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); updatePatrolMarker(dt); updateAxiaMarker(dt); composer.render(); }
   else { updateIndoor(dt); renderIndoor3D(dt); renderIndoorForeground(); }
   acc += dt; frames++;
   if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc=0; frames=0; }
