@@ -6974,7 +6974,7 @@ const MOTO_SEAT_Y = 0.95;        // 同上,座墊高度
    算法,只是往後不是往前),PASSENGER_SEAT_Y 是座墊高度,先抓跟騎士同高
    當初始值,數字都還沒定案——kc:「新增動畫好了...我在調整位置就好 你
    開給我調」,見下面 __dbg.tweakPassengerSeat()。 */
-let PASSENGER_SEAT_OFFSET = 1.4, PASSENGER_SEAT_Y = 0.95;
+let PASSENGER_SEAT_OFFSET = 0.86, PASSENGER_SEAT_Y = 1.1;   // 2026-09-01,kc 用滑桿現場拉到滿意的數字(截圖確認兩人一起騎車的畫面)
 let axiaRiding = false;
 /* 買機車(2026-08-17,kc 要求「只有機車行能買,騎別人的扣風評」)——
    MOTO_PRICE 是我先湊的數字,沒跟 kc 對過,價位刻意訂得比現在身上的錢
@@ -7568,7 +7568,7 @@ function tweakPassengerSeatPanel(){
       `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(2)}</span><br>
        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
     ).join('') +
-    '<div style="margin-top:4px;opacity:.7">還沒在騎乘阿霞的話先打 __dbg.axiaTestRide()<br>關掉:再打一次 __dbg.tweakPassengerSeat()<br>拉到滿意後跟我說最終數字就好</div>';
+    '<div style="margin-top:4px;opacity:.7">還沒在騎乘阿霞的話先按「阿霞上/下車」按鈕<br>關掉:再按一次「後座滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
   document.body.appendChild(panel);
   rows.forEach(([id,,,,,, set]) => {
     document.getElementById(id).addEventListener('input', e => {
