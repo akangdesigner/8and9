@@ -5829,8 +5829,14 @@ function renderIndoorForeground(){
   /* 小美座位/主角空位疊圖(2026-08-25)——照 dad-drunk.png 那段的先例,
      每幀都畫、不判斷玩家站哪,c2df 天生蓋過玩家的 3D 頭像那一層。畫在
      上面那塊「橫排課桌椅遮擋」之後——遮擋那塊是從 c2dbg 裁的舊背景
-     (不含這兩張新疊圖),順序上兩張疊圖要後畫才不會被裁圖蓋掉。 */
-  if(PLACE === 'school'){
+     (不含這兩張新疊圖),順序上兩張疊圖要後畫才不會被裁圖蓋掉。
+     2026-08-31 kc 抓到:「後面多了一張椅子...因為我的圖片是全圖」——
+     讀書解題/偷玩手遊那兩張 kc 的底圖本身就是完整場景(含主角座位那張
+     桌椅),但 `schoolEmptyDeskImg`(主角空位疊圖)這裡不管 PLACE==='school'
+     當下是不是正在那兩個接管畫面,照樣每幀疊上去,變成兩張「空位桌椅」
+     疊在一起。這兩個接管狀態(studyTakeover/PHONE_GAME.active)期間跳過
+     這整塊——那兩張底圖不需要,也不該再疊任何座位素材上去。 */
+  if(PLACE === 'school' && !studyTakeover && !PHONE_GAME.active){
     if(meiDeskImg.complete && meiDeskImg.naturalWidth){
       const mw = MEI_DESK_TWEAK.w, mh = mw * (meiDeskCrop.h/meiDeskCrop.w);
       g2f.imageSmoothingEnabled = true;
