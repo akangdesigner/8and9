@@ -1522,7 +1522,7 @@ export function buildCity(THREE, scene){
       const xW = cx - L/2, xE = cx + L/2;            // 西端(招牌)/東端(站務室)
       const openCx = xW + openW/2;
       const officeCx = xE - officeW/2;
-      const postH = 3.6, canopyT = .3;
+      const postH = 9, canopyT = .5;   // 2026-09-01,kc:「高度改回來 原本的才是正常的」——雨遮/柱子/站務室高度退回舊火車站站體的量級(9),不是公車亭該縮小的那個猜測
 
       const concrete = std({ color:0xb0b4ae, roughness:.85 });
       const canopyMat = std({ color:0x2c5aa0, roughness:.5 });
