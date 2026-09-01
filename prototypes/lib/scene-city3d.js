@@ -1507,100 +1507,105 @@ export function buildCity(THREE, scene){
       doors.push({ id:'school', name:'高中', x:gx, z:z1+2.4 });   // 沿用 row() 原本算出來的門口座標(-36, 70.4)
     })();
 
-    /* 火車站 v3(2026-08-27,kc 不滿意 v2 尺寸「火車站要超大的好嗎你有沒有
-       概念」——v2 直接照參考圖上標的公制數字(14×7)做,但那張參考圖本身
-       是示意比例,不是要求做小。全部尺寸拉大到接近 3 倍(月台 40×13、
-       雨遮高 8.5、柱子 5→9 根),量體才撐得起「火車站」這個級別的地標,
-       不是社區公車亭。同一天 kc:「把那排假房子全部拆掉」——站體北側緊貼
-       skylineRing() 的遠景天際線背牆,太近穿幫,已在 skylineRing() 那段
-       清空 x:[-70,-5] 這段給站體+未來的警察局/施工大樓留空間。
-       座標:跟南側 backStation 那排對稱,rowZ_n=84+B_LINE(105.5)、
-       frontN=rowZn-DEPTH/2(100,面向街道/學校那一側,南側建築面向 +z、
-       這裡反過來面向 -z)。 */
-    (function trainStationV2(){
-      const cx = -36;                              // 對齊學校校門 gx
-      const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;   // 105.5 / 100
-      const platW = 40, platD = 13, platH = 1;
-      /* 2026-08-27,kc:「火車站後退一點,不要壓到馬路,對齊同一條路的房子」
-         ——v3 的鐵軌意象貼到 frontN-.5,比 frontN(建築線,南側大樓/學校
-         的正面都貼齊這條線)還要往路那側多探了快一個單位,讀起來像蓋到
-         人行道上。setback 3 個單位,月台跟軌道都收回建築線後面,不再有
-         任何東西越過 frontN。 */
-      const setback = 3;
-      const nearZ = frontN + setback;               // 月台靠鐵軌那一側(離學校較近)
-      const farZ  = nearZ + platD;                  // 月台後緣
+    /* 火車站改公車亭(2026-09-01,kc 丟參考圖「改做成公車站」)——原本這裡是
+       「南邊站」火車站量體(月台/鐵軌/候車室大樓),整段拆掉換成公車亭,
+       完整前情跟參考圖描述見 docs/DESIGN_NOTES.md「後火車站改公車亭」節。 */
+    (function busStop(){
+      const cx = -36;                              // 對齊學校校門 gx,沿用舊站位置
+      const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;   // 105.5 / 100,跟辦公大樓/警察局同一條建築線
+      const L = 32, openW = 26, officeW = L - openW;         // 開放候車區 26 + 站務室 6
+      const platD = 7, platH = .3;                  // 公車月台不用墊到火車那種高度,矮緣石就夠
+      const setback = 1;
+      const nearZ = frontN + setback;               // 雨遮/月台面向馬路那一側
+      const farZ  = nearZ + platD;                  // 背牆那一側
       const platCz = (nearZ+farZ)/2;
+      const xW = cx - L/2, xE = cx + L/2;            // 西端(招牌)/東端(站務室)
+      const openCx = xW + openW/2;
+      const officeCx = xE - officeW/2;
+      const postH = 3.6, canopyT = .3;
 
       const concrete = std({ color:0xb0b4ae, roughness:.85 });
-      const canopyMat = std({ color:0x3b5a78, roughness:.6 });
-      const postMat = std({ color:0xd8cfba, roughness:.7 });
+      const canopyMat = std({ color:0x2c5aa0, roughness:.5 });
+      const postMat = std({ color:0xd7d7cf, roughness:.6 });
       const yellow = std({ color:0xe8b23a, roughness:.6 });
-      const railMat = std({ color:0x2c2f33, roughness:.4, metalness:.4 });
-      const tieMat = std({ color:0x4a3a2a, roughness:.9 });
+      const wallMat = std({ color:0x14213a, roughness:.55 });
       const benchMat = std({ color:0x6a4a30, roughness:.8 });
       const binMat = std({ color:0x3d6b4a, roughness:.7 });
+      const recycMat = std({ color:0xd8d8d2, roughness:.6 });
       const boardMat = std({ color:0xf2f2ee, roughness:.6 });
+      const adMat = std({ color:0x3f6b46, roughness:.6 });
+      const lightMat = std({ color:0xffffff, emissive:0xdfe8ff, emissiveIntensity:1.2 });
+      const officeWallMat = std({ color:0xcac6ba, roughness:.8 });
+      const doorMat = std({ color:0x8a6b46, roughness:.7 });
+      const signMat = std({ color:0x14315e, roughness:.4 });
 
-      /* 月台本體,墊高(kc 參考圖標「月台高度建議高於軌道 0.8~1.0m」)。 */
-      add(box(platW, platH, platD, concrete), cx, platH/2, platCz);
-      solid(cx, platCz, platW/2, platD/2);
-      /* 月台黃線,貼靠鐵軌那一側邊緣。 */
-      add(box(platW, .06, .4, yellow), cx, platH+.03, nearZ+.2, false, true);
+      /* 候車區地面,墊成人行道緣石高度(整塊含站務室那段一起蓋一顆
+         collider,玩家繞不進去,跟原本火車站同一個做法)。 */
+      add(box(L, platH, platD, concrete), cx, platH/2, platCz);
+      solid(cx, platCz, L/2, platD/2);
+      add(box(L, .05, .35, yellow), cx, platH+.03, nearZ+.15, false, true);
 
-      /* 鐵軌意象(純視覺,不是真的能走的軌道)——2026-08-27 從「貼在月台前緣外、
-         探到 frontN 外側」改成收在 setback 帶裡面(仍在建築線 frontN 之後),
-         不再越線。兩條鋼軌+等距枕木。 */
-      const railZ0 = frontN + .6, railZ1 = frontN + 1.8;
-      [railZ0+.15, railZ1-.15].forEach(rz => {
-        add(box(platW+1, .05, .08, railMat), cx, .05, rz, false, true);
-      });
-      const tieN = Math.round(platW/2.2);
-      for(let i=0;i<tieN;i++){
-        const tx = cx - platW/2 + 1 + i*2.2;
-        add(box(.5, .04, .7, tieMat), tx, .03, (railZ0+railZ1)/2, false, true);
-      }
+      /* 背牆:深藍色,只擋開放候車區那段(站務室自己有牆)。 */
+      add(box(openW, postH-.2, .2, wallMat), openCx, (postH-.2)/2, farZ, false, true);
 
-      /* 雨遮:低模單斜頂,壓低壓長,是全站最大的量體。九根柱子等距排在
-         月台前緣(v2 只有 5 根,40 寬的雨遮撐不住觀感)。
-         2026-08-27,kc:「車站警察局都太小,你要不要看看人家大樓多大」
-         ——v3 只放大了平面尺寸(月台寬/深),高度沒跟著調,雨遮/候車室
-         矮矮一片貼在地上,旁邊 50 高的辦公大樓一比就像玩具。雨遮 8.5→10、
-         候車室(下面)6.5→18、燈箱柱跟著兩者一起拉高,不是社區公車亭
-         的高度感。 */
-      const canopyH = 10;
-      add(box(platW+2, .5, platD+1, canopyMat), cx, canopyH, platCz, false, true);
-      const postN = 9;
+      /* 雨遮:單斜、貼長,整條(含站務室上方)連成一片,前緣柱子撐開放區。 */
+      add(box(L+1, canopyT, platD+1, canopyMat), cx, postH+canopyT/2, platCz, false, true);
+      const postN = 5;
       for(let i=0;i<postN;i++){
-        const px = cx - platW/2 + i*(platW/(postN-1));
-        add(box(.6, canopyH-platH, .6, postMat), px, platH+(canopyH-platH)/2, nearZ+.3);
-        solid(px, nearZ+.3, .35, .35);
+        const px = xW + i*(openW/(postN-1));
+        add(box(.3, postH, .3, postMat), px, postH/2, nearZ+.2);
+        solid(px, nearZ+.2, .25, .25);
+      }
+      add(box(.3, postH, .3, postMat), xE-.3, postH/2, nearZ+.2);   // 東端收邊柱,撐住站務室上方那段雨遮
+
+      /* 候車資訊看板,貼在背牆上,3 張色塊看板 + 1 張廣告看板——這種細碎
+         時刻表文字生圖效益低,跟月台其他小道具同一套判斷,先用色塊。 */
+      const boardN = 4;
+      for(let i=0;i<boardN;i++){
+        const bx = xW + (openW/(boardN+1))*(i+1);
+        const isAd = i === boardN-1;
+        add(box(2.0, 1.6, .12, isAd?adMat:boardMat), bx, platH+1.9, farZ-.2, false, true);
+        /* 疊在廣告看板上的亮色色塊,z 要跟看板本體明顯拉開(不是差 .01),
+           不然兩片板子正面幾乎共平面,會 z-fighting 閃爍出雜訊格紋
+           (2026-09-01 現場截圖抓到,教訓記在這裡)。 */
+        if(isAd) add(box(1.4, .9, .14, std({color:0xdfe8d8,roughness:.5})), bx, platH+2.1, farZ-.4, false, true);
       }
 
-      /* 候車室:縮小退到月台後緣一角,配角而非主體(但站體整體放大之後
-         這間也跟著等比放大,不然會比柱子還矮小,比例失衡)。 */
-      const roomW=18, roomD=6, roomH=18;
-      const roomCx = cx+11, roomCz = farZ - roomD/2 - .3;
-      add(box(roomW, roomH, roomD, std({ color:0xc4c6c0, roughness:.8 })), roomCx, platH+roomH/2, roomCz);
-      solid(roomCx, roomCz, roomW/2, roomD/2);
-      add(box(roomW-2, roomH-2.5, .18, M.glassOff), roomCx, platH+roomH/2+.5, roomCz-roomD/2-.06, false, true);
+      /* 長椅,對著背牆排開。 */
+      const benchN = 4;
+      for(let i=0;i<benchN;i++){
+        const bx = xW + (openW/(benchN+1))*(i+1);
+        add(box(1.8,.5,.6, benchMat), bx, platH+.25, platCz+1, false, true);
+      }
 
-      /* 長椅/垃圾桶/時刻表牌,月台上的小道具,呼應參考圖,數量跟著放大的
-         月台長度增加。 */
-      [-15,-4,7,18].forEach(dx => add(box(1.8,.55,.65, benchMat), cx+dx, platH+.28, platCz-2, false, true));
-      add(box(.6,.8,.6, binMat), cx-18, platH+.4, platCz, false, true);
-      add(box(1.4,1.9,.18, boardMat), cx-19, platH+.95, nearZ+.5, false, true);
+      /* 垃圾桶+資源回收桶,擺在站務室旁(跟參考圖同一側)。 */
+      add(box(.6,.8,.55, binMat), xW+openW-1.1, platH+.4, platCz+1.5, false, true);
+      add(box(.6,.8,.55, recycMat), xW+openW-.2, platH+.4, platCz+1.5, false, true);
 
-      /* 站名燈箱柱(參考圖裡屋頂還高的那根招牌柱)+ 雨遮下懸掛的長條招牌,
-         文字用既有 landmarks 飄浮字系統(跟「火車站」「高中」同一套),
-         不用另外生招牌貼圖。站名先用參考圖裡的「南邊站」佔位,kc 之後
-         要改真的站名再換這裡的字串就好。柱子/招牌板也等比放大,不然
-         全站放大 3 倍後這根柱子反而變成最不起眼的東西。 */
-      const pylonX = cx + platW/2 + 2.2, pylonH = roomH + 6;
-      add(box(.5, pylonH, .5, std({color:0x25384a,roughness:.5})), pylonX, pylonH/2, nearZ+.3);
-      add(box(3.2, 2.4, .2, std({color:0x25384a,roughness:.5})), pylonX, pylonH-1.6, nearZ+.3, false, true);
-      solid(pylonX, nearZ+.3, .4, .4);
-      lampSpots.push({ x:cx, y:canopyH-1, z:platCz, c:0xdce8f2, i:14, r:22 });
-      landmarks.push({ x:cx, y:canopyH+2.5, z:platCz, text:'南邊站' });
+      /* 站務室:小房間,取代原本整棟候車室大樓——公車亭量體本來就該比
+         火車站小,跟旁邊辦公大樓的對比是刻意的(這裡本來就不該是地標)。 */
+      const officeH = postH;
+      add(box(officeW, officeH, platD, officeWallMat), officeCx, platH+officeH/2, farZ-platD/2);
+      solid(officeCx, farZ-platD/2, officeW/2, platD/2);
+      add(box(2.0, 1.7, .1, M.glassLit), officeCx+1, platH+1.9, nearZ+.05, false, true);
+      add(box(1.0, 2.1, .12, doorMat), officeCx-1.3, platH+1.05, nearZ+.05, false, true);
+      add(box(1.6, .55, .15, signMat), officeCx-1.3, platH+2.5, nearZ+.1, false, true);
+      lampSpots.push({ x:officeCx, y:platH+1.6, z:nearZ+.3, c:0xf4e8c8, i:10, r:12 });
+      landmarks.push({ x:officeCx, y:officeH+1, z:farZ-platD/2, text:'站務室' });
+
+      /* 雨遮下的燈,呼應參考圖每個柱間都有一盞。 */
+      for(let i=0;i<postN;i++){
+        const px = xW + i*(openW/(postN-1)) + (openW/(postN-1))/2;
+        if(px > xW+openW) continue;
+        add(box(.5,.06,.25, lightMat), px, postH-.08, nearZ+.6, false, true);
+        lampSpots.push({ x:px, y:postH-.3, z:platCz, c:0xdce8f2, i:9, r:11 });
+      }
+
+      /* 招牌:西端雨遮上方,文字用既有 landmarks 飄浮字系統,不用另外生
+         招牌貼圖。字串照 kc 給的參考圖照抄(「後火車站(公車站)」)——地名
+         沿用歷史稱呼、但實際只是公車站的落差是刻意的,不是筆誤。 */
+      add(box(6, 1.4, .2, signMat), xW+2.5, postH+canopyT+1, nearZ+.1, false, true);
+      landmarks.push({ x:xW+2.5, y:postH+canopyT+2, z:nearZ+.1, text:'後火車站(公車站)' });
     })();
   })();
 
