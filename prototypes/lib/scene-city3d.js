@@ -1514,27 +1514,39 @@ export function buildCity(THREE, scene){
       doors.push({ id:'school', name:'高中', x:gx, z:z1+2.4 });   // 沿用 row() 原本算出來的門口座標(-36, 70.4)
     })();
 
-    /* 火車站改公車亭(2026-09-01)——kc 兩輪材質/尺寸修改後回頭抓到問題:
-       「你擅自改變了原本模型的結構、位置與比例」,要求以修改前
-       trainStationV2 的座標為唯一基準全部復原,這輪(第三輪)先只做這件事
-       (kc:「先不管貼圖 重點是灰模3d」),材質留到下一輪再談。復原範圍跟
-       取捨見 docs/DESIGN_NOTES.md「公車亭結構復原(第三輪)」節——這裡
-       只留兩個刻意的差異:拿掉鐵軌(公車站不該有)、招牌文字改成
-       「後站公車站」,其餘 box 數量/尺寸/座標逐一比對舊 git 版本抄回來。 */
+    /* 公車亭(2026-09-01,第四輪)——kc 看了前一輪(復原成火車站原始座標)
+       之後說「不是用舊版本 是要改成圖片的版本 要嚴格參考這個感覺」+
+       兩個具體結構問題:「會有兩排柱子」「柱子跟屋頂應該是在底座內」。
+       前一輪把「復原舊版」當成目標是理解錯了——kc 真正要的一直是那張
+       參考圖的結構,舊版 trainStationV2 只是拿來說明「不要每輪偷改骨架」
+       的反例,不是真的要蓋回火車站。這輪把材質做得不錯的那版(canvas
+       貼圖,commit 5422f57)找回來,疊上兩個結構修正:柱子改成前後兩排
+       (不是一排),雨遮跟柱子整組往月台內側收(margin 內縮,不再貼齊或
+       超出月台邊緣)。細節見 docs/DESIGN_NOTES.md「公車亭兩排柱子+內縮
+       結構(第四輪)」節。 */
     (function busStop(){
-      const cx = -36;                              // 對齊學校校門 gx——跟原本 trainStationV2 完全相同
-      const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;   // 105.5 / 100
-      const platW = 40, platD = 13, platH = 1;      // 復原原本尺寸,不是公車亭矮緣石那個猜測
-      const setback = 3;
-      const nearZ = frontN + setback;
-      const farZ  = nearZ + platD;
+      const cx = -36;                              // 對齊學校校門 gx,沿用舊站位置
+      const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;   // 105.5 / 100,跟辦公大樓/警察局同一條建築線
+      const L = 32, openW = 26, officeW = L - openW;         // 開放候車區 26 + 站務室 6
+      const platD = 7, platH = .3;
+      const setback = 1;
+      const nearZ = frontN + setback;               // 底座(月台)最靠馬路那一側
+      const farZ  = nearZ + platD;                  // 底座最靠裡那一側
       const platCz = (nearZ+farZ)/2;
-      const postH = 9, canopyT = .5;   // canopyH-platH=9、原本 canopyT 沒有獨立變數(box 高 .5),寫成同一個名字方便下面沿用
+      const xW = cx - L/2, xE = cx + L/2;            // 西端(招牌)/東端(站務室)
+      const openCx = xW + openW/2;
+      const officeCx = xE - officeW/2;
+      const postH = 9, canopyT = .5;
 
-      /* 整組包進一個 group,底部貼地(y=0)當縮放軸心,跟上一輪一樣留著
-         給 tweakBusStop() 用——group 沒有自己的 position/rotation/scale
-         偏移(預設 (0,0,0)/scale 1),不影響任何座標,單純方便之後量體
-         真的要整組微調時用。 */
+      /* 柱子/屋頂內縮量:雨遮跟兩排柱子的footprint 比底座(platD)小
+         margin*2,底座邊緣露出一圈(月台前緣多留走道、後緣多留跟牆的
+         距離),不是雨遮/柱子直接貼齊或超出底座邊界(kc:「柱子跟屋頂
+         應該是在底座內才對」)。 */
+      const margin = 1;
+      const frontRowZ = nearZ + margin;             // 前排柱子(靠馬路那排)
+      const backRowZ  = farZ - margin;               // 後排柱子(靠牆那排)
+      const wallZ = backRowZ + .15;                  // 背牆貼在後排柱子後面一點點
+
       const busStopGroup = new THREE.Group();
       scene.add(busStopGroup);
       busStopRef.group = busStopGroup;
@@ -1544,78 +1556,255 @@ export function buildCity(THREE, scene){
         busStopGroup.add(mesh); return mesh;
       };
 
-      /* 材質先不做工(kc:「先不管貼圖 重點是灰模3d」)——直接沿用舊
-         trainStationV2 的原始配色,只是拿掉候車室原本 M.glassOff 換成
-         同一顆材質(不影響外觀),站牌從純色改成畫了字的 canvas 貼圖
-         (只換這一個材質,方便直接看到站名有沒有改對,不算「美術修改」,
-         純粹是把原本用不到的 landmarks 飄浮字換成畫在貼圖上的字)。 */
-      const concrete = std({ color:0xb0b4ae, roughness:.85 });
-      const canopyMat = std({ color:0x3b5a78, roughness:.6 });
-      const postMat = std({ color:0xd8cfba, roughness:.7 });
-      const yellow = std({ color:0xe8b23a, roughness:.6 });
-      const benchMat = std({ color:0x6a4a30, roughness:.8 });
-      const binMat = std({ color:0x3d6b4a, roughness:.7 });
-      const boardMat = std({ color:0xf2f2ee, roughness:.6 });
+      const mkTex = (w,h,draw,rx,ry) => {
+        const c = document.createElement('canvas'); c.width=w; c.height=h;
+        draw(c.getContext('2d'), w, h);
+        const t = new THREE.CanvasTexture(c);
+        t.colorSpace = THREE.SRGBColorSpace;
+        if(rx||ry){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx||1, ry||1); }
+        t.needsUpdate = true;
+        return t;
+      };
+      const rnd = (seed => () => (seed = (seed*1103515245+12345) & 0x7fffffff) / 0x7fffffff)(7);
+      const speckle = (ctx,w,h,n,alpha,tone) => {
+        for(let i=0;i<n;i++){
+          ctx.fillStyle = `rgba(${tone},${tone},${tone},${alpha*rnd()})`;
+          ctx.fillRect(rnd()*w, rnd()*h, 1+rnd()*2, 1+rnd()*2);
+        }
+      };
 
-      /* 月台本體,墊高——原本尺寸/座標。 */
-      addG(box(platW, platH, platD, concrete), cx, platH/2, platCz);
-      solid(cx, platCz, platW/2, platD/2);
-      addG(box(platW, .06, .4, yellow), cx, platH+.03, nearZ+.2, false, true);
+      const roofTex = mkTex(128,32,(ctx,w,h)=>{
+        ctx.fillStyle='#1e3a5f'; ctx.fillRect(0,0,w,h);
+        for(let x=0;x<w;x+=8){ ctx.fillStyle = x%16===0 ? '#28507f' : '#193150'; ctx.fillRect(x,0,4,h); }
+        ctx.fillStyle='rgba(180,190,200,.12)';
+        for(let i=0;i<10;i++) ctx.fillRect(rnd()*w, 0, 1, h);
+        ctx.fillStyle='rgba(20,20,20,.15)';
+        for(let i=0;i<6;i++){ const bx=rnd()*w, by=rnd()*h; ctx.beginPath(); ctx.ellipse(bx,by,6,3,0,0,7); ctx.fill(); }
+      }, Math.round((L-margin*2)/4), 2);
+      const canopyMat = std({ color:0xffffff, map:roofTex, roughness:.82 });
 
-      /* 鐵軌拿掉(公車站不該有,跟舊版本唯一的幾何差異)——原本這裡是
-         兩條鋼軌+等距枕木,見 git 歷史 trainStationV2。 */
+      const postTex = mkTex(16,64,(ctx,w,h)=>{
+        ctx.fillStyle='#c7c9c4'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(255,255,255,.25)';
+        for(let x=0;x<w;x+=3) ctx.fillRect(x,0,1,h);
+        ctx.fillStyle='rgba(120,90,60,.35)';
+        ctx.fillRect(0,h-10,w,10);
+        speckle(ctx,w,h,40,.15,90);
+      }, 1, Math.round(postH/.3));
+      const postMat = std({ color:0xffffff, map:postTex, roughness:.6, metalness:.35 });
 
-      /* 雨遮+九根柱子,原本尺寸/座標,一根不少。 */
-      const canopyH = 10;
-      addG(box(platW+2, .5, platD+1, canopyMat), cx, canopyH, platCz, false, true);
-      const postN = 9;
-      for(let i=0;i<postN;i++){
-        const px = cx - platW/2 + i*(platW/(postN-1));
-        addG(box(.6, canopyH-platH, .6, postMat), px, platH+(canopyH-platH)/2, nearZ+.3);
-        solid(px, nearZ+.3, .35, .35);
+      const tactileTex = mkTex(32,8,(ctx,w,h)=>{
+        ctx.fillStyle='#e2ab34'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='#c98f22';
+        for(let x=1;x<w;x+=3) ctx.fillRect(x,1,1.4,h-2);
+      }, Math.round(L/2), 1);
+      const yellow = std({ color:0xffffff, map:tactileTex, roughness:.65 });
+
+      const wallTex = mkTex(64,64,(ctx,w,h)=>{
+        ctx.fillStyle='#141f38'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.2)';
+        for(let i=0;i<8;i++) ctx.fillRect(rnd()*w,0,2,h*(.4+rnd()*.6));
+        speckle(ctx,w,h,60,.06,200);
+      }, Math.round(openW/6), Math.round((postH-.2)/6));
+      const wallMat = std({ color:0xffffff, map:wallTex, roughness:.65 });
+
+      const tileTex = mkTex(32,32,(ctx,w,h)=>{
+        ctx.fillStyle='#aeb2ac'; ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle='rgba(70,74,70,.5)'; ctx.lineWidth=1;
+        ctx.strokeRect(1,1,w-2,h-2);
+        speckle(ctx,w,h,50,.1,60);
+      }, Math.round(L/1.5), Math.round(platD/1.5));
+      const platformTopMat = std({ color:0xffffff, map:tileTex, roughness:.8 });
+      const concreteSideTex = mkTex(64,16,(ctx,w,h)=>{
+        ctx.fillStyle='#55584f'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.25)';
+        for(let i=0;i<10;i++) ctx.fillRect(rnd()*w,0,1,h);
+        ctx.fillStyle='rgba(0,0,0,.3)';
+        ctx.fillRect(0,h-3,w,3);
+      }, Math.round(L/4), 1);
+      const platformSideMat = std({ color:0xffffff, map:concreteSideTex, roughness:.9 });
+      const concrete = [platformSideMat,platformSideMat,platformTopMat,platformSideMat,platformSideMat,platformSideMat];
+
+      const benchTex = mkTex(64,16,(ctx,w,h)=>{
+        ctx.fillStyle='#5a3d24'; ctx.fillRect(0,0,w,h);
+        for(let y=0;y<h;y+=4){ ctx.fillStyle = y%8===0 ? '#6e4c2c' : '#4c331e'; ctx.fillRect(0,y,w,2); }
+        speckle(ctx,w,h,30,.1,30);
+      }, 3, 1);
+      const benchMat = std({ color:0xffffff, map:benchTex, roughness:.7 });
+
+      const binTex = mkTex(32,40,(ctx,w,h)=>{
+        ctx.fillStyle='#2f5a3c'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fillRect(0,0,w,4);
+        ctx.strokeStyle='#dfe8d8'; ctx.lineWidth=2;
+        ctx.strokeRect(w/2-6,h/2-8,12,14);
+        ctx.beginPath(); ctx.moveTo(w/2-8,h/2-8); ctx.lineTo(w/2+8,h/2-8); ctx.stroke();
+      });
+      const binMat = std({ color:0xffffff, map:binTex, roughness:.7 });
+      const recycTex = mkTex(32,40,(ctx,w,h)=>{
+        ctx.fillStyle='#cfd2cb'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.12)'; ctx.fillRect(0,0,w,4);
+        ctx.strokeStyle='#2e6b45'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(w/2,h/2-2,7,0,Math.PI*1.5); ctx.stroke();
+      });
+      const recycMat = std({ color:0xffffff, map:recycTex, roughness:.6, metalness:.15 });
+
+      const lightMat = std({ color:0xffffff, emissive:0xdfe8ff, emissiveIntensity:1.2 });
+
+      const officeWallMat = std({ color:0xffffff, map:mkTex(64,64,(ctx,w,h)=>{
+        ctx.fillStyle='#c7c4b8'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.15)';
+        for(let i=0;i<6;i++) ctx.fillRect(rnd()*w,0,2,h);
+        speckle(ctx,w,h,60,.08,90);
+      }, Math.round(officeW/4), Math.round(postH/4)), roughness:.85 });
+
+      const doorMat = std({ color:0xffffff, map:mkTex(24,48,(ctx,w,h)=>{
+        ctx.fillStyle='#7a5a38'; ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1;
+        ctx.strokeRect(3,4,w-6,h*.42);
+        ctx.strokeRect(3,h*.5,w-6,h*.42);
+        ctx.fillStyle='#d8c88a'; ctx.fillRect(w-6,h/2-2,3,4);
+      }), roughness:.7 });
+      const windowTex = mkTex(48,40,(ctx,w,h)=>{
+        ctx.fillStyle='#f3c96a'; ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle='#8c8f92'; ctx.lineWidth=3;
+        ctx.strokeRect(1.5,1.5,w-3,h-3);
+        ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
+      });
+      const windowMat = std({ color:0xffffff, map:windowTex, emissiveMap:windowTex, emissive:0xffffff, emissiveIntensity:.55, roughness:.5 });
+
+      const signPlate = (w,h,draw) => mkTex(w,h,(ctx,ww,hh)=>{
+        ctx.fillStyle='#0f2a4d'; ctx.fillRect(0,0,ww,hh);
+        ctx.strokeStyle='#c7cdd6'; ctx.lineWidth=4;
+        ctx.strokeRect(2,2,ww-4,hh-4);
+        draw(ctx,ww,hh);
+      });
+      const signMat = std({ color:0xffffff, map:signPlate(256,72,(ctx,w,h)=>{
+        ctx.fillStyle='#fff'; ctx.font='bold 30px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('後站公車站', w/2, h*.46);
+        ctx.font='13px sans-serif'; ctx.fillStyle='#cfe0f2';
+        ctx.fillText('Rear Station Bus Stop', w/2, h*.78);
+      }), roughness:.5 });
+
+      /* 底座(月台):完整尺寸,柱子/雨遮之後會內縮在裡面,四周留出一圈
+         走道/緣石可見的邊界。 */
+      addG(box(L, platH, platD, concrete), cx, platH/2, platCz);
+      solid(cx, platCz, L/2, platD/2);
+      addG(box(L, .05, .35, yellow), cx, platH+.03, nearZ+.15, false, true);
+
+      /* 背牆,貼在後排柱子後面。 */
+      addG(box(openW, postH-.2, .2, wallMat), openCx, (postH-.2)/2, wallZ, false, true);
+
+      /* 雨遮:寬度/深度都比底座小 margin*2,整個內縮在底座範圍內,不再
+         貼齊或超出底座邊緣。 */
+      const canopyW = L - margin*2, canopyD = (backRowZ-frontRowZ) + margin*1.2;
+      addG(box(canopyW, canopyT, canopyD, canopyMat), cx, postH+canopyT/2, platCz, false, true);
+
+      /* 柱子分前後兩排(kc:「會有兩排柱子」),同一組 x 位置各站一根,
+         前排在 frontRowZ(靠馬路)、後排在 backRowZ(靠牆)。 */
+      const postN = 5;
+      const postXs = [];
+      for(let i=0;i<postN;i++) postXs.push(xW + i*(openW/(postN-1)));
+      postXs.push(xE-.3);   // 東端收邊柱,撐住站務室上方那段雨遮
+      postXs.forEach(px => {
+        [frontRowZ, backRowZ].forEach(pz => {
+          addG(box(.3, postH, .3, postMat), px, postH/2, pz);
+          solid(px, pz, .25, .25);
+        });
+      });
+
+      /* 候車資訊牌,貼在背牆上。 */
+      const boardTex = [
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('公車路線圖', w/2, 26);
+          ctx.strokeStyle='#8fb8e0'; ctx.lineWidth=2;
+          for(let i=0;i<5;i++){ ctx.beginPath(); ctx.moveTo(20,40+i*22); ctx.lineTo(w-20,40+i*22+(rnd()*16-8)); ctx.stroke(); }
+          ctx.fillStyle='#e2ab34';
+          for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(30+rnd()*(w-60), 40+rnd()*110, 3, 0, 7); ctx.fill(); }
+        }),
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('公車時刻表', w/2, 26);
+          ctx.font='9px monospace'; ctx.textAlign='left';
+          for(let r=0;r<10;r++){ ctx.fillText(`${(6+r).toString().padStart(2,'0')}:00  ${(6+r).toString().padStart(2,'0')}:30`, 24, 44+r*13); }
+        }),
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('公車資訊', w/2, 26);
+          const routes=['12','25','307','紅5'];
+          routes.forEach((r,i)=>{
+            const rx=40+(i%2)*100, ry=54+Math.floor(i/2)*60;
+            ctx.fillStyle='#d94a35'; ctx.beginPath(); ctx.arc(rx,ry,22,0,7); ctx.fill();
+            ctx.fillStyle='#fff'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
+            ctx.fillText(r, rx, ry+6);
+          });
+        }),
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#2f6b45'; ctx.fillRect(4,4,w-8,h-8);
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('搭公車 愛地球', w/2, 30);
+          ctx.strokeStyle='#dfe8d8'; ctx.lineWidth=3;
+          ctx.beginPath(); ctx.arc(w/2,h/2+16,26,0,7); ctx.stroke();
+          ctx.fillStyle='#dfe8d8'; ctx.font='11px sans-serif';
+          ctx.fillText('公共運輸 減少碳排', w/2, h-16);
+        })
+      ].map(tex => std({ color:0xffffff, map:tex, roughness:.6 }));
+      const boardN = 4;
+      for(let i=0;i<boardN;i++){
+        const bx = xW + (openW/(boardN+1))*(i+1);
+        addG(box(2.0, 1.6, .12, boardTex[i]), bx, platH+1.9, wallZ-.2, false, true);
       }
 
-      /* 候車室(原本後方那個大方塊):位置/尺寸完全不動,只換用途——
-         材質顏色沿用原本的 0xc4c6c0,窗戶維持原本 M.glassOff(不是站
-         務室專屬材質,先復原成跟舊版一樣借用共用材質)。 */
-      const roomW=18, roomD=6, roomH=18;
-      const roomCx = cx+11, roomCz = farZ - roomD/2 - .3;
-      addG(box(roomW, roomH, roomD, std({ color:0xc4c6c0, roughness:.8 })), roomCx, platH+roomH/2, roomCz);
-      solid(roomCx, roomCz, roomW/2, roomD/2);
-      addG(box(roomW-2, roomH-2.5, .18, M.glassOff), roomCx, platH+roomH/2+.5, roomCz-roomD/2-.06, false, true);
+      /* 長椅,擺在兩排柱子中間偏後(靠牆)那一側,前面留出走道。 */
+      const benchN = 4;
+      for(let i=0;i<benchN;i++){
+        const bx = xW + (openW/(benchN+1))*(i+1);
+        addG(box(1.8,.5,.6, benchMat), bx, platH+.25, backRowZ-.8, false, true);
+      }
 
-      /* 長椅/垃圾桶/資訊牌,原本座標——4 張椅子在原本的 dx 位移,不是
-         我上一輪自己平均分配的位置;資訊牌只有一張,不是四張。 */
-      [-15,-4,7,18].forEach(dx => addG(box(1.8,.55,.65, benchMat), cx+dx, platH+.28, platCz-2, false, true));
-      addG(box(.6,.8,.6, binMat), cx-18, platH+.4, platCz, false, true);
-      addG(box(1.4,1.9,.18, boardMat), cx-19, platH+.95, nearZ+.5, false, true);
+      /* 垃圾桶+資源回收桶,擺在站務室旁。 */
+      addG(box(.6,.8,.55, binMat), xW+openW-1.1, platH+.4, backRowZ-.5, false, true);
+      addG(box(.6,.8,.55, recycMat), xW+openW-.2, platH+.4, backRowZ-.5, false, true);
 
-      /* 站名燈箱柱,原本座標,只換內容:字串從「南邊站」改成「後站公車站」
-         (kc:「只修改內容...不要另外新增招牌...只使用原本招牌位置」)。
-         招牌板從純色改成 canvas 畫的深藍底白字,這樣字才會真的顯示——
-         landmarks 那套飄浮字系統本來就是關掉的死資料(見 DESIGN_NOTES),
-         不是新增的量體,只是換了同一塊板子的材質。 */
-      const pylonX = cx + platW/2 + 2.2, pylonH = roomH + 6;
-      const signCanvas = document.createElement('canvas');
-      signCanvas.width = 256; signCanvas.height = 192;
-      (() => {
-        const c = signCanvas.getContext('2d');
-        c.fillStyle = '#25384a'; c.fillRect(0,0,256,192);
-        c.strokeStyle = '#c7cdd6'; c.lineWidth = 5;
-        c.strokeRect(3,3,250,186);
-        c.fillStyle = '#fff'; c.font = 'bold 34px sans-serif'; c.textAlign = 'center';
-        c.fillText('後站公車站', 128, 96);
-        c.font = '15px sans-serif'; c.fillStyle = '#cfe0f2';
-        c.fillText('Rear Station Bus Stop', 128, 130);
-      })();
-      const signTex = new THREE.CanvasTexture(signCanvas);
-      signTex.colorSpace = THREE.SRGBColorSpace;
-      const signMat = std({ color:0xffffff, map:signTex, roughness:.5 });
-      addG(box(.5, pylonH, .5, std({color:0x25384a,roughness:.5})), pylonX, pylonH/2, nearZ+.3);
-      addG(box(3.2, 2.4, .2, signMat), pylonX, pylonH-1.6, nearZ+.3, false, true);
-      solid(pylonX, nearZ+.3, .4, .4);
-      lampSpots.push({ x:cx, y:canopyH-1, z:platCz, c:0xdce8f2, i:14, r:22 });
-      landmarks.push({ x:cx, y:canopyH+2.5, z:platCz, text:'後站公車站' });
+      /* 站務室:小房間,維持原本整塊底座的滿深(合理的獨立小建築,不用
+         套用開放候車區那組內縮邏輯)。 */
+      const officeH = postH;
+      addG(box(officeW, officeH, platD, officeWallMat), officeCx, platH+officeH/2, farZ-platD/2);
+      solid(officeCx, farZ-platD/2, officeW/2, platD/2);
+      addG(box(2.0, 1.7, .1, windowMat), officeCx+1, platH+1.9, nearZ+.05, false, true);
+      addG(box(1.0, 2.1, .12, doorMat), officeCx-1.3, platH+1.05, nearZ+.05, false, true);
+      const officeSignMat = std({ color:0xffffff, map:signPlate(180,60,(ctx,w,h)=>{
+        ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('站務室', w/2, h*.65);
+      }), roughness:.5 });
+      addG(box(1.6, .55, .15, officeSignMat), officeCx-1.3, platH+2.5, nearZ+.1, false, true);
+      lampSpots.push({ x:officeCx, y:platH+1.6, z:nearZ+.3, c:0xf4e8c8, i:10, r:12 });
+      landmarks.push({ x:officeCx, y:officeH+1, z:farZ-platD/2, text:'站務室' });
+
+      /* 雨遮下的燈,前後兩排柱子中間各一盞。 */
+      for(let i=0;i<postN;i++){
+        const px = xW + i*(openW/(postN-1)) + (openW/(postN-1))/2;
+        if(px > xW+openW) continue;
+        addG(box(.5,.06,.25, lightMat), px, postH-.08, platCz, false, true);
+        lampSpots.push({ x:px, y:postH-.3, z:platCz, c:0xdce8f2, i:9, r:11 });
+      }
+
+      /* 招牌:西端雨遮上方。 */
+      addG(box(6, 1.4, .2, signMat), xW+2.5, postH+canopyT+1, frontRowZ, false, true);
+      landmarks.push({ x:xW+2.5, y:postH+canopyT+2, z:frontRowZ, text:'後站公車站' });
+
+      /* 公車停靠區路面標線。 */
+      const roadMarkTex = mkTex(256,96,(ctx,w,h)=>{
+        ctx.clearRect(0,0,w,h);
+        ctx.strokeStyle='rgba(240,230,200,.9)'; ctx.lineWidth=4;
+        ctx.strokeRect(6,6,w-12,h-12);
+        ctx.fillStyle='rgba(240,230,200,.9)'; ctx.font='bold 26px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('公車停靠區', w/2, h/2+9);
+      });
+      const roadMark = new THREE.Mesh(new THREE.PlaneGeometry(openW-2, 3),
+        new THREE.MeshStandardMaterial({ map:roadMarkTex, transparent:true, roughness:.7 }));
+      roadMark.rotation.x = -Math.PI/2;
+      addG(roadMark, openCx, .02, nearZ-4.5, false, true);
     })();
   })();
 
