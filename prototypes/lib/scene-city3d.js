@@ -1543,13 +1543,9 @@ export function buildCity(THREE, scene){
         busStopGroup.add(mesh); return mesh;
       };
 
-      /* 材質改用 canvas 畫的貼圖(2026-09-01,kc 給了一份很長的規格書:
-         「保留現有低模幾何+使用寫實材質貼圖/平面貼紙增加細節,不要重新
-         建模、不要大幅改變尺寸位置」)。不生外部圖檔(不用等 kc 跑生圖)、
-         不改任何 box 的寬高深跟座標——只換每個 box 的材質參數,細節全部
-         用小張 canvas 畫出來當 texture,PS2/PS3 世代「幾何簡單、貼圖資訊
-         密度高」的路線,跟辦公大樓/警察局那種整棟真照片是兩套不同做法,
-         這裡刻意選 canvas 因為道具太多太瑣碎,等 kc 一張一張生圖不划算。 */
+      /* 材質改用程式內 canvas 畫的貼圖,不改幾何/尺寸/位置(2026-09-01,
+         kc 規格書要求)。理由跟細節見 DESIGN_NOTES.md「公車亭材質貼圖
+         (canvas 版)」節。 */
       const mkTex = (w,h,draw,rx,ry) => {
         const c = document.createElement('canvas'); c.width=w; c.height=h;
         draw(c.getContext('2d'), w, h);
