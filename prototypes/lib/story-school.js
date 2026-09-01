@@ -38,7 +38,7 @@
       menu: [
         {
           label: '接過來',
-          cost: '歸屬感 +9　通緝 +1',
+          cost: '歸屬感 +9　風評 +1',
           calm: +9, star: +1,
           beats: [
             { who:'pc',  text:'你咳了一下，他們笑了。' },

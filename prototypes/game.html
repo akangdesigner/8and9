@@ -1194,23 +1194,51 @@ function openInventory(){
     kHost.appendChild(el);
   });
   if(!anyKnowledge) kHost.innerHTML = '<div class="invEmpty">還沒有累積任何知識。</div>';
-  /* 雜物分頁(2026-08-21,kc:day3 硬碰硬那個選項要給塑膠項鍊)——這個分頁
-     原本只是靜態「沒有雜物。」,沒有真的資料,第一件真的塞進來的雜物就是
-     這條項鍊。跟標籤/文件/知識同一套 itemCard+showItemDetail 模式,`TRASH`
-     是純陣列,`item.trashItem`(見 applyStoryChoice())push 進去。 */
+  renderTrashTab();
+  renderWearTab();
+  syncPanelStats();
+  invOverlay.classList.add('on');
+}
+/* 雜物分頁(2026-08-21,kc:day3 硬碰硬那個選項要給塑膠項鍊)——這個分頁
+   原本只是靜態「沒有雜物。」,沒有真的資料,第一件真的塞進來的雜物就是
+   這條項鍊。跟標籤/文件/知識同一套 itemCard+showItemDetail 模式,`TRASH`
+   是純陣列,`item.trashItem`(見 applyStoryChoice())push 進去。
+   2026-09-01,kc 糾正成績單放錯分頁:「雜物的敘述可以講成績單可裝備,
+   有點像是拿給別人看的感覺,所以是可以自由決定」——雜物裡帶 `star` 欄位
+   的項目(目前只有成績單)是可以自由開關的「秀給別人看」道具,不是進來
+   就永久生效:`t.active` 記目前有沒有帶出來秀,點卡片切換,跟穿搭系統
+   `toggleWear()` 同一招「切換那瞬間的差量」寫法,不是重算絕對值。拆成
+   獨立函式(不再是 openInventory() 裡面那段),因為切換要能重畫這個分頁
+   本身,不能只靠 openInventory() 開分頁那一次性的畫。 */
+function renderTrashTab(){
   const tHost = document.getElementById('invTrash');
   tHost.innerHTML = '';
   if(TRASH.length === 0) tHost.innerHTML = '<div class="invEmpty">沒有雜物。</div>';
   TRASH.forEach(t => {
+    const togglable = t.star != null;
     const el = document.createElement('div');
-    el.className = 'itemCard';
-    el.innerHTML = `<div class="ic">${t.icon}</div><div class="lb">${t.name}</div>`;
-    el.onclick = () => showItemDetail(el, tHost, t.detail);
+    el.className = 'itemCard' + (togglable && t.active ? ' on' : '');
+    const badge = togglable ? `<div class="badge">${t.active ? '帶著' : '收著'}</div>` : '';
+    el.innerHTML = `${badge}<div class="ic">${t.icon}</div><div class="lb">${t.name}</div>`;
+    el.onclick = () => {
+      if(togglable){
+        t.active = !t.active;
+        chg('star', t.active ? t.star : -t.star);
+        /* renderTrashTab() 整個分頁重畫(卡片的 .on/badge 狀態靠重畫本身
+           就對了),`el` 這個舊節點重畫後已經離開 DOM,不用再靠它找卡片
+           高亮,detail 面板是共用的獨立元素,直接寫就好,不用走
+           showItemDetail() 那套「先清 host 裡所有卡片的 .on 再點亮這張」
+           的邏輯(對 togglable 卡片來說多餘)。 */
+        renderTrashTab();
+        syncPanelStats();
+        document.getElementById('itemDetail').innerHTML = t.detail +
+          `<br><br>${t.active ? `帶出來秀了，風評 +${t.star} 生效中。` : '收起來了，這張的風評加成先不算。'}`;
+        return;
+      }
+      showItemDetail(el, tHost, t.detail);
+    };
     tHost.appendChild(el);
   });
-  renderWearTab();
-  syncPanelStats();
-  invOverlay.classList.add('on');
 }
 function closeInventory(){ invOverlay.classList.remove('on'); busy = false; }
 document.getElementById('charCardBtn').onclick = openInventory;
@@ -1978,7 +2006,8 @@ const BUSH_SPOT = { x:-50, z:-113 };
    會),還沒到 mei3(正式交往),語意上還不能撥成真,見 npc-school.js
    開頭那則筆記。 */
 const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:false, hasGirlfriend:false, friend:false,
-               practiceIdx:0, debuted:false, routineIdx:0, routineDay:-1 };
+               practiceIdx:0, debuted:false, routineIdx:0, routineDay:-1,
+               betrayed:false, betrayedConfronted:false };   // betrayed 見 talkToBrother() SNITCH_QUEST 'reported' 分支,2026-09-01
 
 /* 小胖的連續劇情(2026-08-31,見 npc-temple.js 小胖那則長筆記)——沒有 3D
    模型(骨架跟現有的差太多,見 DESIGN_NOTES「3D 街上的角色」),整條線純靠
@@ -5052,25 +5081,33 @@ function openIndoorSpot(id){
            就改)。②略懂知識不夠時「無法選該選項」——原本 cls:'bad' 只是
            變色,按鈕還是能點只是點了沒反應,改成真的 `disabled:true`(見
            openMenu() it.disabled 那段)。
-           2026-09-01 第三輪,kc 糾正:「成績單是在雜物不是穿搭」——拿到手
-           直接 chg('star',10) + TRASH.push,跟良民證同一招,不用像制服/
-           刺青那樣走穿搭系統再手動穿上。 */
+           2026-09-01 第三輪,kc 糾正:「成績單是在雜物不是穿搭」——進 TRASH,
+           不進穿搭系統。
+           2026-09-01 第四輪,kc 再糾正:「雜物的敘述可以講成績單可裝備,
+           有點像是拿給別人看的感覺,所以是可以自由決定,另外風評 5 的
+           加成而已」——不是拿到就永久生效(那樣就不是「自由決定」了),
+           是可以帶出來秀／收起來的開關(見 renderTrashTab() `t.active`/
+           `t.star` 那段,跟穿搭系統的切換是平行的兩套獨立實作,不共用
+           `equipped`)。星數從 10 降到 5(kc 明講的數字),拿到當下預設
+           `active:true`(已經帶出來秀了,效果立即生效,不用玩家再多點一次
+           才看到差異),之後想收起來自己去雜物分頁點掉。 */
         (() => {
           if(examAnnouncedDay < 0 || day <= examAnnouncedDay) return null;
           const short = KNOWLEDGE.rough < EXAM_KNOWLEDGE_COST;
           const blocked = gotTranscript || short;
           const cost = gotTranscript ? '已經有成績單了'
             : short ? `略懂知識不夠（要 ${EXAM_KNOWLEDGE_COST}）`
-            : `略懂知識 −${EXAM_KNOWLEDGE_COST}　情緒 +3　風評 +10　獲得成績單`;
+            : `略懂知識 −${EXAM_KNOWLEDGE_COST}　情緒 +3　風評 +5　獲得成績單`;
           return { label:'考小考', cost, cls: blocked ? 'bad' : '', disabled: blocked, run(){
             if(blocked) return;
             KNOWLEDGE.rough -= EXAM_KNOWLEDGE_COST;
             lastExamDay = day;
             examAnnouncedDay = -1;
             gotTranscript = true;
-            chg('mood', 3); chg('star', 10);
-            TRASH.push({ name:'成績單', icon:'📜', detail:'兩週一次的小考，你真的坐下來寫完了。<br>風評 +10，別人看得到這張。' });
-            toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +10）', 4200);
+            chg('mood', 3); chg('star', 5);
+            TRASH.push({ name:'成績單', icon:'📜', star:5, active:true,
+              detail:'兩週一次的小考，你真的坐下來寫完了。<br>可以帶出來秀給別人看，也可以收起來——風評加成是自己決定要不要露的。' });
+            toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +5）', 4200);
           } };
         })(),
         { label:'不要', cls:'back', run(){} }
@@ -6794,8 +6831,21 @@ function updateCity(dt){
      直接用 `!MOTO_IMPOUND.active`(涵蓋巡邏中跟還沒選兩種狀態),再加
      `!ID_CARD_QUEST.active`(良民證那條照 6662 那則筆記本來就不該算進
      主動觸發,這裡補齊排除)。玩家還是可以自己走過去按空白鍵處理這兩件
-     事,只是不會被「贓物協尋」的靠近自動觸發搶著重播。 */
-  if(!busy && !dlg.on && !MOTO_IMPOUND.active && !ID_CARD_QUEST.active && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
+     事,只是不會被「贓物協尋」的靠近自動觸發搶著重播。
+     **2026-09-01 第二輪,kc 抓到漏掉的第三個:**贓物協尋自己觸發之後
+     (`SNITCH_QUEST.active` 變 true,選單問「查得怎樣？」),玩家選
+     「還沒有」把選單關掉,人還站在 22 半徑內,同一幀又被判定成
+     urgent——這次是靠 `nextBrotherArcDay()!=null`(月長線剛好也到期)
+     那個條件重新拉回 talkToBrother(),但 talkToBrother() 內部順序
+     SNITCH_QUEST.active 排在月長線前面,又卡回同一句「查得怎樣？」,
+     一樣無限彈。**這裡的通則(以後阿正這邊再加新的「掛著沒解決」的狀態,
+     照這個原則補,不要又漏一個)是:talkToBrother() 內部任何一個
+     `if(X.active){ ...; return; }` 這種「事情還沒解決會攔住往下走」的
+     分支,對應的 X.active 都要出現在這裡的排除清單——因為那些分支的
+     選單本身沒有「這輪已經跳過一次」的記憶,關掉選單≠問題解決,下一幀
+     一樣的條件成立就會再被拉回同一句。三個都補齊:
+     `!MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active`。 */
+  if(!busy && !dlg.on && !MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
     const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0;
     if(MEI.together && !BROTHER.met) talkToBrother();
     else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) talkToBrother();
@@ -7561,6 +7611,28 @@ const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
    多一次選單點擊,換來「不夠格主動去問會被怎麼拒絕」這件事變得到得了,
    不用再靠 fall through 假裝沒發生。 */
 function talkToYuan(){
+  /* 出賣後的翻臉(2026-09-01,kc:「他會咒罵出賣他的人 你會心虛的應對
+     會扣歸屬感」)——攔在最前面,比顧場子/陣頭邀約優先權都高,因為這是
+     「事情爆了」的當下,不是日常互動。一次性(`YUAN.betrayedConfronted`
+     擋重複),播完之後這次對話直接結束(不順接顧場子/陣頭那些日常分支,
+     不合理讓玩家一邊被罵一邊約跳陣頭),下次再來才會照常走其他分支——
+     kc 沒提永久疏遠(不是 MEI.cooling 那種長期降溫台詞),先只做這一次
+     對峙+歸屬感懲罰,不腦補額外機制。 */
+  if(YUAN.betrayed && !YUAN.betrayedConfronted){
+    YUAN.betrayedConfronted = true;
+    playBeats([
+      { who:'yuan', text:'他劈頭就是一句：「幹，是誰跟條子講的？」' },
+      { who:'yuan', text:'他盯著你看了兩秒，你別開視線。' },
+      { who:'pc',   text:'「⋯⋯我不知道你在說什麼。」' },
+      { who:'yuan', text:'「不知道？」他冷笑一聲。' },
+      { who:'yuan', text:'「算了，反正這種事，遲早會知道是誰。」' },
+      { who:'pc',   text:'你沒有再說話，心虛得連話都接不上。' }
+    ], 0, () => {
+      chg('calm', -10);
+      toast('（歸屬感 −10）', 2600);
+    });
+    return;
+  }
   /* 顧場子(2026-08-26)——見上面 WATCHJOB 那則長筆記+ DESIGN_NOTES「顧場子」節。
      兩個分支都攔在陣頭/朋友邏輯最前面:回報優先權最高(玩家正是為了這件事
      跑過來),邀約其次。刻意不卡 joinedTroupe——kc 原話「不想限制大家一定
@@ -8453,12 +8525,15 @@ function talkToBrother(){
     } else {
       say('brother', '「查得怎樣？」', () => {
         openMenu('阿正', [
+          /* 2026-09-01,kc 先嫌 $800 太多改成 $300,同一輪又說「改回800元」
+             ——金額退回原本的 $800,star 維持上一輪降的 +5(kc 沒提這個要
+             改回去)。 */
           { label:'把你知道的告訴他', run(){
-              chg('money', 800); chg('star', 10);
+              chg('money', 800); chg('star', 5);
               SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'reported';
               YUAN.betrayed = true;
               syncMiscQuestPanel();
-              toast('（+$800／風評 +10）', 2600);
+              toast('（+$800／風評 +5）', 2600);
             } },
           { label:'還沒有', cls:'back', run(){} }
         ]);
