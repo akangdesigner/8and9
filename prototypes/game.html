@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoBusStop()">跳公車站</button><button class="tool" onclick="debugCallMoto()">叫機車</button><button class="tool" onclick="debugAxiaRideToggle()">阿霞上/下車</button><button class="tool" onclick="__dbg.tweakPassengerSeat()">後座滑桿</button><button class="tool" onclick="debugAxiaReset()">阿霞重置</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -10036,7 +10036,7 @@ window.__dbg = {
   axiaTestRide(){
     axiaRiding = true;
     AXIA_NPC.mountRide();
-    return '阿霞上車測試中,打 __dbg.tweakPassengerSeat() 開滑桿調位置,測完打 __dbg.axiaTestStop() 恢復。';
+    return '阿霞上車測試中,按「後座滑桿」按鈕調位置,測完再按一次「阿霞上/下車」恢復。';
   },
   axiaTestStop(){
     axiaRiding = false;
@@ -10289,6 +10289,25 @@ window.__dbg = {
     return out;
   }
 };
+/* 阿霞測試按鈕(2026-09-01,kc:「你來啊我講幾次了 給我記住」——console
+   command 這件事已經講過兩次了(見 feedback_no_console_commands_add_buttons
+   那則記憶),這輪我又犯了第三次,叫他打 __dbg.callMoto()/axiaReset() 等
+   一串指令。補按鈕修正,不再讓他自己開 devtools 打字。跟 debugSkipDays/
+   debugGotoTemple 同一套「window.debugXxx 包一層,inline onclick 才呼叫
+   得到」寫法,內部還是呼叫 __dbg 裡已經寫好的邏輯,不重複一份。 */
+function debugGotoBusStop(){
+  if(MODE === 'indoor'){ returnTo.x = -36; returnTo.z = 96; leaveIndoor(); }
+  else hero.group.position.set(-36, .3, 96);
+}
+window.debugGotoBusStop = debugGotoBusStop;
+function debugCallMoto(){ toast(__dbg.callMoto(), 2400); }
+window.debugCallMoto = debugCallMoto;
+function debugAxiaRideToggle(){
+  toast(axiaRiding ? __dbg.axiaTestStop() : __dbg.axiaTestRide(), 2400);
+}
+window.debugAxiaRideToggle = debugAxiaRideToggle;
+function debugAxiaReset(){ toast(__dbg.axiaReset(), 2000); }
+window.debugAxiaReset = debugAxiaReset;
 </script>
 </body>
 </html>
