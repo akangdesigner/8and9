@@ -709,10 +709,88 @@ let examAnnouncedDay = -1;
    跑去穿搭分頁點一下才生效。gotTranscript 記「有沒有拿過」,擋重複發放,
    跟 ID_CARD_QUEST.done 同精神但不用整組物件,一個布林夠。 */
 let gotTranscript = false;
+/* 補考(2026-09-01,kc:「如果上次沒考小考的話會觸發」+「觸發應該是要在
+   自己的書桌」)——不是跟老師對話跳出來的,是跟「考小考」同一套「老師
+   進教室口頭公告→下一次進教室書桌才看得到選項」的節奏,只是公告的
+   條件反過來:小考公告放了一整個冷卻期(EXAM_COOLDOWN_DAYS,現在 14 天)
+   都沒人來考,才會在下一次進教室時被老師抓出來公告補考,取代掉小考那個
+   還沒人領的公告位置(examAnnouncedDay 收回 -1,免得選單同時冒出「考
+   小考」跟「補考」兩個入口)。「14 天沒考算沒考」是我這輪自己選的數字
+   (沿用小考本來的冷卻期,不是新拍一個),不喜歡跟我說要多長。
+   makeupAnnouncedDay 通過/沒通過都會在 askMakeupExam() 結算時收回 -1、
+   同時把 lastExamDay 重設成今天,讓小考的冷卻期重新起算,不會卡死。 */
+let makeupAnnouncedDay = -1;
 function maybeAnnounceExam(){
+  if(makeupAnnouncedDay >= 0) return;
+  if(examAnnouncedDay >= 0 && !gotTranscript && (day - examAnnouncedDay) >= EXAM_COOLDOWN_DAYS){
+    examAnnouncedDay = -1;
+    makeupAnnouncedDay = day;
+    say('teacher', '「你小考沒來考，這樣不行——禮拜五給我留下來補考。」');
+    return;
+  }
   if(examAnnouncedDay < 0 && !owned.includes('transcript') && (day - lastExamDay) >= EXAM_COOLDOWN_DAYS){
     examAnnouncedDay = day;
     say('teacher', '「下次上課要小考，自己看著辦。」');
+  }
+}
+/* 補考的解題流程(2026-09-01)——跟 askStudyQuestion() 共用同一套 UI
+   元件(coFade/coShowOptions/coShuffle/dName/dTx/coOpts),但判定規則不同:
+   那邊是固定問 3 題、統計是不是全對;這裡是「連續答對 3 題就過關,答錯
+   一次還能繼續,錯第二次才算沒過」(kc 明講的規則),所以拆成獨立函式,
+   不是硬塞進 askStudyQuestion() 的 ROUNDS 迴圈裡改。 */
+function askMakeupExam(){
+  const NEED = 3, MAX_MISS = 1;
+  const questions = coShuffle(Quiz.BANK.slice());
+  let qi = 0, correctCount = 0, missCount = 0;
+  busy = true;
+  coFade('補考', async () => {
+    studyTakeover = true;
+    await imgReady(SCHOOL_STUDY_IMG);
+    paintSchoolStudyBackdrop();
+    setTimeout(askRound, 1000);
+  });
+  function finish(pass){
+    dlgEl.classList.remove('on');
+    studyTakeover = false;
+    busy = false;
+    paintSchoolBackdrop();
+    makeupAnnouncedDay = -1;
+    lastExamDay = day;
+    if(pass){
+      chg('star', 6);
+      KNOWLEDGE.small += 2;
+      playBeats([
+        { who:'teacher', text:'他改完直接跟你講分數。' },
+        { who:'teacher', text:'「你會啊。」' },
+        { who:'teacher', text:'「你只是沒時間。」' }
+      ], 0, () => toast('補考過了。（風評 +6，小小知識 +2）', 3400));
+    } else {
+      chg('star', -4);
+      playBeats([
+        { who:'pc', text:'那科就這樣掛了。他沒有再提。' }
+      ], 0, () => toast('補考沒過。（風評 −4）', 3000));
+    }
+  }
+  function askRound(){
+    if(correctCount >= NEED){ finish(true); return; }
+    if(missCount > MAX_MISS){ finish(false); return; }
+    const q = questions[qi++];
+    drawPortrait('pc');
+    dName.textContent = `補考 (${correctCount}/${NEED})`;
+    dTx.textContent = `【${q.subj}】${q.q}`;
+    dCaret.classList.remove('on');
+    dlgEl.classList.add('on');
+    coShowOptions(q.opts.map((opt, oi) => ({
+      label: opt,
+      run(){
+        document.getElementById('coOpts').innerHTML = '';
+        const ok = oi === q.a;
+        const flavor = ok ? Quiz.RIGHT[Math.random()*Quiz.RIGHT.length|0] : Quiz.WRONG[Math.random()*Quiz.WRONG.length|0];
+        toast(flavor + '\n' + q.note, 3200);
+        if(ok) correctCount++; else missCount++;
+        askRound();
+      }
+    })));
   }
 }
 function studyGainKnowledge(){
@@ -4345,6 +4423,47 @@ function tweakBusStopBoardsPanel(){
     });
   });
 }
+/* 長椅/垃圾桶真模型比例滑桿(2026-09-01,kc:「比例要調整」——換成真
+   glb 之後原始比例不保證跟舊 box 一樣順眼)——跟 tweakBusStopBoards 同
+   一招,調的是 `busStopRef.benchMeshes`/`binMeshes`(每個 group 的
+   position 已經是底部貼地的基準點,直接 scale.setScalar 不會讓底部懸空
+   或陷進地板)。長椅/垃圾桶分開兩顆滑桿,因為兩者原始比例落差不保證
+   一致,要能分開調。 */
+function tweakBusStopPropsPanel(){
+  const old = document.getElementById('busStopPropsTweakPanel');
+  if(old){ old.remove(); return; }
+  const ref = city.busStop;
+  if(!ref || !ref.benchMeshes || !ref.benchMeshes.length || !ref.binMeshes || !ref.binMeshes.length){
+    alert('長椅/垃圾桶還沒載入完成,晚點再開一次滑桿');
+    return;
+  }
+  const state = { benchScale:1, binScale:1 };
+  const rows = [
+    ['bp_bench','長椅大小倍率', 0.3, 3, 0.02, 'benchScale'],
+    ['bp_bin','垃圾桶大小倍率', 0.3, 3, 0.02, 'binScale']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'busStopPropsTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">長椅/垃圾桶比例滑桿</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${state[key].toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${state[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakBusStopProps()<br>拉到滿意後跟我說最終倍率就好</div>';
+  document.body.appendChild(panel);
+  document.getElementById('bp_bench').addEventListener('input', e => {
+    state.benchScale = +e.target.value;
+    document.getElementById('bp_bench_v').textContent = state.benchScale.toFixed(2);
+    ref.benchMeshes.forEach(b => b.mesh.scale.setScalar(state.benchScale));
+  });
+  document.getElementById('bp_bin').addEventListener('input', e => {
+    state.binScale = +e.target.value;
+    document.getElementById('bp_bin_v').textContent = state.binScale.toFixed(2);
+    ref.binMeshes.forEach(b => b.mesh.scale.setScalar(state.binScale));
+  });
+}
 /* 工地扛磚滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——跟
    tweakPoliceCarPanel 同一招,調的是 FOREMAN_TWEAK(見那則筆記),不用
    等場景生成(不像警車/工地道具那些要等 3D 物件建好),隨時開都能拉。 */
@@ -5201,6 +5320,14 @@ function openIndoorSpot(id){
               detail:'兩週一次的小考，你真的坐下來寫完了。<br>可以帶出來秀給別人看，也可以收起來——風評加成是自己決定要不要露的。' });
             toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +5）', 4200);
           } };
+        })(),
+        /* 補考(2026-09-01,見上面 maybeAnnounceExam()/askMakeupExam() 那組
+           長筆記)——跟「考小考」同一個「宣布後、下一次進教室才出現」的
+           條件,不需要另外判斷知識夠不夠(答題不消耗知識,是拿知識換分數
+           不是花知識買考試)。 */
+        (() => {
+          if(makeupAnnouncedDay < 0 || day <= makeupAnnouncedDay) return null;
+          return { label:'補考', cost:'連續答對 3 題（可以錯 1 次）　過關 風評+6 小小知識+2／沒過 風評−4', run: askMakeupExam };
         })(),
         { label:'不要', cls:'back', run(){} }
       ].filter(Boolean));
@@ -9705,6 +9832,7 @@ window.__dbg = {
   tweakBusStop: tweakBusStopPanel,
   tweakBusStopWall: tweakBusStopWallPanel,
   tweakBusStopBoards: tweakBusStopBoardsPanel,
+  tweakBusStopProps: tweakBusStopPropsPanel,
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
   tweakStoreHero: tweakStoreHeroPanel,

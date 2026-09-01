@@ -1527,15 +1527,19 @@ export function buildCity(THREE, scene){
     (function busStop(){
       const cx = -36;                              // 對齊學校校門 gx,沿用舊站位置
       const rowZn = 84 + B_LINE, frontN = rowZn - DEPTH/2;   // 105.5 / 100,跟辦公大樓/警察局同一條建築線
-      const L = 32, openW = 26, officeW = L - openW;         // 開放候車區 26 + 站務室 6
+      /* 2026-09-01,kc:「站長室拿掉」——東端原本留給站務室的 officeW(6)
+         沒有跟著拿掉,L 維持 32(開放候車區 26 + 東端空出來的 6),避免
+         拿掉站務室之後連帶把雨遮/柱子/月台寬度也跟著改(kc 一再糾正的
+         「不要偷改沒被要求的東西」),東端現在就是雨遮下的空地,沒有
+         建築,人可以直接走過去。 */
+      const L = 32, openW = 26;
       const platD = 7, platH = .3;
       const setback = 1;
       const nearZ = frontN + setback;               // 底座(月台)最靠馬路那一側
       const farZ  = nearZ + platD;                  // 底座最靠裡那一側
       const platCz = (nearZ+farZ)/2;
-      const xW = cx - L/2, xE = cx + L/2;            // 西端(招牌)/東端(站務室)
+      const xW = cx - L/2, xE = cx + L/2;            // 西端(招牌)/東端(原站務室,現在空著)
       const openCx = xW + openW/2;
-      const officeCx = xE - officeW/2;
       const postH = 9, canopyT = .5;
 
       /* 柱子/屋頂內縮量:雨遮跟兩排柱子的footprint 比底座(platD)小
@@ -1655,28 +1659,6 @@ export function buildCity(THREE, scene){
       const recycMat = std({ color:0xffffff, map:recycTex, roughness:.6, metalness:.15 });
 
       const lightMat = std({ color:0xffffff, emissive:0xdfe8ff, emissiveIntensity:1.2 });
-
-      const officeWallMat = std({ color:0xffffff, map:mkTex(64,64,(ctx,w,h)=>{
-        ctx.fillStyle='#c7c4b8'; ctx.fillRect(0,0,w,h);
-        ctx.fillStyle='rgba(0,0,0,.15)';
-        for(let i=0;i<6;i++) ctx.fillRect(rnd()*w,0,2,h);
-        speckle(ctx,w,h,60,.08,90);
-      }, Math.round(officeW/4), Math.round(postH/4)), roughness:.85 });
-
-      const doorMat = std({ color:0xffffff, map:mkTex(24,48,(ctx,w,h)=>{
-        ctx.fillStyle='#7a5a38'; ctx.fillRect(0,0,w,h);
-        ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1;
-        ctx.strokeRect(3,4,w-6,h*.42);
-        ctx.strokeRect(3,h*.5,w-6,h*.42);
-        ctx.fillStyle='#d8c88a'; ctx.fillRect(w-6,h/2-2,3,4);
-      }), roughness:.7 });
-      const windowTex = mkTex(48,40,(ctx,w,h)=>{
-        ctx.fillStyle='#f3c96a'; ctx.fillRect(0,0,w,h);
-        ctx.strokeStyle='#8c8f92'; ctx.lineWidth=3;
-        ctx.strokeRect(1.5,1.5,w-3,h-3);
-        ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
-      });
-      const windowMat = std({ color:0xffffff, map:windowTex, emissiveMap:windowTex, emissive:0xffffff, emissiveIntensity:.55, roughness:.5 });
 
       const signPlate = (w,h,draw) => mkTex(w,h,(ctx,ww,hh)=>{
         ctx.fillStyle='#0f2a4d'; ctx.fillRect(0,0,ww,hh);
@@ -1801,40 +1783,37 @@ export function buildCity(THREE, scene){
          CC-BY,授權見 assets/models/CREDITS.md。先蓋灰模占位,glb 到了
          再替換(跟 realPoliceCar/realTrafficCone 同一套手法),位置/座標
          完全沿用原本 box 版本的數字,只換掉最後那個 box() 呼叫。 */
+      /* 模型存進 busStopRef.benchMeshes/binMeshes,給 __dbg.tweakBusStopProps()
+         滑桿調比例(kc:「比例要調整」——真模型的原始比例不保證跟舊 box
+         尺寸一樣順眼,開滑桿讓 kc 自己現場調,不用再用截圖互相比對猜)。 */
       const benchN = 4;
+      busStopRef.benchMeshes = [];
       for(let i=0;i<benchN;i++){
         const bx = xW + (openW/(benchN+1))*(i+1), bz = backRowZ-.8;
         const fallback = addG(box(1.8,.5,.6, benchMat), bx, platH+.25, bz, false, true);
         loadModel('bench.glb').then(gltf => {
           busStopGroup.remove(fallback);
-          addG(propModel(THREE, gltf, 1.8, 'x'), bx, platH, bz, true, true);
+          const g = addG(propModel(THREE, gltf, 1.8, 'x'), bx, platH, bz, true, true);
+          busStopRef.benchMeshes.push({ mesh:g, baseX:bx, baseY:platH, baseZ:bz });
         }).catch(() => {});
       }
 
       /* 垃圾桶+資源回收桶,擺在站務室旁。 */
+      busStopRef.binMeshes = [];
       [[xW+openW-1.1, 'trash-bin.glb', binMat], [xW+openW-.2, 'recycle-bin.glb', recycMat]].forEach(([bx, file, mat]) => {
         const bz = backRowZ-.5;
         const fallback = addG(box(.6,.8,.55, mat), bx, platH+.4, bz, false, true);
         loadModel(file).then(gltf => {
           busStopGroup.remove(fallback);
-          addG(propModel(THREE, gltf, .8, 'y'), bx, platH, bz, true, true);
+          const g = addG(propModel(THREE, gltf, .8, 'y'), bx, platH, bz, true, true);
+          busStopRef.binMeshes.push({ mesh:g, baseX:bx, baseY:platH, baseZ:bz });
         }).catch(() => {});
       });
 
-      /* 站務室:小房間,維持原本整塊底座的滿深(合理的獨立小建築,不用
-         套用開放候車區那組內縮邏輯)。 */
-      const officeH = postH;
-      addG(box(officeW, officeH, platD, officeWallMat), officeCx, platH+officeH/2, farZ-platD/2);
-      solid(officeCx, farZ-platD/2, officeW/2, platD/2);
-      addG(box(2.0, 1.7, .1, windowMat), officeCx+1, platH+1.9, nearZ+.05, false, true);
-      addG(box(1.0, 2.1, .12, doorMat), officeCx-1.3, platH+1.05, nearZ+.05, false, true);
-      const officeSignMat = std({ color:0xffffff, map:signPlate(180,60,(ctx,w,h)=>{
-        ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.textAlign='center';
-        ctx.fillText('站務室', w/2, h*.65);
-      }), roughness:.5 });
-      addG(box(1.6, .55, .15, officeSignMat), officeCx-1.3, platH+2.5, nearZ+.1, false, true);
-      lampSpots.push({ x:officeCx, y:platH+1.6, z:nearZ+.3, c:0xf4e8c8, i:10, r:12 });
-      landmarks.push({ x:officeCx, y:officeH+1, z:farZ-platD/2, text:'站務室' });
+      /* 站務室整個拿掉(2026-09-01,kc:「站長室拿掉」)——原本這裡是候車室
+         大方塊改的小房間(門/窗/站務室牌子),東端那塊區域現在空著,維持
+         原樣不用另外填東西(雨遮/柱子/L 的寬度都沒有跟著縮,只是東端
+         少了一棟小建築,底下變成開放空間)。 */
 
       /* 雨遮下的燈,前後兩排柱子中間各一盞。 */
       for(let i=0;i<postN;i++){
