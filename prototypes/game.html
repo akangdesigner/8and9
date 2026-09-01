@@ -775,16 +775,18 @@ function askStudyQuestion(onDone){
   });
   function askRound(i, streak){
     if(i >= ROUNDS){
+      /* 2026-08-31 kc:「玩遊戲結束的時候要直接跳回去不要再過度了 又會
+         破圖」——結束不再走 coFade() 黑畫面轉場,直接切回教室/房間,跟
+         開始那邊(黑畫面淡出→換底圖)不對稱,但這是 kc 要的:結束是瞬間
+         的,不用再淡出淡入一次。 */
       dlgEl.classList.remove('on');
-      coFade(inSchool ? '教室' : '房間', () => {
-        studyTakeover = false;
-        busy = false;
-        if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
-        if(streak){
-          studyGainKnowledge();
-          toast('三題你都答對了，狀態特別好。\n（額外多一份小小知識）', 3400);
-        }
-      });
+      studyTakeover = false;
+      busy = false;
+      if(inSchool) paintSchoolBackdrop(); else paintBedroomBackdrop();
+      if(streak){
+        studyGainKnowledge();
+        toast('三題你都答對了，狀態特別好。\n（額外多一份小小知識）', 3400);
+      }
       return;
     }
     const q = questions[i];
@@ -895,20 +897,21 @@ function resolvePhoneReact(){
   if(PHONE_GAME.round >= PHONE_GAME.totalRounds){ endPhoneGame(true); return; }
   paintPhoneBackdrop();
 }
+/* 2026-08-31 kc:「玩遊戲結束的時候要直接跳回去不要再過度了 又會破圖」
+   ——結束不再走 coFade() 黑畫面轉場,直接切回教室,見 askRound() 收尾
+   那則同一天的筆記,同一個修法。 */
 function endPhoneGame(success){
   if(!PHONE_GAME.active) return;
   PHONE_GAME.active = false;
-  coFade('教室', () => {
-    busy = false;
-    paintSchoolBackdrop();
-    if(success){
-      chg('mood', 6);
-      toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
-    } else {
-      chg('star', -4); chg('calm', -6);
-      say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
-    }
-  });
+  busy = false;
+  paintSchoolBackdrop();
+  if(success){
+    chg('mood', 6);
+    toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
+  } else {
+    chg('star', -4); chg('calm', -6);
+    say('jiaoguan', '「你在幹嘛。」\n\n教官不知道什麼時候站到你後面了，手機直接被沒收。');
+  }
 }
 
 /* 角色面板(2026-08-18 起做,2026-08-19 這輪照參考截圖改成三欄殼:
