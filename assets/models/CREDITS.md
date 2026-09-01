@@ -33,6 +33,9 @@
 | `bulldozer.glb` | Bulldozer | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/ddxtaegI3HQ |
 | `dirt-pile.glb` | Soil mount | apelab | CC-BY | https://poly.pizza/m/0ycSG7vDLMm |
 | `sandbags.glb` | Sandbags | J-Toastie | CC-BY | https://poly.pizza/m/xClPIEQJdX |
+| `bench.glb` | Bench | Quaternius | Public Domain (CC0) | https://poly.pizza/m/jLxjFxFRpw |
+| `trash-bin.glb` | Trashcan Small | Quaternius | Public Domain (CC0) | https://poly.pizza/m/i7HDuYDLkx |
+| `recycle-bin.glb` | Recycle bin | Yuwei Xi | CC-BY | https://poly.pizza/m/92Iv-tdQ49h |
 
 CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時記得帶著這份清單
 (或至少「遊具模型來自 Poly by Google,CC-BY 3.0」這句話),不要漏掉。
@@ -63,3 +66,9 @@ Dog/Cat(都是 Poly by Google,CC-BY 3.0),順便補了一隻貓——原本只有
 決定改抓真的 3D 小物——挑的都是碗麵/碗飯/筷子/鍋子/飲料這種攤子桌上會有
 的東西,對應 `game.html` `FOOD` 陣列(魯肉飯/切仔麵/鹹酥雞/自助餐/熱炒/
 豆漿)裡的品項。還沒接進 `stall()`,先下載放著,下一輪擺上去。
+
+**`bench.glb`/`trash-bin.glb`/`recycle-bin.glb`(2026-09-01):** 公車亭的
+長椅/垃圾桶/資源回收桶原本是純色 box,kc:「原本的回收桶 跟椅子之類的
+3d要換成真的」——跟警車/交通錐(2026-08-27)同一個理由,道具類跟建築
+量體分開處理,道具用真模型。挑的時候刻意選跟現有 box 造型接近的款式
+(長椅有靠背、垃圾桶方形不是圓形),減少換模型後比例對不上的風險。

@@ -1795,16 +1795,31 @@ export function buildCity(THREE, scene){
         busStopRef.boardMeshes.push({ mesh:m, dx, baseY:by, baseZ:bz });
       }
 
-      /* 長椅,擺在兩排柱子中間偏後(靠牆)那一側,前面留出走道。 */
+      /* 長椅/垃圾桶/資源回收桶改真 3D 模型(2026-09-01,kc:「原本的回收桶
+         跟椅子之類的3d要換成真的」——跟警車/交通錐 2026-08-27 同一個理由,
+         道具類跟建築量體分開處理,道具用真模型)。Quaternius/CC0 或
+         CC-BY,授權見 assets/models/CREDITS.md。先蓋灰模占位,glb 到了
+         再替換(跟 realPoliceCar/realTrafficCone 同一套手法),位置/座標
+         完全沿用原本 box 版本的數字,只換掉最後那個 box() 呼叫。 */
       const benchN = 4;
       for(let i=0;i<benchN;i++){
-        const bx = xW + (openW/(benchN+1))*(i+1);
-        addG(box(1.8,.5,.6, benchMat), bx, platH+.25, backRowZ-.8, false, true);
+        const bx = xW + (openW/(benchN+1))*(i+1), bz = backRowZ-.8;
+        const fallback = addG(box(1.8,.5,.6, benchMat), bx, platH+.25, bz, false, true);
+        loadModel('bench.glb').then(gltf => {
+          busStopGroup.remove(fallback);
+          addG(propModel(THREE, gltf, 1.8, 'x'), bx, platH, bz, true, true);
+        }).catch(() => {});
       }
 
       /* 垃圾桶+資源回收桶,擺在站務室旁。 */
-      addG(box(.6,.8,.55, binMat), xW+openW-1.1, platH+.4, backRowZ-.5, false, true);
-      addG(box(.6,.8,.55, recycMat), xW+openW-.2, platH+.4, backRowZ-.5, false, true);
+      [[xW+openW-1.1, 'trash-bin.glb', binMat], [xW+openW-.2, 'recycle-bin.glb', recycMat]].forEach(([bx, file, mat]) => {
+        const bz = backRowZ-.5;
+        const fallback = addG(box(.6,.8,.55, mat), bx, platH+.4, bz, false, true);
+        loadModel(file).then(gltf => {
+          busStopGroup.remove(fallback);
+          addG(propModel(THREE, gltf, .8, 'y'), bx, platH, bz, true, true);
+        }).catch(() => {});
+      });
 
       /* 站務室:小房間,維持原本整塊底座的滿深(合理的獨立小建築,不用
          套用開放候車區那組內縮邏輯)。 */
