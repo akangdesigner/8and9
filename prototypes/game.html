@@ -2803,7 +2803,19 @@ const PEDESTRIANS = [
   buildNPC(THREE, scene, { x:BUSKER_POS.x-1.0, z:BUSKER_POS.z-2.2, rotationY:Math.PI*.1395, rig:'m3',
     skin:'#c2a17e', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' }),
   buildNPC(THREE, scene, { x:BUSKER_POS.x+0.7, z:BUSKER_POS.z+2.4, rotationY:-Math.PI*.9114, rig:'f2',
-    skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' })
+    skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' }),
+  /* 公車亭等公車的路人(2026-09-01,kc:「幫我排幾個路人在等公車」)——
+     3 隻站定不動,散在兩排柱子中間的走道上(z=104,介於前排 frontRowZ
+     跟後排 backRowZ 之間,見 scene-city3d.js busStop() 那組座標),面向
+     馬路(rotationY 接近 Math.PI,跟 AYI/ACHENG 那批攤販面向客人同一個
+     朝向慣例——rotationY:0 面北/rotationY:Math.PI 面南,這裡馬路在南
+     側)。x 挑跟長椅同一組間距但錯開柱子位置,不會疊模型。 */
+  buildNPC(THREE, scene, { x:-46.8, z:104, rotationY:Math.PI*.92, rig:'f',
+    skin:'#c9a077', hair:'#241f1c', hood:'#4a3a5c', pants:'#333333', shoe:'#4a4038' }),
+  buildNPC(THREE, scene, { x:-36.4, z:104, rotationY:Math.PI*1.05, rig:'m2',
+    skin:'#b98a63', hair:'#3a3128', hood:'#3a4a5c', pants:'#26241f', shoe:'#3a3430' }),
+  buildNPC(THREE, scene, { x:-31.2, z:104, rotationY:Math.PI*.85, rig:'f2',
+    skin:'#c2a17e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' })
 ];
 NPCS.push(...PEDESTRIANS);
 

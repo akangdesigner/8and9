@@ -1703,10 +1703,18 @@ export function buildCity(THREE, scene){
       const baseW = L + baseExtra*2, baseD = platD + baseExtra;
       const baseCz = nearZ + baseD/2;
       addG(box(baseW, platH, baseD, concrete), cx, platH/2, baseCz);
-      solid(cx, baseCz, baseW/2, baseD/2);
+      /* 2026-09-01,kc:「前排柱子不應該有擋板 那邊人可以直接走上去才對」
+         ——原本整塊底座蓋一顆大 collider,玩家/路人整個候車區都走不進去
+         (跟原本火車站「月台不能隨便走上去」同一套邏輯照抄過來,但公車
+         亭應該是開放空間,人本來就該能直接走上月台等車)。拿掉這顆大
+         collider,只留真的擋人的東西:背牆(下面補一顆專屬 collider)、
+         柱子(前面 postXs 迴圈裡各自的小 collider)、站務室(自己的
+         collider)。 */
       addG(box(baseW, .05, .35, yellow), cx, platH+.03, nearZ+.15, false, true);
 
-      /* 背牆,貼在後排柱子後面。 */
+      /* 背牆,貼在後排柱子後面——專屬 collider(上面那顆整塊底座的大
+         collider拿掉了,背牆本身還是實體,要單獨補一顆才不會被走穿)。 */
+      solid(openCx, wallZ, openW/2, .15);
       addG(box(openW, postH-.2, .2, wallMat), openCx, (postH-.2)/2, wallZ, false, true);
 
       /* 雨遮:寬度/深度都比底座小 margin*2,整個內縮在底座範圍內,不再
