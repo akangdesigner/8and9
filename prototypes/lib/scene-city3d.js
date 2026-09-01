@@ -4300,11 +4300,15 @@ export function buildNPC(THREE, scene, opts){
   let targetIdx = 1, dir = 1, waitT = 0, idleAction = null, walkAction = null, activeAction = null;
 
   /* 機車後座(2026-09-01,阿霞公車站任務——kc:「新增動畫好了」,要真的
-     坐在後座,不是文字帶過)——只收大腿骨,乘客不需要騎士那套手臂平伸
-     姿勢(見 applyRidePose() 內部本來就有的 bones.LeftArm 判斷,沒收集
-     就自動跳過那段,不會壞)。riding 開著時 animate() 提早 return,座標/
-     朝向完全交給呼叫端的 setRideTransform(),跟騎乘中的機車本身「呼叫端
-     算好座標,這裡只負責套用」同一個分工。 */
+     坐在後座,不是文字帶過)。第一版只收大腿骨,手維持 sit 動畫原本放
+     腿上的姿勢——kc:「手搭著肩膀要跟主角一樣的動作」,補上 LeftArm/
+     RightArm(applyRidePose() 手臂平伸那段本來就靠 bones.LeftArm 是否
+     存在來判斷要不要套用,見那個函式開頭的說明),套用同一份共用的
+     RIDE_POSE 數值——乘客跟騎士的手臂角度是同一個數字,不是各自獨立
+     調(「跟主角一樣的動作」的字面意思),不要另外開一組乘客專屬的角度
+     滑桿,不然兩邊調出來會不一致,失去「一樣」的意義。riding 開著時
+     animate() 提早 return,座標/朝向完全交給呼叫端的 setRideTransform(),
+     跟騎乘中的機車本身「呼叫端算好座標,這裡只負責套用」同一個分工。 */
   const RIDE_BONES = {};
   let riding = false, sitAction = null;
 
@@ -4359,7 +4363,7 @@ export function buildNPC(THREE, scene, opts){
       setHelmet();
     }
 
-    ['LeftUpLeg','RightUpLeg'].forEach(n => { RIDE_BONES[n] = model.getObjectByName('mixamorig'+n); });
+    ['LeftUpLeg','RightUpLeg','LeftArm','RightArm'].forEach(n => { RIDE_BONES[n] = model.getObjectByName('mixamorig'+n); });
 
     mixer = new THREE.AnimationMixer(model);
     /* opts.pose 借一顆額外動作蓋掉 idle(2026-08-17 起,先是 'sit' 給爸爸
