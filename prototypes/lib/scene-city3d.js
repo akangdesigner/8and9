@@ -1764,10 +1764,18 @@ export function buildCity(THREE, scene){
           ctx.fillText('公共運輸 減少碳排', w/2, h-16);
         })
       ].map(tex => std({ color:0xffffff, map:tex, roughness:.6 }));
+      /* 小看板存進 busStopRef.boardMeshes,給 __dbg.tweakBusStopBoards()
+         滑桿調大小/間距/高度(kc:「讓我調整小看板」)——跟 tweakBusStopWall
+         用同一組資訊調 opacity/roughness 是兩回事,這裡調的是量體本身,
+         每個 mesh 記住自己相對 openCx/platH+1.9/wallZ-.2 的基準位移,
+         滑桿套倍率時才不會每次疊加算錯。 */
       const boardN = 4;
+      busStopRef.boardMeshes = [];
+      busStopRef.boardsCenterX = openCx;
       for(let i=0;i<boardN;i++){
         const bx = xW + (openW/(boardN+1))*(i+1);
-        addG(box(2.0, 1.6, .12, boardTex[i]), bx, platH+1.9, wallZ-.2, false, true);
+        const m = addG(box(2.0, 1.6, .12, boardTex[i]), bx, platH+1.9, wallZ-.2, false, true);
+        busStopRef.boardMeshes.push({ mesh:m, dx:bx-openCx, baseY:platH+1.9, baseZ:wallZ-.2 });
       }
 
       /* 長椅,擺在兩排柱子中間偏後(靠牆)那一側,前面留出走道。 */

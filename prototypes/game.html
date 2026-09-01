@@ -4289,6 +4289,50 @@ function tweakBusStopWallPanel(){
     wall.roughness = state.roughness; wall.needsUpdate = true;
   });
 }
+/* 小看板(路線圖/時刻表/路線號碼/公益廣告)大小/間距/高度滑桿(2026-09-01,
+   kc:「讓我調整小看板」)——調的是 `busStopRef.boardMeshes`(4 個 mesh,
+   各自記了相對 boardsCenterX 的基準 dx/baseY/baseZ),縮放用 mesh.scale,
+   位置用「基準值 * 倍率/+ 位移」重算,不會每次疊加算錯。 */
+function tweakBusStopBoardsPanel(){
+  const old = document.getElementById('busStopBoardsTweakPanel');
+  if(old){ old.remove(); return; }
+  const ref = city.busStop;
+  if(!ref || !ref.boardMeshes || !ref.boardMeshes.length){
+    alert('小看板還沒生成,晚點再開一次滑桿');
+    return;
+  }
+  const state = { scale:1, spacing:1, dy:0, dz:0 };
+  const rows = [
+    ['bd_scale','大小倍率', 0.3, 2.5, 0.02, 'scale'],
+    ['bd_spacing','間距倍率', 0.3, 2.5, 0.02, 'spacing'],
+    ['bd_dy','高度偏移', -1.5, 1.5, 0.02, 'dy'],
+    ['bd_dz','前後偏移(離牆距離)', -1, 1, 0.02, 'dz']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'busStopBoardsTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">小看板滑桿</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${state[key].toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${state[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakBusStopBoards()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  function apply(){
+    ref.boardMeshes.forEach(b => {
+      b.mesh.scale.setScalar(state.scale);
+      b.mesh.position.set(ref.boardsCenterX + b.dx*state.spacing, b.baseY+state.dy, b.baseZ+state.dz);
+    });
+  }
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      state[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = state[key].toFixed(2);
+      apply();
+    });
+  });
+}
 /* 工地扛磚滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——跟
    tweakPoliceCarPanel 同一招,調的是 FOREMAN_TWEAK(見那則筆記),不用
    等場景生成(不像警車/工地道具那些要等 3D 物件建好),隨時開都能拉。 */
@@ -9648,6 +9692,7 @@ window.__dbg = {
   tweakConstruction: tweakConstructionPanel,
   tweakBusStop: tweakBusStopPanel,
   tweakBusStopWall: tweakBusStopWallPanel,
+  tweakBusStopBoards: tweakBusStopBoardsPanel,
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
   tweakStoreHero: tweakStoreHeroPanel,
