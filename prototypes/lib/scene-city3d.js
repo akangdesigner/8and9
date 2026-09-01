@@ -1543,20 +1543,156 @@ export function buildCity(THREE, scene){
         busStopGroup.add(mesh); return mesh;
       };
 
-      const concrete = std({ color:0xb0b4ae, roughness:.85 });
-      const canopyMat = std({ color:0x2c5aa0, roughness:.5 });
-      const postMat = std({ color:0xd7d7cf, roughness:.6 });
-      const yellow = std({ color:0xe8b23a, roughness:.6 });
-      const wallMat = std({ color:0x14213a, roughness:.55 });
-      const benchMat = std({ color:0x6a4a30, roughness:.8 });
-      const binMat = std({ color:0x3d6b4a, roughness:.7 });
-      const recycMat = std({ color:0xd8d8d2, roughness:.6 });
-      const boardMat = std({ color:0xf2f2ee, roughness:.6 });
-      const adMat = std({ color:0x3f6b46, roughness:.6 });
+      /* 材質改用 canvas 畫的貼圖(2026-09-01,kc 給了一份很長的規格書:
+         「保留現有低模幾何+使用寫實材質貼圖/平面貼紙增加細節,不要重新
+         建模、不要大幅改變尺寸位置」)。不生外部圖檔(不用等 kc 跑生圖)、
+         不改任何 box 的寬高深跟座標——只換每個 box 的材質參數,細節全部
+         用小張 canvas 畫出來當 texture,PS2/PS3 世代「幾何簡單、貼圖資訊
+         密度高」的路線,跟辦公大樓/警察局那種整棟真照片是兩套不同做法,
+         這裡刻意選 canvas 因為道具太多太瑣碎,等 kc 一張一張生圖不划算。 */
+      const mkTex = (w,h,draw,rx,ry) => {
+        const c = document.createElement('canvas'); c.width=w; c.height=h;
+        draw(c.getContext('2d'), w, h);
+        const t = new THREE.CanvasTexture(c);
+        t.colorSpace = THREE.SRGBColorSpace;
+        if(rx||ry){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx||1, ry||1); }
+        t.needsUpdate = true;
+        return t;
+      };
+      const rnd = (seed => () => (seed = (seed*1103515245+12345) & 0x7fffffff) / 0x7fffffff)(7);
+      const speckle = (ctx,w,h,n,alpha,tone) => {
+        for(let i=0;i<n;i++){
+          ctx.fillStyle = `rgba(${tone},${tone},${tone},${alpha*rnd()})`;
+          ctx.fillRect(rnd()*w, rnd()*h, 1+rnd()*2, 1+rnd()*2);
+        }
+      };
+
+      /* 屋頂:深藍浪板,橫向瓦楞+掉漆水痕,repeat 依長/深比例拉開,
+         不會被拉成一片模糊色塊。 */
+      const roofTex = mkTex(128,32,(ctx,w,h)=>{
+        ctx.fillStyle='#1e3a5f'; ctx.fillRect(0,0,w,h);
+        for(let x=0;x<w;x+=8){ ctx.fillStyle = x%16===0 ? '#28507f' : '#193150'; ctx.fillRect(x,0,4,h); }
+        ctx.fillStyle='rgba(180,190,200,.12)';
+        for(let i=0;i<10;i++) ctx.fillRect(rnd()*w, 0, 1, h);
+        ctx.fillStyle='rgba(20,20,20,.15)';
+        for(let i=0;i<6;i++){ const bx=rnd()*w, by=rnd()*h; ctx.beginPath(); ctx.ellipse(bx,by,6,3,0,0,7); ctx.fill(); }
+      }, Math.round((L+1)/4), Math.round((platD+1)/4));
+      const canopyMat = std({ color:0xffffff, map:roofTex, roughness:.82 });
+
+      /* 柱子:烤漆金屬,直向刷紋+底部鏽斑,repeat.y 依柱高/柱寬比例拉長
+         避免橫向拉伸(規格書 17 節特別點名的坑)。 */
+      const postTex = mkTex(16,64,(ctx,w,h)=>{
+        ctx.fillStyle='#c7c9c4'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(255,255,255,.25)';
+        for(let x=0;x<w;x+=3) ctx.fillRect(x,0,1,h);
+        ctx.fillStyle='rgba(120,90,60,.35)';
+        ctx.fillRect(0,h-10,w,10);
+        speckle(ctx,w,h,40,.15,90);
+      }, 1, Math.round(postH/.3));
+      const postMat = std({ color:0xffffff, map:postTex, roughness:.6, metalness:.35 });
+
+      /* 導盲磚:黃色底+一排排凸點,取代原本純黃色塊。 */
+      const tactileTex = mkTex(32,8,(ctx,w,h)=>{
+        ctx.fillStyle='#e2ab34'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='#c98f22';
+        for(let x=1;x<w;x+=3) ctx.fillRect(x,1,1.4,h-2);
+      }, Math.round(L/2), 1);
+      const yellow = std({ color:0xffffff, map:tactileTex, roughness:.65 });
+
+      /* 背牆:深藏藍,加一點髒污直紋,不是純色平塗。 */
+      const wallTex = mkTex(64,64,(ctx,w,h)=>{
+        ctx.fillStyle='#141f38'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.2)';
+        for(let i=0;i<8;i++) ctx.fillRect(rnd()*w,0,2,h*(.4+rnd()*.6));
+        speckle(ctx,w,h,60,.06,200);
+      }, Math.round(openW/6), Math.round((postH-.2)/6));
+      const wallMat = std({ color:0xffffff, map:wallTex, roughness:.65 });
+
+      /* 月台:頂面止滑磁磚(灰底+格線)、側面深灰混凝土(水痕+污漬)——
+         BoxGeometry 材質給陣列,6 個面各自對應,不用多蓋一片 plane。 */
+      const tileTex = mkTex(32,32,(ctx,w,h)=>{
+        ctx.fillStyle='#aeb2ac'; ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle='rgba(70,74,70,.5)'; ctx.lineWidth=1;
+        ctx.strokeRect(1,1,w-2,h-2);
+        speckle(ctx,w,h,50,.1,60);
+      }, Math.round(L/1.5), Math.round(platD/1.5));
+      const platformTopMat = std({ color:0xffffff, map:tileTex, roughness:.8 });
+      const concreteSideTex = mkTex(64,16,(ctx,w,h)=>{
+        ctx.fillStyle='#55584f'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.25)';
+        for(let i=0;i<10;i++) ctx.fillRect(rnd()*w,0,1,h);
+        ctx.fillStyle='rgba(0,0,0,.3)';
+        ctx.fillRect(0,h-3,w,3);
+      }, Math.round(L/4), 1);
+      const platformSideMat = std({ color:0xffffff, map:concreteSideTex, roughness:.9 });
+      const concrete = [platformSideMat,platformSideMat,platformTopMat,platformSideMat,platformSideMat,platformSideMat];
+
+      /* 長椅:深棕木紋(木條direction沿長邊)。 */
+      const benchTex = mkTex(64,16,(ctx,w,h)=>{
+        ctx.fillStyle='#5a3d24'; ctx.fillRect(0,0,w,h);
+        for(let y=0;y<h;y+=4){ ctx.fillStyle = y%8===0 ? '#6e4c2c' : '#4c331e'; ctx.fillRect(0,y,w,2); }
+        speckle(ctx,w,h,30,.1,30);
+      }, 3, 1);
+      const benchMat = std({ color:0xffffff, map:benchTex, roughness:.7 });
+
+      /* 垃圾桶(綠,正面垃圾圖示)/資源回收桶(灰白,回收圖示)。 */
+      const binTex = mkTex(32,40,(ctx,w,h)=>{
+        ctx.fillStyle='#2f5a3c'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fillRect(0,0,w,4);
+        ctx.strokeStyle='#dfe8d8'; ctx.lineWidth=2;
+        ctx.strokeRect(w/2-6,h/2-8,12,14);
+        ctx.beginPath(); ctx.moveTo(w/2-8,h/2-8); ctx.lineTo(w/2+8,h/2-8); ctx.stroke();
+      });
+      const binMat = std({ color:0xffffff, map:binTex, roughness:.7 });
+      const recycTex = mkTex(32,40,(ctx,w,h)=>{
+        ctx.fillStyle='#cfd2cb'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.12)'; ctx.fillRect(0,0,w,4);
+        ctx.strokeStyle='#2e6b45'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(w/2,h/2-2,7,0,Math.PI*1.5); ctx.stroke();
+      });
+      const recycMat = std({ color:0xffffff, map:recycTex, roughness:.6, metalness:.15 });
+
       const lightMat = std({ color:0xffffff, emissive:0xdfe8ff, emissiveIntensity:1.2 });
-      const officeWallMat = std({ color:0xcac6ba, roughness:.8 });
-      const doorMat = std({ color:0x8a6b46, roughness:.7 });
-      const signMat = std({ color:0x14315e, roughness:.4 });
+
+      /* 站務室外牆:跟月台側面同一種髒污水泥,不用另外開材質。 */
+      const officeWallMat = std({ color:0xffffff, map:mkTex(64,64,(ctx,w,h)=>{
+        ctx.fillStyle='#c7c4b8'; ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(0,0,0,.15)';
+        for(let i=0;i<6;i++) ctx.fillRect(rnd()*w,0,2,h);
+        speckle(ctx,w,h,60,.08,90);
+      }, Math.round(officeW/4), Math.round(postH/4)), roughness:.85 });
+
+      /* 站務室門:木紋門板+門把,窗:鋁框+暖色亮玻璃(取代原本共用的
+         M.glassLit,這裡是站務室專屬材質,不會動到其他建築共用的那顆)。 */
+      const doorMat = std({ color:0xffffff, map:mkTex(24,48,(ctx,w,h)=>{
+        ctx.fillStyle='#7a5a38'; ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1;
+        ctx.strokeRect(3,4,w-6,h*.42);
+        ctx.strokeRect(3,h*.5,w-6,h*.42);
+        ctx.fillStyle='#d8c88a'; ctx.fillRect(w-6,h/2-2,3,4);
+      }), roughness:.7 });
+      const windowTex = mkTex(48,40,(ctx,w,h)=>{
+        ctx.fillStyle='#f3c96a'; ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle='#8c8f92'; ctx.lineWidth=3;
+        ctx.strokeRect(1.5,1.5,w-3,h-3);
+        ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
+      });
+      const windowMat = std({ color:0xffffff, map:windowTex, emissiveMap:windowTex, emissive:0xffffff, emissiveIntensity:.55, roughness:.5 });
+
+      /* 站牌/資訊牌統一用深藍底+白字(規格書指定的「台灣舊式公車站牌感」),
+         這裡用文字直接畫在 canvas 上,不用外部 PNG。 */
+      const signPlate = (w,h,draw) => mkTex(w,h,(ctx,ww,hh)=>{
+        ctx.fillStyle='#0f2a4d'; ctx.fillRect(0,0,ww,hh);
+        ctx.strokeStyle='#c7cdd6'; ctx.lineWidth=4;
+        ctx.strokeRect(2,2,ww-4,hh-4);
+        draw(ctx,ww,hh);
+      });
+      const signMat = std({ color:0xffffff, map:signPlate(256,72,(ctx,w,h)=>{
+        ctx.fillStyle='#fff'; ctx.font='bold 30px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('後站公車站', w/2, h*.46);
+        ctx.font='13px sans-serif'; ctx.fillStyle='#cfe0f2';
+        ctx.fillText('Rear Station Bus Stop', w/2, h*.78);
+      }), roughness:.5 });
 
       /* 候車區地面,墊成人行道緣石高度(整塊含站務室那段一起蓋一顆
          collider,玩家繞不進去,跟原本火車站同一個做法——collider 用
@@ -1578,17 +1714,49 @@ export function buildCity(THREE, scene){
       }
       addG(box(.3, postH, .3, postMat), xE-.3, postH/2, nearZ+.2);   // 東端收邊柱,撐住站務室上方那段雨遮
 
-      /* 候車資訊看板,貼在背牆上,3 張色塊看板 + 1 張廣告看板——這種細碎
-         時刻表文字生圖效益低,跟月台其他小道具同一套判斷,先用色塊。 */
+      /* 候車資訊牌,貼在背牆上:路線圖/時刻表/路線號碼/公益廣告各一張,
+         規格書明確要求「至少包含這四種」,4 個 box 各自換一張 canvas
+         貼圖,不是共用一種色塊。 */
+      const boardTex = [
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('公車路線圖', w/2, 26);
+          ctx.strokeStyle='#8fb8e0'; ctx.lineWidth=2;
+          for(let i=0;i<5;i++){ ctx.beginPath(); ctx.moveTo(20,40+i*22); ctx.lineTo(w-20,40+i*22+(rnd()*16-8)); ctx.stroke(); }
+          ctx.fillStyle='#e2ab34';
+          for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(30+rnd()*(w-60), 40+rnd()*110, 3, 0, 7); ctx.fill(); }
+        }),
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('公車時刻表', w/2, 26);
+          ctx.font='9px monospace'; ctx.textAlign='left';
+          for(let r=0;r<10;r++){ ctx.fillText(`${(6+r).toString().padStart(2,'0')}:00  ${(6+r).toString().padStart(2,'0')}:30`, 24, 44+r*13); }
+        }),
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('公車資訊', w/2, 26);
+          const routes=['12','25','307','紅5'];
+          routes.forEach((r,i)=>{
+            const rx=40+(i%2)*100, ry=54+Math.floor(i/2)*60;
+            ctx.fillStyle='#d94a35'; ctx.beginPath(); ctx.arc(rx,ry,22,0,7); ctx.fill();
+            ctx.fillStyle='#fff'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
+            ctx.fillText(r, rx, ry+6);
+          });
+        }),
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#2f6b45'; ctx.fillRect(4,4,w-8,h-8);
+          ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+          ctx.fillText('搭公車 愛地球', w/2, 30);
+          ctx.strokeStyle='#dfe8d8'; ctx.lineWidth=3;
+          ctx.beginPath(); ctx.arc(w/2,h/2+16,26,0,7); ctx.stroke();
+          ctx.fillStyle='#dfe8d8'; ctx.font='11px sans-serif';
+          ctx.fillText('公共運輸 減少碳排', w/2, h-16);
+        })
+      ].map(tex => std({ color:0xffffff, map:tex, roughness:.6 }));
       const boardN = 4;
       for(let i=0;i<boardN;i++){
         const bx = xW + (openW/(boardN+1))*(i+1);
-        const isAd = i === boardN-1;
-        addG(box(2.0, 1.6, .12, isAd?adMat:boardMat), bx, platH+1.9, farZ-.2, false, true);
-        /* 疊在廣告看板上的亮色色塊,z 要跟看板本體明顯拉開(不是差 .01),
-           不然兩片板子正面幾乎共平面,會 z-fighting 閃爍出雜訊格紋
-           (2026-09-01 現場截圖抓到,教訓記在這裡)。 */
-        if(isAd) addG(box(1.4, .9, .14, std({color:0xdfe8d8,roughness:.5})), bx, platH+2.1, farZ-.4, false, true);
+        addG(box(2.0, 1.6, .12, boardTex[i]), bx, platH+1.9, farZ-.2, false, true);
       }
 
       /* 長椅,對著背牆排開。 */
@@ -1607,9 +1775,13 @@ export function buildCity(THREE, scene){
       const officeH = postH;
       addG(box(officeW, officeH, platD, officeWallMat), officeCx, platH+officeH/2, farZ-platD/2);
       solid(officeCx, farZ-platD/2, officeW/2, platD/2);
-      addG(box(2.0, 1.7, .1, M.glassLit), officeCx+1, platH+1.9, nearZ+.05, false, true);
+      addG(box(2.0, 1.7, .1, windowMat), officeCx+1, platH+1.9, nearZ+.05, false, true);
       addG(box(1.0, 2.1, .12, doorMat), officeCx-1.3, platH+1.05, nearZ+.05, false, true);
-      addG(box(1.6, .55, .15, signMat), officeCx-1.3, platH+2.5, nearZ+.1, false, true);
+      const officeSignMat = std({ color:0xffffff, map:signPlate(180,60,(ctx,w,h)=>{
+        ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('站務室', w/2, h*.65);
+      }), roughness:.5 });
+      addG(box(1.6, .55, .15, officeSignMat), officeCx-1.3, platH+2.5, nearZ+.1, false, true);
       lampSpots.push({ x:officeCx, y:platH+1.6, z:nearZ+.3, c:0xf4e8c8, i:10, r:12 });
       landmarks.push({ x:officeCx, y:officeH+1, z:farZ-platD/2, text:'站務室' });
 
@@ -1621,11 +1793,27 @@ export function buildCity(THREE, scene){
         lampSpots.push({ x:px, y:postH-.3, z:platCz, c:0xdce8f2, i:9, r:11 });
       }
 
-      /* 招牌:西端雨遮上方,文字用既有 landmarks 飄浮字系統,不用另外生
-         招牌貼圖。字串照 kc 給的參考圖照抄(「後火車站(公車站)」)——地名
-         沿用歷史稱呼、但實際只是公車站的落差是刻意的,不是筆誤。 */
+      /* 招牌:西端雨遮上方,深藍底白字直接畫在貼圖裡(比 landmarks 飄浮字
+         系統可靠——那套 2026-08-19 就被關掉,見 DESIGN_NOTES,文字不會
+         真的顯示)。字樣照 kc 規格書「比較推薦」的「後站公車站」,不是
+         沿用舊的「後火車站(公車站)」。 */
       addG(box(6, 1.4, .2, signMat), xW+2.5, postH+canopyT+1, nearZ+.1, false, true);
-      landmarks.push({ x:xW+2.5, y:postH+canopyT+2, z:nearZ+.1, text:'後火車站(公車站)' });
+      landmarks.push({ x:xW+2.5, y:postH+canopyT+2, z:nearZ+.1, text:'後站公車站' });
+
+      /* 公車停靠區路面標線:規格書要求的新增內容,原本地面完全沒有——
+         唯一真的新增的一片 plane(白線框+文字,alpha 背景讓柏油透出來),
+         躺平貼在馬路上,不動路面本身的材質/尺寸。 */
+      const roadMarkTex = mkTex(256,96,(ctx,w,h)=>{
+        ctx.clearRect(0,0,w,h);
+        ctx.strokeStyle='rgba(240,230,200,.9)'; ctx.lineWidth=4;
+        ctx.strokeRect(6,6,w-12,h-12);
+        ctx.fillStyle='rgba(240,230,200,.9)'; ctx.font='bold 26px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('公車停靠區', w/2, h/2+9);
+      });
+      const roadMark = new THREE.Mesh(new THREE.PlaneGeometry(openW-2, 3),
+        new THREE.MeshStandardMaterial({ map:roadMarkTex, transparent:true, roughness:.7 }));
+      roadMark.rotation.x = -Math.PI/2;
+      addG(roadMark, openCx, .02, nearZ-4.5, false, true);
     })();
   })();
 
