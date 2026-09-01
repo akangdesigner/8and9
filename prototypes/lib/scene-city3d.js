@@ -1684,11 +1684,13 @@ export function buildCity(THREE, scene){
         ctx.strokeRect(2,2,ww-4,hh-4);
         draw(ctx,ww,hh);
       });
+      /* 招牌文字改「永安公車站」(2026-09-01,kc:「招牌幫我寫 永安公車站」
+         ——沿用旁邊「永安高中」同一個地名前綴,不是站名亂編)。 */
       const signMat = std({ color:0xffffff, map:signPlate(256,72,(ctx,w,h)=>{
         ctx.fillStyle='#fff'; ctx.font='bold 30px sans-serif'; ctx.textAlign='center';
-        ctx.fillText('後站公車站', w/2, h*.46);
+        ctx.fillText('永安公車站', w/2, h*.46);
         ctx.font='13px sans-serif'; ctx.fillStyle='#cfe0f2';
-        ctx.fillText('Rear Station Bus Stop', w/2, h*.78);
+        ctx.fillText('Yong An Bus Stop', w/2, h*.78);
       }), roughness:.5 });
 
       /* 底座(月台):往外再長更多單位(kc:「底座要往外長更多單位」)——
@@ -1768,14 +1770,21 @@ export function buildCity(THREE, scene){
          滑桿調大小/間距/高度(kc:「讓我調整小看板」)——跟 tweakBusStopWall
          用同一組資訊調 opacity/roughness 是兩回事,這裡調的是量體本身,
          每個 mesh 記住自己相對 openCx/platH+1.9/wallZ-.2 的基準位移,
-         滑桿套倍率時才不會每次疊加算錯。 */
+         滑桿套倍率時才不會每次疊加算錯。
+         2026-09-01,kc 現場拉滑桿拉到滿意(大小 1.92、間距 1.26、高度
+         +2.0)+ 直接說「高度偏移改2.0」定案,寫死當新的基準值——滑桿
+         再打開時是從這個新基準往上疊,不是從沒縮放的原始大小開始。 */
+      const boardScale = 1.92, boardSpacing = 1.26, boardDy = 2.0, boardDz = 0;
       const boardN = 4;
       busStopRef.boardMeshes = [];
       busStopRef.boardsCenterX = openCx;
       for(let i=0;i<boardN;i++){
         const bx = xW + (openW/(boardN+1))*(i+1);
-        const m = addG(box(2.0, 1.6, .12, boardTex[i]), bx, platH+1.9, wallZ-.2, false, true);
-        busStopRef.boardMeshes.push({ mesh:m, dx:bx-openCx, baseY:platH+1.9, baseZ:wallZ-.2 });
+        const dx = (bx-openCx)*boardSpacing;
+        const by = platH+1.9+boardDy, bz = wallZ-.2+boardDz;
+        const m = addG(box(2.0, 1.6, .12, boardTex[i]), openCx+dx, by, bz, false, true);
+        m.scale.setScalar(boardScale);
+        busStopRef.boardMeshes.push({ mesh:m, dx, baseY:by, baseZ:bz });
       }
 
       /* 長椅,擺在兩排柱子中間偏後(靠牆)那一側,前面留出走道。 */
@@ -1814,7 +1823,7 @@ export function buildCity(THREE, scene){
 
       /* 招牌:西端雨遮上方。 */
       addG(box(6, 1.4, .2, signMat), xW+2.5, postH+canopyT+1, frontRowZ, false, true);
-      landmarks.push({ x:xW+2.5, y:postH+canopyT+2, z:frontRowZ, text:'後站公車站' });
+      landmarks.push({ x:xW+2.5, y:postH+canopyT+2, z:frontRowZ, text:'永安公車站' });
 
       /* 公車停靠區路面標線。 */
       const roadMarkTex = mkTex(256,96,(ctx,w,h)=>{
