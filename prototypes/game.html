@@ -4253,40 +4253,40 @@ function tweakBusStopPanel(){
     ref.group.scale.setScalar(state.scale);
   });
 }
-/* 公告牌壓克力材質滑桿(2026-09-01,kc:「放公告的板子要是透明壓克力板」
-   +「公告的部分開滑桿給我調」)——跟 tweakPolicePanel 同一招,調的是
-   `scene-city3d.js` busStop() 裡 4 張公告牌共用的材質陣列
-   (`busStopRef.boards`),opacity 越低越透明、roughness 越低越光滑/
-   壓克力感越強。 */
-function tweakBusStopBoardsPanel(){
-  const old = document.getElementById('busStopBoardsTweakPanel');
+/* 深藍色大板子(背牆)壓克力材質滑桿(2026-09-01,kc:「放公告的板子
+   要是透明壓克力板」+「公告的部分開滑桿給我調」,後來糾正「不是公告牌
+   是深藍色的大板子」——調的其實是背牆,不是 4 張小資訊牌,第一版滑桿
+   接錯物件,這裡改調 `busStopRef.wall`)。opacity 越低越透明、roughness
+   越低越光滑/壓克力感越強。 */
+function tweakBusStopWallPanel(){
+  const old = document.getElementById('busStopWallTweakPanel');
   if(old){ old.remove(); return; }
-  const boards = city.busStop && city.busStop.boards;
-  if(!boards || !boards.length){
-    alert('公告牌還沒生成,晚點再開一次滑桿');
+  const wall = city.busStop && city.busStop.wall;
+  if(!wall){
+    alert('公車亭背牆還沒生成,晚點再開一次滑桿');
     return;
   }
-  const state = { opacity: boards[0].opacity, roughness: boards[0].roughness };
+  const state = { opacity: wall.opacity, roughness: wall.roughness };
   const panel = document.createElement('div');
-  panel.id = 'busStopBoardsTweakPanel';
+  panel.id = 'busStopWallTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a';
   panel.innerHTML =
-    '<div style="font-weight:bold;margin-bottom:6px">公告牌壓克力滑桿</div>' +
-    '<div style="margin-bottom:8px">透明度(opacity): <span id="bb_op_v">' + state.opacity.toFixed(2) + '</span><br>' +
-    '<input type="range" id="bb_op" min="0.1" max="1" step="0.02" value="' + state.opacity + '" style="width:100%"></div>' +
-    '<div style="margin-bottom:8px">光滑度(roughness,越低越亮): <span id="bb_r_v">' + state.roughness.toFixed(2) + '</span><br>' +
-    '<input type="range" id="bb_r" min="0" max="1" step="0.02" value="' + state.roughness + '" style="width:100%"></div>' +
-    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakBusStopBoards()<br>拉到滿意後跟我說最終數字就好</div>';
+    '<div style="font-weight:bold;margin-bottom:6px">背牆壓克力滑桿</div>' +
+    '<div style="margin-bottom:8px">透明度(opacity): <span id="bw_op_v">' + state.opacity.toFixed(2) + '</span><br>' +
+    '<input type="range" id="bw_op" min="0.1" max="1" step="0.02" value="' + state.opacity + '" style="width:100%"></div>' +
+    '<div style="margin-bottom:8px">光滑度(roughness,越低越亮): <span id="bw_r_v">' + state.roughness.toFixed(2) + '</span><br>' +
+    '<input type="range" id="bw_r" min="0" max="1" step="0.02" value="' + state.roughness + '" style="width:100%"></div>' +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakBusStopWall()<br>拉到滿意後跟我說最終數字就好</div>';
   document.body.appendChild(panel);
-  document.getElementById('bb_op').addEventListener('input', e => {
+  document.getElementById('bw_op').addEventListener('input', e => {
     state.opacity = +e.target.value;
-    document.getElementById('bb_op_v').textContent = state.opacity.toFixed(2);
-    boards.forEach(m => { m.opacity = state.opacity; m.needsUpdate = true; });
+    document.getElementById('bw_op_v').textContent = state.opacity.toFixed(2);
+    wall.opacity = state.opacity; wall.needsUpdate = true;
   });
-  document.getElementById('bb_r').addEventListener('input', e => {
+  document.getElementById('bw_r').addEventListener('input', e => {
     state.roughness = +e.target.value;
-    document.getElementById('bb_r_v').textContent = state.roughness.toFixed(2);
-    boards.forEach(m => { m.roughness = state.roughness; m.needsUpdate = true; });
+    document.getElementById('bw_r_v').textContent = state.roughness.toFixed(2);
+    wall.roughness = state.roughness; wall.needsUpdate = true;
   });
 }
 /* 工地扛磚滑桿(2026-08-28,kc:「起始的地板你給我滑桿調整吧」)——跟
@@ -9647,7 +9647,7 @@ window.__dbg = {
   tweakPoliceCar: tweakPoliceCarPanel,
   tweakConstruction: tweakConstructionPanel,
   tweakBusStop: tweakBusStopPanel,
-  tweakBusStopBoards: tweakBusStopBoardsPanel,
+  tweakBusStopWall: tweakBusStopWallPanel,
   tweakForeman: tweakForemanPanel,
   tweakClerk: tweakClerkPanel,
   tweakStoreHero: tweakStoreHeroPanel,

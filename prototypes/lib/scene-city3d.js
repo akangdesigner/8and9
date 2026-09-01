@@ -1606,7 +1606,13 @@ export function buildCity(THREE, scene){
         for(let i=0;i<8;i++) ctx.fillRect(rnd()*w,0,2,h*(.4+rnd()*.6));
         speckle(ctx,w,h,60,.06,200);
       }, Math.round(openW/6), Math.round((postH-.2)/6));
-      const wallMat = std({ color:0xffffff, map:wallTex, roughness:.65 });
+      /* 深藍色大板子(背牆)改透明壓克力(2026-09-01,kc:「不是公告牌
+         是深藍色的大板子」——上一輪誤把「公告的板子」理解成 4 張小資訊
+         牌,kc 指的其實是這片整面的背牆)。transparent+低 roughness 做
+         出壓克力光澤感,存進 busStopRef.wall 給 __dbg.tweakBusStopWall()
+         滑桿即時調 opacity/roughness。 */
+      const wallMat = std({ color:0xffffff, map:wallTex, roughness:.15, metalness:0, transparent:true, opacity:.55 });
+      busStopRef.wall = wallMat;
 
       const tileTex = mkTex(32,32,(ctx,w,h)=>{
         ctx.fillStyle='#aeb2ac'; ctx.fillRect(0,0,w,h);
@@ -1678,18 +1684,6 @@ export function buildCity(THREE, scene){
         ctx.strokeRect(2,2,ww-4,hh-4);
         draw(ctx,ww,hh);
       });
-      /* 公告牌改透明壓克力板(2026-09-01,kc:「放公告的板子要是透明
-         壓克力板」)——跟站牌/站務室那種實體招牌不一樣,公告牌背景不
-         填色(clearRect,牆面透過去),只留一圈細金屬框,材質開
-         transparent+低 roughness 做出壓克力的光澤感。opacity/roughness
-         存進 busStopRef.boards 給 __dbg.tweakBusStopBoards() 滑桿即時調
-         (kc:「公告的部分開滑桿給我調」)。 */
-      const acrylicPlate = (w,h,draw) => mkTex(w,h,(ctx,ww,hh)=>{
-        ctx.clearRect(0,0,ww,hh);
-        ctx.strokeStyle='rgba(214,224,232,.85)'; ctx.lineWidth=3;
-        ctx.strokeRect(2,2,ww-4,hh-4);
-        draw(ctx,ww,hh);
-      });
       const signMat = std({ color:0xffffff, map:signPlate(256,72,(ctx,w,h)=>{
         ctx.fillStyle='#fff'; ctx.font='bold 30px sans-serif'; ctx.textAlign='center';
         ctx.fillText('後站公車站', w/2, h*.46);
@@ -1731,9 +1725,11 @@ export function buildCity(THREE, scene){
         });
       });
 
-      /* 候車資訊牌,貼在背牆上,透明壓克力板材質。 */
+      /* 候車資訊牌,貼在背牆上——2026-09-01 這輪確認過「透明壓克力」講的
+         是背牆(見上面 wallMat),不是這 4 張小資訊牌,維持原本不透明的
+         色塊看板,不用跟著透明。 */
       const boardTex = [
-        acrylicPlate(220,180,(ctx,w,h)=>{
+        signPlate(220,180,(ctx,w,h)=>{
           ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
           ctx.fillText('公車路線圖', w/2, 26);
           ctx.strokeStyle='#8fb8e0'; ctx.lineWidth=2;
@@ -1741,13 +1737,13 @@ export function buildCity(THREE, scene){
           ctx.fillStyle='#e2ab34';
           for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(30+rnd()*(w-60), 40+rnd()*110, 3, 0, 7); ctx.fill(); }
         }),
-        acrylicPlate(220,180,(ctx,w,h)=>{
+        signPlate(220,180,(ctx,w,h)=>{
           ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
           ctx.fillText('公車時刻表', w/2, 26);
           ctx.font='9px monospace'; ctx.textAlign='left';
           for(let r=0;r<10;r++){ ctx.fillText(`${(6+r).toString().padStart(2,'0')}:00  ${(6+r).toString().padStart(2,'0')}:30`, 24, 44+r*13); }
         }),
-        acrylicPlate(220,180,(ctx,w,h)=>{
+        signPlate(220,180,(ctx,w,h)=>{
           ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
           ctx.fillText('公車資訊', w/2, 26);
           const routes=['12','25','307','紅5'];
@@ -1758,8 +1754,8 @@ export function buildCity(THREE, scene){
             ctx.fillText(r, rx, ry+6);
           });
         }),
-        acrylicPlate(220,180,(ctx,w,h)=>{
-          ctx.fillStyle='rgba(47,107,69,.55)'; ctx.fillRect(4,4,w-8,h-8);
+        signPlate(220,180,(ctx,w,h)=>{
+          ctx.fillStyle='#2f6b45'; ctx.fillRect(4,4,w-8,h-8);
           ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
           ctx.fillText('搭公車 愛地球', w/2, 30);
           ctx.strokeStyle='#dfe8d8'; ctx.lineWidth=3;
@@ -1767,8 +1763,7 @@ export function buildCity(THREE, scene){
           ctx.fillStyle='#dfe8d8'; ctx.font='11px sans-serif';
           ctx.fillText('公共運輸 減少碳排', w/2, h-16);
         })
-      ].map(tex => std({ color:0xffffff, map:tex, roughness:.15, metalness:0, transparent:true, opacity:.55 }));
-      busStopRef.boards = boardTex;   // 給 tweakBusStopBoards() 滑桿即時調 opacity/roughness
+      ].map(tex => std({ color:0xffffff, map:tex, roughness:.6 }));
       const boardN = 4;
       for(let i=0;i<boardN;i++){
         const bx = xW + (openW/(boardN+1))*(i+1);
