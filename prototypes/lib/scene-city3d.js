@@ -1807,8 +1807,11 @@ export function buildCity(THREE, scene){
       /* 垃圾桶+資源回收桶,擺在站務室旁——兩個各自獨立的 ref,不再共用
          一個陣列/一顆滑桿。 */
       [
-        { x:xW+openW-1.1, file:'trash-bin.glb', mat:binMat, key:'trashBinMesh' },
-        { x:xW+openW-.2,  file:'recycle-bin.glb', mat:recycMat, key:'recycleBinMesh' }
+        /* 2026-09-01,kc:「分開是指位置分開啦」——原本 xW+openW-1.1/-.2
+           只隔 0.9,兩顆放大到 2.32 倍(寬度約 1.3~1.4)之後會疊在一起,
+           拉開到隔 2(東端站務室拿掉之後這塊空間夠用)。 */
+        { x:xW+openW-2.0, file:'trash-bin.glb', mat:binMat, key:'trashBinMesh' },
+        { x:xW+openW+0,   file:'recycle-bin.glb', mat:recycMat, key:'recycleBinMesh' }
       ].forEach(({x:bx, file, mat, key}) => {
         const bz = backRowZ-.5;
         const fallback = addG(box(.6,.8,.55, mat), bx, platH+.4, bz, false, true);
