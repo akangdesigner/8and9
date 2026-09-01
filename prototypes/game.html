@@ -1061,7 +1061,10 @@ function endPhoneGame(success, jitterLine){
     chg('mood', 6);
     toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
   } else if(jitterLine){
-    chg('star', -4); chg('calm', -6);
+    /* 2026-09-01,kc:「扣太多了啦」——沒有真的被教官抓到,是自己疑神疑鬼
+       提早收手,懲罰比真的被抓(星 −4／歸屬感 −6)輕一點,改星 −1／歸屬感
+       −2,這兩個數字是我自己選的,不喜歡跟我說要改多少。 */
+    chg('star', -1); chg('calm', -2);
     toast(jitterLine, 2200);
   } else {
     chg('star', -4); chg('calm', -6);
@@ -2408,6 +2411,17 @@ function syncMiscQuestPanel(){
   if(SNITCH_QUEST.active){
     const hint = `一週內決定：跟阿正報、或去警告阿源（還有${Math.max(0, SNITCH_QUEST.startDay+7-day)}天，不選也沒關係）`;
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'snitch', title:'贓物協尋', hint });
+  } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+
+  /* 阿霞(2026-09-01,kc:「那任務匡呢 我要來解這個任務」)——沒有獨立的
+     .active 旗標(不像上面幾個要先滿足某個門檻才「接到」),她本來就站在
+     永安公車站,任何時候都能去找她,所以「還沒解決」直接當「進行中」。 */
+  idx = ACTIVE_QUESTS.findIndex(x => x.id === 'axia');
+  if(!AXIA.resolved){
+    const hint = ridingMoto
+      ? '騎車經過永安公車站，載阿霞一程'
+      : '去永安公車站找阿霞——給她計程車錢，或有機車的話載她一程';
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'axia', title:'阿霞等公車', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
   renderQuestPanel();
