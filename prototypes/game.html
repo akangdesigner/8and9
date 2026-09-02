@@ -5376,9 +5376,12 @@ function openIndoorSpot(id){
     /* 小美(2026-08-26,kc:「可以幫小美解題目 會增加歸屬感 也可以約他出去玩
        （直接跳轉到公園）」)——教室context 專用選單,跟街上那具 3D 小美的
        talkToMei()(約會/借錢完整那條線)分開放,「閒聊」選項才接回原本那條,
-       沒有拿掉舊功能。兩個新選項沒有卡 MEI.met/cool 門檻(她是同班同學,
-       教室裡本來就認識,街上那條「帥潮不夠會被嫌棄」的初遇門檻在這裡不
-       適用),kc 沒提就先不腦補加。 */
+       沒有拿掉舊功能。
+       2026-09-02,kc 補上待辦清單那條「約她出去玩要卡門檻」的具體條件——
+       問過「用什麼當門檻」,kc 回「就是用帥潮當門檻」,沿用街上初遇那條
+       talkToMei() 已經在用的同一個數字(ST.cool<22)+同一組 disdainTalk
+       反應,不是另開新台詞。按下去才觸發拒絕(不是選單裡整項變灰/消失),
+       跟街上那條「按下去被嫌棄」是同一種互動手感。 */
     else if(id === 'mei'){
       openMenu('小美', [
         { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '歸屬感 +4',
@@ -5389,7 +5392,16 @@ function openIndoorSpot(id){
             chg('calm', 4);
             say('mei', '「這題...喔，謝啦。」她把答案抄到練習本上。');
           } },
-        { label:'約她出去玩', run: warpToParkWithMei },
+        { label:'約她出去玩', run:() => {
+            if(ST.cool < 22){
+              const D = NpcSchool.MEI;
+              say('mei', D.disdainTalk[Math.random()*D.disdainTalk.length|0], () => {
+                toast('（帥潮要到 22 以上，她才會理你——目前 ' + ST.cool + '）', 2800);
+              });
+              return;
+            }
+            warpToParkWithMei();
+          } },
         { label:'閒聊', run: talkToMei },
         { label:'不要', cls:'back', run(){} }
       ]);
