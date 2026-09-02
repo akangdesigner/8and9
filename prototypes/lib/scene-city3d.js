@@ -2615,8 +2615,8 @@ export function buildCity(THREE, scene){
   const MB_Y = { row: 1.8/.42 + .65, single: 1.0/.42 + .65 };
   const AC_TIER = ['high','mid','low'];
   const alleys = [];
-  function alley(x, z0, z1){
-    alleys.push({ x, z0, z1 });                        // 小地圖要畫,別在外面重算一次
+  function alley(x, z0, z1, name){
+    alleys.push({ x, z0, z1, name });                  // 小地圖要畫,別在外面重算一次
     /* 巷子寬度(2026-08-18 第四輪加寬到 3.6、第九輪 kc 說「不要加寬好了」
        改回來)——維持 3.2,跟 alleyDiag() 的 3.6 不一致,kc 接受這個不一致,
        不用特地拉齊。 */
@@ -2658,9 +2658,15 @@ export function buildCity(THREE, scene){
   }
   /* 兩條巷子的端點也是寫死舊路口位置(-78/72),街道骨架收緊後路口挪到
      -84/84,巷子端點沒跟著移就會接不到新的店面排(同一輪 kc 截圖「怪房子」
-     抓到的另一處)。 */
-  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + B_LINE + DEPTH/2);   // 中華路 ⇄ 廟口路
-  alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  84 - B_LINE - DEPTH/2);   // 中華路 ⇄ 後火車站
+     抓到的另一處)。
+     巷名(2026-09-02,kc:「每條巷子都要有名字」)——這條(嫖妓互動那條)
+     kc 親自定案「光明巷」,反諷意味明顯(呼應 CLAUDE.md 基準線,是巷子
+     的名字在反諷,不是嘲笑角色本身)。另外兩條 kc 沒指定,挑了兩個台灣
+     巷弄常見、語感中性的名字(太平巷/自強巷),不強加反諷——不是每條巷
+     都要複製「光明巷」那個反差,那樣會濫用同一招。這兩個是我選的,kc
+     不喜歡可以直接換。 */
+  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + B_LINE + DEPTH/2, '光明巷');   // 中華路 ⇄ 廟口路
+  alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  84 - B_LINE - DEPTH/2, '太平巷');   // 中華路 ⇄ 後火車站
 
   /* ===== 斜巷:跟 alley() 同一套「兩排素牆夾一條走道」邏輯,只是不沿 x/z
    * 軸走,是斜的(2026-08-13——kc 說圓環、廟埕那些都是路口貼裝飾,路本身
@@ -2669,8 +2675,8 @@ export function buildCity(THREE, scene){
    * 三角函數。碰撞箱用旋轉矩形的軸對齊包絡框(AABB)概略擋,巷子兩邊本來
    * 就是空的街廓內部,擋多一點無傷。 */
   const diagAlleys = [];
-  function alleyDiag(x0, z0, x1, z1){
-    diagAlleys.push({ x0, z0, x1, z1 });
+  function alleyDiag(x0, z0, x1, z1, name){
+    diagAlleys.push({ x0, z0, x1, z1, name });
     const dx = x1-x0, dz = z1-z0, len = Math.hypot(dx,dz), ang = Math.atan2(dx,dz);
     const ux = Math.sin(ang), uz = Math.cos(ang);      // 沿線方向單位向量
     const nx = Math.cos(ang), nz = -Math.sin(ang);     // 垂直方向單位向量
@@ -2727,7 +2733,7 @@ export function buildCity(THREE, scene){
     const [dx2,dz2] = at(len*-.2, -(HW-.5)); drainGrate(dx2, dz2);
     alleyFill(cx, cz);
   }
-  alleyDiag(12, B_LINE+DEPTH/2, 48, 84-B_LINE-DEPTH/2);   // 中華路 ⇄ 後火車站,斜的那條(同一批舊路口 72→84 的坑)
+  alleyDiag(12, B_LINE+DEPTH/2, 48, 84-B_LINE-DEPTH/2, '自強巷');   // 中華路 ⇄ 後火車站,斜的那條(同一批舊路口 72→84 的坑)
 
   /* ===== 廟埕 ===== */
   (function temple(){
@@ -3481,6 +3487,23 @@ export function buildCity(THREE, scene){
     if(parkBounds && x > parkBounds.x0 && x < parkBounds.x1 && z > parkBounds.z0 && z < parkBounds.z1) return '小公園';
     for(const r of H_ROADS) if(Math.abs(z-r.z) < ROAD_HW+WALK_W+2) return r.name;
     for(const r of V_ROADS) if(Math.abs(x-r.x) < ROAD_HW+WALK_W+2) return r.name;
+    /* 巷名(2026-09-02,kc:「每條巷子都要有名字」)——alley()/alleyDiag()
+       現在都收了 name,這裡查表回傳,不用另外維護一份範圍表。直巷用
+       x 是否落在牆內(HW+3 是牆中心偏移,+2 抓寬鬆一點的容許範圍)+ z
+       落在 z0~z1 之間;斜巷借 alleyDiag() 建牆時同一套投影數學(沿線/
+       垂直分量),抓 along/side 兩個方向各自的容許範圍。查不到才 fall
+       back 舊的通用「巷子」,理論上不會發生(三條巷子已經涵蓋所有巷子
+       範圍),留著純保險。 */
+    for(const a of alleys)
+      if(Math.abs(x-a.x) < 3.2+3+2 && z >= Math.min(a.z0,a.z1)-2 && z <= Math.max(a.z0,a.z1)+2) return a.name;
+    for(const a of diagAlleys){
+      const dx = a.x1-a.x0, dz = a.z1-a.z0, len = Math.hypot(dx,dz);
+      const ux = dx/len, uz = dz/len, nx = -uz, nz = ux;
+      const cx = (a.x0+a.x1)/2, cz = (a.z0+a.z1)/2;
+      const relX = x-cx, relZ = z-cz;
+      const along = relX*ux + relZ*uz, side = relX*nx + relZ*nz;
+      if(Math.abs(along) < len/2+2 && Math.abs(side) < 3.6+3+2) return a.name;
+    }
     if(z < -84) return '廟埕';
     return '巷子';
   }
