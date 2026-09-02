@@ -224,6 +224,25 @@
   #menu button.risk { border-left-color:#a2564c; }
   #menu button.back { border-left-color:#39424f; color:#97a0ad; font-size:14px; }
 
+  /* 真的打字的對話輸入框(2026-09-02,kc:「讓主角講出一句想對啊罵說的話
+     然後是我們真的打字」)——這款遊戲目前所有互動都是選單/選項,沒有
+     任何一處讓玩家自己輸入文字,這是第一個。刻意跟 #menu 同一套視覺
+     語彙(深底、左邊框強調色、同一個字距),不要另外自創一套風格顯得
+     突兀。空白時 Enter 直接送出空字串也可以(見 askFreeText()),不擋
+     玩家「講不出話」這個選項本身也是一種回答。 */
+  #textPrompt { position:fixed; left:50%; transform:translateX(-50%); bottom:6%;
+                display:none; flex-direction:column; gap:8px; width:min(560px,82%); z-index:8; }
+  #textPrompt.on { display:flex; }
+  #textPrompt .cap { font-size:11.5px; letter-spacing:.28em; color:#8b94a3; padding-left:4px; }
+  #textPromptInput { background:rgba(12,16,23,.95); color:#dfe4ea; border:1px solid #3d4757;
+    border-left:3px solid #d8b24a; padding:10px 15px; font-size:15.5px; font-family:inherit;
+    letter-spacing:.02em; border-radius:3px; outline:none; }
+  #textPromptInput:focus { border-color:#5a6478; border-left-color:#d8b24a; }
+  #textPromptSubmit { align-self:flex-end; background:rgba(12,16,23,.95); color:#dfe4ea;
+    border:1px solid #3d4757; border-left:3px solid #55617a; padding:8px 18px; font-size:14px;
+    font-family:inherit; letter-spacing:.04em; cursor:pointer; border-radius:3px; transition:all .13s; }
+  #textPromptSubmit:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; }
+
   /* 遊藝場機台的「大框框」(2026-08-26,kc:「互動是應該要彈出一個大框框,
      要寫實的感覺」)——原本三台機台跟其他一般互動點共用 #menu 那個小小
      一條清單,kc 覺得不夠份量,改成獨立的全螢幕暗底+置中大面板,中間是
@@ -525,6 +544,11 @@
   </div>
 </div>
 <div id="menu"></div>
+<div id="textPrompt">
+  <div class="cap" id="textPromptCap"></div>
+  <input type="text" id="textPromptInput" maxlength="60" autocomplete="off">
+  <button id="textPromptSubmit">說出口</button>
+</div>
 <div id="arcadeGame">
   <div class="agPanel">
     <div class="agCap" id="agCap"></div>
@@ -1929,6 +1953,33 @@ function openMenu(cap, items){
     menuEl.appendChild(b);
   });
   menuEl.classList.add('on');
+}
+/* 真的打字的對話輸入(2026-09-02,kc:「讓主角講出一句想對啊罵說的話
+   然後是我們真的打字」)——跟 openMenu() 同一個地位,但吐出來的是玩家
+   自己打的文字,不是選單裡選好的固定選項。onSubmit(text) 拿到的字串
+   已經 trim() 過,可能是空字串(玩家什麼都沒打直接按 Enter/送出)——
+   呼叫端自己決定空字串要怎麼處理,這裡不擋、不強制要求一定要打字,
+   「講不出話」本身也是一種回答,不用特別防呆。 */
+const textPromptEl = document.getElementById('textPrompt');
+const textPromptCap = document.getElementById('textPromptCap');
+const textPromptInput = document.getElementById('textPromptInput');
+const textPromptSubmit = document.getElementById('textPromptSubmit');
+function askFreeText(promptText, placeholder, onSubmit){
+  busy = true;
+  textPromptCap.textContent = promptText;
+  textPromptInput.value = '';
+  textPromptInput.placeholder = placeholder || '';
+  textPromptEl.classList.add('on');
+  textPromptInput.focus();
+  const submit = () => {
+    const text = textPromptInput.value.trim();
+    textPromptEl.classList.remove('on');
+    textPromptInput.onkeydown = null; textPromptSubmit.onclick = null;
+    busy = false;
+    onSubmit(text);
+  };
+  textPromptSubmit.onclick = submit;
+  textPromptInput.onkeydown = e => { if(e.key === 'Enter') submit(); };
 }
 
 /* 遊藝場機台的大面板(2026-08-26,見上面 #arcadeGame 那段 CSS 筆記)——
@@ -7424,8 +7475,17 @@ function declineHospitalCall(){
 /* 2026-09-02 第十輪,kc:「去醫院之後的劇情好單薄」——原本 9 句太薄,
    跟這整條線本來就是全遊戲最重的一場道別比,分量不夠。補到 14 句,加
    感官細節(監視器聲音、握手的輕)跟一句具體的童年記憶(挑不挑食)撐
-   起「阿嬤真的認得你、記得你」這件事,不是泛泛的客套話;結尾改成護士
-   進來趕人,不是她自己突然沒了下文。 */
+   起「阿嬤真的認得你、記得你」這件事,不是泛泛的客套話。
+   ✅ 第十一輪,kc:「互動太少」,給了兩個方向:讓玩家真的打字講一句話、
+   或是阿嬤想喝水玩家倒水。兩個都做了,不是二選一:
+   ① 倒水——用 playBeats() 既有的 `menu` 節點類型(跟 story-bet.js 那套
+      共用),只有一個選項也算是玩家自己按下去的動作,不是純旁白。
+   ② 打字——這是這款遊戲第一個真的文字輸入框(見 askFreeText()/
+      #textPrompt 那段長筆記),回應內容看玩家有沒有打字分兩種,所以
+      不能塞在這個固定的 beats 陣列裡走完就結束(playBeats 不支援依
+      使用者輸入內容分支),拆成 HOSPITAL_GO_BEATS(到握手道別的記憶那段
+      為止)+ enterHospital() 裡在 done callback 手動接 askFreeText()、
+      依有沒有打字組出不同的收尾兩個階段。 */
 const HOSPITAL_GO_BEATS = [
   { who:'pc',    text:'走廊很安靜,消毒水的味道很重。' },
   { who:'pc',    text:'媽坐在椅子上,看到你只是點了點頭,沒有站起來。' },
@@ -7436,11 +7496,26 @@ const HOSPITAL_GO_BEATS = [
   { who:'pc',    text:'你在床邊坐下,握住她的手——很輕,幾乎沒什麼重量。' },
   { who:'granny',text:'「有沒有吃飽。」她問的還是這句。' },
   { who:'pc',    text:'你說有。' },
+  { who:'granny',text:'她舔了舔嘴唇。「水⋯⋯有沒有水。」' },
+  { menu:[ { label:'倒水給她', beats:[
+      { who:'pc',     text:'你倒了半杯溫水,扶著她慢慢喝。' },
+      { who:'granny', text:'「夠了,夠了。」她輕輕推開你的手。' },
+      { who:'pc',     text:'她喝完,靠回枕頭上,像用完了今天剩下的力氣。' }
+    ] } ] },
   { who:'granny',text:'「你小時候很挑食,現在還會不會這樣。」' },
   { who:'pc',    text:'你說不會了。' },
-  { who:'granny',text:'她笑了一下,眼睛瞇起來。「那就好。」' },
-  { who:'pc',    text:'她沒有再說話,只是看著你,像在把你的臉記下來。' },
-  { who:'pc',    text:'你握著她的手坐著,直到護士進來,說時間到了,要你們先出去。' }
+  { who:'granny',text:'她笑了一下,眼睛瞇起來。「那就好。」' }
+];
+const HOSPITAL_LAST_WORDS_SAID = [
+  { who:'granny', text:'她愣了一下,然後笑了,伸手拍了拍你的手背。' }
+];
+const HOSPITAL_LAST_WORDS_SILENT = [
+  { who:'pc',     text:'你張了張嘴,最後什麼都沒說出口。' },
+  { who:'granny', text:'她好像看懂了,伸手拍了拍你的手背,沒有追問。' }
+];
+const HOSPITAL_CLOSING_BEATS = [
+  { who:'pc', text:'她沒有再說話,只是看著你,像在把你的臉記下來。' },
+  { who:'pc', text:'你握著她的手坐著,直到護士進來,說時間到了,要你們先出去。' }
 ];
 /* goToHospital() 只管扣代價+切場景,「切場景+講故事+離場」那段拆進
    enterHospital(),跟 enterMassage() 同一個分工。 */
@@ -7467,9 +7542,14 @@ function enterHospital(){
     hintEl.classList.remove('on');
     paintHospitalBackdrop();
     playBeats(HOSPITAL_GO_BEATS, 0, () => {
-      chg('calm', 10);
-      toast('（歸屬感 +10）', 2400);   // 補的,跟 declineHospitalCall() 那句同一個等級,見那則筆記
-      leaveIndoor();
+      askFreeText('你想跟阿嬤說什麼？', '（打字,留白也可以）', text => {
+        const said = text ? [{ who:'pc', text:'「'+text+'」' }].concat(HOSPITAL_LAST_WORDS_SAID) : HOSPITAL_LAST_WORDS_SILENT;
+        playBeats(said.concat(HOSPITAL_CLOSING_BEATS), 0, () => {
+          chg('calm', 10);
+          toast('（歸屬感 +10）', 2400);   // 補的,跟 declineHospitalCall() 那句同一個等級,見那則筆記
+          leaveIndoor();
+        });
+      });
     });
   });
 }
@@ -7632,6 +7712,16 @@ function playBeats(beats, i, done){
       run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => playBeats(beats, i+1, done)); }
     })));
   }
+  /* textPrompt(2026-09-02)——見 askFreeText() 那則筆記,playBeats() 的
+     第四種節點類型,跟 'menu' 平行:玩家打的字存進 b.into(如果有給的話,
+     一個 (text)=>void 回呼,呼叫端可以拿去記錄/影響後續),不會塞進
+     beats 本身的資料結構裡造成汙染。 */
+  else if('textPrompt' in b){
+    askFreeText(b.textPrompt, b.placeholder, text => {
+      if(b.into) b.into(text);
+      playBeats(beats, i+1, done);
+    });
+  }
   else say(b.who, b.text, () => playBeats(beats, i+1, done));
 }
 /* debt(欠更多錢)這次沒有另開一條指標——kc 原話「債務就是扣金錢啊」,
@@ -7714,6 +7804,12 @@ const keys = {};
 const TROUPE_KEY_LANE = { arrowup:'up', arrowdown:'down', arrowleft:'left', arrowright:'right', ' ':'space' };
 addEventListener('keydown', e => {
   if(gameOver) return;   // 失敗結局蓋上之後不接受任何操作,見 triggerGameOver()
+  /* 醫院那段真的打字輸入框(2026-09-02)——不擋掉這行的話,玩家在
+     #textPromptInput 裡打字時,空白鍵/方向鍵會同時被下面這段當成移動/
+     互動鍵吃掉(WASD 走位、空白鍵推進對話),打字打到一半角色會在背景
+     亂走。真的聚焦在文字輸入框時整段直接不處理,交給瀏覽器原生輸入
+     行為,Enter 送出走 askFreeText() 自己掛的 keydown。 */
+  if(document.activeElement === textPromptInput) return;
   const k = e.key.toLowerCase();
   keys[k] = true;
   startBuskerAudio();          // 第一次按鍵才建立 AudioContext,見上面那段註解
