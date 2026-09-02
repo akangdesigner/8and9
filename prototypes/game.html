@@ -6717,7 +6717,13 @@ function sleep(){
        事件叫你去,不是你自己主動找阿源要求),任務面板/巷口分身 NPC 都會
        照原本那套機制正常出現。早上這段電話現在只負責把「今晚要顧場子」
        的話講清楚(拉長一點,原本三句「沒頭沒尾」,kc 這句也一起處理),
-       真正開始顧場子留到晚上真的出門那一刻。 */
+       真正開始顧場子留到晚上真的出門那一刻。
+       ✅ 2026-09-02 第三輪,kc:「任務框呢 應該會顯示今晚五點去...之類的」
+       ——早上電話講完不該只是嘴上約好、任務面板上完全看不到,補一個
+       `id:'yuan-tonight'` 的輕量提醒卡(標題/hint,不是真的 WATCHJOB 那套
+       走位/NPC),晚上 `checkYuanEveningWatch()` 真的 `startWatchJob()`
+       時把這張換掉(splice 掉提醒卡,讓 `startWatchJob()` 自己 push 的
+       `watchjob` 那張接手),不會兩張一起疊著。 */
     if(!yuanMorningCallFired && day === GRANDMA_CALL_DAY && YUAN.visits > 0){
       yuanMorningCallFired = true;
       impoundBeats = (impoundBeats || []).concat([
@@ -6728,6 +6734,9 @@ function sleep(){
         { who:'pc',   text:'你應了一聲。' },
         { who:'pc',   text:'他沒再多說,直接掛了。' }
       ]);
+      ACTIVE_QUESTS.push({ id:'yuan-tonight', title:'阿源・晚上顧場子',
+        hint:`今晚 ${fmtTime(YUAN_WATCH_EVENING_MINUTE)} 去遊藝場附近` });
+      renderQuestPanel();
     }
     syncHUD();
     /* 2026-08-31 第四輪,kc:「不要再自動跳轉街上了 不合理」——上一輪
@@ -7044,6 +7053,10 @@ function checkYuanEveningWatch(){
   if(!yuanMorningCallFired || MODE !== 'city' || gameOver || busy || dlg.on) return;
   if(WATCHJOB.active || WATCHJOB.lastDay === day) return;
   if(day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= YUAN_WATCH_EVENING_MINUTE)){
+    /* 換掉早上那張提醒卡(見 sleep() 那則筆記),startWatchJob() 自己會
+       push 真正的 'watchjob' 那張,不拔掉這張的話會兩張一起疊著。 */
+    const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-tonight');
+    if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
     startWatchJob();
   }
 }
