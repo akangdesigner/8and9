@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoBusStop()">跳公車站</button><button class="tool" onclick="debugCallMoto()">叫機車</button><button class="tool" onclick="debugAxiaRideToggle()">阿霞上/下車</button><button class="tool" onclick="__dbg.tweakPassengerSeat()">後座滑桿</button><button class="tool" onclick="debugAxiaReset()">阿霞重置</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1380,23 +1380,14 @@ document.getElementById('invClose').onclick = closeInventory;
    掛的話按鈕點下去會是「debugSkipDays is not defined」。 */
 function debugSkipDays(n){ day += n; syncHUD(); }
 window.debugSkipDays = debugSkipDays;
-/* 跳廟口按鈕(2026-08-31,kc:「記住 我不會打這種指令 再重來旁邊加按鈕
-   跳轉畫面」)——跟上面 +7天 同一個坑,不要再叫 kc 開 devtools 打
-   __dbg.at(...)。點了直接把角色傳到廟口(YUAN/FAT 那個定點),街上/室內
-   都能點。⚠ 室內時不能先呼叫 leaveIndoor() 再自己 set position——
-   leaveIndoor() 內部是 fade()(淡出淡入,非同步),它自己的 callback
-   最後也會把 hero 位置設到 returnTo.x/z,晚於這裡同步執行的 set(),
-   會把這裡指定的座標蓋回超商門口。改成先把 returnTo 改成廟口座標,
-   讓 leaveIndoor() 自己那套流程把人放到正確位置,不用跟它搶。 */
-function debugGotoTemple(){
-  if(MODE === 'indoor'){
-    returnTo.x = -6; returnTo.z = -84;
-    leaveIndoor();
-  } else {
-    hero.group.position.set(-6, .3, -84);
-  }
-}
-window.debugGotoTemple = debugGotoTemple;
+/* 跳學校按鈕(2026-09-02,kc:「要跳去學校啊講過很多次了」+「下面的按鈕
+   可以刪掉大部分了都完成了」)——廟口/公車站/阿霞那組測試按鈕對應的
+   功能都已經定案收工,換成現在還在測的學校。學校是室內場景,不是廟口/
+   公車站那種街上定點,直接借 __dbg.warp('school')(warpIntoPlace() 那條
+   略過走路/淡出動畫的直達路徑,見那則筆記),一次到位站進教室,順便會
+   跑到 story-school.js day5/21 節點檢查(跟真的走進校門同一套邏輯)。 */
+function debugGotoSchool(){ toast(__dbg.warp('school'), 2000); }
+window.debugGotoSchool = debugGotoSchool;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -1630,7 +1621,7 @@ const PORTRAIT_IMGS = {
      見跟 kc 的對話紀錄),改回跟店員/爸媽同一套 AI 生真人照片。阿仁刻意
      生成光頭,呼應他在遊戲裡本來就是禿頭(骨架 m3/Brian 沒有 Hair mesh),
      不是巧合。 */
-  mei:    loadPortraitImg('../assets/bg/mei-portrait.png?v=1'),
+  mei:    loadPortraitImg('../assets/bg/mei-portrait.png?v=2'),
   aren:   loadPortraitImg('../assets/bg/aren-portrait.png?v=1'),
   kai:    loadPortraitImg('../assets/bg/kai-portrait.png?v=1'),
   /* 刺青店老闆(2026-08-28)——kc 丟的真人照片,跟 tattooMasterIndoor 那具
@@ -9113,15 +9104,33 @@ const KAI_CHECKIN_LINES = {
   20: ['「東西快齊了,」他把玩著手上的扳手,「你等我消息就對了。」',
        '他這幾天話變少,見你只是點個頭,眼神卻藏不住興奮。']
 };
+/* 教室版台詞(2026-09-02,kc:「阿凱的對話很怪」)——查出來是街上機車行那具
+   跟教室座位那具共用同一份 talkToKai(),街上那句「新面孔」+「指了指停在
+   旁邊那台車」原封不動搬進教室,教室裡沒有車、他也早就是同班同學不是新
+   面孔,對話對不上場景。分成教室/街上兩份,人物設定(改管/醞釀「一票大的」
+   那條 day13 排氣管幫的伏筆)不變,只改場景描述——教室版把「車」換成手機
+   裡的改管影片/口袋裡的工具,街上版維持原樣不動。KAI.talked 還是同一個
+   旗標(同一個人,只認識一次),只是哪邊先講到話就用哪邊的台詞。 */
+const KAI_CHECKIN_LINES_SCHOOL = {
+  0: ['他趴在桌上，耳機開很大聲，你瞄到螢幕在放引擎聲的影片。'],
+  10: ['他湊過來,手機螢幕是一段改管影片:「嘿嘿,準備幹一票大的,看好了。」',
+       '「最近在盤一個東西,」他壓低聲音,眼睛瞄了一下講台,「到時候你就知道了。」'],
+  20: ['「東西快齊了,」他小聲說,眼神卻藏不住興奮。',
+       '他這幾天話變少,見你只是點個頭,手指在桌下轉著一支螺絲起子。']
+};
 function kaiCheckinLines(){
   const stages = [20, 10, 0];
   const s = stages.find(d => day >= d) ?? 0;
-  return KAI_CHECKIN_LINES[s];
+  return (MODE === 'indoor' ? KAI_CHECKIN_LINES_SCHOOL : KAI_CHECKIN_LINES)[s];
 }
 function talkToKai(){
   if(!KAI.talked){
     KAI.talked = true;
-    say('kai', '「喔,新面孔。」\n\n他指了指停在旁邊那台車。\n\n「改管改到這樣,你聽聽這聲音。」');
+    if(MODE === 'indoor'){
+      say('kai', '他抬頭看你一眼,嘴角勾了一下。\n\n「聽說你也常去中華路那間車行晃?」\n\n「改天去,我車聲你一定要聽聽。」');
+    } else {
+      say('kai', '「喔,新面孔。」\n\n他指了指停在旁邊那台車。\n\n「改管改到這樣,你聽聽這聲音。」');
+    }
     return;
   }
   const lines = kaiCheckinLines();
@@ -10399,25 +10408,12 @@ window.__dbg = {
     return out;
   }
 };
-/* 阿霞測試按鈕(2026-09-01,kc:「你來啊我講幾次了 給我記住」——console
-   command 這件事已經講過兩次了(見 feedback_no_console_commands_add_buttons
-   那則記憶),這輪我又犯了第三次,叫他打 __dbg.callMoto()/axiaReset() 等
-   一串指令。補按鈕修正,不再讓他自己開 devtools 打字。跟 debugSkipDays/
-   debugGotoTemple 同一套「window.debugXxx 包一層,inline onclick 才呼叫
-   得到」寫法,內部還是呼叫 __dbg 裡已經寫好的邏輯,不重複一份。 */
-function debugGotoBusStop(){
-  if(MODE === 'indoor'){ returnTo.x = -36; returnTo.z = 96; leaveIndoor(); }
-  else hero.group.position.set(-36, .3, 96);
-}
-window.debugGotoBusStop = debugGotoBusStop;
-function debugCallMoto(){ toast(__dbg.callMoto(), 2400); }
-window.debugCallMoto = debugCallMoto;
-function debugAxiaRideToggle(){
-  toast(axiaRiding ? __dbg.axiaTestStop() : __dbg.axiaTestRide(), 2400);
-}
-window.debugAxiaRideToggle = debugAxiaRideToggle;
-function debugAxiaReset(){ toast(__dbg.axiaReset(), 2000); }
-window.debugAxiaReset = debugAxiaReset;
+/* 廟口/公車站/阿霞那組測試按鈕(2026-08-31~09-01)2026-09-02 拿掉——
+   kc:「下面的按鈕可以刪掉大部分了都完成了」,對應功能都已經定案收工,
+   #bar 換成現在還在測的「跳學校」(見上面 debugGotoTemple 那個位置改名
+   debugGotoSchool 的筆記)。底下 __dbg.callMoto()/axiaTestRide()/
+   axiaTestStop()/axiaReset() 這些邏輯本身沒刪,只是拿掉包成按鈕的那層,
+   之後真要現場測還是能透過 __dbg 呼叫。 */
 </script>
 </body>
 </html>
