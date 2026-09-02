@@ -948,6 +948,36 @@ function askStudyQuestion(onDone){
     })));
   }
 }
+/* 幫小美解題目(2026-09-02,kc:「幫她解題目本身有點無聊」)——原本一按
+   就直接發歸屬感+4,沒有真的「解」,改成跟讀書/小考/補考共用同一套
+   Quiz.BANK+coShowOptions 機制,只是量級最輕(單題,不用 coFade 換背景
+   ——她人就在教室裡,不用切場景)。答對才拿歸屬感+4,答錯沒有懲罰但也
+   沒有獎勵(她自己劃掉重寫),helpedDay 不管答對答錯都算用掉今天這次,
+   不然會變成猜到對為止的無限重試。 */
+function askMeiQuestion(){
+  MEI.helpedDay = day;
+  const q = Quiz.BANK[Math.random()*Quiz.BANK.length|0];
+  busy = true;
+  drawPortrait('mei');
+  dName.textContent = '小美';
+  dTx.textContent = `「這題...你會嗎?」\n【${q.subj}】${q.q}`;
+  dCaret.classList.remove('on');
+  dlgEl.classList.add('on');
+  coShowOptions(q.opts.map((opt, oi) => ({
+    label: opt,
+    run(){
+      document.getElementById('coOpts').innerHTML = '';
+      busy = false;
+      const correct = oi === q.a;
+      if(correct){
+        chg('calm', 4);
+        say('mei', '「這題...喔，謝啦。」她把答案抄到練習本上。');
+      } else {
+        say('mei', '「……這什麼答案。」她自己把你寫的劃掉，重新算了一次。');
+      }
+    }
+  })));
+}
 /* 偷玩手遊(2026-08-21,kc 給的「上課就好 或是偷玩手遊」兩個方向的第二個)
  * ——沒有真的一個「教官在不在看你」的狀態可以讀(跟 steal() 靠店員朝向
  * 判定不同層級,教室這輪只是灰模,還沒有那種細節),先用機率(30% 被抓)
@@ -5375,13 +5405,11 @@ function openIndoorSpot(id){
        跟街上那條「按下去被嫌棄」是同一種互動手感。 */
     else if(id === 'mei'){
       openMenu('小美', [
-        { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '歸屬感 +4',
+        { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '答對　歸屬感 +4',
           cls: MEI.helpedDay===day ? 'bad' : '',
           run:() => {
             if(MEI.helpedDay === day){ toast('今天已經幫過她了，明天再來。', 2200); return; }
-            MEI.helpedDay = day;
-            chg('calm', 4);
-            say('mei', '「這題...喔，謝啦。」她把答案抄到練習本上。');
+            askMeiQuestion();
           } },
         { label:'約她出去玩', run:() => {
             if(ST.cool < 22){
