@@ -606,7 +606,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoGrandmaAfternoon()">跳五點</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoPolice()">跳警局</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoGrandmaAfternoon()">跳五點</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1487,6 +1487,29 @@ function debugFieldTrip(){
   checkFieldTrip();
 }
 window.debugFieldTrip = debugFieldTrip;
+/* 跳警局按鈕(2026-09-02,kc:「假設我們已經去過校外教學了 我要準備做
+   筆錄」)——直接假設校外教學/指控那段已經播完(CLASSFUND.active=true、
+   askedBrother 重置回 false),不用重新玩一次 debugFieldTrip() 那整段
+   再走回教室,省下前面已經測過的部分,直接測「去警局跟阿正做筆錄」
+   這一步。跟 debugFieldTrip() 同一個理由清乾淨殘留狀態,任務面板補上
+   跟 checkFieldTrip() 第二階段一樣的 classfund 卡片文字。 */
+function debugGotoPolice(){
+  day = 18;
+  CLASSFUND.tripStarted = true; CLASSFUND.active = true;
+  CLASSFUND.askedBrother = false; CLASSFUND.foundEvidence = false;
+  CLASSFUND.toldByFat = false; CLASSFUND.confirmedByMaster = false; CLASSFUND.resolved = null;
+  CLASSMATE_QUEST.active = false; CLASSMATE_QUEST.talkedMei = false; CLASSMATE_QUEST.talkedAren = false;
+  CLASSMATE_QUEST.talkedKai = false; CLASSMATE_QUEST.allTalked = false; CLASSMATE_QUEST.resolved = false;
+  moveClassmatesHome();
+  const cqi = ACTIVE_QUESTS.findIndex(q => q.id === 'classmate'); if(cqi >= 0) ACTIVE_QUESTS.splice(cqi, 1);
+  const fqi = ACTIVE_QUESTS.findIndex(q => q.id === 'classfund');
+  if(fqi >= 0) ACTIVE_QUESTS.splice(fqi, 1);
+  ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'老師叫你放學後去警察局做筆錄' });
+  renderQuestPanel();
+  syncHUD();
+  toast(__dbg.at(BROTHER.x, BROTHER.z + 3), 2000);
+}
+window.debugGotoPolice = debugGotoPolice;
 /* +1天按鈕(2026-09-02,kc:「但我希望自然觸發 不然我不知道是不是卡bug」)——
    上一輪補的「跳班費事件」按鈕直接把 day 寫死成 18,kc 不要這種「我幫你
    把狀態喬好」的捷徑,他要看到事件是靠遊戲自己的天數機制走到、真的
