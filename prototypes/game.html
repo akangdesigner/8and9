@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1427,6 +1427,32 @@ window.debugGotoSchool = debugGotoSchool;
    小胖三個點。 */
 function debugGotoTemple(){ toast(__dbg.at(2, -95), 2000); }
 window.debugGotoTemple = debugGotoTemple;
+/* 跳校外教學按鈕(2026-09-02 第十輪,kc:「幫我加專屬按鈕」)——這次是
+   kc 自己開口要專屬按鈕,跟上面 +1天 那則筆記講的「不要 debug 硬塞狀態」
+   不衝突:那次是我自己主動要幫他省麻煩、他嫌蓋掉了「自然觸發」的驗證
+   意義;這次是他直接下指令要一顆按鈕,不是我猜的捷徑。
+   把 day 寫死成 18、清乾淨 CLASSFUND/CLASSMATE_QUEST 兩組狀態跟任務面板
+   殘留(同一次分頁裡重複點測,不重新整理也不會卡到上一輪留下的旗標,
+   跟 debugGotoGrandmaDay() 那則筆記同一個理由),再呼叫 checkFieldTrip()
+   讓它照正常那套邏輯播第一階段(老師宣布校外教學、warp 去廟口、搬同學
+   過去)——跟真的用 +7天/+1天/跳學校 湊到 day18 再走進教室是同一條路徑,
+   只是把「湊天數」這步跳過,後面播的內容完全一樣。 */
+function debugFieldTrip(){
+  day = 18;
+  CLASSFUND.tripStarted = false; CLASSFUND.active = false;
+  CLASSFUND.askedBrother = false; CLASSFUND.foundEvidence = false;
+  CLASSFUND.toldByFat = false; CLASSFUND.confirmedByMaster = false; CLASSFUND.resolved = null;
+  CLASSMATE_QUEST.active = false; CLASSMATE_QUEST.talkedMei = false; CLASSMATE_QUEST.talkedAren = false;
+  CLASSMATE_QUEST.talkedKai = false; CLASSMATE_QUEST.allTalked = false; CLASSMATE_QUEST.resolved = false;
+  moveClassmatesHome();
+  for(const qid of ['classmate', 'classfund']){
+    const qi = ACTIVE_QUESTS.findIndex(q => q.id === qid); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
+  }
+  renderQuestPanel();
+  syncHUD();
+  checkFieldTrip();
+}
+window.debugFieldTrip = debugFieldTrip;
 /* +1天按鈕(2026-09-02,kc:「但我希望自然觸發 不然我不知道是不是卡bug」)——
    上一輪補的「跳班費事件」按鈕直接把 day 寫死成 18,kc 不要這種「我幫你
    把狀態喬好」的捷徑,他要看到事件是靠遊戲自己的天數機制走到、真的
@@ -2367,6 +2393,10 @@ function checkFieldTrip(){
         wlabelsEl.style.display = '';
         hero.group.position.set(2, .3, -95);
         advanceTime(1);
+        moveClassmatesToTemple();
+        CLASSMATE_QUEST.active = true;
+        ACTIVE_QUESTS.push({ id:'classmate', title:'跟同學培養感情', hint:'找小美、阿仁、阿凱聊聊' });
+        renderQuestPanel();
         toast('校外教學，大家在廟口。逛一逛，準備好了就走回學校。', 3600);
       });
     });
@@ -2374,6 +2404,12 @@ function checkFieldTrip(){
   }
   if(CLASSFUND.tripStarted && !CLASSFUND.active){
     CLASSFUND.active = true;
+    moveClassmatesHome();
+    if(CLASSMATE_QUEST.active){
+      const cqi = ACTIVE_QUESTS.findIndex(q => q.id === 'classmate');
+      if(cqi >= 0) ACTIVE_QUESTS.splice(cqi, 1);
+      CLASSMATE_QUEST.active = false;
+    }
     ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'先去警局問問看' });
     renderQuestPanel();
     const node = StorySchool.NODES.find(n => n.day === 18);
@@ -2386,6 +2422,68 @@ function checkFieldTrip(){
     return true;
   }
   return false;
+}
+
+/* 跟同學培養感情(2026-09-02 第十輪,kc:「所有人都要暫時移動到廟口
+   然後任務是跟班上同學培養感情 你要都跟他們對一輪話 然後帶他們去找
+   阿源」)——校外教學這段順便加一個任務:小美/阿仁/阿凱(教室裡三個
+   有名字的同學,見 npc-school.js)平常站位在別處(公園草地/校門口一帶),
+   這裡借用他們既有的 3D NPC 本尊(meiNPC/arenNPC/kaiNPC,下面兩個函式
+   定義,meiNPC/arenNPC 是靠 NPCS 陣列索引拿引用,跟 brotherNPC 同一招,
+   見那則筆記;kaiNPC 本來就是獨立 const),暫時搬到廟口,回教室(第二
+   階段觸發)時搬回原位——不是另外生分身,跟 WATCHJOB「藏起來換分身」
+   是不同做法(這裡沒有兩邊同時要用到本尊的衝突,直接搬比較簡單)。
+   MEI.x/z 等座標同時也是 nearProp 判定用的資料(見下面 updateCity()
+   裡 Math.hypot(pos.x-MEI.x,...)那段),不是只搬 3D 模型的視覺位置,
+   兩邊要一起改,不然人物看起來站在廟口、互動判定卻還留在原本座標。
+   CLASSMATE_HOME 是獨立存一份原始座標(不是從 MEI.x 現讀,那個值搬到
+   廟口期間會被改掉,現讀會讀到廟口座標)。
+   「帶他們去找阿源」沒有做成真的路徑跟隨 AI——這個引擎裡所有 NPC 只有
+   站定/巡邏兩種,沒有「跟著玩家走」的能力,為這一個任務另開一套跟隨
+   AI 划不來。改成:三人都聊過之後 quest hint 換成「去阿源那邊找他」,
+   玩家自己走過去、talkToYuan() 才播一段點名小美/阿仁/阿凱都在場的
+   群戲,用敘事帶過「大家一起走過去」這件事,不是真的物理跟隨。
+   trip 結束(第二階段觸發、大家搬回學校)時如果玩家還沒聊完三人,直接
+   把任務從面板拿掉,不另外處理「沒做完」——這是校外教學當下限定的任務,
+   一旦人都搬回學校,阿源也不在旁邊了,沒有「之後再補做」的路徑,做失敗
+   提示反而畫蛇添足。 */
+const CLASSMATE_QUEST = { active:false, talkedMei:false, talkedAren:false, talkedKai:false, allTalked:false, resolved:false };
+const CLASSMATE_HOME = { mei:{x:45,z:-26}, aren:{x:45,z:-22}, kai:{x:6,z:-13} };
+const CLASSMATE_TEMPLE_POS = {
+  mei:  { x:10, z:-93, face:Math.PI*.7 },
+  aren: { x:14, z:-96, face:Math.PI*.3 },
+  kai:  { x:18, z:-91, face:-Math.PI*.5 }
+};
+function moveClassmatesToTemple(){
+  MEI.x = CLASSMATE_TEMPLE_POS.mei.x; MEI.z = CLASSMATE_TEMPLE_POS.mei.z;
+  meiNPC.group.position.set(MEI.x, meiNPC.group.position.y, MEI.z);
+  meiNPC.setFacing(CLASSMATE_TEMPLE_POS.mei.face);
+  AREN.x = CLASSMATE_TEMPLE_POS.aren.x; AREN.z = CLASSMATE_TEMPLE_POS.aren.z;
+  arenNPC.group.position.set(AREN.x, arenNPC.group.position.y, AREN.z);
+  arenNPC.setFacing(CLASSMATE_TEMPLE_POS.aren.face);
+  KAI.x = CLASSMATE_TEMPLE_POS.kai.x; KAI.z = CLASSMATE_TEMPLE_POS.kai.z;
+  kaiNPC.group.position.set(KAI.x, kaiNPC.group.position.y, KAI.z);
+  kaiNPC.setFacing(CLASSMATE_TEMPLE_POS.kai.face);
+}
+function moveClassmatesHome(){
+  MEI.x = CLASSMATE_HOME.mei.x; MEI.z = CLASSMATE_HOME.mei.z;
+  meiNPC.group.position.set(MEI.x, meiNPC.group.position.y, MEI.z);
+  AREN.x = CLASSMATE_HOME.aren.x; AREN.z = CLASSMATE_HOME.aren.z;
+  arenNPC.group.position.set(AREN.x, arenNPC.group.position.y, AREN.z);
+  KAI.x = CLASSMATE_HOME.kai.x; KAI.z = CLASSMATE_HOME.kai.z;
+  kaiNPC.group.position.set(KAI.x, kaiNPC.group.position.y, KAI.z);
+}
+function checkClassmateQuestProgress(){
+  const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'classmate');
+  if(CLASSMATE_QUEST.talkedMei && CLASSMATE_QUEST.talkedAren && CLASSMATE_QUEST.talkedKai){
+    CLASSMATE_QUEST.allTalked = true;
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = '大家都聊過了，去阿源那邊找他';
+  } else {
+    const left = [!CLASSMATE_QUEST.talkedMei && '小美', !CLASSMATE_QUEST.talkedAren && '阿仁', !CLASSMATE_QUEST.talkedKai && '阿凱']
+      .filter(Boolean).join('、');
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = '找' + left + '聊聊';
+  }
+  renderQuestPanel();
 }
 
 /* 小胖的連續劇情(2026-08-31,見 npc-temple.js 小胖那則長筆記)——整條線
@@ -2853,6 +2951,10 @@ const NPCS = [
    WATCHJOB 那段。抓 NPCS.length-1 拿引用,比另外拆一個 const 出來、
    插進陣列宣告中間好維護——陣列本身的宣告順序/排列不用跟著動。 */
 const brotherNPC = NPCS[NPCS.length - 1];
+/* 跟同學培養感情(見上面 CLASSMATE_QUEST 那則長筆記)要暫時搬動小美/阿仁
+   的 3D 本尊——同一招用陣列索引拿引用(小美是陣列第 7 個、阿仁第 9 個,
+   建構順序見上面該區塊註解),不重排陣列宣告。 */
+const meiNPC = NPCS[6], arenNPC = NPCS[8];
 
 /* 施工大哥(2026-08-28,kc:「門口要有一個施工大哥」)——第一版站在西側門柱
    外面,kc 追加「大哥要站在門口」改成站在缺口正中央(x=cx=20),z 貼近
@@ -8689,6 +8791,27 @@ function talkToYuan(){
     });
     return;
   }
+  /* 跟同學培養感情・帶大家來找阿源(見 checkFieldTrip() 附近 CLASSMATE_QUEST
+     那則長筆記)——三人都聊過才會觸發,一次性,用敘事帶過「大家一起走
+     過去」,不是真的物理跟隨。 */
+  if(CLASSMATE_QUEST.allTalked && !CLASSMATE_QUEST.resolved){
+    CLASSMATE_QUEST.resolved = true;
+    const qidx = ACTIVE_QUESTS.findIndex(q => q.id === 'classmate');
+    if(qidx >= 0) ACTIVE_QUESTS.splice(qidx, 1);
+    renderQuestPanel();
+    playBeats([
+      { who:'pc',   text:'你把小美、阿仁、阿凱都帶過來，介紹給阿源認識。' },
+      { who:'yuan', text:'「喔？你朋友喔。」他打量了他們一圈。' },
+      { who:'mei',  text:'「哇，學長你們這邊也太潮了吧。」' },
+      { who:'aren', text:'「欸這尊是十八王公喔？」' },
+      { who:'yuan', text:'「隨便看啦，不要亂摸就好。」他笑了一下。' },
+      { who:'pc',   text:'幾個人站在廟埕聊了一陣，你難得覺得這幾個人湊在一起也不尷尬。' }
+    ], 0, () => {
+      chg('calm', 8);
+      toast('把同學帶來給阿源認識了。（歸屬感 +8）', 3400);
+    });
+    return;
+  }
   /* 顧場子(2026-08-26)——見上面 WATCHJOB 那則長筆記+ DESIGN_NOTES「顧場子」節。
      兩個分支都攔在陣頭/朋友邏輯最前面:回報優先權最高(玩家正是為了這件事
      跑過來),邀約其次。刻意不卡 joinedTroupe——kc 原話「不想限制大家一定
@@ -8917,6 +9040,16 @@ function yuanCasualTalk(){
    一樣,因為三條任務本身門檻的形狀不一樣(帥潮門檻/一次性旗標/一次性
    branch),沒有硬套同一個共用函式。 */
 function talkToMei(){
+  /* 跟同學培養感情(見 checkFieldTrip() 附近 CLASSMATE_QUEST 那則長筆記)
+     ——擋在最前面,校外教學這趟第一次找她講話只播這句、不進平常 met/
+     dated 那套判斷,避免這次的溫馨閒聊被帥潮門檻擋掉或誤觸發約會流程。 */
+  if(CLASSMATE_QUEST.active && !CLASSMATE_QUEST.talkedMei){
+    CLASSMATE_QUEST.talkedMei = true;
+    say('mei', '「校外教學也才這樣，晃一晃而已。」她看了看四周，「你們待會要去哪？」', () => {
+      checkClassmateQuestProgress();
+    });
+    return;
+  }
   const D = NpcSchool.MEI;
   /* 偷親後續(2026-08-26,kc 設計)——擋在最前面,蓋掉平常那整條 met/dated/
      together 進度判斷,直到道歉流程走完。當天找她只有一句冷淡的話,沒有
@@ -9383,6 +9516,14 @@ function removeTattoo(){
 /* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
    只剩閒聊),跟阿姨貓咪任務同一個簡化幅度,見 npc-school.js 開頭筆記。 */
 function talkToAren(){
+  /* 跟同學培養感情(見 CLASSMATE_QUEST 那則長筆記)——同一招擋在最前面。 */
+  if(CLASSMATE_QUEST.active && !CLASSMATE_QUEST.talkedAren){
+    CLASSMATE_QUEST.talkedAren = true;
+    say('aren', '「校外教學就是來晃一下而已啦，等一下走回去就好。」他打了個哈欠。', () => {
+      checkClassmateQuestProgress();
+    });
+    return;
+  }
   const D = NpcSchool.AREN;
   if(AREN.offered){
     say('aren', D.afterTalk[Math.random()*D.afterTalk.length|0]);
@@ -9765,6 +9906,15 @@ function kaiCheckinLines(){
   return (MODE === 'indoor' ? KAI_CHECKIN_LINES_SCHOOL : KAI_CHECKIN_LINES)[s];
 }
 function talkToKai(){
+  /* 跟同學培養感情(見 CLASSMATE_QUEST 那則長筆記)——同一招擋在最前面,
+     優先於他自己那句「第一次見面」開場白(KAI.talked)。 */
+  if(CLASSMATE_QUEST.active && !CLASSMATE_QUEST.talkedKai){
+    CLASSMATE_QUEST.talkedKai = true;
+    say('kai', '「這廟我小時候常來欸。」他看著廟門，難得沒有提機車的事。', () => {
+      checkClassmateQuestProgress();
+    });
+    return;
+  }
   if(!KAI.talked){
     KAI.talked = true;
     if(MODE === 'indoor'){
