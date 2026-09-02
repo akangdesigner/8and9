@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaCall()">跳阿嬤電話</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1427,17 +1427,21 @@ window.debugGotoSchool = debugGotoSchool;
    小胖三個點。 */
 function debugGotoTemple(){ toast(__dbg.at(2, -95), 2000); }
 window.debugGotoTemple = debugGotoTemple;
-/* 跳阿嬤電話按鈕(2026-09-02)——「阿嬤在醫院」這條傍晚才會自動觸發
-   (見 MOM_THEFT 定義下面那則長筆記),平常玩要熬到 day16 傍晚才測得到,
-   直接把 day/minute 跳過去+重置觸發旗標,在城市街道上點一次就會跳出
-   「現在去／不去」,不用等。 */
-function debugGotoGrandmaCall(){
-  day = GRANDMA_CALL_DAY; minute = GRANDMA_CALL_MINUTE;
-  hospitalCallFired = false;
+/* 跳阿嬤那天按鈕(2026-09-02,kc:「不是早上起床 阿源會打電話來」糾正
+   第一版——第一版直接跳到傍晚、跳過阿源那通早上電話,kc 要完整體驗
+   一天,不要直接看結果)。改成跳到 day15 晚上,回家睡一覺自然醒來就是
+   day16 早上,阿源打電話那段(見 sleep() 裡「阿源早上打電話來」那則
+   筆記)/傍晚阿嬤那通電話(見 checkGrandmaCall())都會照正常流程觸發,
+   不用另外手動呼叫。順便補滿 YUAN.visits(阿源那通電話的前提是「你找過
+   他」,debug 跳過去不該卡在這個前提沒達成)。 */
+function debugGotoGrandmaDay(){
+  day = 15; minute = 21*60;
+  hospitalCallFired = false; yuanMorningCallFired = false;
+  if(YUAN.visits < 1) YUAN.visits = 1;
   syncHUD();
-  checkGrandmaCall();
+  toast('已經跳到 day15 晚上——回家睡一覺，day16 早上阿源會打電話來，傍晚接著是阿嬤那通。', 3800);
 }
-window.debugGotoGrandmaCall = debugGotoGrandmaCall;
+window.debugGotoGrandmaDay = debugGotoGrandmaDay;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -2249,6 +2253,20 @@ const BUSH_SPOT = { x:-50, z:-113 };
 const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:false, hasGirlfriend:false, friend:false,
                practiceIdx:0, debuted:false, routineIdx:0, routineDay:-1,
                betrayed:false, betrayedConfronted:false };   // betrayed 見 talkToBrother() SNITCH_QUEST 'reported' 分支,2026-09-01
+
+/* 班費失竊(2026-09-02,kc:「來重現一下班費失竊事件」)——完整設計討論
+   記在自動記憶 project_class_fund_quest_undesigned(這輪動手做,狀態機
+   細節這裡不重複)。跨五個地點的線性鏈:
+   active(story-school.js day18,幹事懷疑你)→ askedBrother(警局問過
+   阿正,拿到「回去現場找找看」的線索,talkToBrother())→ foundEvidence
+   (廟口供桌旁翻到收據,ALTAR 選單新增一項)→ toldByFat(小胖說「師傅
+   之前有來過」,指向刺青店——接在 checkFatArc() 裡,跟他原本那條連續
+   劇情共用同一套自動觸發/talkToFat() 手動觸發雙軌,不用另開一套判斷)→
+   confirmedByMaster(刺青店師傅看過收據,證實見過巷子那位,
+   talkToTattooMaster())→ resolved('exposed'|'covered',巷子對質,
+   talkToWorker())。 */
+const CLASSFUND = { active:false, askedBrother:false, foundEvidence:false,
+                     toldByFat:false, confirmedByMaster:false, resolved:null };
 
 /* 小胖的連續劇情(2026-08-31,見 npc-temple.js 小胖那則長筆記)——整條線
    靠近廟口自動觸發+文字演出(見 updateCity() 那段 checkFatArc() 呼叫),
@@ -6642,6 +6660,26 @@ function sleep(){
         { who:'pc', text:'罰款 $'+MOTO_IMPOUND.fine+'，要去警局處理。' }
       ];
     }
+    /* 阿源早上打電話來(2026-09-02,kc:「不是早上起床 阿源會打電話來」)——
+       跟拖吊通知單同一個掛法(sleep() 醒來那段自言自語鏈,見上面 ④ 那則
+       筆記),幫「阿嬤在醫院」那天補上早上的連結:kc 原本起案的脈絡是
+       「阿源找你幫忙(前提是你找過他)準備要去撐場的時候接到醫院通知」,
+       這條補的就是「前提」那半句跟「準備要去撐場」那句的來源——早上先
+       接到阿源電話約好晚上顧場子,傍晚才會撞上醫院電話,兩通電話中間玩家
+       自己過這一天。只在「玩家已經找過阿源」(YUAN.visits>0,沒找過他
+       不該憑空打電話來)才會觸發,純敘事,不打開 quests.js 那套接任務
+       選單/不動任何 quest 欄位——晚上真的要不要幫他,靠玩家自己傍晚選
+       「不去」還是「現在去」(阿嬤那邊)自然帶出撞期的感覺,不用另外寫
+       「你答應了」的機制。跟 checkGrandmaCall() 共用同一個 day(見下面
+       GRANDMA_CALL_DAY),只會在那天早上觸發一次。 */
+    if(!yuanMorningCallFired && day === GRANDMA_CALL_DAY && YUAN.visits > 0){
+      yuanMorningCallFired = true;
+      impoundBeats = (impoundBeats || []).concat([
+        { who:'pc',   text:'手機又震了一下。' },
+        { who:'yuan', text:'「欸,晚上顧一下場子,人在就好。」' },
+        { who:'pc',   text:'你應了一聲。' }
+      ]);
+    }
     syncHUD();
     /* 2026-08-31 第四輪,kc:「不要再自動跳轉街上了 不合理」——上一輪
        finishWake() 播完通知單還會自動再淡出一次、把玩家搬到街上,邏輯是
@@ -6933,6 +6971,7 @@ let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
    我自己選的參數,不喜歡跟我說一聲就改。 */
 const GRANDMA_CALL_DAY = 16, GRANDMA_CALL_MINUTE = 18*60;
 let hospitalCallFired = false;
+let yuanMorningCallFired = false;   // sleep() 那段「阿源早上打電話來」用,見那則筆記
 const GRANDMA = { dead:false, wentToSee:false };
 function checkGrandmaCall(){
   if(hospitalCallFired || gameOver || busy || dlg.on) return;
@@ -10146,7 +10185,7 @@ function talkToWorker(w){
    根本扣不光,體力永遠見不了底,「過完一天」這個機制就形同虛設(玩家
    不需要回家睡覺,天數不會走)——kc 要求對話/讀書/打工三個全部調重,
    對話 −1→−5、讀書 −5→−10、打工 −20→−40,見下面讀書/打工那兩處。 */
-const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','mei','jiaoguan','aren','brother','pedestrian','fortune','foreman']);
+const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','fat','mei','jiaoguan','aren','brother','pedestrian','fortune','foreman']);
 /* 情緒見底不想回話(2026-08-26,kc:「情緒低落的話會不想回話,提示想先
    散散心之類的」)——照體力=0 攔對話那套一模一樣的做法加一道情緒關卡,
    見 DESIGN_NOTES「情緒會影響什麼」那節。15 是這輪自己抓的門檻:預設值
