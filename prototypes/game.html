@@ -8809,6 +8809,15 @@ function talkToAren(){
             if(b.money) chg('money', b.money);
             if(b.star) chg('star', b.star);
             if(b.quiet) toast(b.quiet, 3400);
+            /* 2026-09-02,kc:「打撞球也很怪 在教室打?」——「去」這個分支
+               人真的離開去打了一下午,不能選完之後畫面還是站在教室裡沒動。
+               補推進時間(180 分鐘,呼應「打到五點半」那句台詞),在教室裡
+               問到的話(MODE==='indoor')額外真的走出校門,街上問到的
+               (已經在校外)不用再多一次 leaveIndoor()。 */
+            if(b.leaveSchool){
+              advanceTime(180);
+              if(MODE === 'indoor') leaveIndoor();
+            }
           });
         } else {
           if(b.calm) chg('calm', b.calm);
