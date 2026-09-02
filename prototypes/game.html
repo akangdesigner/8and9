@@ -3131,14 +3131,18 @@ function startWatchJob(){
      會在 resolveWatchJob() 被整個移除,所以這裡自己管顯示/隱藏,resolve
      時也要自己從 hero.group 拔掉(見 resolveWatchJob()),不會靠著 walker
      的 group 一起被清掉。 */
+  /* 2026-09-02 第八輪,kc:「黃色驚嘆號鮮艷去背」——原本畫了一個實心圓當
+     底,不是 kc 要的,改成沒有背景色塊、純粹一個鮮豔黃「!」符號本身(用
+     深色描邊撐輪廓,不然黃字疊在雜亂背景上會糊掉),canvas 沒填底色的
+     地方本來就是透明,SpriteMaterial 要另外開 transparent:true 才會真的
+     吃 alpha,不然透明區塊會被畫成不透明黑。 */
   (function(){
     const c = document.createElement('canvas'); c.width = 64; c.height = 64;
     const g = c.getContext('2d');
-    g.fillStyle = '#f2d84a'; g.beginPath(); g.arc(32, 32, 28, 0, Math.PI*2); g.fill();
-    g.strokeStyle = '#2a2318'; g.lineWidth = 3; g.stroke();
-    g.fillStyle = '#2a2318'; g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('!', 32, 35);
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), depthTest:false }));
+    g.font = 'bold 56px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 7; g.strokeStyle = '#3a2e10'; g.strokeText('!', 32, 34);
+    g.fillStyle = '#ffe135'; g.fillText('!', 32, 34);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), depthTest:false, transparent:true }));
     spr.scale.set(1.1, 1.1, 1);
     spr.position.set(0, PLAYER.height + 0.6, 0);   // 2026-09-02 第七輪修正:PLAYER.height 是 4.0(這套座標系不是真實公尺),原本寫死 2.1 只到胸口/腰際高度,見 kc 截圖
     spr.visible = false;
