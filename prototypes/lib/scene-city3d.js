@@ -3809,7 +3809,33 @@ const MODELS = {
   m6: { idle:'base-human-m6-idle.glb', walk:'base-human-m6-walk.glb',
         parts: { Ch23_Body:'skin', Ch23_Shirt:'hood', Ch23_Suit:'hood',
                   Ch23_Belt:'pants', Ch23_Pants:'pants', Ch23_Shoes:'shoe',
-                  Ch23_Hair:'hair', Ch23_Eyelashes:'eyes' } }
+                  Ch23_Hair:'hair', Ch23_Eyelashes:'eyes' } },
+  /* 小胖(2026-09-02,kc:「現在世界上還沒有小胖人物 你去下載一個年輕胖子」)。
+     Mixamo 免費庫裡沒有「年輕+胖+便服」這個組合的角色——查過的胖體型角色
+     (Ortiz 摔角選手、Big Vegas 貓王)匯出後都只有一顆合併 mesh(Ch43/
+     沒有分件),換色系統靠物件名字分材質,一顆 mesh 分不開,連皮膚色都
+     調不了,見 assets/models/README.md「怎麼查一副新骨架的部件名字」那節
+     —— Ortiz 技術上直接死掉,不是美術取捨。改用正常體型的 James,靠
+     buildNPC() 新增的 opts.widen 在 X/Z 方向加寬(不動身高)撐出「胖」的
+     輪廓,不是真的换了胖體型模型。
+
+     ⚠ 第一輪誤判(kc 抓到「完全沒套用到皮膚 超怪」,查證後發現我搞錯了):
+     James 匯出後也是只有 1 個 mesh 節點(Ch06),材質切了 3 個 slot,但
+     `Ch06_body1` **不是衣服,是鞋子**——`Ch06_body` 才是「皮膚+上衣+褲子
+     全部黏在同一塊材質」的完整身體,沒有獨立的「上衣」區域。第一版把
+     body1 當「衣服」貼龍虎貼圖,結果貼到鞋子上,身體整個是皮膚色一片,
+     這才是「怪」的真正原因,不是燈光(我一開始猜錯方向,浪費了 kc 一輪
+     來回,見 docs/DESIGN_NOTES.md 那節記錄)。
+
+     真正做法:用 `tools/dump_uv_regions.py`(這輪新增)把 Ch06_body 的
+     UV 攤平圖 + 部位色塊圖(照骨骼分軀幹/手臂/腿/臉/手五類上色)一起
+     匯出給 kc,他拿去生圖,龍虎花紋準確畫在軀幹+手臂那兩塊 UV 島,臉/
+     手保持皮膚色——這張圖(`char-fat-body-uv.png`)是「已經精準對齊 UV」
+     的完整貼圖,不能再套用既有 `opts.tex` 那套鏡射處理(見下面
+     `opts.texRaw`),鏡射會把這張圖切兩份疊起來,直接毀掉對齊。
+     `Ch06_body1`(鞋子)維持素色,parts 改指到 'shoe' 不是 'hood'。 */
+  m7: { idle:'base-human-m7-idle.glb', walk:'base-human-m7-walk.glb',
+        parts: { Ch06_body:'skin', Ch06_body1:'shoe', Ch06_eyelashes:'eyes' } }
 };
 
 /* 快取:每個 glb 只 fetch+parse 一次,buildPlayer 跟 buildNPC(2026-08-12 起
@@ -4268,6 +4294,21 @@ export function buildNPC(THREE, scene, opts){
     });
   }
 
+  /* opts.texRaw(2026-09-02,小胖用)——跟 opts.tex 一樣接 { slot: 檔名 },
+     但不經過 prep() 的鏡射。opts.tex 那套鏡射是給「只畫半邊、靠對稱補滿」
+     的一般布料花紋用;小胖這張(`char-fat-body-uv.png`)是照 Ch06_body
+     真的 UV 攤平圖畫出來的,座標已經精準對應軀幹/手臂/臉/手每一塊,鏡射
+     會把整張圖切兩份疊起來,直接把對齊毀掉,所以要走原圖直貼這條路。 */
+  if(opts.texRaw){
+    Object.entries(opts.texRaw).forEach(([slot, file]) => {
+      if(!file || !M[slot]) return;
+      new THREE.TextureLoader().load(TEX_DIR + file, t => {
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        M[slot].map = t; M[slot].color.setHex(0xffffff); M[slot].needsUpdate = true;
+      });
+    });
+  }
+
   /* 小步待機(2026-08-14):完全站定不動看起來像雕像,加一層極小幅度的
    * 「活著」細節——不接 walk 骨架、不真的移動座標(那是「大步」的範圍,見
    * 對話紀錄,還沒做),只在 idle 姿勢上疊偶爾轉向玩家 + 原地重心晃動。
@@ -4316,6 +4357,10 @@ export function buildNPC(THREE, scene, opts){
   loadModel(rig.idle).then(idleGltf => {
     model = riggedCharacter(THREE, idleGltf, M, opts.height || PLAYER.height, rig.parts);
     model.rotation.y = baseRotationY;
+    /* opts.widen(2026-09-02,小胖用)——只加寬 X/Z,身高(scale.y 那個
+       riggedCharacter() 已經校正好的縮放)不動,便宜撐出「胖」的輪廓,
+       不用真的找一副胖體型模型(見 MODELS.m7 那則長筆記)。 */
+    if(opts.widen){ model.scale.x *= opts.widen; model.scale.z *= opts.widen; }
     g.add(model);
 
     /* 安全帽(2026-08-28,kc:「工地老闆可以帶個安全帽嗎」)——opts.helmet

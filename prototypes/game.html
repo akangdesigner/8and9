@@ -1007,7 +1007,7 @@ const PHONE_REACT_WINDOW = 650;   // ms,警示出現後要按下的時限,反應
 const PHONE_GAME = { active:false, round:0, totalRounds:3, warning:false, warnT:0, sinceLast:0, nextWarnAt:0 };
 function startPhoneGame(){
   if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
-  chg('stamina', -5); advanceTime(60);
+  chg('stamina', -5);   // advanceTime 交給 chg() 裡「扣體力換算時間」那條統一算,不在這裡重複扣
   busy = true;
   coFade('偷滑手機', async () => {
     PHONE_GAME.active = true; PHONE_GAME.round = 0; PHONE_GAME.warning = false;
@@ -1456,6 +1456,11 @@ function syncHUD(){
 }
 const COLOR = { money:'#f2d888', full:'#c9bb44', calm:'#6fc3b4', cool:'#d05fa0', mood:'#f2b25c', stamina:'#6fc98a' };
 const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', mood:'情緒', stamina:'體力', star:'風評' };
+/* 扣體力換算成經過的時間(2026-09-02,kc:「扣體力的時候也要等比例增加
+ * 時間,比較有過完今天的感覺」)——比例是我自己抓的,沒跟 kc 對過確切
+ * 數字,不喜歡再調。5 分鐘/點,對齊「上班一整輪(−40 體力)大概 3 小時」
+ * 這句舊 comment 原本就有的敘事量級(40×5=200 分鐘≈3.3 小時)。 */
+const STAMINA_MINUTES = 5;
 function chg(k, d){
   if(!d) return;
   if(gameOver) return;   // 遊戲結束後所有指標凍結,不用逐一擋每個呼叫端
@@ -1481,6 +1486,13 @@ function chg(k, d){
      變成免費吃飯。比例先抓 1:1(扣多少體力就扣多少飽足),沒跟 kc 對過
      確切數字,不喜歡再調。 */
   if(k === 'stamina' && d < 0) chg('full', d);
+  /* 上面「扣飽足」那條的同一天新增(2026-09-02)——單一入口保證全專案
+     任何扣體力的地方都自動吃到經過時間,不用每個呼叫端各自補
+     advanceTime()。sleep() 補滿體力(d>0)不算,不然睡一覺會把時間也
+     往前推。這條之前有幾個呼叫端自己手動配了 advanceTime(),已經拔掉
+     避免重複算(讀書/上課/偷滑手機/巷子付錢跟走那四處),不要看到舊
+     commit 又補回去。 */
+  if(k === 'stamina' && d < 0) advanceTime(-d * STAMINA_MINUTES);
   /* 體力低於 50 又還沒去學校的提醒,見上面 schoolRemindedDay 那則筆記。
      跳在數值飄字之後沒有先後順序上的講究,只是程式碼寫在這裡比較順——
      兩個都是這次 chg() 呼叫的副作用,誰先跳不影響觀感。 */
@@ -2215,11 +2227,17 @@ const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:fals
    一個年輕胖子」,見 MODELS.m7 那則長筆記)——原本借用 YUAN 的座標當
    判斷點,現在有身體要站,挪到 YUAN 旁邊隔開一點(YUAN 在 -6,-86),不要
    兩個人重疊站在同一個點。
+   同一天第五輪,kc:「小胖移動到廟的正門柱子旁」——挪到
+   `scene-city3d.js` `temple()` 那排廟柱(x:-13,-5,5,13,z:-102.8)其中
+   一根旁邊,選了 x:-5 那根(離原本靠近阿源的位置最近,換位置不會太
+   突兀),往外(x 負方向)讓開柱子本身的 `solid()` 碰撞範圍(半徑 .85),
+   跟柱子同一個 z。checkFatArc() 的靠近觸發(<10 單位)邏輯沒動,只是
+   站的座標換了。
    ⚠ npc-temple.js 的 GONE 陣列裡原本也有一則「小胖 day400 消失」,那組
    GONE 陣列整個沒接進 game.html(這輪才發現,跟 rejectCool/rejectRep
    當初同一個坑)。這裡的消失是這條任務線自己獨立算的(10 天沒解就走),
    跟 GONE 陣列那筆資料無關、不共用,兩邊之後真的要合併再看。 */
-const FAT = { x:-2, z:-89, seenAsk:false, seenWound:false, questActive:false, questStartDay:-1,
+const FAT = { x:-7, z:-102.8, seenAsk:false, seenWound:false, questActive:false, questStartDay:-1,
               reminded:false, hasMedicine:false, resolved:false, gone:false };
 const FAT_DATA = NpcTemple.NPCS.find(n => n.id === 'fat');
 function checkFatArc(){
@@ -2553,20 +2571,23 @@ const NPCS = [
     tex:{ hood:'char-yuan-shirt.png' },                 // 真的花襯衫材質
     tattoo:{ texFile:'tattoo-dragon-koi.png' }          // 前臂刺青,位置是目前肉眼調的最佳猜測,還沒最終確認
   }),
-  buildNPC(THREE, scene, {                             // 小胖・國二・站在阿源旁邊(見上面 FAT 那則筆記)
-    /* rig 'm7'(James)材質只分得出皮膚/「衣服+頭髮共用一個材質」兩塊(見
-       MODELS.m7 那則長筆記)。opts.widen 是 buildNPC() 這輪新增的參數,
-       只加寬 X/Z,不動身高,便宜撐出「胖」的輪廓。身高比阿源矮一截
-       (國二,不是成人)。
-       2026-09-02 第二輪,kc:「小胖衣服要別的材質 89感覺」——龍虎刺青風
-       黑色小可愛貼圖(`char-fat-shirt.png`,kc 生圖裁切,見那則筆記),
-       跟阿源手臂上那隻錦鯉刺青同一個方向,呼應他崇拜阿源、還沒被收的
-       設定。花紋不分方向(跟小美裙子/阿仁襯衫同一條規矩),鏡射貼歪
-       看起來還是同一塊龍虎花色,不會穿幫。 */
-    x:FAT.x, z:FAT.z, rotationY:Math.PI*.3, rig:'m7', widen:1.35,
+  buildNPC(THREE, scene, {                             // 小胖・國二・站在廟正門柱子旁(見上面 FAT 那則筆記)
+    /* rig 'm7'(James)——Ch06_body 是「皮膚+上衣+褲子」全部黏在同一塊
+       材質,Ch06_body1 其實是鞋子,不是衣服(第一輪誤判,查證過程見
+       MODELS.m7 那則長筆記)。opts.widen 只加寬 X/Z,不動身高,便宜撐出
+       「胖」的輪廓。身高比阿源矮一截(國二,不是成人)。
+       2026-09-02 第三輪,kc 生圖照 UV 攤平圖畫龍虎刺青風黑色小可愛
+       (`char-fat-body-uv.png`),軀幹+手臂那兩塊 UV 島有花紋,臉/手保持
+       皮膚色——這張精準對齊 Ch06_body 的 UV,走 opts.texRaw(不能走
+       opts.tex 那套鏡射,鏡射會毀掉對齊)。skin 只留給貼圖失敗時的
+       後備色,shoe 維持素色深灰(Ch06_body1)。
+       第五輪挪到廟柱旁(見 FAT 座標那則筆記)。第六輪 kc:「小胖要轉
+       180度」——原本猜的 Math.PI(面向廟埕)反了,改成 0(面向廟門/
+       背對廟埕)。 */
+    x:FAT.x, z:FAT.z, rotationY:0, rig:'m7', widen:1.35,
     height: PLAYER.height * .82,
-    skin:'#d1a67e', hood:'#33383f',
-    tex:{ hood:'char-fat-shirt.png' }
+    skin:'#d1a67e', shoe:'#2b2b2b',
+    texRaw:{ skin:'char-fat-body-uv.png' }
   }),
   buildNPC(THREE, scene, {                             // 阿姨・50幾・鴨頭攤(原鹹酥雞攤,見上面 AYI 那則筆記)
     x:AYI.x, z:AYI.z, rotationY:Math.PI, rig:'f',
@@ -5381,9 +5402,9 @@ function openIndoorSpot(id){
        換成」,是選項不是自動觸發)。 */
     else if(id === 'desk'){
       const items = [
-        { label:'讀書', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1 小時', cls: ST.stamina<=0?'bad':'', run:() => {
+        { label:'讀書', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　50 分鐘', cls: ST.stamina<=0?'bad':'', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
-          chg('stamina', -10); advanceTime(60);
+          chg('stamina', -10);   // advanceTime 交給 chg() 統一算
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } }
       ];
@@ -5469,15 +5490,15 @@ function openIndoorSpot(id){
            成功),沒辦法保證拿到,補一句「成功/被抓」對照,不是寫死一個
            保證到手的數字。 */
         { label:'認真上課',
-          cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1 小時　答對 +知識',
+          cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　50 分鐘　答對 +知識',
           cls: ST.stamina<=0 ? 'bad' : '', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           deskActionDay = day;
-          chg('stamina', -10); chg('mood', -5); advanceTime(60);
+          chg('stamina', -10); chg('mood', -5);   // advanceTime 交給 chg() 統一算
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } },
         { label:'偷玩手遊',
-          cost:'體力 −5　1 小時　成功 +情緒／被抓 −風評−歸屬感',
+          cost:'體力 −5　25 分鐘　成功 +情緒／被抓 −風評−歸屬感',
           cls:'risk', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           deskActionDay = day;
@@ -6728,7 +6749,7 @@ function enterMassage(w){
     document.getElementById('where').textContent = '越式按摩';
     hintEl.classList.remove('on');   // 進場前殘留的「按空白鍵搭話」提示清掉,updateIndoor() 這個 PLACE 不會再幫忙清
     paintMassageBackdrop();
-    toast('半小時後,你一個人走回巷口。', 2600);
+    toast('一小時後,你一個人走回巷口。', 2600);   // 2026-09-02 從「半小時」改的,見 chg() 那條「扣體力換算時間」,−10 體力現在對應 50 分鐘
     /* 完整故事(圓環雕像那條支線,2026-08-20,見 DESIGN_NOTES)只在第一次
        「付錢跟她走」之後追加,用 setTimeout 接在上面那句 toast 淡出之後
        才跳出來,不要兩段疊在一起搶畫面。w.toldStory 擋之後重複——比較
@@ -9925,8 +9946,7 @@ function talkToWorker(w){
              toast 就好,不用進場景再送出來。真的付錢才呼叫 enterMassage()
              切進越式按摩室內。 */
           if(ST.money < WORKER_PRICE){ toast('錢不夠。她聳聳肩,轉向別人。', 2000); return; }
-          chg('money', -WORKER_PRICE); chg('mood', 6); chg('stamina', -10);
-          advanceTime(25);
+          chg('money', -WORKER_PRICE); chg('mood', 6); chg('stamina', -10);   // advanceTime 交給 chg() 統一算
           w.talked = true;
           enterMassage(w);
         } },
