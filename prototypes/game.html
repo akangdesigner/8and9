@@ -64,15 +64,19 @@
      hint 常常是一整句提示(不是短標籤),擠在這麼窄的框裡很容易要折好幾行
      還是看不清楚。整體放大一輪:框變寬、字級各加 2~3px、padding/gap
      跟著撐開。 */
-  #questPanel { position:fixed; left:16px; top:150px; z-index:6; display:none; flex-direction:column; gap:10px;
+  #questPanel { position:fixed; left:16px; top:139px; z-index:6; display:none; flex-direction:column; gap:10px;
     background:rgba(9,12,17,.78); border:1px solid rgba(120,134,158,.28); border-radius:8px;
     padding:12px 16px; max-width:320px; }
   #questPanel.on { display:flex; }
-  /* 收合按鈕(2026-09-02,kc:「收合回來的按鈕要跟角色一樣大」)——原本
-     padding/字級只是「差不多」,加上按鈕文字比「角色」長(還帶數量+箭頭),
-     實際渲染出來明顯比較大顆。改成 padding/font 逐字對齊 #charCardBtn,
-     文字也砍到跟「角色」同樣 2 個字的量級(拿掉「(N)」數量,只留任務+
-     箭頭示意可以展開),兩顆按鈕現在是真的同尺寸,不是「看起來差不多」。 */
+  /* 收合狀態(2026-09-02,kc:「收合的時候就是在角色按鈕的正下方完全一樣
+     大小不要多一個怪框框」)——原本收合後 #questPanel 這層外框(深底+
+     邊框+12px16px padding)還在,只是裡面少了卡片,視覺上變成「按鈕外面
+     包一個空空的大框」,不是單純一顆按鈕。收合時整個拔掉外框裝飾
+     (background/border/padding 全部清空),只留 .qpToggle 這顆按鈕本身
+     的樣式,看起來才會跟 #charCardBtn 一樣是單獨一顆按鈕、不是按鈕外面
+     還嵌著一層板子。順便把 top 從 150 調到 139(貼著 #charCardBtn 下緣,
+     「正下方」)。 */
+  #questPanel.collapsed { background:none; border:none; padding:0; max-width:none; }
   #questPanel .qpToggle { align-self:flex-start; background:rgba(12,16,23,.85); color:#dfe4ea;
     border:1px solid #3d4757; border-radius:4px; padding:5px 11px; font:12px/1.4 inherit;
     letter-spacing:.06em; cursor:pointer; }
@@ -2042,8 +2046,9 @@ const questPanelEl = document.getElementById('questPanel');
 let questPanelCollapsed = false;
 function toggleQuestPanel(){ questPanelCollapsed = !questPanelCollapsed; renderQuestPanel(); }
 function renderQuestPanel(){
-  if(!ACTIVE_QUESTS.length){ questPanelEl.classList.remove('on'); questPanelEl.innerHTML = ''; return; }
+  if(!ACTIVE_QUESTS.length){ questPanelEl.classList.remove('on', 'collapsed'); questPanelEl.innerHTML = ''; return; }
   questPanelEl.classList.add('on');
+  questPanelEl.classList.toggle('collapsed', questPanelCollapsed);
   const toggleBtn = `<button class="qpToggle" onclick="toggleQuestPanel()">任務${questPanelCollapsed ? '▸' : '▾'}</button>`;
   questPanelEl.innerHTML = toggleBtn + (questPanelCollapsed ? '' : ACTIVE_QUESTS.map(q =>
     `<div class="qpItem"><div class="qpTitle">${q.title}</div><div class="qpHint">${q.hint}</div></div>`
@@ -10985,19 +10990,26 @@ const WORKER_TALK = {
 };
 function talkToWorker(w){
   /* 班費失竊・對質(2026-09-02,見上面 CLASSFUND 那則長筆記)——攔在她
-     原本的閒聊/付錢劇情最前面。她不否認也不辯解(跟廟口那批角色同一條
-     「沒有人講自己的苦」規矩,不寫她的處境,留給玩家自己拼),兩個選項
-     都不乾淨:揭發拿回錢、洗清嫌疑,但她從此消失(ALLEY_WORKER.gone,
-     跟廟口那批「這裡的人會消失」同一套,不解釋不哀悼);放過就是自己
-     墊錢,嫌疑沒有真的洗清,但她還在。金額 $1200 對應 story-school.js
-     day18 那句「少了一千多」。 */
+     原本的閒聊/付錢劇情最前面。兩個選項都不乾淨:揭發拿回錢、洗清嫌疑,
+     但她從此消失(ALLEY_WORKER.gone,跟廟口那批「這裡的人會消失」同一套,
+     不解釋不哀悼);放過就是自己墊錢,嫌疑沒有真的洗清,但她還在。金額
+     $1200 對應 story-school.js day18 那句「少了一千多」。
+     ⚠ 第二輪(2026-09-02,kc:「指控妓女時要有類似逆轉裁判的激烈攻防他才
+     會認罪」)——第一版她一句話都不辯,直接跳認罪,讀起來像單方面宣判,
+     沒有「對質」的張力。改成三輪逼問,每輪攤一個已經拿到手的證據(收據→
+     小胖目擊→師傅證詞,順序照玩家實際查案的順序),她一次比一次防線
+     鬆動(否認→硬拗→語氣弱掉),第三輪才真的破防認罪。
+     ⚠ 第三輪,kc 追加:「主角要有對話選項可以選」——第二輪版本雖然改成
+     三輪逼問,但整段還是純 playBeats 播完才給選單,玩家全程只能看,沒有
+     「攻防」的主動權。改成每輪逼問完都停下來給選單:「繼續逼問」(丟下
+     一句新證據,進下一輪)或「算了,先不逼問」(退出,她不會認罪,
+     CLASSFUND 狀態不變,下次再找她可以重新從頭來過,不用另外設一個
+     「這輪失敗」的旗標卡住)。三個「繼續逼問」選項各自對應一個證據,
+     不是「選哪個證據」的解謎(手上就這三個、順序也定好了),重點是
+     玩家自己選要不要一路逼到底。 */
   if(CLASSFUND.confirmedByMaster && CLASSFUND.resolved === null){
-    playBeats([
-      { who:'pc',     text:'你把收據拿出來，攤在她面前。' },
-      { who:'pc',     text:'「班費的事。」' },
-      { who:'worker', text:'她看了一眼，沒有說話。' },
-      { who:'worker', text:'她也沒有否認。' }
-    ], 0, () => {
+    const backOff = () => toast('你把收據收回口袋，沒有再說下去。', 2800);
+    const resolveMenu = () => {
       openMenu('巷子裡', [
         { label:'揭發她', cost:'$+1200　歸屬感 +10',
           run(){
@@ -11021,6 +11033,45 @@ function talkToWorker(w){
             renderQuestPanel();
             toast('你自己把班費補上了。沒有人知道真相，你也沒有講。（$−1200，歸屬感 +4）', 3600);
           } }
+      ]);
+    };
+    const round3 = () => {
+      playBeats([
+        { who:'pc',     text:'「刺青店師傅也說，那天有個面生的人在那附近晃。」' },
+        { who:'worker', text:'她沉默了幾秒。「……那又怎樣，又不是只有我一個人在那。」聲音比剛才小了很多。' }
+      ], 0, () => {
+        openMenu('巷子裡', [
+          { label:'「妳就是拿了，對不對。」',
+            run(){
+              playBeats([
+                { who:'pc',     text:'你沒有再說話，只是看著她，等她自己撐不住。' },
+                { who:'worker', text:'她撐了幾秒，終於別開臉。' },
+                { who:'worker', text:'「……對，是我拿的。」聲音很輕，像是鬆了一口氣，又像是很累。' }
+              ], 0, resolveMenu);
+            } },
+          { label:'算了，先不逼問', cls:'back', run: backOff }
+        ]);
+      });
+    };
+    const round2 = () => {
+      playBeats([
+        { who:'pc',     text:'「小胖那天看到你在供桌附近。」' },
+        { who:'worker', text:'「我去拜拜不行嗎？」她的語氣硬了起來，但眼睛沒有看你。' }
+      ], 0, () => {
+        openMenu('巷子裡', [
+          { label:'「師傅也說有面生的人在那附近晃。」', run: round3 },
+          { label:'算了，先不逼問', cls:'back', run: backOff }
+        ]);
+      });
+    };
+    playBeats([
+      { who:'pc',     text:'你把收據拿出來，攤在她面前。' },
+      { who:'pc',     text:'「班費的事。」' },
+      { who:'worker', text:'她眼神閃過一下，隨即恢復平靜。「我不知道你在說什麼。」' }
+    ], 0, () => {
+      openMenu('巷子裡', [
+        { label:'「小胖看到你在供桌附近。」', run: round2 },
+        { label:'算了，先不逼問', cls:'back', run: backOff }
       ]);
     });
     return;
@@ -11439,6 +11490,7 @@ window.__dbg = {
   TROUPE_GAME,
   FAT, checkFatArc,
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
+  CLASSFUND, ALLEY_WORKER, talkToWorker,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; if(WATCHJOB.exclaim) WATCHJOB.exclaim.visible = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
   /* 警局三條中短期任務(2026-08-31)——跟 spotWatchJob() 同一個理由,方便
