@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaCall()">跳阿嬤電話</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1427,6 +1427,17 @@ window.debugGotoSchool = debugGotoSchool;
    小胖三個點。 */
 function debugGotoTemple(){ toast(__dbg.at(2, -95), 2000); }
 window.debugGotoTemple = debugGotoTemple;
+/* 跳阿嬤電話按鈕(2026-09-02)——「阿嬤在醫院」這條傍晚才會自動觸發
+   (見 MOM_THEFT 定義下面那則長筆記),平常玩要熬到 day16 傍晚才測得到,
+   直接把 day/minute 跳過去+重置觸發旗標,在城市街道上點一次就會跳出
+   「現在去／不去」,不用等。 */
+function debugGotoGrandmaCall(){
+  day = GRANDMA_CALL_DAY; minute = GRANDMA_CALL_MINUTE;
+  hospitalCallFired = false;
+  syncHUD();
+  checkGrandmaCall();
+}
+window.debugGotoGrandmaCall = debugGotoGrandmaCall;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
