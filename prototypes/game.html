@@ -1490,6 +1490,10 @@ function resetGrandmaDayState(){
     scene.remove(WATCHJOB.walker.group);
     const wi = NPCS.indexOf(WATCHJOB.walker); if(wi >= 0) NPCS.splice(wi, 1);
   }
+  /* 驚嘆號現在掛在 hero.group(玩家自己)上,不是掛在 WATCHJOB.walker 上,
+     不會隨著上面 scene.remove(walker.group) 一起清掉,要自己拔——見
+     resolveWatchJob() 同一則筆記。 */
+  if(WATCHJOB.exclaim){ hero.group.remove(WATCHJOB.exclaim); }
   WATCHJOB.active = false; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
   WATCHJOB.walker = null; WATCHJOB.lastDay = -1; WATCHJOB.exclaim = null;
   brotherNPC.group.visible = true;
@@ -3120,10 +3124,13 @@ function startWatchJob(){
   });
   NPCS.push(WATCHJOB.walker);
   /* 頭上大驚嘆號(2026-09-02 第五輪,kc:「如果看到小美哥 頭上會有大驚嘆
-     號」)——跟樹的 billboard 技法不同,這裡用最簡單的 THREE.Sprite(本來
-     就永遠面向鏡頭,不用自己算旋轉),掛在分身的 group 底下當子物件,
-     跟著他一起移動。預設隱藏,`spotted` 判定成立那一刻(見 updateCity()
-     WATCHJOB 那段)才切 visible=true。 */
+     號」,第六輪糾正:「驚嘆號是要在主角頭上啦」——不是掛在小美哥分身
+     頭上,是掛在玩家自己(hero)頭上,示意「你注意到了」。跟樹的 billboard
+     技法不同,這裡用最簡單的 THREE.Sprite(本來就永遠面向鏡頭,不用自己
+     算旋轉)。`hero.group` 是全程活著的玩家角色,不像 WATCHJOB.walker 那樣
+     會在 resolveWatchJob() 被整個移除,所以這裡自己管顯示/隱藏,resolve
+     時也要自己從 hero.group 拔掉(見 resolveWatchJob()),不會靠著 walker
+     的 group 一起被清掉。 */
   (function(){
     const c = document.createElement('canvas'); c.width = 64; c.height = 64;
     const g = c.getContext('2d');
@@ -3133,9 +3140,9 @@ function startWatchJob(){
     g.fillText('!', 32, 35);
     const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), depthTest:false }));
     spr.scale.set(1.1, 1.1, 1);
-    spr.position.set(0, 2.3, 0);
+    spr.position.set(0, 2.1, 0);
     spr.visible = false;
-    WATCHJOB.walker.group.add(spr);
+    hero.group.add(spr);
     WATCHJOB.exclaim = spr;
   })();
   ACTIVE_QUESTS.push({ id:'watchjob', title:'顧場子・盯梢小美哥',
@@ -3156,6 +3163,10 @@ function resolveWatchJob(success){
   const idx = NPCS.indexOf(WATCHJOB.walker);
   if(idx >= 0) NPCS.splice(idx, 1);
   WATCHJOB.walker = null;
+  /* 驚嘆號掛在 hero.group 上,不會跟著 WATCHJOB.walker.group 一起被上面
+     那行 scene.remove() 清掉(hero 是玩家自己,全程都在),要自己拔掉,
+     不然任務結束後玩家頭上會留一顆用不掉的驚嘆號。 */
+  if(WATCHJOB.exclaim){ hero.group.remove(WATCHJOB.exclaim); WATCHJOB.exclaim = null; }
   brotherNPC.group.visible = true;
   { const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'watchjob'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); }
   renderQuestPanel();
@@ -7834,12 +7845,15 @@ function updateCity(dt){
 
   /* 顧場子(2026-08-26)——見 WATCHJOB 那則長筆記。「看到了沒」不做視錐/
      遮蔽判斷,單純玩家有沒有靠近過走動中的小美哥(kc:「主要是如果玩家的
-     視線有看到警察就可以回去通報了,來得及啦」)。半徑 16 比一般互動範圍
+     視線有看到警察就可以回去通報了,來得及啦」)。半徑比一般互動範圍
      (3.2)寬很多,因為這是「遠遠看到人影」不是「走到面前說話」。走到門口
-     (路徑最後一點)前都沒被看到算沒通報成功,直接判失敗。 */
+     (路徑最後一點)前都沒被看到算沒通報成功,直接判失敗。
+     2026-09-02 第六輪,kc:「判定距離要大兩倍」——原本 16 改成 32,自己
+     選的加倍方式(不確定 kc 是要精確兩倍還是隨口形容「大一點」,先照字面
+     兩倍做,不喜歡再調)。 */
   if(WATCHJOB.active && WATCHJOB.walker){
     const wp = WATCHJOB.walker.group.position;
-    if(!WATCHJOB.spotted && Math.hypot(pos.x-wp.x, pos.z-wp.z) < 16){
+    if(!WATCHJOB.spotted && Math.hypot(pos.x-wp.x, pos.z-wp.z) < 32){
       WATCHJOB.spotted = true;
       if(WATCHJOB.exclaim) WATCHJOB.exclaim.visible = true;
       toast('你看到小美哥往遊藝場那邊走了——快去跟阿源說！', 3000);
