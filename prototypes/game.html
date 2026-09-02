@@ -60,15 +60,19 @@
      切換),不占位置。ACTIVE_QUESTS 是通用清單,不是只給算命攤這條任務
      用——之後其他系統要顯示追蹤中的任務,往那個陣列 push/移除元素、
      呼叫 renderQuestPanel() 就會自動顯示,不用改這裡的 DOM/CSS。 */
-  #questPanel { position:fixed; left:16px; top:150px; z-index:6; display:none; flex-direction:column; gap:7px;
-    background:rgba(9,12,17,.72); border:1px solid rgba(120,134,158,.28); border-radius:6px;
-    padding:8px 11px; max-width:220px; }
+  /* 2026-09-02,kc:「任務匡太小了」——原本 max-width 220/字級 10~12px,
+     hint 常常是一整句提示(不是短標籤),擠在這麼窄的框裡很容易要折好幾行
+     還是看不清楚。整體放大一輪:框變寬、字級各加 2~3px、padding/gap
+     跟著撐開。 */
+  #questPanel { position:fixed; left:16px; top:150px; z-index:6; display:none; flex-direction:column; gap:10px;
+    background:rgba(9,12,17,.78); border:1px solid rgba(120,134,158,.28); border-radius:8px;
+    padding:12px 16px; max-width:320px; }
   #questPanel.on { display:flex; }
-  #questPanel .qpCap { color:#7c8593; font-size:10px; letter-spacing:.14em; }
-  #questPanel .qpItem { border-top:1px solid rgba(120,134,158,.18); padding-top:6px; }
+  #questPanel .qpCap { color:#7c8593; font-size:12px; letter-spacing:.14em; }
+  #questPanel .qpItem { border-top:1px solid rgba(120,134,158,.18); padding-top:8px; }
   #questPanel .qpItem:first-of-type { border-top:none; padding-top:0; }
-  #questPanel .qpTitle { color:#eef1f5; font-size:12px; }
-  #questPanel .qpHint { color:#d8b24a; font-size:11px; margin-top:2px; line-height:1.4; }
+  #questPanel .qpTitle { color:#eef1f5; font-size:15px; }
+  #questPanel .qpHint { color:#d8b24a; font-size:13px; margin-top:3px; line-height:1.45; }
   #invOverlay { position:fixed; inset:0; background:rgba(6,8,12,.72); z-index:60;
     display:none; align-items:center; justify-content:center; }
   #invOverlay.on { display:flex; }
@@ -1522,7 +1526,7 @@ function resetGrandmaDayState(){
   WATCHJOB.walker = null; WATCHJOB.lastDay = -1; WATCHJOB.exclaim = null;
   brotherNPC.group.visible = true;
   GRANDMA.dead = false; GRANDMA.wentToSee = false; GRANDMA.toldYuan = false;
-  for(const qid of ['watchjob', 'yuan-tonight']){
+  for(const qid of ['watchjob', 'yuan-tonight', 'yuan-comfort']){
     const qi = ACTIVE_QUESTS.findIndex(q => q.id === qid); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
   }
   renderQuestPanel();
@@ -7513,7 +7517,18 @@ function declineHospitalCall(){
   playBeats(HOSPITAL_DECLINE_BEATS, 0, () => {
     chg('calm', -20);
     toast('（歸屬感 −20）', 2400);
+    nudgeToFindYuan();
   });
+}
+/* 提示去找阿源(2026-09-02 第十八輪,kc:「為何沒任務匡」)——上一輪只跳
+   了一句 toast,幾秒就消失,沒有補進 ACTIVE_QUESTS,任務面板上完全看不到
+   東西,跟阿源早上那通電話當初漏接任務面板同一個坑(見 sleep() 那則
+   長筆記),這次直接照那次的做法補。talkToYuan() 觸發安慰戲那一刻要把
+   這張卡拔掉(見那段),不然安慰完面板上還留著一張沒用的提示。 */
+function nudgeToFindYuan(){
+  ACTIVE_QUESTS.push({ id:'yuan-comfort', title:'心情很亂', hint:'想找阿源說說話' });
+  renderQuestPanel();
+  toast('你心情很亂，腦子裡第一個想到的是阿源。', 3200);
 }
 /* 真正的死訊(2026-09-02 第十七輪,kc:「找完阿源後手機會收到通知說他走
    了」)——只有 goToHospital() 那條(去看她,她當下還活著)會走到這裡,
@@ -7646,7 +7661,7 @@ function enterHospital(){
              但不強迫」的手感一致,不用在這裡直接切場景過去)。setTimeout
              等 fade() 淡出淡入跑完(見 fade() 定義,mid 在 1150ms 觸發)
              才跳,不會被淡出蓋掉看不到。 */
-          setTimeout(() => toast('你心情很亂，腦子裡第一個想到的是阿源。', 3200), 1300);
+          setTimeout(nudgeToFindYuan, 1300);
         });
       });
     });
@@ -9078,6 +9093,8 @@ function talkToYuan(){
   if((GRANDMA.wentToSee || GRANDMA.dead) && !GRANDMA.toldYuan){
     GRANDMA.toldYuan = true;
     const alreadyKnew = GRANDMA.dead;
+    { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-comfort'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); }
+    renderQuestPanel();
     playBeats([
       { who:'yuan', text:'他看你一眼,沒多問,只是往旁邊挪了挪。' },
       { who:'pc',   text:'你在他旁邊坐下,把阿嬤的事說了。' },
