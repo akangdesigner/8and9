@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1472,6 +1472,16 @@ function debugGotoGrandmaDay(){
   toast('已經站在床邊——按空白鍵開床的選單、選「睡覺」，day16 早上阿源會打電話來，傍晚接著是阿嬤那通。', 4200);
 }
 window.debugGotoGrandmaDay = debugGotoGrandmaDay;
+/* 補飽足按鈕(2026-09-02,kc:「飽食度幫我補滿」)——扣體力現在會連動扣
+   飽足感(見 chg() 那條「扣體力同步扣飽足感」),重複測同一段劇情容易把
+   飽足感磨低,見底會直接遊戲結束(GAME_OVER_TEXT.full)。跟其他 __dbg
+   按鈕同一套,不用叫 kc 自己打 console 指令。 */
+function debugFillFull(){
+  ST.full = ST_MAX.full ?? 100;
+  syncHUD();
+  toast('飽足感補滿了。', 2000);
+}
+window.debugFillFull = debugFillFull;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -2292,18 +2302,71 @@ const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:fals
                betrayed:false, betrayedConfronted:false };   // betrayed 見 talkToBrother() SNITCH_QUEST 'reported' 分支,2026-09-01
 
 /* 班費失竊(2026-09-02,kc:「來重現一下班費失竊事件」)——完整設計討論
-   記在自動記憶 project_class_fund_quest_undesigned(這輪動手做,狀態機
-   細節這裡不重複)。跨五個地點的線性鏈:
-   active(story-school.js day18,幹事懷疑你)→ askedBrother(警局問過
-   阿正,拿到「回去現場找找看」的線索,talkToBrother())→ foundEvidence
-   (廟口供桌旁翻到收據,ALTAR 選單新增一項)→ toldByFat(小胖說「師傅
-   之前有來過」,指向刺青店——接在 checkFatArc() 裡,跟他原本那條連續
-   劇情共用同一套自動觸發/talkToFat() 手動觸發雙軌,不用另開一套判斷)→
+   記在自動記憶 project_class_fund_quest_done(這輪動手做,狀態機細節
+   這裡不重複)。跨五個地點的線性鏈:
+   tripStarted(校外教學出發,見下面 checkFieldTrip())→ active(回教室,
+   老師宣布班費不見了,幹事懷疑你)→ askedBrother(警局問過阿正,拿到
+   「回去現場找找看」的線索,talkToBrother())→ foundEvidence(廟口供桌旁
+   翻到收據,ALTAR 選單新增一項)→ toldByFat(小胖說「師傅之前有來過」,
+   指向刺青店——接在 checkFatArc() 裡,跟他原本那條連續劇情共用同一套
+   自動觸發/talkToFat() 手動觸發雙軌,不用另開一套判斷)→
    confirmedByMaster(刺青店師傅看過收據,證實見過巷子那位,
    talkToTattooMaster())→ resolved('exposed'|'covered',巷子對質,
-   talkToWorker())。 */
-const CLASSFUND = { active:false, askedBrother:false, foundEvidence:false,
+   talkToWorker())。
+   ⚠ 第一輪 day18 一進教室就直接跳指控,kc 玩起來說「他是誰？沒頭沒尾的」
+   ——教室裡明明站著一個老師 NPC,台詞卻完全沒提到他,也沒交代校外教學
+   本身。改成兩階段,細節見 checkFieldTrip()。 */
+const CLASSFUND = { tripStarted:false, active:false, askedBrother:false, foundEvidence:false,
                      toldByFat:false, confirmedByMaster:false, resolved:null };
+/* 校外教學兩階段(2026-09-02 第九輪,kc:「應該是老師宣布今天要去廟口
+   校外教學 然後一幕是大家在廟口玩的畫面 然後你對話一些人後 教學結束
+   回到教室 老師宣布班費不見了」)。
+   不走 maybeTriggerStoryNode() 那套機制——那套是「一次觸發、當場用選單
+   結案」,沒辦法表達「先觸發一段、玩家自己去別的地方逛、回來才觸發下
+   一段」,day18 因此完全跳出 schoolStorySource() 篩選範圍(見下面兩處
+   呼叫點),自己在這裡管兩階段:
+   第一次進教室(day18,`!tripStarted`)——老師開口宣布校外教學,warp 去
+   廟口(阿源/阿姨/阿成本來就站在那,「大家在廟口」這個畫面不用另外做
+   新內容),玩家可以自己到處逛、找他們講話。
+   玩家自己走回學校門口(既有的門,不用另外做「集合」機制)、再次進教室
+   時(`tripStarted && !active`)——這時候才是老師發現班費不見、幹事翻
+   書包確認、幹事先看向你那整段(story-school.js day18 節點的內容,
+   `classFundQuest` 標記還在,但這裡直接讀節點資料手動播,不透過
+   maybeTriggerStoryNode())。 */
+function checkFieldTrip(){
+  if(day !== 18) return false;
+  if(!CLASSFUND.tripStarted){
+    CLASSFUND.tripStarted = true;
+    playBeats([
+      { who:'teacher', text:'「今天校外教學，去廟口拜拜，等一下校門口集合。」' }
+    ], 0, () => {
+      fade(city.whereAmI(2, -95), () => {
+        MODE = 'city';
+        document.getElementById('indoor').classList.remove('on');
+        document.getElementById('city').style.display = '';
+        wlabelsEl.style.display = '';
+        hero.group.position.set(2, .3, -95);
+        advanceTime(1);
+        toast('校外教學，大家在廟口。逛一逛，準備好了就走回學校。', 3600);
+      });
+    });
+    return true;
+  }
+  if(CLASSFUND.tripStarted && !CLASSFUND.active){
+    CLASSFUND.active = true;
+    ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'先去警局問問看' });
+    renderQuestPanel();
+    const node = StorySchool.NODES.find(n => n.day === 18);
+    playBeats(node.beats, 0, () => {
+      openMenu(node.title, node.menu.map(item => ({
+        label: item.label, cost: item.cost,
+        run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => {}); }
+      })));
+    });
+    return true;
+  }
+  return false;
+}
 
 /* 小胖的連續劇情(2026-08-31,見 npc-temple.js 小胖那則長筆記)——整條線
    靠近廟口自動觸發+文字演出(見 updateCity() 那段 checkFatArc() 呼叫),
@@ -6852,8 +6915,12 @@ function warpIntoPlace(door){
        教室附近,一進教室就檢查,跟 home 那邊 maybeTriggerStoryNode() 同一招
        (2026-09-01,見 maybeTriggerStoryNode() 旁邊的長筆記)。小考宣布
        (maybeAnnounceExam())排在 after,只在這次沒有撞到劇情節點時才會
-       檢查,避免兩個自動彈出的對話疊在一起搶畫面。 */
-    maybeTriggerStoryNode([['school', schoolStorySource([5, 18, 21])]], maybeAnnounceExam);
+       檢查,避免兩個自動彈出的對話疊在一起搶畫面。
+       checkFieldTrip()(day18 班費失竊那條,見那則長筆記)攔在最前面,
+       兩階段都要靠「進教室」這個動作觸發,跟 day5/21 那套 day-based
+       節點是平行的兩套機制,不要合併。撞到的話(回傳 true)就不要再檢查
+       下面那批,一次進場只彈一段。 */
+    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5, 21])]], maybeAnnounceExam);
   } else if(PLACE === 'arcade'){
     /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
        scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
@@ -7023,7 +7090,7 @@ function leaveCorridorToClassroom(){
     IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
-    maybeTriggerStoryNode([['school', schoolStorySource([5, 18, 21])]], maybeAnnounceExam);
+    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5, 21])]], maybeAnnounceExam);
     checkGrandmaCall();
   });
 }
@@ -7389,11 +7456,10 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
           toast(`註冊單:三個月內要湊出 $${node.tuitionQuest.amount}`, 3600);
         }
-        if(node.classFundQuest && !CLASSFUND.active){
-          CLASSFUND.active = true;
-          ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'先去警局問問看' });
-          renderQuestPanel();
-        }
+        /* node.classFundQuest 那個特例已經拿掉(2026-09-02 第九輪)——day18
+           改成兩階段,不再透過這裡的 schoolStorySource() 篩選觸發,見
+           checkFieldTrip() 那則長筆記,不要看到 story-school.js day18
+           節點還留著 classFundQuest:true 就以為這裡也要處理它。 */
         openMenu(node.title, node.menu.map(item => ({
           label: item.label, cost: item.cost,
           run: () => { applyStoryChoice(item); playBeats(item.beats, 0, after || (() => {})); }
