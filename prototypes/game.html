@@ -7515,6 +7515,23 @@ function declineHospitalCall(){
     toast('（歸屬感 −20）', 2400);
   });
 }
+/* 真正的死訊(2026-09-02 第十七輪,kc:「找完阿源後手機會收到通知說他走
+   了」)——只有 goToHospital() 那條(去看她,她當下還活著)會走到這裡,
+   從 talkToYuan() 的安慰戲收尾延遲呼叫,見那則筆記。跟 triggerGrandmaCall()
+   同一個「手機震了一下」開場,但這次是媽打來告知已經發生的事,不是要你
+   趕過去,語氣故意平靜、不慌張——那件事已經結束了,剩下的只是知道。 */
+function notifyGrandmaDeath(){
+  GRANDMA.dead = true;
+  playBeats([
+    { who:'pc',  text:'手機又震了一下。' },
+    { who:'pc',  text:'是媽。' },
+    { who:'mom', text:'「阿嬤剛剛走了。」她的聲音很平,像是已經哭過一輪。' },
+    { who:'pc',  text:'你握著手機,一時說不出話。' }
+  ], 0, () => {
+    chg('calm', -6);
+    toast('阿嬤走了。（歸屬感 −6）', 3000);
+  });
+}
 /* 2026-09-02 第十輪,kc:「去醫院之後的劇情好單薄」——原本 9 句太薄,
    跟這整條線本來就是全遊戲最重的一場道別比,分量不夠。補到 14 句,加
    感官細節(監視器聲音、握手的輕)跟一句具體的童年記憶(挑不挑食)撐
@@ -7586,7 +7603,14 @@ const HOSPITAL_CLOSING_BEATS = [
 /* goToHospital() 只管扣代價+切場景,「切場景+講故事+離場」那段拆進
    enterHospital(),跟 enterMassage() 同一個分工。 */
 function goToHospital(){
-  GRANDMA.dead = true; GRANDMA.wentToSee = true;
+  /* 2026-09-02 第十七輪,kc:「找完阿源後手機會收到通知說他走了」——原本
+     這裡一按「現在去」就直接 GRANDMA.dead=true,等於你人都還沒進病房、
+     阿嬤理論上還活著,遊戲已經算她死了。kc 要的順序是:去見到她(這段
+     她是活的,見 HOSPITAL_GO_BEATS)→護士趕人→自己去找阿源散心→
+     散完心之後才收到「阿嬤走了」的通知,這裡才是死亡真的發生/揭曉的
+     時間點。這裡只設 wentToSee,不設 dead——dead 改到
+     notifyGrandmaDeath()(見 talkToYuan() 那段安慰戲收尾)才設。 */
+  GRANDMA.wentToSee = true;
   /* 體力最少留 1,不讓這筆扣款剛好把體力砍到 0——這是劇情事件,不該因為
      玩家當下體力剛好見底就順便觸發 triggerGameOver('stamina') 那個泛用的
      「你倒在路邊」死亡畫面,那句台詞跟這裡要演的東西完全對不上。
@@ -9037,14 +9061,23 @@ function talkToYuan(){
     });
     return;
   }
-  /* 阿嬤走了那天,回去找阿源(2026-09-02,kc:「走出醫院後 可能會說你心情
+  /* 阿嬤那天,回去找阿源散心(2026-09-02,kc:「走出醫院後 可能會說你心情
      很難過 想回去找阿源 然後他會安慰你之類的」)——攔在betrayed 那段
      之後、其他日常分支之前,一次性(GRANDMA.toldYuan 擋重複),跟
      betrayed 分支同一個「事情剛發生的當下優先權最高」的精神。他不多問
      細節、不講大道理,安靜陪著就好——呼應阿源這個角色一貫的說話量級
-     (「你就是常跟我妹混的那個?」那種一句話帶過,不是溫情喊話型)。 */
-  if(GRANDMA.dead && !GRANDMA.toldYuan){
+     (「你就是常跟我妹混的那個?」那種一句話帶過,不是溫情喊話型)。
+     觸發條件是「去看過她」或「已經知道她走了」任一成立(wentToSee 涵蓋
+     goToHospital() 那條——這時候她理論上還活著,見那則筆記;dead 涵蓋
+     declineHospitalCall() 那條,那邊是當場就定生死,沒有中間這一段)。
+     ✅ 第十七輪,kc:「找完阿源後手機會收到通知說他走了」——安慰戲收尾
+     之後,如果這時候她還沒被標記死亡(代表玩家是從「去看她」那條路來
+     的,散心的當下阿嬤還活著),延遲跳出真正的死訊通知
+     (notifyGrandmaDeath()),死亡這件事這裡才真的發生/揭曉。已經是
+     declineHospitalCall() 那條來的(dead 已經是 true)就不用再通知一次。 */
+  if((GRANDMA.wentToSee || GRANDMA.dead) && !GRANDMA.toldYuan){
     GRANDMA.toldYuan = true;
+    const alreadyKnew = GRANDMA.dead;
     playBeats([
       { who:'yuan', text:'他看你一眼,沒多問,只是往旁邊挪了挪。' },
       { who:'pc',   text:'你在他旁邊坐下,把阿嬤的事說了。' },
@@ -9053,6 +9086,7 @@ function talkToYuan(){
     ], 0, () => {
       chg('mood', 10); chg('calm', 6);
       toast('（情緒 +10，歸屬感 +6）', 2600);
+      if(!alreadyKnew) setTimeout(notifyGrandmaDeath, 2000);
     });
     return;
   }
