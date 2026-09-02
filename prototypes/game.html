@@ -52,7 +52,8 @@
      不用另外設計一顆花俏的圖示。 */
   #charCardBtn { position:fixed; left:16px; top:106px; z-index:6; background:rgba(12,16,23,.85);
     color:#dfe4ea; border:1px solid #3d4757; border-radius:4px; padding:5px 11px;
-    font:12px/1.4 inherit; letter-spacing:.06em; cursor:pointer; }
+    font:12px/1.4 inherit; letter-spacing:.06em; cursor:pointer; width:52px; text-align:center;
+    box-sizing:border-box; }
   #charCardBtn:hover { background:rgba(32,40,53,.95); border-color:#d8b24a; color:#fff; }
   /* 任務小面板(2026-08-27,kc:「如果有接到任務的話能不能有個小面板顯示,
      因為會有很多任務」)——跟 pods/charCardBtn 同一條左側縱軸疊下去,
@@ -64,22 +65,26 @@
      hint 常常是一整句提示(不是短標籤),擠在這麼窄的框裡很容易要折好幾行
      還是看不清楚。整體放大一輪:框變寬、字級各加 2~3px、padding/gap
      跟著撐開。 */
-  #questPanel { position:fixed; left:16px; top:139px; z-index:6; display:none; flex-direction:column; gap:10px;
+  #questPanel { position:fixed; left:16px; top:144px; z-index:6; display:none; flex-direction:column; gap:10px;
     background:rgba(9,12,17,.78); border:1px solid rgba(120,134,158,.28); border-radius:8px;
     padding:12px 16px; max-width:320px; }
   #questPanel.on { display:flex; }
   /* 收合狀態(2026-09-02,kc:「收合的時候就是在角色按鈕的正下方完全一樣
-     大小不要多一個怪框框」)——原本收合後 #questPanel 這層外框(深底+
-     邊框+12px16px padding)還在,只是裡面少了卡片,視覺上變成「按鈕外面
-     包一個空空的大框」,不是單純一顆按鈕。收合時整個拔掉外框裝飾
-     (background/border/padding 全部清空),只留 .qpToggle 這顆按鈕本身
-     的樣式,看起來才會跟 #charCardBtn 一樣是單獨一顆按鈕、不是按鈕外面
-     還嵌著一層板子。順便把 top 從 150 調到 139(貼著 #charCardBtn 下緣,
-     「正下方」)。 */
+     大小不要多一個怪框框」,後續回報「不要死不承認」+ 截圖抓到兩個具體
+     問題:兩顆按鈕完全貼在一起沒有空隙、寬度不一樣)——
+     ① top 106(charCardBtn)+ 高度~29px,原本 139 幾乎是貼死,改到 144
+        留 8px 左右的呼吸空間,不是完全零間距。
+     ② 寬度不一樣是文字量不同造成的(「角色」2 字 vs 原本「任務▸」多一個
+        箭頭符號),不是 padding 沒對齊。拔掉箭頭,兩顆都改成明確
+        width:52px + text-align:center,不再讓文字長度決定寬度,這樣才是
+        真的「完全一樣大小」,不是「差不多」。
+     收合時 #questPanel 這層外框(深底+邊框+padding)整個清空,只留
+     .qpToggle 按鈕本身的樣式,看起來是單獨一顆按鈕,不是按鈕外面還包著
+     一層空板子。 */
   #questPanel.collapsed { background:none; border:none; padding:0; max-width:none; }
   #questPanel .qpToggle { align-self:flex-start; background:rgba(12,16,23,.85); color:#dfe4ea;
     border:1px solid #3d4757; border-radius:4px; padding:5px 11px; font:12px/1.4 inherit;
-    letter-spacing:.06em; cursor:pointer; }
+    letter-spacing:.06em; cursor:pointer; width:52px; text-align:center; box-sizing:border-box; }
   #questPanel .qpToggle:hover { background:rgba(32,40,53,.95); border-color:#d8b24a; color:#fff; }
   #questPanel .qpItem { border-top:1px solid rgba(120,134,158,.18); padding-top:8px; }
   #questPanel .qpItem:first-of-type { border-top:none; padding-top:0; }
@@ -612,7 +617,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoPolice()">跳警局</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoGrandmaAfternoon()">跳五點</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoPolice()">跳警局</button><button class="tool" onclick="debugGotoAlley()">跳巷子</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoGrandmaAfternoon()">跳五點</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1516,6 +1521,25 @@ function debugGotoPolice(){
   toast(__dbg.at(BROTHER.x, BROTHER.z + 3), 2000);
 }
 window.debugGotoPolice = debugGotoPolice;
+/* 跳巷子按鈕(2026-09-02,kc:「幫我傳過去測試」)——直接假設班費案已經
+   查到最後一步(阿正問過、供桌翻過、小胖指過、師傅也確認過),讓 kc
+   直接測剛改好的三輪逼問對質,不用整條案子重查一次。跟 debugGotoPolice()
+   同一個理由,warp 到 ALLEY_WORKER 座標前方 3 格,不疊在同一點。 */
+function debugGotoAlley(){
+  day = 18;
+  CLASSFUND.tripStarted = true; CLASSFUND.active = true;
+  CLASSFUND.askedBrother = true; CLASSFUND.foundEvidence = true;
+  CLASSFUND.toldByFat = true; CLASSFUND.confirmedByMaster = true;
+  CLASSFUND.resolved = null;
+  ALLEY_WORKER.gone = false;
+  const fqi = ACTIVE_QUESTS.findIndex(q => q.id === 'classfund');
+  if(fqi >= 0) ACTIVE_QUESTS.splice(fqi, 1);
+  ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'去巷子找她問清楚' });
+  renderQuestPanel();
+  syncHUD();
+  toast(__dbg.at(ALLEY_WORKER.x, ALLEY_WORKER.z + 3), 2000);
+}
+window.debugGotoAlley = debugGotoAlley;
 /* +1天按鈕(2026-09-02,kc:「但我希望自然觸發 不然我不知道是不是卡bug」)——
    上一輪補的「跳班費事件」按鈕直接把 day 寫死成 18,kc 不要這種「我幫你
    把狀態喬好」的捷徑,他要看到事件是靠遊戲自己的天數機制走到、真的
@@ -2049,7 +2073,7 @@ function renderQuestPanel(){
   if(!ACTIVE_QUESTS.length){ questPanelEl.classList.remove('on', 'collapsed'); questPanelEl.innerHTML = ''; return; }
   questPanelEl.classList.add('on');
   questPanelEl.classList.toggle('collapsed', questPanelCollapsed);
-  const toggleBtn = `<button class="qpToggle" onclick="toggleQuestPanel()">任務${questPanelCollapsed ? '▸' : '▾'}</button>`;
+  const toggleBtn = `<button class="qpToggle" onclick="toggleQuestPanel()">任務</button>`;
   questPanelEl.innerHTML = toggleBtn + (questPanelCollapsed ? '' : ACTIVE_QUESTS.map(q =>
     `<div class="qpItem"><div class="qpTitle">${q.title}</div><div class="qpHint">${q.hint}</div></div>`
   ).join(''));
