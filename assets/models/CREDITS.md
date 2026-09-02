@@ -36,6 +36,7 @@
 | `bench.glb` | Bench | Quaternius | Public Domain (CC0) | https://poly.pizza/m/jLxjFxFRpw |
 | `trash-bin.glb` | Trashcan Small | Quaternius | Public Domain (CC0) | https://poly.pizza/m/i7HDuYDLkx |
 | `recycle-bin.glb` | Recycle bin | Yuwei Xi | CC-BY | https://poly.pizza/m/92Iv-tdQ49h |
+| `donation-box.glb` | Ballot Box | Thomas de Rivaz | CC-BY | https://poly.pizza/m/94qEZYJE84Q |
 
 CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時記得帶著這份清單
 (或至少「遊具模型來自 Poly by Google,CC-BY 3.0」這句話),不要漏掉。
@@ -72,3 +73,13 @@ Dog/Cat(都是 Poly by Google,CC-BY 3.0),順便補了一隻貓——原本只有
 3d要換成真的」——跟警車/交通錐(2026-08-27)同一個理由,道具類跟建築
 量體分開處理,道具用真模型。挑的時候刻意選跟現有 box 造型接近的款式
 (長椅有靠背、垃圾桶方形不是圓形),減少換模型後比例對不上的風險。
+
+**`donation-box.glb`(2026-09-02,kc:「你先去下載功德箱 放上桌子」):**
+Sketchfab 上有真的「賽銭箱」照片掃描模型,但要登入才能下載(帳號註冊
+是禁止事項,見系統安全規則),而且 22 萬三角面對一個小道具太重、寫實
+掃描的材質風格跟這遊戲整體低多邊形+平塗材質也不搭。改回 Poly Pizza
+(跟其他道具同一個來源),搜尋不到現成的「功德箱」,挑了外型最接近的
+「Ballot Box」(投票箱——一樣是「有開口、東西投進去的密封箱子」,616
+三角面、CC-BY),檔名照功能取成 `donation-box.glb` 不叫 ballot-box,跟
+incense-bowl.glb 原名叫「Bowl Dirty」被借來當香爐同一個做法。用
+`placeAltarProp()` 放上供桌,見 `scene-city3d.js` temple() 那段呼叫。

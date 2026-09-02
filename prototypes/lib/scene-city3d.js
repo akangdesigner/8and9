@@ -2825,12 +2825,20 @@ export function buildCity(THREE, scene){
        bounding box 才發現 incense-bowl.glb 是矮胖的扁盤(x/z=0.95, y 只有
        0.3),鎖 y 高度去撐 targetSize 會把它整個放大到 1.9×1.9,蓋過半張桌子。
        候台(candelabra.glb)是瘦高的(y=0.495 最大),鎖 y 是對的。 */
-    function placeAltarProp(file, targetSize, lockAxis, x, z){
+    function placeAltarProp(file, targetSize, lockAxis, x, z, tint){
       const fallback = box(targetSize*.6, targetSize*.5, targetSize*.6, std({ color:0xb8b0a0, roughness:.8 }));
       const holder = add(fallback, x, tableTopY + targetSize*.25, z, false, false);
       loadModel(file).then(gltf => {
         scene.remove(holder);
-        add(propModel(THREE, gltf, targetSize, lockAxis, 0), x, tableTopY, z, false, false);
+        const model = propModel(THREE, gltf, targetSize, lockAxis, 0);
+        /* tint(2026-09-02,功德箱用)——donation-box.glb 原始材質是投票箱的
+           淺灰藍,擺在紅燈籠/金色供桌旁邊很突兀,不是這遊戲的美術方向
+           (見 CLAUDE.md 基準線,不該讓道具讀起來像廉價塑膠箱)。跟
+           moto-vespa 那套「算 box-projected UV 貼真材質」不同量級,這裡
+           只是簡單把材質換成跟供桌同一個木頭色(M.altarTable 的
+           0x7a4a2a),不用另外做貼圖。 */
+        if(tint) model.traverse(o => { if(o.isMesh && o.material) o.material.color.setHex(tint); });
+        add(model, x, tableTopY, z, false, false);
       }).catch(() => {});
     }
     /* 2026-08-14 kc 再抓兩個問題:香爐太小、裡面空的插不出香插進去的樣子;
@@ -2839,6 +2847,13 @@ export function buildCity(THREE, scene){
     placeAltarProp('candelabra.glb', .8, 'y', -1.5, z+16);
     placeAltarProp('candelabra.glb', .8, 'y', 1.5, z+16);
     placeAltarProp('incense-bowl.glb', .85, 'x', 0, z+16);
+    /* 功德箱(2026-09-02,kc:「你先去下載功德箱 放上桌子」)——來源/挑選
+       理由見 assets/models/CREDITS.md donation-box.glb 那則筆記。擺在
+       香爐/燭台那排前面(z+16+1.3,比 z+16 更靠近玩家那側),不要疊在
+       同一排——這裡就是既有 ALTAR 選單/nearProp 講的「功德箱」那個互動
+       點,擺近一點方便玩家找到。瘦高造型(Y 軸最長),鎖 y 撐大小,跟
+       candelabra 同一個判斷。 */
+    placeAltarProp('donation-box.glb', 1, 'y', 0, z+16+1.3, 0x7a4a2a);
     /* 香爐本身只是個素面碗,不管貼多真的圖或抓多細的模型,單一個碗形狀
        都讀不出「香爐」——真正讓人一眼認出來的是插著香的輪廓(細長桿+
        頂端一點紅光),不是碗,而且香要插在「裡面裝的東西」上,不能整支
