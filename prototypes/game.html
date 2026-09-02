@@ -2911,7 +2911,10 @@ function resolveWatchJob(success){
    的互動邏輯讀的資料,不只是視覺擺設,所以獨立出來,不是丟進上面純裝飾
    的 NPCS 就算了(不過 animate() 還是要跟 NPCS 一樣接進 render loop,見
    下面 push 那行)。 */
-const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false };
+/* gone(2026-09-02,班費失竊「揭發」結局用)——見 talkToWorker() 那段
+   CLASSFUND.resolved==='exposed' 分支,跟廟口那批「這裡的人會消失」
+   同一條規矩,不解釋、不哀悼,純粹從 nearProp 判斷裡拿掉互動點。 */
+const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false, gone:false };
 const workerNPC = buildNPC(THREE, scene, {
   x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:Math.PI*.4, rig:'f',
   skin:'#c9a077', hair:'#241f1c',
@@ -6699,21 +6702,31 @@ function sleep(){
     /* 阿源早上打電話來(2026-09-02,kc:「不是早上起床 阿源會打電話來」)——
        跟拖吊通知單同一個掛法(sleep() 醒來那段自言自語鏈,見上面 ④ 那則
        筆記),幫「阿嬤在醫院」那天補上早上的連結:kc 原本起案的脈絡是
-       「阿源找你幫忙(前提是你找過他)準備要去撐場的時候接到醫院通知」,
-       這條補的就是「前提」那半句跟「準備要去撐場」那句的來源——早上先
-       接到阿源電話約好晚上顧場子,傍晚才會撞上醫院電話,兩通電話中間玩家
-       自己過這一天。只在「玩家已經找過阿源」(YUAN.visits>0,沒找過他
-       不該憑空打電話來)才會觸發,純敘事,不打開 quests.js 那套接任務
-       選單/不動任何 quest 欄位——晚上真的要不要幫他,靠玩家自己傍晚選
-       「不去」還是「現在去」(阿嬤那邊)自然帶出撞期的感覺,不用另外寫
-       「你答應了」的機制。跟 checkGrandmaCall() 共用同一個 day(見下面
-       GRANDMA_CALL_DAY),只會在那天早上觸發一次。 */
+       「阿源找你幫忙(前提是你找過他)準備要去撐場的時候接到醫院通知」。
+       只在「玩家已經找過阿源」(YUAN.visits>0,沒找過他不該憑空打電話來)
+       才會觸發。
+       ✅ 2026-09-02 第二輪,kc 玩過回報「為何沒有任務匡」——第一版這裡
+       純敘事,沒有真的接上遊戲裡已經做好的「顧場子」機制(`WATCHJOB`,
+       2026-08-26,見 `startWatchJob()`/`talkToYuan()` 裡 `ST.calm>=80`
+       那段+ DESIGN_NOTES「顧場子」節)——同一件事在遊戲裡已經有一套完整
+       玩法(街上真的走出一個會被看到的人、盯著巷口、回報/漏看兩種結局),
+       不該另外編一套假的、不會出現在任務面板上的「你應了一聲」。改成
+       晚上真的出門在城市街道上的時候,由 `checkYuanEveningWatch()`
+       (跟 `checkGrandmaCall()` 同一批安全點呼叫)直接呼叫真正的
+       `startWatchJob()`,略過原本卡住它的 `ST.calm>=80` 門檻(這裡是劇情
+       事件叫你去,不是你自己主動找阿源要求),任務面板/巷口分身 NPC 都會
+       照原本那套機制正常出現。早上這段電話現在只負責把「今晚要顧場子」
+       的話講清楚(拉長一點,原本三句「沒頭沒尾」,kc 這句也一起處理),
+       真正開始顧場子留到晚上真的出門那一刻。 */
     if(!yuanMorningCallFired && day === GRANDMA_CALL_DAY && YUAN.visits > 0){
       yuanMorningCallFired = true;
       impoundBeats = (impoundBeats || []).concat([
         { who:'pc',   text:'手機又震了一下。' },
-        { who:'yuan', text:'「欸,晚上顧一下場子,人在就好。」' },
-        { who:'pc',   text:'你應了一聲。' }
+        { who:'pc',   text:'是阿源。' },
+        { who:'yuan', text:'「欸,晚上有空嗎。」' },
+        { who:'yuan', text:'「顧一下場子,人在就好,不用做什麼。」' },
+        { who:'pc',   text:'你應了一聲。' },
+        { who:'pc',   text:'他沒再多說,直接掛了。' }
       ]);
     }
     syncHUD();
@@ -7014,6 +7027,24 @@ function checkGrandmaCall(){
   if(day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= GRANDMA_CALL_MINUTE)){
     hospitalCallFired = true;
     triggerGrandmaCall();
+  }
+}
+/* 晚上真的開始顧場子(2026-09-02,kc 玩過回報「為何沒有任務匡」)——早上
+   那通電話(見 sleep() 裡的長筆記)只負責約好,真正接上遊戲裡已經做好的
+   `WATCHJOB`(顧場子)機制是這裡:比阿嬤那通電話早一小時(17:00,自己選的
+   參數),玩家人在城市街道上(MODE==='city',跟 checkGrandmaCall() 同一批
+   安全點呼叫,不用另開判斷)就直接 `startWatchJob()`,略過原本
+   `talkToYuan()` 那條路徑卡的 `ST.calm>=80` 門檻——這裡是阿源早上已經
+   約好的事,不是玩家臨時去問。啟動之後就是玩家真的要在城市街道上找到
+   小美哥、回報,還是放著讓他先走到門口(`resolveWatchJob(false)`),
+   跟阿嬤那通電話會不會撞在一起,是玩家自己傍晚怎麼分配時間的結果,不用
+   另外寫「你放阿源鴿子」的內容。 */
+const YUAN_WATCH_EVENING_MINUTE = 17*60;
+function checkYuanEveningWatch(){
+  if(!yuanMorningCallFired || MODE !== 'city' || gameOver || busy || dlg.on) return;
+  if(WATCHJOB.active || WATCHJOB.lastDay === day) return;
+  if(day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= YUAN_WATCH_EVENING_MINUTE)){
+    startWatchJob();
   }
 }
 function triggerGrandmaCall(){
@@ -7433,6 +7464,7 @@ function updateCity(dt){
   /* 阿嬤在醫院的電話(2026-09-02)——只在「正常走在街上」的幀檢查(上面
      兩段小遊戲搶輸入的分支已經 return 掉了,不會跑到這裡),見那則長筆記。 */
   checkGrandmaCall();
+  checkYuanEveningWatch();
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -7662,7 +7694,7 @@ function updateCity(dt){
       if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'play', ref:p }; break; }
     if(!nearProp) for(const m of city.motos)
       if(!m.ridden && !(MOTO_IMPOUND.active && m === MOTO_IMPOUND.motoRef) && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
-    if(!nearProp && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 3.2)
+    if(!nearProp && !ALLEY_WORKER.gone && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 3.2)
       nearProp = { type:'worker', ref:ALLEY_WORKER };
     if(!nearProp && Math.hypot(pos.x-STATUE.x, pos.z-STATUE.z) < 3.2)
       nearProp = { type:'statue', ref:STATUE };
@@ -9045,6 +9077,26 @@ function lookAtBench(){
    talkToMotoBoss() 的 newsConfronted 攔法同一個位置邏輯,結算完之後才
    放行到下面正常的刺青選單。 */
 function talkToTattooMaster(){
+  /* 班費失竊・師傅看過收據才鬆口(2026-09-02,見上面 CLASSFUND 那則長
+     筆記)——要先被小胖指過來(toldByFat)才問得到東西,呼應「線索是
+     一步步解鎖的,不是玩家隨時能問」那條設計慣例(廟口那趟同一個道理)。
+     師傅不會直接講死是誰,只給玩家自己拼得出來的線索(跟廟口/npc-temple
+     那批角色「不解釋,沒有人講自己的苦」同一條規矩)。 */
+  if(CLASSFUND.toldByFat && !CLASSFUND.confirmedByMaster){
+    CLASSFUND.confirmedByMaster = true;
+    const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'classfund');
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = '去巷子找她問清楚';
+    renderQuestPanel();
+    playBeats([
+      { who:'pc',           text:'你把收據拿給師傅看。' },
+      { who:'tattooMaster', text:'他瞄了一眼，手上的針沒停。' },
+      { who:'tattooMaster', text:'「那天喔，我是有看到一個面生的在供桌附近晃。」' },
+      { who:'tattooMaster', text:'「巷子那邊的，你知道我說誰。」他沒有再多說。' }
+    ], 0, () => {
+      toast('師傅沒有講死是誰，但你大概猜得到他說的是誰。', 3400);
+    });
+    return;
+  }
   if(TATTOO_DOG.active && TATTOO_DOG.found && !TATTOO_DOG.resolved){
     TATTOO_DOG.resolved = true; TATTOO_DOG.active = false;
     { const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'tattoodog'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); }
@@ -10201,6 +10253,47 @@ const WORKER_TALK = {
   ]
 };
 function talkToWorker(w){
+  /* 班費失竊・對質(2026-09-02,見上面 CLASSFUND 那則長筆記)——攔在她
+     原本的閒聊/付錢劇情最前面。她不否認也不辯解(跟廟口那批角色同一條
+     「沒有人講自己的苦」規矩,不寫她的處境,留給玩家自己拼),兩個選項
+     都不乾淨:揭發拿回錢、洗清嫌疑,但她從此消失(ALLEY_WORKER.gone,
+     跟廟口那批「這裡的人會消失」同一套,不解釋不哀悼);放過就是自己
+     墊錢,嫌疑沒有真的洗清,但她還在。金額 $1200 對應 story-school.js
+     day18 那句「少了一千多」。 */
+  if(CLASSFUND.confirmedByMaster && CLASSFUND.resolved === null){
+    playBeats([
+      { who:'pc',     text:'你把收據拿出來，攤在她面前。' },
+      { who:'pc',     text:'「班費的事。」' },
+      { who:'worker', text:'她看了一眼，沒有說話。' },
+      { who:'worker', text:'她也沒有否認。' }
+    ], 0, () => {
+      openMenu('巷子裡', [
+        { label:'揭發她', cost:'$+1200　歸屬感 +10',
+          run(){
+            CLASSFUND.resolved = 'exposed';
+            ALLEY_WORKER.gone = true;
+            chg('money', 1200); chg('calm', 10);
+            const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'classfund');
+            if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+            renderQuestPanel();
+            playBeats([
+              { who:'worker', text:'她把錢還給你，一句話都沒多說。' },
+              { who:'pc',     text:'你不知道接下來會怎樣，只知道下次你再經過這裡，她不在了。' }
+            ], 0, () => toast('班費拿回來了，嫌疑洗清了。（$+1200，歸屬感 +10）', 3600));
+          } },
+        { label:'放過她', cost:'$−1200',
+          run(){
+            CLASSFUND.resolved = 'covered';
+            chg('money', -1200); chg('calm', 4);
+            const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'classfund');
+            if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+            renderQuestPanel();
+            toast('你自己把班費補上了。沒有人知道真相，你也沒有講。（$−1200，歸屬感 +4）', 3600);
+          } }
+      ]);
+    });
+    return;
+  }
   const pool = w.talked ? WORKER_TALK.after : WORKER_TALK.before;
   const line = pool[Math.random()*pool.length|0];
   say('worker', line, () => {
