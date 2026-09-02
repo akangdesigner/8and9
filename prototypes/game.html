@@ -2064,11 +2064,23 @@ const questPanelEl = document.getElementById('questPanel');
    精神,只是這次「沒有任務」換成「使用者選擇收合」)。 */
 let questPanelCollapsed = false;
 function toggleQuestPanel(){ questPanelCollapsed = !questPanelCollapsed; renderQuestPanel(); }
+/* 2026-09-02,kc 回報「收合功能又失敗了」——查證抓到真正原因:按鈕是用
+   `onclick="toggleQuestPanel()"` 這種內嵌屬性寫的,每次 renderQuestPanel()
+   都會整個 innerHTML 重新蓋一次、按鈕整顆換新的 DOM 節點。如果手上還
+   拿著「重畫前」那顆按鈕的參照去點(不管是自動化測試用 accessibility
+   tree 的舊 ref,還是瀏覽器極端情況下事件時序卡在舊節點),點下去會
+   完全沒反應,因為那個節點已經不在畫面上了。改成事件代理(delegation):
+   監聽 questPanelEl 本身(這個容器元素從頭到尾是同一個,不會被
+   innerHTML 換掉)的 click,判斷 e.target 是不是落在 .qpToggle 裡面,
+   不用管按鈕節點本身換過幾次都抓得到。 */
+questPanelEl.addEventListener('click', e => {
+  if(e.target.closest('.qpToggle')) toggleQuestPanel();
+});
 function renderQuestPanel(){
   if(!ACTIVE_QUESTS.length){ questPanelEl.classList.remove('on', 'collapsed'); questPanelEl.innerHTML = ''; return; }
   questPanelEl.classList.add('on');
   questPanelEl.classList.toggle('collapsed', questPanelCollapsed);
-  const toggleBtn = `<button class="qpToggle" onclick="toggleQuestPanel()">任務</button>`;
+  const toggleBtn = `<button class="qpToggle">任務</button>`;
   questPanelEl.innerHTML = toggleBtn + (questPanelCollapsed ? '' : ACTIVE_QUESTS.map(q =>
     `<div class="qpItem"><div class="qpTitle">${q.title}</div><div class="qpHint">${q.hint}</div></div>`
   ).join(''));
@@ -9955,6 +9967,30 @@ function talkToAren(){
  * 演,之後要做的話是在 id==='door' 那支插一個 day===28 攔截,不是這裡。 */
 function talkToTeacher(){
   const D = NpcSchool.TEACHER;
+  /* 班費・還給老師(2026-09-02,見 talkToWorker() CLASSFUND 那則長筆記
+     第④點)——攔在最前面,比清寒補助優先權更高(玩家手上正拿著要還的
+     錢,這件事沒解決之前其他閒聊都不重要)。這裡才是「揭發她」那個
+     分支真正的錢/歸屬感回報,不是巷子對質當下就給——這筆是班費不是
+     玩家的錢,先歸還學校才算真的解決,呼應基準線「代價要真的是代價」,
+     不能揭發完馬上口袋多一千二。 */
+  if(CLASSFUND.resolved === 'exposed' && !CLASSFUND.returnedToTeacher){
+    CLASSFUND.returnedToTeacher = true;
+    const ti = TRASH.findIndex(t => t.name === '班費');
+    if(ti >= 0) TRASH.splice(ti, 1);
+    const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'classfund-return');
+    if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
+    renderQuestPanel();
+    playBeats([
+      { who:'pc',      text:'你把錢拿出來，放到老師桌上。' },
+      { who:'pc',      text:'「班費找到了。」' },
+      { who:'teacher', text:'他愣了一下，數了數，鬆了一口氣。「找到就好，我還在想要不要通報。」' },
+      { who:'teacher', text:'他沒有再追問是從哪裡找到的，你也沒有多說。' }
+    ], 0, () => {
+      chg('calm', 10);
+      toast('班費還給老師了，這件事總算過去了。（歸屬感 +10）', 3600);
+    });
+    return;
+  }
   /* 清寒補助(2026-08-26,見上面 TEACHER_STATE 那則筆記)——讀過書架那張
      公告(BOOKSHELF_CLUES.tuitionAdFound)才會冒出來,問過一次就核准入帳,
      不是每月都要來領一次(沒做那套時間/資源分配的系統,跟 mei3「交往後
@@ -11009,39 +11045,49 @@ const WORKER_TALK = {
 };
 function talkToWorker(w){
   /* 班費失竊・對質(2026-09-02,見上面 CLASSFUND 那則長筆記)——攔在她
-     原本的閒聊/付錢劇情最前面。兩個選項都不乾淨:揭發拿回錢、洗清嫌疑,
-     但她從此消失(ALLEY_WORKER.gone,跟廟口那批「這裡的人會消失」同一套,
-     不解釋不哀悼);放過就是自己墊錢,嫌疑沒有真的洗清,但她還在。金額
-     $1200 對應 story-school.js day18 那句「少了一千多」。
-     ⚠ 第二輪(2026-09-02,kc:「指控妓女時要有類似逆轉裁判的激烈攻防他才
-     會認罪」)——第一版她一句話都不辯,直接跳認罪,讀起來像單方面宣判,
-     沒有「對質」的張力。改成三輪逼問,每輪攤一個已經拿到手的證據(收據→
-     小胖目擊→師傅證詞,順序照玩家實際查案的順序),她一次比一次防線
-     鬆動(否認→硬拗→語氣弱掉),第三輪才真的破防認罪。
-     ⚠ 第三輪,kc 追加:「主角要有對話選項可以選」——第二輪版本雖然改成
-     三輪逼問,但整段還是純 playBeats 播完才給選單,玩家全程只能看,沒有
-     「攻防」的主動權。改成每輪逼問完都停下來給選單:「繼續逼問」(丟下
-     一句新證據,進下一輪)或「算了,先不逼問」(退出,她不會認罪,
-     CLASSFUND 狀態不變,下次再找她可以重新從頭來過,不用另外設一個
-     「這輪失敗」的旗標卡住)。三個「繼續逼問」選項各自對應一個證據,
-     不是「選哪個證據」的解謎(手上就這三個、順序也定好了),重點是
-     玩家自己選要不要一路逼到底。 */
+     原本的閒聊/付錢劇情最前面。金額 $1200 對應 story-school.js day18
+     那句「少了一千多」。
+     ⚠ 第二輪,kc:「指控妓女時要有類似逆轉裁判的激烈攻防他才會認罪」——
+     第一版她一句話都不辯,直接跳認罪。改成三輪逼問,每輪攤一個已經拿到
+     手的證據(收據→小胖目擊→師傅證詞,順序照玩家實際查案的順序),她
+     一次比一次防線鬆動(否認→硬拗→語氣弱掉),第三輪才真的破防認罪。
+     ⚠ 第三輪,kc:「主角要有對話選項可以選」——每輪逼問完都停下來給
+     選單:「繼續逼問」或「算了,先不逼問」,不是純看戲。
+     ⚠ 第四輪,kc 一次給四點回報:
+     ① 認罪之後她要講原因——不是玩家逼出來的,是她鬆口之後自己接著講。
+        跟她原本閒聊池裡「家裡還有一個要顧,比較小的」那句(見上面
+        WORKER_TALK 附近「就聊兩句」那個分支)是同一件事,這裡補完整。
+        跟這遊戲一貫的分寸一致:不是安排她博取同情,是她自己選擇要不要
+        講,講完也沒有再乞求什麼。
+     ② 三個「算了,先不逼問」原本共用同一句 toast,退出的時間點不同、
+        心理狀態不同,讀起來卻一模一樣——改成三句不同的退場白,對應
+        退到多深(第一輪還在猶豫/第二輪她已經動氣/第三輪她其實快撐不
+        住了,是玩家自己選擇不逼到底)。
+     ③ 「揭發她」不再讓 ALLEY_WORKER 消失——她只是把錢還你,人還在原地,
+        跟她閒聊/付錢的劇情照常接得回去(拿掉 gone=true)。
+     ④ 「揭發她」不再直接加錢/歸屬感,改成拿到一個「班費」道具(TRASH),
+        真正的錢/歸屬感回報留到後續「拿去還給老師」那個任務(見下面
+        talkToTeacher() 的攔截)——這筆是班費不是玩家的錢,直接進口袋不
+        合理,要先還給學校才算真的解決。「放過她」(自己墊錢)維持原樣
+        不動,那條線本來就是玩家自己出錢私了,沒有「還給老師」這一步。 */
   if(CLASSFUND.confirmedByMaster && CLASSFUND.resolved === null){
-    const backOff = () => toast('你把收據收回口袋，沒有再說下去。', 2800);
+    const backOff1 = () => toast('你看著她，一時說不出更多，把收據收回口袋。', 3000);
+    const backOff2 = () => toast('她的語氣已經硬了起來，你猶豫了一下，還是沒有繼續逼問。', 3000);
+    const backOff3 = () => toast('她的聲音已經在抖，你看著她，最後還是沒有把最後一句問出口。', 3000);
     const resolveMenu = () => {
       openMenu('巷子裡', [
-        { label:'揭發她', cost:'$+1200　歸屬感 +10',
+        { label:'揭發她',
           run(){
             CLASSFUND.resolved = 'exposed';
-            ALLEY_WORKER.gone = true;
-            chg('money', 1200); chg('calm', 10);
             const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'classfund');
             if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+            TRASH.push({ name:'班費', icon:'💰', detail:'從巷子裡的她手上拿回來的，還沒交給老師。' });
+            ACTIVE_QUESTS.push({ id:'classfund-return', title:'班費不見了', hint:'把班費拿去還給老師' });
             renderQuestPanel();
             playBeats([
               { who:'worker', text:'她把錢還給你，一句話都沒多說。' },
-              { who:'pc',     text:'你不知道接下來會怎樣，只知道下次你再經過這裡，她不在了。' }
-            ], 0, () => toast('班費拿回來了，嫌疑洗清了。（$+1200，歸屬感 +10）', 3600));
+              { who:'pc',     text:'你把錢收好——這件事還沒真的結束，你得拿去還給老師。' }
+            ], 0, () => toast('拿到班費了，記得還給老師。', 3200));
           } },
         { label:'放過她', cost:'$−1200',
           run(){
@@ -11065,10 +11111,13 @@ function talkToWorker(w){
               playBeats([
                 { who:'pc',     text:'你沒有再說話，只是看著她，等她自己撐不住。' },
                 { who:'worker', text:'她撐了幾秒，終於別開臉。' },
-                { who:'worker', text:'「……對，是我拿的。」聲音很輕，像是鬆了一口氣，又像是很累。' }
+                { who:'worker', text:'「……對，是我拿的。」聲音很輕，像是鬆了一口氣，又像是很累。' },
+                { who:'worker', text:'「小孩生病，那個月手頭真的不夠。」' },
+                { who:'worker', text:'「看你們那些小孩在那邊拜拜、嘻嘻哈哈的，錢就放在桌上沒人管，我一時鬼迷心竅。」' },
+                { who:'pc',     text:'她沒有再多解釋，像是這樣已經是她能講的全部。' }
               ], 0, resolveMenu);
             } },
-          { label:'算了，先不逼問', cls:'back', run: backOff }
+          { label:'算了，先不逼問', cls:'back', run: backOff3 }
         ]);
       });
     };
@@ -11079,7 +11128,7 @@ function talkToWorker(w){
       ], 0, () => {
         openMenu('巷子裡', [
           { label:'「師傅也說有面生的人在那附近晃。」', run: round3 },
-          { label:'算了，先不逼問', cls:'back', run: backOff }
+          { label:'算了，先不逼問', cls:'back', run: backOff2 }
         ]);
       });
     };
@@ -11090,7 +11139,7 @@ function talkToWorker(w){
     ], 0, () => {
       openMenu('巷子裡', [
         { label:'「小胖看到你在供桌附近。」', run: round2 },
-        { label:'算了，先不逼問', cls:'back', run: backOff }
+        { label:'算了，先不逼問', cls:'back', run: backOff1 }
       ]);
     });
     return;
