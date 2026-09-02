@@ -7047,12 +7047,26 @@ function checkGrandmaCall(){
    約好的事,不是玩家臨時去問。啟動之後就是玩家真的要在城市街道上找到
    小美哥、回報,還是放著讓他先走到門口(`resolveWatchJob(false)`),
    跟阿嬤那通電話會不會撞在一起,是玩家自己傍晚怎麼分配時間的結果,不用
-   另外寫「你放阿源鴿子」的內容。 */
-const YUAN_WATCH_EVENING_MINUTE = 17*60;
+   另外寫「你放阿源鴿子」的內容。
+   ✅ 2026-09-02 第四輪,kc 問「如果我五點再做別的事會怎樣」+確認要改嚴——
+   原本晚到也不會怎樣,無限期等玩家有空,kc 覺得太鬆(呼應「沒有安全
+   選項」的基準線)。改成到 18:00(跟 GRANDMA_CALL_MINUTE 同一個時間點)
+   都還沒開始顧場子,就直接算放鴿子:拔掉提醒卡+歸屬感 −10(自己選的
+   數字,比一般顧場子拒絕的 −3 重,因為這次是阿源早上特地打電話來約的,
+   不喜歡跟我說一聲就改),`WATCHJOB.lastDay=day` 借用既有欄位擋掉這天
+   之後不會再重複判定。另外把 `day > GRANDMA_CALL_DAY` 那段拿掉——這條
+   只該管早上真的打電話約好的那一天,不該無限期往後拖到隔天甚至更後面
+   還在等玩家去顧場子,那樣不合理。 */
+const YUAN_WATCH_EVENING_MINUTE = 17*60, YUAN_EARLY_WATCH_MINUTE = 16*60;
 function checkYuanEveningWatch(){
   if(!yuanMorningCallFired || MODE !== 'city' || gameOver || busy || dlg.on) return;
-  if(WATCHJOB.active || WATCHJOB.lastDay === day) return;
-  if(day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= YUAN_WATCH_EVENING_MINUTE)){
+  if(WATCHJOB.active || WATCHJOB.lastDay === day || day !== GRANDMA_CALL_DAY) return;
+  if(minute >= GRANDMA_CALL_MINUTE){
+    WATCHJOB.lastDay = day;
+    { const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-tonight'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); renderQuestPanel(); }
+    chg('calm', -10);
+    toast('你沒去幫阿源顧場子。', 2800);
+  } else if(minute >= YUAN_WATCH_EVENING_MINUTE){
     /* 換掉早上那張提醒卡(見 sleep() 那則筆記),startWatchJob() 自己會
        push 真正的 'watchjob' 那張,不拔掉這張的話會兩張一起疊著。 */
     const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-tonight');
@@ -8511,6 +8525,25 @@ function talkToYuan(){
   if(WATCHJOB.active && WATCHJOB.spotted && !WATCHJOB.resolved){
     resolveWatchJob(true);
     return;
+  }
+  /* day16 阿嬤那天,阿源早上已經打電話約好(見 sleep()「阿源早上打電話來」
+     那則筆記)——這裡是玩家主動去找他的入口,跟晚上自動觸發的
+     checkYuanEveningWatch() 是同一件事的兩個入口,不衝突(WATCHJOB.active
+     一旦開始,兩邊各自的 guard 都會自然跳過)。kc:「4:00~5:00 之間找阿源
+     就可以觸發了,如果在這之前去找他他只會說晚點記得來幫我顧場子」——
+     4 點前只給提醒句,4~6 點之間(晚一點,跟 checkYuanEveningWatch() 6 點
+     判定放鴿子的門檻對齊)找他才會真的直接開始,優先於下面 calm≥80 那條
+     一般路徑,不看歸屬感夠不夠——這是阿源早上主動約的,不是玩家自己去求。 */
+  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && yuanMorningCallFired && day === GRANDMA_CALL_DAY){
+    if(minute < YUAN_EARLY_WATCH_MINUTE){
+      say('yuan', '「晚點記得來幫我顧場子。」');
+      return;
+    }
+    if(minute < GRANDMA_CALL_MINUTE){
+      { const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-tonight'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); }
+      say('yuan', '「來得正好，幫我顧一下。」', startWatchJob);
+      return;
+    }
   }
   if(!WATCHJOB.active && WATCHJOB.lastDay !== day && ST.calm >= 80){
     say('yuan', NpcTemple.WATCH_JOB.hookText, () => {
