@@ -1504,15 +1504,15 @@ const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', mood:'
 /* 扣體力換算成經過的時間(2026-09-02,kc:「扣體力的時候也要等比例增加
  * 時間,比較有過完今天的感覺」)——比例是我自己抓的,沒跟 kc 對過確切
  * 數字,不喜歡再調。
- * ✅ 第二輪,kc:「時間過得有點太慢了,早上九點起床理論上晚上12:00睡覺,
- * 100 體力要平均分配」——他給的公式是 15 小時(900 分鐘)÷100 體力,原本
- * 5 分鐘/點(40 一整輪打工只吃掉 200 分鐘)太省,一天的體力用不到一半
- * 時鐘就已經很晚,不成比例。改成 9 分鐘/點,整天(100 體力)剛好對齊
- * 900 分鐘=15 小時。**現在起床還是 7:00,不是 kc 講的 9:00**(見
- * sleep() 那行 `minute=7*60`)——kc 這句像是隨口舉的整數例子帶公式,
- * 不確定是不是真的要把起床時間也改成 9 點,這輪只動了比例,起床時間
- * 沒動,要改再說一聲。 */
-const STAMINA_MINUTES = 9;
+ * ✅ 第三輪,kc 先給「早上九點起床,晚上12:00睡覺,100體力要平均分配」
+ * (15 小時=900 分鐘÷100→9 分鐘/點),接著糾正「那會變成17小時/100」——
+ * 起床其實還是 7:00 沒有真的改成 9 點(見 sleep() 那行 `minute=7*60`,
+ * 上一輪筆記就寫過這件事),照實際起床時間算應該是 7:00~24:00=17 小時
+ * =1020 分鐘,不是他先舉例用的 15 小時。改成 **10 分鐘/點**
+ * (1020÷100=10.2,四捨五入取整數——`minute` 全專案都當整數處理,
+ * `fmtTime()` 顯示時鐘用 `%60` 沒有特別 round,留小數會讓時鐘顯示跑出
+ * 「05:24.2」這種怪畫面,不能直接套 10.2)。 */
+const STAMINA_MINUTES = 10;
 function chg(k, d){
   if(!d) return;
   if(gameOver) return;   // 遊戲結束後所有指標凍結,不用逐一擋每個呼叫端
@@ -5521,7 +5521,7 @@ function openIndoorSpot(id){
        換成」,是選項不是自動觸發)。 */
     else if(id === 'desk'){
       const items = [
-        { label:'讀書', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1.5 小時', cls: ST.stamina<=0?'bad':'', run:() => {
+        { label:'讀書', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1小時40分', cls: ST.stamina<=0?'bad':'', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           chg('stamina', -10);   // advanceTime 交給 chg() 統一算
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
@@ -5609,7 +5609,7 @@ function openIndoorSpot(id){
            成功),沒辦法保證拿到,補一句「成功/被抓」對照,不是寫死一個
            保證到手的數字。 */
         { label:'認真上課',
-          cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1.5 小時　答對 +知識',
+          cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1小時40分　答對 +知識',
           cls: ST.stamina<=0 ? 'bad' : '', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           deskActionDay = day;
@@ -5617,7 +5617,7 @@ function openIndoorSpot(id){
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } },
         { label:'偷玩手遊',
-          cost:'體力 −5　45 分鐘　成功 +情緒／被抓 −風評−歸屬感',
+          cost:'體力 −5　50 分鐘　成功 +情緒／被抓 −風評−歸屬感',
           cls:'risk', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           deskActionDay = day;
@@ -6913,7 +6913,7 @@ function enterMassage(w){
     document.getElementById('where').textContent = '越式按摩';
     hintEl.classList.remove('on');   // 進場前殘留的「按空白鍵搭話」提示清掉,updateIndoor() 這個 PLACE 不會再幫忙清
     paintMassageBackdrop();
-    toast('一個半小時後,你一個人走回巷口。', 2600);   // 2026-09-02 第二輪從「一小時」改的,見 chg() 那條「扣體力換算時間」,−10 體力現在對應 90 分鐘
+    toast('一小時四十分後,你一個人走回巷口。', 2600);   // 2026-09-02 第三輪從「一個半小時」改的,見 chg() 那條「扣體力換算時間」,−10 體力現在對應 100 分鐘
     /* 完整故事(圓環雕像那條支線,2026-08-20,見 DESIGN_NOTES)只在第一次
        「付錢跟她走」之後追加,用 setTimeout 接在上面那句 toast 淡出之後
        才跳出來,不要兩段疊在一起搶畫面。w.toldStory 擋之後重複——比較
@@ -7032,8 +7032,8 @@ let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
       直接 `if(PLACE==='hospital') return;`),見 scene-hospital.js
       開頭的筆記。
    日期(day16)、傍晚時間點(18:00)、體力代價(−30,經過 chg() 那條
-   「扣體力換算時間」規則會自動變成 270 分鐘,2026-09-02 第二輪比例從
-   5→9 分鐘/點調整過,這裡數字跟著變,不是筆誤)、去/不去的歸屬感增減都是
+   「扣體力換算時間」規則會自動變成 300 分鐘=5 小時,2026-09-02 第三輪
+   比例調到 10 分鐘/點,這裡數字跟著變,不是筆誤)、去/不去的歸屬感增減都是
    我自己選的參數,不喜歡跟我說一聲就改。 */
 const GRANDMA_CALL_DAY = 16, GRANDMA_CALL_MINUTE = 18*60;
 let hospitalCallFired = false;
