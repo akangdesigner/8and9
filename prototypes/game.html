@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoGrandmaAfternoon()">跳五點</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1476,6 +1476,29 @@ window.debugFieldTrip = debugFieldTrip;
    改成直接把人傳進房間、站在床邊、體力砍到 20——跟其他 __dbg 傳送工具
    同一個精神(直接改 state,不用玩家自己走過去),點完這顆按鈕馬上就能
    按床互動選單裡的「睡覺」。 */
+/* ✅ 2026-09-02 第五輪,kc 回報「任務結束後沒有觸發吃飯啊」——查出根因:
+   debugGotoGrandmaDay() 原本沒重置 WATCHJOB/GRANDMA,kc 在同一個分頁裡
+   重複測(沒真的整頁 reload)時,上一輪留下的 `WATCHJOB.resolved=true`/
+   `WATCHJOB.lastDay===16` 會讓 checkYuanEveningWatch()/talkToYuan() 的
+   guard 誤判「今天已經處理過」,整段直接跳過,連帶電話收尾也不會觸發。
+   拆成獨立函式(第六輪新增 debugGotoGrandmaAfternoon() 也要用同一段清乾淨
+   邏輯,不要兩顆按鈕各寫一份、以後容易漏改其中一顆),清掉場上殘留的分身
+   NPC、歸零 WATCHJOB/GRANDMA 狀態、任務面板上殘留的兩張卡
+   (watchjob/yuan-tonight)。 */
+function resetGrandmaDayState(){
+  if(WATCHJOB.walker){
+    scene.remove(WATCHJOB.walker.group);
+    const wi = NPCS.indexOf(WATCHJOB.walker); if(wi >= 0) NPCS.splice(wi, 1);
+  }
+  WATCHJOB.active = false; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
+  WATCHJOB.walker = null; WATCHJOB.lastDay = -1; WATCHJOB.exclaim = null;
+  brotherNPC.group.visible = true;
+  GRANDMA.dead = false; GRANDMA.wentToSee = false;
+  for(const qid of ['watchjob', 'yuan-tonight']){
+    const qi = ACTIVE_QUESTS.findIndex(q => q.id === qid); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
+  }
+  renderQuestPanel();
+}
 function debugGotoGrandmaDay(){
   /* 不走 warpIntoPlace({id:'home'}) 那條路——day15 剛好撞上
      story-drink.js 的第 15 天節點(爸那條線),warpIntoPlace() 進 home
@@ -1494,30 +1517,34 @@ function debugGotoGrandmaDay(){
   IN.px = bed.x + bed.w/2; IN.py = bed.y1; IN.face = 'F'; IN.near = null;
   hospitalCallFired = false; yuanMorningCallFired = false;
   if(YUAN.visits < 1) YUAN.visits = 1;
-  /* ✅ 2026-09-02 第五輪,kc 回報「任務結束後沒有觸發吃飯啊」——查出根因:
-     這顆按鈕原本沒重置 WATCHJOB/GRANDMA,kc 在同一個分頁裡重複測(沒真的
-     整頁 reload)時,上一輪留下的 `WATCHJOB.resolved=true`/
-     `WATCHJOB.lastDay===16` 會讓 checkYuanEveningWatch()/talkToYuan()
-     的 guard 誤判「今天已經處理過」,整段直接跳過,連带電話收尾也不會
-     觸發。補齊清乾淨:先把上一輪可能還留在場景裡的分身 NPC 移除,再把
-     WATCHJOB/GRANDMA 狀態都歸零,任務面板上殘留的兩張卡(watchjob/
-     yuan-tonight)也一起清掉。 */
-  if(WATCHJOB.walker){
-    scene.remove(WATCHJOB.walker.group);
-    const wi = NPCS.indexOf(WATCHJOB.walker); if(wi >= 0) NPCS.splice(wi, 1);
-  }
-  WATCHJOB.active = false; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
-  WATCHJOB.walker = null; WATCHJOB.lastDay = -1;
-  brotherNPC.group.visible = true;
-  GRANDMA.dead = false; GRANDMA.wentToSee = false;
-  for(const qid of ['watchjob', 'yuan-tonight']){
-    const qi = ACTIVE_QUESTS.findIndex(q => q.id === qid); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
-  }
-  renderQuestPanel();
+  resetGrandmaDayState();
   syncHUD();
   toast('已經站在床邊——按空白鍵開床的選單、選「睡覺」，day16 早上阿源會打電話來，傍晚接著是阿嬤那通。', 4200);
 }
 window.debugGotoGrandmaDay = debugGotoGrandmaDay;
+/* 跳到下午五點按鈕(2026-09-02 第六輪,kc:「幫我啊罵那天直接移動到當天
+   下午五點」)——跟上面那顆「跳阿嬤那天」不同,這顆不用重演早上電話+
+   睡覺那段,直接落在 day16 17:00、人已經在城市街道上,略過
+   yuanMorningCallFired 那個前提(直接設 true,當作早上電話已經打過)。
+   落地之後 checkYuanEveningWatch() 下一幀就會自動判定條件成立、直接
+   startWatchJob(),不用玩家自己再做什麼。體力/飽足都補滿,不會被之前
+   測試的殘留值卡住。 */
+function debugGotoGrandmaAfternoon(){
+  day = GRANDMA_CALL_DAY; minute = YUAN_WATCH_EVENING_MINUTE;
+  ST.stamina = 100; ST.full = ST_MAX.full ?? 100;
+  hospitalCallFired = false; yuanMorningCallFired = true;
+  if(YUAN.visits < 1) YUAN.visits = 1;
+  resetGrandmaDayState();
+  if(MODE !== 'city'){
+    MODE = 'city';
+    document.getElementById('indoor').classList.remove('on');
+    document.getElementById('city').style.display = '';
+    wlabelsEl.style.display = '';
+  }
+  syncHUD();
+  toast('已經是 day16 下午 17:00,人在街上——馬上會自動開始顧場子。', 3600);
+}
+window.debugGotoGrandmaAfternoon = debugGotoGrandmaAfternoon;
 /* 補飽足按鈕(2026-09-02,kc:「飽食度幫我補滿」)——扣體力現在會連動扣
    飽足感(見 chg() 那條「扣體力同步扣飽足感」),重複測同一段劇情容易把
    飽足感磨低,見底會直接遊戲結束(GAME_OVER_TEXT.full)。跟其他 __dbg
