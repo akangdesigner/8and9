@@ -1468,6 +1468,26 @@ function debugGotoGrandmaDay(){
   IN.px = bed.x + bed.w/2; IN.py = bed.y1; IN.face = 'F'; IN.near = null;
   hospitalCallFired = false; yuanMorningCallFired = false;
   if(YUAN.visits < 1) YUAN.visits = 1;
+  /* ✅ 2026-09-02 第五輪,kc 回報「任務結束後沒有觸發吃飯啊」——查出根因:
+     這顆按鈕原本沒重置 WATCHJOB/GRANDMA,kc 在同一個分頁裡重複測(沒真的
+     整頁 reload)時,上一輪留下的 `WATCHJOB.resolved=true`/
+     `WATCHJOB.lastDay===16` 會讓 checkYuanEveningWatch()/talkToYuan()
+     的 guard 誤判「今天已經處理過」,整段直接跳過,連带電話收尾也不會
+     觸發。補齊清乾淨:先把上一輪可能還留在場景裡的分身 NPC 移除,再把
+     WATCHJOB/GRANDMA 狀態都歸零,任務面板上殘留的兩張卡(watchjob/
+     yuan-tonight)也一起清掉。 */
+  if(WATCHJOB.walker){
+    scene.remove(WATCHJOB.walker.group);
+    const wi = NPCS.indexOf(WATCHJOB.walker); if(wi >= 0) NPCS.splice(wi, 1);
+  }
+  WATCHJOB.active = false; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
+  WATCHJOB.walker = null; WATCHJOB.lastDay = -1;
+  brotherNPC.group.visible = true;
+  GRANDMA.dead = false; GRANDMA.wentToSee = false;
+  for(const qid of ['watchjob', 'yuan-tonight']){
+    const qi = ACTIVE_QUESTS.findIndex(q => q.id === qid); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
+  }
+  renderQuestPanel();
   syncHUD();
   toast('已經站在床邊——按空白鍵開床的選單、選「睡覺」，day16 早上阿源會打電話來，傍晚接著是阿嬤那通。', 4200);
 }
@@ -2944,14 +2964,22 @@ NPCS.push(constructionForemanNPC);
    blocked() 每 0.3 單位取樣核對過,乾淨無阻擋。犧牲的是「真的從他
    後火車站的崗位走來」這個細節,換來路線可靠+畫面好看,這裡我先這樣
    選,不喜歡跟我說一聲就改。 */
-/* 2026-09-02,kc 玩過回報「小美哥來太快了 我來不及通報 應該是要讓我
-   站一下」——原本三點一路走完全程(60 單位)大概 27 秒,中間沒有停,
-   玩家發現得晚一點、要跑去找阿源回報根本來不及。中間補一個停留點
-   (`[30,10,10000]`,借用 scene-city3d.js buildNPC() 路徑系統本來就有的
-   「第三個元素 = 在這一站罰站幾毫秒」),小美哥走到半路會站住 10 秒
-   (自己選的數字,不喜歡再調),給玩家更大的窗口發現+跑去阿源那邊。 */
-const WATCHJOB_PATH = [[60, 10], [30, 10, 10000], [0, 10], [0, 15]];
-const WATCHJOB = { active:false, spotted:false, resolved:false, walker:null, lastDay:-1 };
+/* 2026-09-02 第五輪,kc:「阿正不要在原地停留只是走得慢一點」——上一輪
+   補的中途停留點(kc 之前要的「讓我站一下」)這輪被推翻,改用速度本身
+   放慢,不要站定不動的空檔。原本 60 單位大概 27 秒(預設 patrolSpeed
+   .0022),改用只有原速一半的 speed(見下面 buildNPC() 那個 opts.speed),
+   全程約 54~59 秒,沒有停頓、但整段都在慢慢走,體感差別是「一直看得到
+   他在動」而不是「他突然不見了又突然冒出來」。 */
+const WATCHJOB_PATH = [[60, 10], [0, 10], [0, 15]];
+/* 玩家自動走到的埋伏點(2026-09-02 第五輪,kc:「改成自動導航到遊藝場」)
+   ——原本只有 toast 說「你走到遊藝場附近」,玩家的 3D 座標完全沒動,
+   要自己從街上隨便一個位置手動走過來,等走到定位小美哥可能已經快到門口。
+   改成 startWatchJob() 一開始就 fade 過去,座標抓在門口(0,15)附近但
+   不疊在 WATCHJOB_PATH 那條 z≈10 的路徑上(不然玩家會被巡邏系統的
+   「玩家擋在路徑上」判定卡住小美哥),往東、往南各挪一點,留出往 x=60
+   方向的視野。沒有實測過確切落點卡不卡東西,玩起來覺得怪跟我說要往哪調。 */
+const WATCHJOB_STAKEOUT = { x:10, z:14 };
+const WATCHJOB = { active:false, spotted:false, resolved:false, walker:null, lastDay:-1, exclaim:null };
 function startWatchJob(){
   WATCHJOB.active = true; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
   brotherNPC.group.visible = false;
@@ -2959,12 +2987,35 @@ function startWatchJob(){
     // rig 跟固定站位那具同步換成 'm5'(見上面 BROTHER 那則筆記)——這是同一個角色走出來,不是另一個人
     x:WATCHJOB_PATH[0][0], z:WATCHJOB_PATH[0][1], rotationY:-Math.PI*.5, rig:'m5',
     skin:'#c2a17e', hair:'#1c1c1c', hood:'#2b3a52', pants:'#1c2430', shoe:'#1c1c1c',
-    path: WATCHJOB_PATH
+    path: WATCHJOB_PATH, speed:.0011
   });
   NPCS.push(WATCHJOB.walker);
-  ACTIVE_QUESTS.push({ id:'watchjob', title:'幫阿源顧場子', hint:'盯著巷口，看到小美哥就回報' });
+  /* 頭上大驚嘆號(2026-09-02 第五輪,kc:「如果看到小美哥 頭上會有大驚嘆
+     號」)——跟樹的 billboard 技法不同,這裡用最簡單的 THREE.Sprite(本來
+     就永遠面向鏡頭,不用自己算旋轉),掛在分身的 group 底下當子物件,
+     跟著他一起移動。預設隱藏,`spotted` 判定成立那一刻(見 updateCity()
+     WATCHJOB 那段)才切 visible=true。 */
+  (function(){
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#f2d84a'; g.beginPath(); g.arc(32, 32, 28, 0, Math.PI*2); g.fill();
+    g.strokeStyle = '#2a2318'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#2a2318'; g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('!', 32, 35);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), depthTest:false }));
+    spr.scale.set(1.1, 1.1, 1);
+    spr.position.set(0, 2.3, 0);
+    spr.visible = false;
+    WATCHJOB.walker.group.add(spr);
+    WATCHJOB.exclaim = spr;
+  })();
+  ACTIVE_QUESTS.push({ id:'watchjob', title:'顧場子・盯梢小美哥',
+    hint:'看到小美哥要馬上回去找阿源說——他走進遊藝場就來不及了' });
   renderQuestPanel();
-  toast('你走到遊藝場附近，盯著巷口。', 2800);
+  fade('遊藝場附近', () => {
+    hero.group.position.set(WATCHJOB_STAKEOUT.x, .3, WATCHJOB_STAKEOUT.z);
+    toast('你走到遊藝場附近，盯著巷口。', 2800);
+  });
 }
 /* success=true(玩家有看到、回去跟阿源講到)/false(小美哥先走到門口)
    兩邊都收尾同一套:分身 NPC 移除、小美哥固定站位那具恢復顯示、
@@ -7661,6 +7712,7 @@ function updateCity(dt){
     const wp = WATCHJOB.walker.group.position;
     if(!WATCHJOB.spotted && Math.hypot(pos.x-wp.x, pos.z-wp.z) < 16){
       WATCHJOB.spotted = true;
+      if(WATCHJOB.exclaim) WATCHJOB.exclaim.visible = true;
       toast('你看到小美哥往遊藝場那邊走了——快去跟阿源說！', 3000);
     }
     const door = WATCHJOB_PATH[WATCHJOB_PATH.length-1];
