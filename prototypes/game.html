@@ -2208,16 +2208,18 @@ const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:fals
                practiceIdx:0, debuted:false, routineIdx:0, routineDay:-1,
                betrayed:false, betrayedConfronted:false };   // betrayed 見 talkToBrother() SNITCH_QUEST 'reported' 分支,2026-09-01
 
-/* 小胖的連續劇情(2026-08-31,見 npc-temple.js 小胖那則長筆記)——沒有 3D
-   模型(骨架跟現有的差太多,見 DESIGN_NOTES「3D 街上的角色」),整條線純靠
+/* 小胖的連續劇情(2026-08-31,見 npc-temple.js 小胖那則長筆記)——整條線
    靠近廟口自動觸發+文字演出(見 updateCity() 那段 checkFatArc() 呼叫),
-   沒有可以手動走過去按空白鍵的入口。x/z 沿用 YUAN 那個廟口位置,兩個人
-   本來就站在同一塊廟埕。
+   沒有可以手動走過去按空白鍵的入口,這個機制沒變。
+   2026-09-02 補上真的 3D 模型(kc:「現在世界上還沒有小胖人物 你去下載
+   一個年輕胖子」,見 MODELS.m7 那則長筆記)——原本借用 YUAN 的座標當
+   判斷點,現在有身體要站,挪到 YUAN 旁邊隔開一點(YUAN 在 -6,-86),不要
+   兩個人重疊站在同一個點。
    ⚠ npc-temple.js 的 GONE 陣列裡原本也有一則「小胖 day400 消失」,那組
    GONE 陣列整個沒接進 game.html(這輪才發現,跟 rejectCool/rejectRep
    當初同一個坑)。這裡的消失是這條任務線自己獨立算的(10 天沒解就走),
    跟 GONE 陣列那筆資料無關、不共用,兩邊之後真的要合併再看。 */
-const FAT = { x:-6, z:-86, seenAsk:false, seenWound:false, questActive:false, questStartDay:-1,
+const FAT = { x:-2, z:-89, seenAsk:false, seenWound:false, questActive:false, questStartDay:-1,
               reminded:false, hasMedicine:false, resolved:false, gone:false };
 const FAT_DATA = NpcTemple.NPCS.find(n => n.id === 'fat');
 function checkFatArc(){
@@ -2533,8 +2535,9 @@ const buskerNPC = buildNPC(THREE, scene, {
 })();
 
 /* 廟口 NPC,2026-08-12 起先接兩個(其餘見 lib/npc-temple.js 的文字資料)。
- * 只做阿源跟阿姨——小胖(14 歲)、阿伯(70 幾)體型跟現有兩副骨架差太多,
- * 硬套會不像人,等有更合適的骨架再補,見 DESIGN_NOTES「3D 街上的角色」。
+ * 阿伯(70 幾)體型跟現有骨架差太多,還沒補,等有更合適的骨架再補,見
+ * DESIGN_NOTES「3D 街上的角色」。小胖(14 歲)2026-09-02 補上了(MODELS.m7,
+ * 見那則長筆記)。
  * 座標抓在廟埕開闊的地方(廟門口在 z=-98,香爐/供桌在 z=-86 一帶)。 */
 const NPCS = [
   buildNPC(THREE, scene, {                            // 阿源・24歲・板模・陣頭學長
@@ -2549,6 +2552,21 @@ const NPCS = [
     pants:'#2b2b2b', shoe:'#e8e4d8',                    // 藍白拖的白色調子先用鞋子顏色代
     tex:{ hood:'char-yuan-shirt.png' },                 // 真的花襯衫材質
     tattoo:{ texFile:'tattoo-dragon-koi.png' }          // 前臂刺青,位置是目前肉眼調的最佳猜測,還沒最終確認
+  }),
+  buildNPC(THREE, scene, {                             // 小胖・國二・站在阿源旁邊(見上面 FAT 那則筆記)
+    /* rig 'm7'(James)材質只分得出皮膚/「衣服+頭髮共用一個材質」兩塊(見
+       MODELS.m7 那則長筆記)。opts.widen 是 buildNPC() 這輪新增的參數,
+       只加寬 X/Z,不動身高,便宜撐出「胖」的輪廓。身高比阿源矮一截
+       (國二,不是成人)。
+       2026-09-02 第二輪,kc:「小胖衣服要別的材質 89感覺」——龍虎刺青風
+       黑色小可愛貼圖(`char-fat-shirt.png`,kc 生圖裁切,見那則筆記),
+       跟阿源手臂上那隻錦鯉刺青同一個方向,呼應他崇拜阿源、還沒被收的
+       設定。花紋不分方向(跟小美裙子/阿仁襯衫同一條規矩),鏡射貼歪
+       看起來還是同一塊龍虎花色,不會穿幫。 */
+    x:FAT.x, z:FAT.z, rotationY:Math.PI*.3, rig:'m7', widen:1.35,
+    height: PLAYER.height * .82,
+    skin:'#d1a67e', hood:'#33383f',
+    tex:{ hood:'char-fat-shirt.png' }
   }),
   buildNPC(THREE, scene, {                             // 阿姨・50幾・鴨頭攤(原鹹酥雞攤,見上面 AYI 那則筆記)
     x:AYI.x, z:AYI.z, rotationY:Math.PI, rig:'f',
@@ -5396,13 +5414,18 @@ function openIndoorSpot(id){
     else if(id === 'aren'){ talkToAren(); return; }
     /* 小美(2026-08-26,kc:「可以幫小美解題目 會增加歸屬感 也可以約他出去玩
        （直接跳轉到公園）」)——教室context 專用選單,跟街上那具 3D 小美的
-       talkToMei()(約會/借錢完整那條線)分開放,「閒聊」選項才接回原本那條,
-       沒有拿掉舊功能。
+       talkToMei()(約會/借錢完整那條線)分開放。
        2026-09-02,kc 補上待辦清單那條「約她出去玩要卡門檻」的具體條件——
        問過「用什麼當門檻」,kc 回「就是用帥潮當門檻」,沿用街上初遇那條
        talkToMei() 已經在用的同一個數字(ST.cool<22)+同一組 disdainTalk
        反應,不是另開新台詞。按下去才觸發拒絕(不是選單裡整項變灰/消失),
-       跟街上那條「按下去被嫌棄」是同一種互動手感。 */
+       跟街上那條「按下去被嫌棄」是同一種互動手感。
+       同一天再一輪:「閒聊」原本直接接回街上那具完整的 talkToMei(),
+       約會/借錢/mei3/mei4/偷親那些會真的推進進度、開選單的分支全部可能
+       在教室裡被觸發,跟阿仁「打撞球」同一類坑但範圍大很多——kc:「閒聊
+       只會根據最近的進度有不同變化 不會特別推進劇情」,改接
+       chatWithMeiClassroom()(只挑對應階段的閒聊台詞池,不寫任何 MEI
+       旗標),深度進度只留給街上那具才能真的推進,見那則筆記。 */
     else if(id === 'mei'){
       openMenu('小美', [
         { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '答對　歸屬感 +4',
@@ -5421,7 +5444,7 @@ function openIndoorSpot(id){
             }
             warpToParkWithMei();
           } },
-        { label:'閒聊', run: talkToMei },
+        { label:'閒聊', run: chatWithMeiClassroom },
         { label:'不要', cls:'back', run(){} }
       ]);
       return;
@@ -8529,6 +8552,31 @@ function talkToMei(){
   say('mei', MEI.cooling
     ? D.coolingTalk[Math.random()*D.coolingTalk.length|0]
     : D.datedTalk[Math.random()*D.datedTalk.length|0]);
+}
+/* 教室「閒聊」專用(2026-09-02,kc:「閒聊只會根據最近的進度有不同變化
+   不會特別推進劇情」)——原本教室選單的「閒聊」直接接街上那具完整的
+   talkToMei(),約會/借錢/mei3/mei4/偷親那些會真的推進進度、開選單的
+   分支全部可能在教室裡被觸發,跟阿仁「打撞球」原本的坑同一類但範圍大
+   很多(見那則筆記)。這裡另開一份「只讀進度、不寫進度」的版本:照目前
+   卡在哪個階段挑對應的閒聊台詞池,不呼叫 openMenu()/playBeats()、不碰
+   任何 MEI.xxx 旗標,單純一句話。真的要推進約會/交往/mei4 這些,還是要
+   去街上找那具 3D 小美。 */
+function chatWithMeiClassroom(){
+  const D = NpcSchool.MEI;
+  let pool;
+  if(MEI.kissed && !MEI.apologized){
+    say('mei', '她轉過頭，沒有看你，也沒有說話。');
+    return;
+  } else if(!MEI.met){
+    pool = D.disdainTalk;
+  } else if(!MEI.dated){
+    pool = D.metTalk;
+  } else if(!MEI.together || !MEI.visitedHome){
+    pool = D.datedTalk;
+  } else {
+    pool = MEI.cooling ? D.coolingTalk : D.datedTalk;
+  }
+  say('mei', pool[Math.random()*pool.length|0]);
 }
 /* 觸發條件借用 YUAN.hasTattoo(刺青店真的接進來、換成讀真的完成條件之後,
    這裡不用跟著改,見 YUAN 那則筆記的先例)。 */
