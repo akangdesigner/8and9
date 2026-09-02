@@ -1521,7 +1521,7 @@ function resetGrandmaDayState(){
   WATCHJOB.active = false; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
   WATCHJOB.walker = null; WATCHJOB.lastDay = -1; WATCHJOB.exclaim = null;
   brotherNPC.group.visible = true;
-  GRANDMA.dead = false; GRANDMA.wentToSee = false;
+  GRANDMA.dead = false; GRANDMA.wentToSee = false; GRANDMA.toldYuan = false;
   for(const qid of ['watchjob', 'yuan-tonight']){
     const qi = ACTIVE_QUESTS.findIndex(q => q.id === qid); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
   }
@@ -3892,7 +3892,16 @@ const HOME_PHOTO = {
        滑桿了,x 直接用 IN_TARGETS.mom.px(量她在新照片上的位置那個值)
        往兩邊各展開 38,跟爸爸那格寬度(76)一致。IN_TARGETS 這時候還沒
        宣告(在這份檔案更下面),用 getter 延後讀取,跟爸爸那格同一招。 */
-    { id:'mom', name:'媽媽', get x(){ return IN_TARGETS.mom.px - 38 }, w: 76, y0:200, y1:310 }
+    { id:'mom', name:'媽媽', get x(){ return IN_TARGETS.mom.px - 38 }, w: 76, y0:200, y1:310 },
+    /* 阿嬤的牌位(2026-09-02,kc:「家裡的牌位之後可以互動 可以跟啊罵說說
+       話或是插香」)——只在 GRANDMA.dead 之後才有意義(openIndoorSpot()
+       裡自己判斷,見那則筆記),互動點不管有沒有死都先註冊著,比較簡單。
+       x:180 塞在門口(80~156)跟媽媽(262~338)中間那段空隙,沒有實測過
+       照片上那個位置是不是真的有可以放牌位的桌面/櫃子(這個家的客廳照片
+       目前完全沒有牌位這個物件,純文字互動,沒有真的疊圖標示——見自動
+       記憶,還要再補一張牌位照片才會有畫面),玩起來覺得卡怪、或位置對不上
+       家具再說要往哪調。 */
+    { id:'altar', name:'牌位', x:180, w:70, y0:200, y1:310 }
   ]
 };
 const HOME_COLLIDERS_PHOTO = [];
@@ -5861,6 +5870,39 @@ function openIndoorSpot(id){
       const lines = momCheckinLines();
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
+    /* 阿嬤的牌位(2026-09-02)——GRANDMA.dead 之前,茶几上什麼都沒有,一句
+       toast 帶過;之後才開放兩個互動:跟阿嬤說說話(接 askFreeText(),跟
+       醫院那場同一套打字機制)、插香。兩個都一天一次(altarTalkDay/
+       altarIncenseDay,跟 MEI.helpedDay 那種「今天用過了」同一個模式),
+       不然可以無限刷歸屬感/情緒。 */
+    else if(id === 'altar'){
+      if(!GRANDMA.dead){ toast('小茶几上空空的。', 2000); return; }
+      openMenu('阿嬤的牌位', [
+        { label:'跟阿嬤說說話',
+          cost: altarTalkDay === day ? '今天已經說過了' : '',
+          cls: altarTalkDay === day ? 'bad' : '',
+          run(){
+            if(altarTalkDay === day){ toast('今天已經跟阿嬤說過話了。', 2200); return; }
+            altarTalkDay = day;
+            askFreeText('你想跟阿嬤說什麼？', '（打字,留白也可以）', text => {
+              const beats = text
+                ? [{ who:'pc', text:'「'+text+'」' }, { who:'pc', text:'香爐裡的煙很淡,飄了一下,散了。' }]
+                : [{ who:'pc', text:'你站在牌位前,最後什麼都沒說。' }];
+              playBeats(beats, 0, () => { chg('calm', 4); toast('（歸屬感 +4）', 2200); });
+            });
+          } },
+        { label:'插香',
+          cost: altarIncenseDay === day ? '今天已經上過香了' : '',
+          cls: altarIncenseDay === day ? 'bad' : '',
+          run(){
+            if(altarIncenseDay === day){ toast('今天已經上過香了。', 2200); return; }
+            altarIncenseDay = day;
+            chg('mood', 6);
+            toast('你點了一炷香,插進香爐裡。（情緒 +6）', 2600);
+          } },
+        { label:'先不要', cls:'back', run(){} }
+      ]);
+    }
     return;
   }
   if(PLACE === 'bedroom'){
@@ -7404,7 +7446,8 @@ let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
 const GRANDMA_CALL_DAY = 16, GRANDMA_CALL_MINUTE = 18*60;
 let hospitalCallFired = false;
 let yuanMorningCallFired = false;   // sleep() 那段「阿源早上打電話來」用,見那則筆記
-const GRANDMA = { dead:false, wentToSee:false };
+const GRANDMA = { dead:false, wentToSee:false, toldYuan:false };
+let altarTalkDay = -1, altarIncenseDay = -1;   // 家裡牌位互動一天一次,見 openIndoorSpot() PLACE==='home' 那段
 function checkGrandmaCall(){
   if(hospitalCallFired || gameOver || busy || dlg.on) return;
   if(day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= GRANDMA_CALL_MINUTE)){
@@ -7572,6 +7615,14 @@ function enterHospital(){
           chg('money', 500);   // 阿嬤塞的五百塊,見 HOSPITAL_GO_BEATS 那則筆記
           toast('（歸屬感 +10，$+500）', 2600);
           leaveIndoor();
+          /* 2026-09-02 第十六輪,kc:「走出醫院後 可能會說你心情很難過
+             想回去找阿源 然後他會安慰你之類的」——這裡只負責提示/埋鉤子,
+             真的安慰的戲留給玩家自己走去找阿源那一刻(talkToYuan() 開頭
+             GRANDMA.dead && !GRANDMA.toldYuan 那段,跟這個檔案一貫「引導
+             但不強迫」的手感一致,不用在這裡直接切場景過去)。setTimeout
+             等 fade() 淡出淡入跑完(見 fade() 定義,mid 在 1150ms 觸發)
+             才跳,不會被淡出蓋掉看不到。 */
+          setTimeout(() => toast('你心情很亂，腦子裡第一個想到的是阿源。', 3200), 1300);
         });
       });
     });
@@ -8983,6 +9034,25 @@ function talkToYuan(){
     ], 0, () => {
       chg('calm', -10);
       toast('（歸屬感 −10）', 2600);
+    });
+    return;
+  }
+  /* 阿嬤走了那天,回去找阿源(2026-09-02,kc:「走出醫院後 可能會說你心情
+     很難過 想回去找阿源 然後他會安慰你之類的」)——攔在betrayed 那段
+     之後、其他日常分支之前,一次性(GRANDMA.toldYuan 擋重複),跟
+     betrayed 分支同一個「事情剛發生的當下優先權最高」的精神。他不多問
+     細節、不講大道理,安靜陪著就好——呼應阿源這個角色一貫的說話量級
+     (「你就是常跟我妹混的那個?」那種一句話帶過,不是溫情喊話型)。 */
+  if(GRANDMA.dead && !GRANDMA.toldYuan){
+    GRANDMA.toldYuan = true;
+    playBeats([
+      { who:'yuan', text:'他看你一眼,沒多問,只是往旁邊挪了挪。' },
+      { who:'pc',   text:'你在他旁邊坐下,把阿嬤的事說了。' },
+      { who:'yuan', text:'他沒說什麼安慰的話,只是坐著,陪你。' },
+      { who:'pc',   text:'你們兩個誰都沒有再開口,坐了很久。' }
+    ], 0, () => {
+      chg('mood', 10); chg('calm', 6);
+      toast('（情緒 +10，歸屬感 +6）', 2600);
     });
     return;
   }
