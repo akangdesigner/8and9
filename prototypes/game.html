@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -583,6 +583,7 @@
 <script src="lib/scene-corridor.js"></script>
 <script src="lib/scene-tattoo.js"></script>
 <script src="lib/scene-arcade.js"></script>
+<script src="lib/scene-hospital.js"></script>
 <script src="lib/story-bet.js"></script>
 <script src="lib/story-drink.js"></script>
 <script src="lib/story-school.js"></script>
@@ -1418,6 +1419,14 @@ window.debugSkipDays = debugSkipDays;
    跑到 story-school.js day5/21 節點檢查(跟真的走進校門同一套邏輯)。 */
 function debugGotoSchool(){ toast(__dbg.warp('school'), 2000); }
 window.debugGotoSchool = debugGotoSchool;
+/* 跳廟口按鈕(2026-09-02 第七輪,kc:「你多加一個跳廟口的按鈕好了」)——
+   上面 10516 行那則筆記講的「廟口按鈕 2026-09-02 拿掉,對應功能都定案
+   收工」現在不成立了,這輪一路在調小胖(位置/朝向/材質),要重複走過去
+   驗證太麻煩。廟口是廟埕開放空間,不是 warpIntoPlace() 那種室內場景,
+   直接用 __dbg.at() 把玩家丟到供桌前(2,-95),同時看得到供桌/阿源/
+   小胖三個點。 */
+function debugGotoTemple(){ toast(__dbg.at(2, -95), 2000); }
+window.debugGotoTemple = debugGotoTemple;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -1576,6 +1585,12 @@ const WHO = {
   worker:{ name:'她',   opt:{ face:'F', skin:'#c9a077', hair:'#241f1c', top:'#7a2f45', topD:'#5c2436', pants:'#232323' } },
   ayi:   { name:'阿姨', opt:{ face:'F', skin:'#c9a077', hair:'#2c2420', top:'#5c4a3a', topD:'#3a2e26', pants:'#333333' } },
   acheng:{ name:'阿成', opt:{ face:'F', skin:'#b98a63', hair:'#3a3128', top:'#2e4a3a', topD:'#1e3a2a', pants:'#2b2b2b' } },
+  /* fat(2026-09-02 第八輪)——之前 checkFatArc() 的 playBeats() 都沒帶
+     who,一直是旁白格式,沒有登記過頭像。這輪補 talkToFat() 手動互動
+     入口才第一次需要真的顯示他的名牌+頭像,沒有真人照片,退回
+     SF.person() 像素小人(跟學校三人同一套 fallback),顏色抓他 3D
+     模型的膚色/深色龍虎小可褂色系。 */
+  fat:   { name:'小胖', opt:{ face:'F', skin:'#d1a67e', hair:'#1c1c1c', top:'#33383f', topD:'#1c1e22', pants:'#2b2b2b' } },
   /* yuan(2026-08-20)——頭像先接進來,但阿源本人在 game.html 還沒有真的
      互動分支(3D 角色只是站在原地,跟 npc-temple.js 的 yuan 資料一樣沒接
      上,見 ACHENG/AYI 那兩則筆記的先例)。這次先把頭像/WHO 準備好,下次
@@ -1600,6 +1615,10 @@ const WHO = {
      acheng/worker 那則筆記的先例:沒照片先退回 SF.person() 像素小人),
      淺灰藍襯衫+深色長褲,呼應那張背景照片裡的穿著。 */
   teacher:  { name:'老師', opt:{ face:'F', skin:'#c2a17e', hair:'#3a3a3a', top:'#9aa0a6', topD:'#7a828a', pants:'#2c2c30' } },
+  /* 阿嬤(2026-09-02)——只在醫院那幕出現一次,沒有 3D 模型,跟 mom/dad/
+     阿伯同一套「沒有模型只有 WHO 頭像」做法,沒照片先退回 SF.person()。
+     灰白髮+素色病人服示意年紀/場合。 */
+  granny:   { name:'阿嬤', opt:{ face:'F', skin:'#c2a17e', hair:'#cac6ba', top:'#8a9084', topD:'#6b7166', pants:'#5c6058' } },
   /* 阿伯(2026-08-21)——TROUPE 這輪第一次真的被消費(rejectRep/兵器/規矩/
      出陣那幾段他開口),沒有 3D 模型(體型跟現有骨架差太多,見 DESIGN_NOTES
      「3D 街上的角色」),跟 mom/dad 同一套「沒有模型只有 WHO 頭像」做法。
@@ -2240,15 +2259,19 @@ const YUAN = { x:-6, z:-86, visits:0, seenEvents:{}, asked:false, hasTattoo:fals
 const FAT = { x:-7, z:-102.8, seenAsk:false, seenWound:false, questActive:false, questStartDay:-1,
               reminded:false, hasMedicine:false, resolved:false, gone:false };
 const FAT_DATA = NpcTemple.NPCS.find(n => n.id === 'fat');
+/* 回傳值(2026-09-02 第八輪,kc:「對話不了欸」——原本沒有手動互動入口,
+   純靠自動觸發,但沒進度可推的時候玩家走過去按空白鍵完全沒反應,像壞掉。
+   補一個回傳值,讓下面新的 talkToFat() 知道這次呼叫有沒有真的推進劇情,
+   沒有的話才退回 npc-temple.js 本來就寫好、一直沒接的 talk[] 閒聊池。 */
 function checkFatArc(){
-  if(FAT.gone) return;
+  if(FAT.gone) return false;
   if(!FAT.seenAsk && YUAN.visits >= 1){
     FAT.seenAsk = true;
     playBeats(FAT_DATA.askBeats, 0, () => {
       chg('calm', FAT_DATA.askCalm);
       toast(FAT_DATA.askQuiet, 3000);
     });
-    return;
+    return true;
   }
   if(FAT.seenAsk && !FAT.seenWound && YUAN.hasTattoo){
     FAT.seenWound = true;
@@ -2256,7 +2279,7 @@ function checkFatArc(){
     ACTIVE_QUESTS.push({ id:'fat-wound', title:'小胖的傷口', hint:'去超商買消毒藥水給他' });
     renderQuestPanel();
     playBeats(FAT_DATA.woundBeats, 0, () => { toast(FAT_DATA.woundQuiet, 3200); });
-    return;
+    return true;
   }
   if(FAT.questActive && FAT.hasMedicine){
     FAT.resolved = true; FAT.questActive = false;
@@ -2267,12 +2290,12 @@ function checkFatArc(){
       chg('calm', FAT_DATA.resolvedCalm); chg('cool', FAT_DATA.resolvedCool);
       toast(FAT_DATA.resolvedQuiet, 3000);
     });
-    return;
+    return true;
   }
   if(FAT.questActive && !FAT.reminded && day >= FAT.questStartDay + 5){
     FAT.reminded = true;
     playBeats(FAT_DATA.reminderBeats, 0, () => {});
-    return;
+    return true;
   }
   if(FAT.questActive && day >= FAT.questStartDay + 10){
     FAT.gone = true; FAT.questActive = false;
@@ -2280,8 +2303,20 @@ function checkFatArc(){
     if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
     renderQuestPanel();
     toast(FAT_DATA.goneLine, 3600);
-    return;
+    return true;
   }
+  return false;
+}
+/* talkToFat()(2026-09-02 第八輪)——小胖第一個有手動互動入口的版本。
+   checkFatArc() 先跑,有進度可推(milestone)就照舊演出;沒有的話落到
+   npc-temple.js 原本就寫好的 `talk[]`(「哥。」那組四句閒聊,一直存在
+   資料裡但沒有任何進入點會讀到),跟阿姨/阿成同一套隨機挑一句 + say()。
+   `FAT.gone` 之後(消失)完全不回應,靠近也沒有互動提示,見下面 nearProp
+   那段判斷。 */
+function talkToFat(){
+  if(checkFatArc()) return;
+  const line = FAT_DATA.talk[Math.random()*FAT_DATA.talk.length|0];
+  say('fat', line);
 }
 
 /* 學校三人(2026-08-21)——接 lib/quests.js SCHOOL 那組資料,見
@@ -4776,6 +4811,14 @@ function paintTattooBackdrop(){
     gbg.restore();
   }
 }
+/* 醫院(2026-09-02)——只有灰模,沒有照片版,直接畫 SceneHospital,跟
+   paintCorridorBackdrop() 同一招(沒有 img.complete 那段判斷)。 */
+function paintHospitalBackdrop(){
+  gbg.clearRect(0,0,1280,720);
+  gbg.save(); gbg.scale(SC,SC);
+  SceneHospital.renderBackground(gbg, { vignette:true });
+  gbg.restore();
+}
 /* 遊藝場(2026-08-26 補照片版)——跟 paintSchoolBackdrop() 同一招,圖載入
    成功畫照片,否則退回灰模。 */
 function paintArcadeBackdrop(){
@@ -4813,7 +4856,8 @@ const HERO_TARGET_PX = {
   bedroom: 320,   // 2026-08-19:kc 說房間裡人「稍微調大一點」,296→320(+8%)
   arcade: 296,   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
   corridor: 296,   // 2026-08-28:灰模走廊,同上先借同一個量級
-  tattoo: 296   // 2026-08-28:刺青店灰模,同上先借同一個量級
+  tattoo: 296,   // 2026-08-28:刺青店灰模,同上先借同一個量級
+  hospital: 296   // 2026-09-02:醫院灰模,同上先借同一個量級
 };
 const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad/spawnMom 那些除錯用的定格截圖工具用,跟超商比例校正
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
@@ -6138,6 +6182,10 @@ function updateIndoor(dt){
      跟下一段對話中間有一小段 busy/dlg.on 都是 false 的空檔,那段空檔方向鍵
      還是會動,所以要在這裡明講擋掉,不是繞個彎湊巧擋住)。 */
   if(PLACE === 'massage') return;
+  /* 醫院(2026-09-02)——跟越式按摩同一個做法,整段是 playBeats() 鎖住輸入
+     的一次性演出,見上面「阿嬤在醫院」那則長筆記跟 scene-hospital.js
+     開頭的說明。 */
+  if(PLACE === 'hospital') return;
   /* 偷玩手遊小遊戲進行中(2026-08-31)——跟下面 ARCADE_ANIM 那段同精神,
      整段搶走輸入,每幀跑 tickPhoneGame() 算警示計時+重畫。 */
   if(PHONE_GAME.active){ tickPhoneGame(dt); IN.near = null; return; }
@@ -6667,6 +6715,7 @@ function warpIntoPlace(door){
     maybeTriggerStoryNode();
   }
   advanceTime(1);
+  checkGrandmaCall();
 }
 function enterIndoor(door){
   if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
@@ -6700,6 +6749,7 @@ function leaveIndoor(){
         toast(`你摸了一下口袋，錢包裡少了 $${amt}。\n你想起那天的事。`, 3800);
       }
     }
+    checkGrandmaCall();
   });
 }
 /* 約小美出去公園(2026-08-26,kc:「約他出去玩，直接跳轉到公園」)——跟
@@ -6776,6 +6826,7 @@ function enterBedroom(){
     IN.px = BEDROOM_WALK_TWEAK.spawnPx; IN.py = BEDROOM.walkS - 10; IN.face = 'F';
     document.getElementById('where').textContent = '房間';
     paintBedroomBackdrop();
+    checkGrandmaCall();
   });
 }
 function leaveBedroom(){
@@ -6785,6 +6836,7 @@ function leaveBedroom(){
     IN.px = 560; IN.py = HOME.walkS; IN.face = 'L';
     document.getElementById('where').textContent = '家';
     paintHomeBackdrop();
+    checkGrandmaCall();
   });
 }
 /* 教室 ⇄ 走廊(2026-08-28):跟客廳⇄房間同一套「兩個都算室內,只是 PLACE
@@ -6802,6 +6854,7 @@ function enterCorridor(){
        的時候發現「一進走廊就播」跟 home 那套「一進客廳就播」是同一招,
        不用另外攔在門的 click handler 裡,2026-09-01 定案接這裡。 */
     maybeTriggerStoryNode([['school', schoolStorySource([28])]]);
+    checkGrandmaCall();
   });
 }
 function leaveCorridorToClassroom(){
@@ -6812,6 +6865,7 @@ function leaveCorridorToClassroom(){
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
     maybeTriggerStoryNode([['school', schoolStorySource([5, 21])]], maybeAnnounceExam);
+    checkGrandmaCall();
   });
 }
 
@@ -6834,6 +6888,102 @@ const knownTruths = new Set();        // story-bet.js 的 TRUTHS 編號,目前�
  * 「原來是從你這裡」的反轉,不是新加的巧合。同一天發生兩次拒絕(理論上
  * 目前 bet 節點間隔至少 4 天,不會撞在一起)用累加、不是覆蓋,避免漏算。 */
 let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
+/* ===================================================================
+   阿嬤在醫院(2026-09-02,起案脈絡:kc「阿源找你幫忙(前提是你找過他)
+   然後準備要去撐場的時候接到醫院通知要趕去看阿嬤」)。
+   幾輪來回定案的樣子,跟第一版猜的不一樣,記清楚給下次改動的人看:
+   ① **不是阿源 vs 醫院的兩條內容分支**(kc 糾正:「這不是分支,是你可以
+      選擇要不要過去」)。傍晚固定時間點(見下面 GRANDMA_CALL_DAY/MINUTE)
+      跳出「現在去／不去」,跟阿源的「看場子」任務完全脫鉤——不去就是
+      正常過完這天剩下的行程,不寫任何「阿源那邊怎麼看你」的專屬反應,
+      會不會撞期純粹是體力/時間經濟自然算出來的結果,不用另外寫劇情。
+   ② **阿嬤這次真的走了,去不去都一樣、不可逆**(kc 拍板)——呼應
+      story-bet.js TRUTHS[4]「阿嬤走了以後,她沒有停」,這是那句話第一次
+      被搬到玩家眼前演出來,不再只是媽媽嘴裡的一句話。day18「她不來了」
+      那個既有節點沒有動,它很符合「阿嬤剛走,媽在迴避」的氣氛,不用重寫。
+   ③ **不管玩家人在哪都要追得到**(kc:「不要的話你就是正常去學校之類,
+      但傍晚還是會觸發」)——用既有的 day/minute 時鐘判斷,不開
+      setInterval。但沒有做成「每一幀都檢查」那麼激進:這個檔案裡有不少
+      toast→setTimeout→下一句對話的鏈式演出(worker 那段獨白、走失狗
+      送回刺青店、checkout 下班發薪...),鏈式演出中間常有一小段 busy/
+      dlg.on 都是 false 的空檔(跟 updateIndoor() 開頭『不能依賴 busy/
+      dlg.on 剛好全程是 true』那則筆記同一個坑),真的每幀檢查會有機率
+      在別的演出正在插播 toast 的空檔硬插進來搶對話框。改成只在幾個
+      「場景剛安頓好」的安全點呼叫 checkGrandmaCall()(進城市街道每幀、
+      warpIntoPlace()/leaveIndoor()/enterBedroom()/leaveBedroom()/
+      enterCorridor()/leaveCorridorToClassroom() 各自的 fade 回呼尾端)
+      ——玩家正常玩幾乎每次切場景都會經過這些點,不會感覺是「卡在等
+      什麼」,但避開了鏈式演出中間的空檔。
+   ④ **醫院那幕不能走動**(跟越式按摩室內同一套,`updateIndoor()` 開頭
+      直接 `if(PLACE==='hospital') return;`),見 scene-hospital.js
+      開頭的筆記。
+   日期(day16)、傍晚時間點(18:00)、體力代價(−30,經過 chg() 那條
+   「扣體力換算時間」規則會自動變成 150 分鐘)、去/不去的歸屬感增減都是
+   我自己選的參數,不喜歡跟我說一聲就改。 */
+const GRANDMA_CALL_DAY = 16, GRANDMA_CALL_MINUTE = 18*60;
+let hospitalCallFired = false;
+const GRANDMA = { dead:false, wentToSee:false };
+function checkGrandmaCall(){
+  if(hospitalCallFired || gameOver || busy || dlg.on) return;
+  if(day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= GRANDMA_CALL_MINUTE)){
+    hospitalCallFired = true;
+    triggerGrandmaCall();
+  }
+}
+function triggerGrandmaCall(){
+  say('pc', '手機震了一下。是媽打來的——阿嬤在醫院,狀況不太對,要人去。', () => {
+    openMenu('阿嬤在醫院', [
+      { label:'現在去', run: goToHospital },
+      { label:'不去', cls:'back', run: declineHospitalCall }
+    ]);
+  });
+}
+function declineHospitalCall(){
+  GRANDMA.dead = true;
+  chg('calm', -20);
+  toast('你沒有去。', 2800);
+}
+const HOSPITAL_GO_BEATS = [
+  { who:'pc',    text:'走廊很安靜,消毒水的味道很重。' },
+  { who:'pc',    text:'媽坐在椅子上,看到你只是點了點頭。' },
+  { who:'mom',   text:'「進去吧。」她的眼睛是腫的。' },
+  { who:'pc',    text:'病房裡,阿嬤還醒著。' },
+  { who:'granny',text:'「你來了啊。」她的聲音很小。' },
+  { who:'pc',    text:'你在床邊坐下,不知道該說什麼。' },
+  { who:'granny',text:'「有沒有吃飽。」她問的還是這句。' },
+  { who:'pc',    text:'你說有。' },
+  { who:'pc',    text:'她笑了一下,沒有再說話。' }
+];
+/* goToHospital() 只管扣代價+切場景,「切場景+講故事+離場」那段拆進
+   enterHospital(),跟 enterMassage() 同一個分工。 */
+function goToHospital(){
+  GRANDMA.dead = true; GRANDMA.wentToSee = true;
+  /* 體力最少留 1,不讓這筆扣款剛好把體力砍到 0——這是劇情事件,不該因為
+     玩家當下體力剛好見底就順便觸發 triggerGameOver('stamina') 那個泛用的
+     「你倒在路邊」死亡畫面,那句台詞跟這裡要演的東西完全對不上。
+     advanceTime 走 chg() 統一算,這裡不用另外呼叫。 */
+  chg('stamina', -Math.min(30, Math.max(0, ST.stamina - 1)));
+  if(MODE === 'city'){ returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z; }
+  enterHospital();
+}
+function enterHospital(){
+  busy = true;
+  fade('醫院', () => {
+    MODE = 'indoor';
+    PLACE = 'hospital';
+    document.getElementById('city').style.display = 'none';
+    wlabelsEl.style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    IN.px = 320; IN.py = 300; IN.face = 'F'; IN.near = null;
+    document.getElementById('where').textContent = '醫院';
+    hintEl.classList.remove('on');
+    paintHospitalBackdrop();
+    playBeats(HOSPITAL_GO_BEATS, 0, () => {
+      chg('calm', 10);
+      leaveIndoor();
+    });
+  });
+}
 /* 雜物(2026-08-21,kc:day3 硬碰硬選項要給一條塑膠項鍊)——`{name,icon,detail}`
  * 的純陣列,消費端是角色面板「雜物」分頁的 openInventory(),見那段筆記。 */
 const TRASH = [];
@@ -7189,6 +7339,9 @@ function updateCity(dt){
     hero.animate(dt, false, 1, false);
     return;
   }
+  /* 阿嬤在醫院的電話(2026-09-02)——只在「正常走在街上」的幀檢查(上面
+     兩段小遊戲搶輸入的分支已經 return 掉了,不會跑到這裡),見那則長筆記。 */
+  checkGrandmaCall();
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -7451,6 +7604,13 @@ function updateCity(dt){
       nearProp = { type:'motoboss', ref:MOTOBOSS };
     if(!nearProp && Math.hypot(pos.x-YUAN.x, pos.z-YUAN.z) < 3.2)
       nearProp = { type:'yuan', ref:YUAN };
+    /* 小胖(2026-09-02 第八輪)——之前完全沒有 nearProp 入口,靠近廟口的
+       自動觸發(checkFatArc(),見 updateCity() 那段)是唯一管道,kc 玩起來
+       抓到「對話不了」——他消失(FAT.gone)之後這裡直接不給互動提示,
+       跟阿源當兵/GONE 那批消失邏輯同一個「消失就是消失,不留一個空氣牆
+       提示」精神。 */
+    if(!nearProp && !FAT.gone && Math.hypot(pos.x-FAT.x, pos.z-FAT.z) < 3.2)
+      nearProp = { type:'fat', ref:FAT };
     /* 學校三人(2026-08-21)——固定站點,跟阿姨/阿成/阿源同一套,半徑用
        3.2(站在開闊草地上,不像攤位需要放寬)。 */
     if(!nearProp && Math.hypot(pos.x-MEI.x, pos.z-MEI.z) < 3.2)
@@ -7556,6 +7716,7 @@ function updateCity(dt){
                       : nearProp.type === 'fortune' ? '按 <b>空白鍵</b> 算一下'
                       : nearProp.type === 'motoboss' ? '按 <b>空白鍵</b> 找老闆'
                       : nearProp.type === 'yuan' ? '按 <b>空白鍵</b> 找阿源'
+                      : nearProp.type === 'fat' ? '按 <b>空白鍵</b> 找小胖'
                       : nearProp.type === 'mei' ? '按 <b>空白鍵</b> 找小美'
                       : nearProp.type === 'jiaoguan' ? '按 <b>空白鍵</b> 找教官'
                       : nearProp.type === 'aren' ? '按 <b>空白鍵</b> 找阿仁'
@@ -10002,6 +10163,7 @@ function interactProp(prop){
   if(prop.type === 'fortune'){ talkToFortune(); return; }
   if(prop.type === 'motoboss'){ talkToMotoBoss(); return; }
   if(prop.type === 'yuan'){ talkToYuan(); return; }
+  if(prop.type === 'fat'){ talkToFat(); return; }
   if(prop.type === 'mei'){ talkToMei(); return; }
   if(prop.type === 'jiaoguan'){ talkToJiaoguan(); return; }
   if(prop.type === 'aren'){ talkToAren(); return; }
@@ -10515,10 +10677,12 @@ window.__dbg = {
 };
 /* 廟口/公車站/阿霞那組測試按鈕(2026-08-31~09-01)2026-09-02 拿掉——
    kc:「下面的按鈕可以刪掉大部分了都完成了」,對應功能都已經定案收工,
-   #bar 換成現在還在測的「跳學校」(見上面 debugGotoTemple 那個位置改名
-   debugGotoSchool 的筆記)。底下 __dbg.callMoto()/axiaTestRide()/
-   axiaTestStop()/axiaReset() 這些邏輯本身沒刪,只是拿掉包成按鈕的那層,
-   之後真要現場測還是能透過 __dbg 呼叫。 */
+   #bar 換成現在還在測的「跳學校」(見上面那則位置改名 debugGotoSchool
+   的筆記)。底下 __dbg.callMoto()/axiaTestRide()/axiaTestStop()/
+   axiaReset() 這些邏輯本身沒刪,只是拿掉包成按鈕的那層,之後真要現場測
+   還是能透過 __dbg 呼叫。
+   ⚠ 「跳廟口」同一天第七輪又補回來了(小胖那輪要反覆驗證,見上面
+   debugGotoTemple),不要看到這則舊筆記就以為現在 #bar 沒有廟口按鈕。 */
 </script>
 </body>
 </html>
