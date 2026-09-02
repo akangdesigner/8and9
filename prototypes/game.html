@@ -3140,7 +3140,7 @@ function startWatchJob(){
     g.fillText('!', 32, 35);
     const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), depthTest:false }));
     spr.scale.set(1.1, 1.1, 1);
-    spr.position.set(0, 2.1, 0);
+    spr.position.set(0, PLAYER.height + 0.6, 0);   // 2026-09-02 第七輪修正:PLAYER.height 是 4.0(這套座標系不是真實公尺),原本寫死 2.1 只到胸口/腰際高度,見 kc 截圖
     spr.visible = false;
     hero.group.add(spr);
     WATCHJOB.exclaim = spr;
