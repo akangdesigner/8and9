@@ -2917,17 +2917,25 @@ const NPCS = [
     skin:'#d1a67e', shoe:'#2b2b2b',
     texRaw:{ skin:'char-fat-body-uv.png' }
   }),
+  /* 三個攤販朝向修正(2026-09-02,kc 看截圖抓到「攤位老闆要轉180度」,猜
+     「會不會是你南北定義錯」)——三個都原本寫 rotationY:Math.PI,在瀏覽器
+     console 直接把載入完成的模型即時改成 0 再截圖比對,三個都是 0 才會
+     面向鏡頭/客人(南、廟口路那側),Math.PI 是背對客人面向廟牆(北)——
+     不是南北定義整體錯,是這三個 rig('f'/'m3'/'m2')的 0 度朝向剛好跟
+     小胖(m7)/阿源(m)那次確認過的方向相反,當初這三攤是照著錯的假設抄
+     同一個 Math.PI,沒有個別驗證。小胖(m7)/阿源(m)那兩具當初有 kc 現場
+     核對過朝向是對的,這輪不動,只改這三攤。 */
   buildNPC(THREE, scene, {                             // 阿姨・50幾・鴨頭攤(原鹹酥雞攤,見上面 AYI 那則筆記)
-    x:AYI.x, z:AYI.z, rotationY:Math.PI, rig:'f',
+    x:AYI.x, z:AYI.z, rotationY:0, rig:'f',
     skin:'#c9a077', hair:'#2c2420',
     hood:'#5c4a3a', pants:'#333333', shoe:'#4a4038'
   }),
   buildNPC(THREE, scene, {                             // 阿成・40幾・乾麵攤(見上面 ACHENG 那則筆記),取代原本站這裡的路人佔位
-    x:ACHENG.x, z:ACHENG.z, rotationY:Math.PI, rig:'m3',
+    x:ACHENG.x, z:ACHENG.z, rotationY:0, rig:'m3',
     skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038'
   }),
   buildNPC(THREE, scene, {                             // 神棍・算命攤(見上面 FORTUNE 那則筆記),站在桌子後方
-    x:FORTUNE.x, z:FORTUNE.z, rotationY:Math.PI, rig:'m2',
+    x:FORTUNE.x, z:FORTUNE.z, rotationY:0, rig:'m2',
     /* 老人不用另外找骨架,灰髮就有長輩感(跟 scene-city3d.js RIGS 註解
        「查過 Mixamo,老人靠髮色/膚色調就好」同一套)。深紫長袖當長袍的
        替代色——這遊戲沒有另外做長袍版型,先用現有 m2 版型的顏色暗示
