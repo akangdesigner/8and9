@@ -7504,7 +7504,17 @@ const HOSPITAL_GO_BEATS = [
     ] } ] },
   { who:'granny',text:'「你小時候很挑食,現在還會不會這樣。」' },
   { who:'pc',    text:'你說不會了。' },
-  { who:'granny',text:'她笑了一下,眼睛瞇起來。「那就好。」' }
+  { who:'granny',text:'她笑了一下,眼睛瞇起來。「那就好。」' },
+  /* 2026-09-02 第十二輪,kc:「啊罵會塞給你五百元 叫你要好好念書之類的」
+     ——塞錢+念書那句是台灣阿嬤的經典動作,錢的金額直接照 kc 給的數字,
+     實際 chg('money',500) 放在 enterHospital() 最後那個 chg('calm',10)
+     旁邊一起結算(playBeats 陣列本身不方便中途插狀態變動,跟其他場景
+     「beats 播完才在 done 裡一次算清」同一個習慣,見那則筆記)。 */
+  { who:'granny',text:'她抖著手,從枕頭底下摸出一個信封。' },
+  { who:'granny',text:'「拿去,五百塊。」她硬塞進你手裡。' },
+  { who:'pc',    text:'「阿嬤,我不用⋯⋯」' },
+  { who:'granny',text:'「拿著。」她抓著你的手不放。「要好好念書,知不知道。」' },
+  { who:'pc',    text:'你點頭,把信封收進口袋。' }
 ];
 const HOSPITAL_LAST_WORDS_SAID = [
   { who:'granny', text:'她愣了一下,然後笑了,伸手拍了拍你的手背。' }
@@ -7546,7 +7556,8 @@ function enterHospital(){
         const said = text ? [{ who:'pc', text:'「'+text+'」' }].concat(HOSPITAL_LAST_WORDS_SAID) : HOSPITAL_LAST_WORDS_SILENT;
         playBeats(said.concat(HOSPITAL_CLOSING_BEATS), 0, () => {
           chg('calm', 10);
-          toast('（歸屬感 +10）', 2400);   // 補的,跟 declineHospitalCall() 那句同一個等級,見那則筆記
+          chg('money', 500);   // 阿嬤塞的五百塊,見 HOSPITAL_GO_BEATS 那則筆記
+          toast('（歸屬感 +10，$+500）', 2600);
           leaveIndoor();
         });
       });
