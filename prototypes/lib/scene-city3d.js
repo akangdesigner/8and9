@@ -2841,9 +2841,14 @@ export function buildCity(THREE, scene){
         /* hideNames(2026-09-02,功德箱用)——donation-box.glb(投票箱)原本
            插槽裡插了一張選票,kc:「上面的投票可以拿掉嗎」——console 現場
            查過 mesh 節點,四塊(Node-Mesh/_1/_2/_3)裡 Node-Mesh_3 頂點數
-           最少(24)、bounding box 最窄最高,是那張選票,其餘三塊是箱體
-           本身。不是刪節點(還要重新算 index/bounding),用 visible=false
-           最簡單。 */
+           最少(24)、bounding box 最窄最高,是那張選票,先藏了這塊。
+           ⚠ 第二輪,kc:「箱子上面還是有個怪東西欸」——Node-Mesh_2(984
+           頂點,四塊裡最複雜的一塊)是投票箱那個「插槽漏斗」的立體造型
+           (投票箱特有的斜切開口機構,功德箱沒有這種東西),藏掉選票之後
+           這塊漏斗本身還立在箱子上方,讀起來就是「怪東西」。一起藏掉,
+           剩下 Node-Mesh/_1 兩塊(箱體本體)——藏完是一個乾淨的平頂箱子,
+           沒有可見的投錢口,但這個距離/視角本來就看不出細節,乾淨箱型
+           讀起來已經夠像「功德箱」,不需要另外生一個洞。 */
         if(hideNames) model.traverse(o => { if(hideNames.includes(o.name)) o.visible = false; });
         add(model, x, tableTopY, z, false, false);
       }).catch(() => {});
@@ -2860,7 +2865,7 @@ export function buildCity(THREE, scene){
        同一排——這裡就是既有 ALTAR 選單/nearProp 講的「功德箱」那個互動
        點,擺近一點方便玩家找到。瘦高造型(Y 軸最長),鎖 y 撐大小,跟
        candelabra 同一個判斷。 */
-    placeAltarProp('donation-box.glb', 1, 'y', 0, z+16+1.3, 0x7a4a2a, Math.PI/2, ['Node-Mesh_3']);
+    placeAltarProp('donation-box.glb', 1, 'y', 0, z+16+1.3, 0x7a4a2a, Math.PI/2, ['Node-Mesh_2', 'Node-Mesh_3']);
     /* 香爐本身只是個素面碗,不管貼多真的圖或抓多細的模型,單一個碗形狀
        都讀不出「香爐」——真正讓人一眼認出來的是插著香的輪廓(細長桿+
        頂端一點紅光),不是碗,而且香要插在「裡面裝的東西」上,不能整支
