@@ -2492,7 +2492,7 @@ function checkFieldTrip(){
       if(cqi >= 0) ACTIVE_QUESTS.splice(cqi, 1);
       CLASSMATE_QUEST.active = false;
     }
-    ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'先去警局問問看' });
+    ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'老師叫你放學後去警察局做筆錄' });
     renderQuestPanel();
     const node = StorySchool.NODES.find(n => n.day === 18);
     playBeats(node.beats, 0, () => {
