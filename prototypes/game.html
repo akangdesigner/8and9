@@ -572,7 +572,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoClassFund()">跳班費事件</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1427,15 +1427,15 @@ window.debugGotoSchool = debugGotoSchool;
    小胖三個點。 */
 function debugGotoTemple(){ toast(__dbg.at(2, -95), 2000); }
 window.debugGotoTemple = debugGotoTemple;
-/* 跳班費事件按鈕(2026-09-02,kc:「我觸發不了欸 我不知道怎用」)——上一輪
-   我是自己在 console 打 debugSkipDays(15) 手動把 day 調到 18 再叫
-   __dbg.warp('school') 測出來的,講給 kc 聽的是這串操作,不是真的按鈕
-   (見自動記憶 feedback_no_console_commands_add_buttons,已經講過不只
-   一次不要再犯)。直接把 day 設回 18(story-school.js day18 那個
-   classFundQuest 節點),進教室就會自動觸發幹事懷疑那段開場,不用先跑
-   小美戀愛線或任何前置任務。 */
-function debugGotoClassFund(){ day = 18; syncHUD(); toast(__dbg.warp('school'), 2000); }
-window.debugGotoClassFund = debugGotoClassFund;
+/* +1天按鈕(2026-09-02,kc:「但我希望自然觸發 不然我不知道是不是卡bug」)——
+   上一輪補的「跳班費事件」按鈕直接把 day 寫死成 18,kc 不要這種「我幫你
+   把狀態喬好」的捷徑,他要看到事件是靠遊戲自己的天數機制走到、真的
+   觸發的,不是我用 debug 硬塞狀態(不然沒辦法分辨是「機制本身沒問題」
+   還是「被我的捷徑蓋過去了」)。拿掉那顆按鈕,補一顆最小粒度的
+   +1天(跟既有 +7天 同一個 debugSkipDays(),只是數字不同)——kc 自己
+   按 +7天 兩次(3→17)+1天 一次(17→18)就能用遊戲本來就有的天數
+   累加機制走到 day18,再進學校看事件是不是真的會跳出來,這樣才是
+   「自然觸發」,不是我事先寫死。 */
 /* 跳阿嬤那天按鈕(2026-09-02,kc:「不是早上起床 阿源會打電話來」糾正
    第一版——第一版直接跳到傍晚、跳過阿源那通早上電話,kc 要完整體驗
    一天,不要直接看結果)。改成跳到 day15 晚上,回家睡一覺自然醒來就是
@@ -2921,21 +2921,35 @@ function resolveWatchJob(success){
     if(success){ chg('money', 1000); chg('calm', 6); chg('mood', 8); }
     else { chg('money', -300); chg('calm', -6); chg('mood', -8); }
     toast(D.quiet, 3200);
-    /* 阿嬤那天(day16)回報成功的專屬收尾(2026-09-02,kc:「應該是回報
-       任務後 阿源要獎勵我帶我去吃飯 突然接到電話」)——阿源請吃飯當獎勵,
-       吃到一半接到醫院電話,直接呼叫 triggerGrandmaCall()(不等
-       checkGrandmaCall() 那批安全點的 18:00 門檻,這裡本身就是安全點:
-       playBeats 剛播完,dlg.on/busy 都是 false)。只在還沒觸發過那通電話
-       (!hospitalCallFired)才接,避免玩家先選了「不去」之後人還在街上
-       晃、晚點才順利回報成功,又重演一次同一通電話。設
-       hospitalCallFired=true 在先,擋掉之後每幀還在跑的安全點重複觸發。 */
-    if(success && day === GRANDMA_CALL_DAY && !hospitalCallFired){
+    /* 阿嬤那天(day16)回報後的專屬收尾(2026-09-02,kc:「應該是回報任務後
+       阿源要獎勵我帶我去吃飯 突然接到電話」+「失敗他會罵你 然後阿嬤電話
+       打來」)——成功/失敗都接,只是內容不同(請吃飯 vs 罵一頓),接完都
+       直接呼叫 triggerGrandmaCall()(不等 checkGrandmaCall() 那批安全點的
+       18:00 門檻,這裡本身就是安全點:playBeats 剛播完,dlg.on/busy 都是
+       false)。只在還沒觸發過那通電話(!hospitalCallFired)才接,避免玩家
+       先選了「不去」之後人還在街上晃、晚點才回報(不管成功失敗)又重演
+       一次同一通電話。設 hospitalCallFired=true 在先,擋掉之後每幀還在跑
+       的安全點重複觸發。
+       kc 另外要求「做完這個任務其他就要跳到五點多了」——顧場子這整段
+       (從接電話約好、實際出門盯梢、回報)花的時間目前完全沒反映在時鐘上
+       (盯梢/對話都不扣體力,不會經過 chg() 那條「扣體力換算時間」的
+       規則),回報完時鐘可能還停在剛出門那一刻。這裡補一個時間下限:
+       不夠 17:30 就直接跳到 17:30(自己選的「五點多」數字,不喜歡再調),
+       不會倒退(已經比 17:30 晚就不動)。 */
+    if(day === GRANDMA_CALL_DAY && !hospitalCallFired){
       hospitalCallFired = true;
-      setTimeout(() => playBeats([
+      if(minute < YUAN_WATCH_EVENING_MINUTE + 30) minute = YUAN_WATCH_EVENING_MINUTE + 30;
+      syncHUD();
+      const codaBeats = success ? [
         { who:'yuan', text:'「幹得好。」他笑了一下,難得的。' },
         { who:'yuan', text:'「走,請你吃飯。」' },
         { who:'pc',   text:'你們找了個路邊攤坐下,菜才上一半。' }
-      ], 0, triggerGrandmaCall), 2900);   // triggerGrandmaCall() 自己開頭就是「手機震了一下」,這裡不用重複講一次
+      ] : [
+        { who:'yuan', text:'「你是死人喔,人都走進去了才講。」' },
+        { who:'yuan', text:'他罵了幾句,轉身進去顧自己的場子。' },
+        { who:'pc',   text:'你站在原地,話都還沒說出口。' }
+      ];
+      setTimeout(() => playBeats(codaBeats, 0, triggerGrandmaCall), 2900);   // triggerGrandmaCall() 自己開頭就是「手機震了一下」,這裡不用重複講一次
     }
   });
 }
