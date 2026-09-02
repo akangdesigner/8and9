@@ -751,7 +751,7 @@ function maybeAnnounceExam(){
     say('teacher', '「你小考沒來考，這樣不行——禮拜五給我留下來補考。」');
     return;
   }
-  if(examAnnouncedDay < 0 && !owned.includes('transcript') && (day - lastExamDay) >= EXAM_COOLDOWN_DAYS){
+  if(examAnnouncedDay < 0 && !gotTranscript && (day - lastExamDay) >= EXAM_COOLDOWN_DAYS){
     examAnnouncedDay = day;
     say('teacher', '「下次上課要小考，自己看著辦。」');
     return;
