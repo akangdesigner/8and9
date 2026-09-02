@@ -7405,10 +7405,21 @@ function triggerGrandmaCall(){
     ]);
   });
 }
+/* 2026-09-02 第九輪,kc:「不去的話會有一個背景敘述 你想起從小到大只有
+   啊罵是真心疼你 之類的」——原本只有一句 toast「你沒有去」+扣歸屬感,
+   跟「去」那邊有一整串見面的戲比,分量差太多。補一小段自言自語,跟
+   HOSPITAL_GO_BEATS 同一個等級(對話框,不是 toast),不用開新場景。 */
+const HOSPITAL_DECLINE_BEATS = [
+  { who:'pc', text:'你沒有去。' },
+  { who:'pc', text:'你想起從小到大，好像只有阿嬤是真心疼你的那個。' },
+  { who:'pc', text:'但你還是沒有動身。' }
+];
 function declineHospitalCall(){
   GRANDMA.dead = true;
-  chg('calm', -20);
-  toast('你沒有去。', 2800);
+  playBeats(HOSPITAL_DECLINE_BEATS, 0, () => {
+    chg('calm', -20);
+    toast('（歸屬感 −20）', 2400);
+  });
 }
 const HOSPITAL_GO_BEATS = [
   { who:'pc',    text:'走廊很安靜,消毒水的味道很重。' },
@@ -7447,6 +7458,7 @@ function enterHospital(){
     paintHospitalBackdrop();
     playBeats(HOSPITAL_GO_BEATS, 0, () => {
       chg('calm', 10);
+      toast('（歸屬感 +10）', 2400);   // 補的,跟 declineHospitalCall() 那句同一個等級,見那則筆記
       leaveIndoor();
     });
   });
