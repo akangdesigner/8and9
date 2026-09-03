@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1480,6 +1480,31 @@ function debugFillFull(){
   toast('飽足感補滿了。', 2000);
 }
 window.debugFillFull = debugFillFull;
+/* 跳廟口/家裡/學校(2026-09-03,kc 再次要求——同一批按鈕 09-03 稍早才因為
+   「劇情測完了」被拿掉一次,見上面那則筆記,現在是新一輪測試又要用,
+   重新補回來。家/學校直接借 city.doors 走 __dbg.warp() 同一套邏輯
+   (瞬間傳送,略過走路+淡出動畫);廟口沒有門(是開放廣場,不在
+   city.doors 裡),另外寫一個瞬間切到城市模式+丟座標的版本,座標抓
+   AYI/ACHENG 兩尊 NPC 站的位置(-22/-13, z:-93.5)中間、稍微往南一點
+   (-17,-90),確定在廟埕範圍內、不會卡進他們身上。 */
+function debugWarpDoor(id){
+  const d = city.doors.find(x => x.id === id);
+  if(!d) return;
+  returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
+  warpIntoPlace(d);
+}
+function debugJumpHome(){ debugWarpDoor('home'); }
+function debugJumpSchool(){ debugWarpDoor('school'); }
+function debugJumpTemple(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(-17, .3, -90);
+}
+window.debugJumpHome = debugJumpHome;
+window.debugJumpSchool = debugJumpSchool;
+window.debugJumpTemple = debugJumpTemple;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -3199,8 +3224,13 @@ function resolveWatchJob(success){
    CLASSFUND.resolved==='exposed' 分支,跟廟口那批「這裡的人會消失」
    同一條規矩,不解釋、不哀悼,純粹從 nearProp 判斷裡拿掉互動點。 */
 const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false, gone:false, freeMassageOwed:false };
+/* rig 'f3'(Jody,2026-09-03)——原本借用 'f'(Sophie),跟「阿姨等背景
+   女性 NPC」共用同一副骨架,kc:「你能不能找到別的女生模型啊」,補一副
+   她專屬的(理由/候選見 MODELS.f3 那則長筆記),跟小美哥/旺鴻補 m5/m6
+   同一個精神。indoorScene 那具 workerIndoor(進按摩室內用)也一起換,
+   兩邊要是同一個人。 */
 const workerNPC = buildNPC(THREE, scene, {
-  x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:Math.PI*.4, rig:'f',
+  x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:Math.PI*.4, rig:'f3',
   skin:'#c9a077', hair:'#241f1c',
   hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
 });
@@ -5251,13 +5281,25 @@ function paintTattooBackdrop(){
     gbg.restore();
   }
 }
-/* 醫院(2026-09-02)——只有灰模,沒有照片版,直接畫 SceneHospital,跟
-   paintCorridorBackdrop() 同一招(沒有 img.complete 那段判斷)。 */
+/* 醫院照片版(2026-09-03,kc 生好圖回覆「這個圖片定案了」)——這幕本來就
+   不能走動、沒有 SPOTS/collider(見 scene-hospital.js 開頭說明),不用
+   像 home/tattoo 那樣連動換 collider 常數,單純圖片載入成功就畫照片、
+   否則退回灰模,跟 paintArcadeBackdrop() 同一招最簡版。阿嬤已經在這張
+   照片裡了,3D 玩家骨架改成不疊上去(見 renderIndoor3D() 那則筆記),
+   照片本身就是完整畫面。 */
+const hospitalRoomImg = new Image();
+hospitalRoomImg.onload = () => { paintHospitalBackdrop(); };
+hospitalRoomImg.src = '../assets/bg/hospital-room.png?v=1';
 function paintHospitalBackdrop(){
   gbg.clearRect(0,0,1280,720);
-  gbg.save(); gbg.scale(SC,SC);
-  SceneHospital.renderBackground(gbg, { vignette:true });
-  gbg.restore();
+  if(hospitalRoomImg.complete && hospitalRoomImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(hospitalRoomImg, 0,0,1280,720);
+  } else {
+    gbg.save(); gbg.scale(SC,SC);
+    SceneHospital.renderBackground(gbg, { vignette:true });
+    gbg.restore();
+  }
 }
 /* 遊藝場(2026-08-26 補照片版)——跟 paintSchoolBackdrop() 同一招,圖載入
    成功畫照片,否則退回灰模。 */
@@ -5379,12 +5421,13 @@ function tattooHeroPx(py){
 
 const heroIndoor = buildPlayer(THREE, indoorScene);
 /* 越式按摩室內的第二個角色(2026-08-20,kc:「那個人物模型要進來啊,
-   兩人要側身面對面講話」)——沿用巷子那位 workerNPC 一樣的配色(rig 'f',
-   見 ALLEY_WORKER 那段 buildNPC 呼叫)。跟 heroIndoor 一樣全域只建一次
-   (indoorScene 不是每次進場景才建,重新載入 glb 沒必要),平常不顯示,
-   只有 PLACE==='massage' 時在 renderIndoor3D() 裡打開 visible 並定位。 */
+   兩人要側身面對面講話」)——沿用巷子那位 workerNPC 一樣的配色(rig 'f3',
+   2026-09-03 起,見 ALLEY_WORKER 那段 buildNPC 呼叫旁邊的長筆記)。跟
+   heroIndoor 一樣全域只建一次(indoorScene 不是每次進場景才建,重新
+   載入 glb 沒必要),平常不顯示,只有 PLACE==='massage' 時在
+   renderIndoor3D() 裡打開 visible 並定位。 */
 const workerIndoor = buildNPC(THREE, indoorScene, {
-  rig:'f', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
+  rig:'f3', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
 });
 workerIndoor.group.visible = false;
 let MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
@@ -5446,8 +5489,12 @@ const TATTOO_MASTER_PX = 460, TATTOO_MASTER_PY = 300;
 function renderIndoor3D(dt){
   /* 讀書解題/偷玩手遊(2026-08-31,kc:「底圖直接換認真上課圖 所以真人3d
      會暫時消失 只留下選題目」)——底圖換成场景本身的特寫時,角色不該還
-     疊在上面,見 askStudyQuestion()/startPhoneGame() 那兩則筆記。 */
-  heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active);
+     疊在上面,見 askStudyQuestion()/startPhoneGame() 那兩則筆記。醫院
+     (2026-09-03,kc 看了生好的病房圖回覆「這個圖片定案了 不要放主角
+     直接對話即可」)——這張圖已經是定案的完整照片(阿嬤已經在圖裡),
+     3D 玩家骨架疊上去只會多一具人形穿模在畫面正中央,跟 studyTakeover
+     那條同一個道理,一併擋掉。 */
+  heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active || PLACE === 'hospital');
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
   heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : PLACE === 'store' ? storeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
@@ -11514,6 +11561,19 @@ window.__dbg = {
                    metalness: m.metalness, roughness: m.roughness
                  })) })); },
   leave(){ leaveIndoor(); },
+  /* 醫院場景只能靠傍晚電話劇情觸發(見 enterHospital()),平常沒有門可以
+     走進去——加這個純視覺預覽版本(不跑對話、不扣體力、不設 GRANDMA 旗標),
+     方便直接看背景美術,不用真的跑一輪劇情。 */
+  viewHospital(){
+    MODE = 'indoor'; PLACE = 'hospital';
+    document.getElementById('city').style.display = 'none';
+    wlabelsEl.style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    IN.px = 320; IN.py = 300; IN.face = 'F'; IN.near = null;
+    document.getElementById('where').textContent = '醫院';
+    paintHospitalBackdrop();
+    return MODE;
+  },
   setIndoor(px, py, face){ IN.px=px; IN.py=py; if(face) IN.face=face; },
   tick(dt){ renderIndoor3D(dt||16); renderIndoorForeground(); },   // 手動推進一幀,不用等 rAF,方便測室內位置
   heroIndoor, indoorScene, renderer3d, IN, paintStoreBackdrop, paintHomeBackdrop,

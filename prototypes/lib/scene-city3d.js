@@ -4014,7 +4014,34 @@ const MODELS = {
      `opts.texRaw`),鏡射會把這張圖切兩份疊起來,直接毀掉對齊。
      `Ch06_body1`(鞋子)維持素色,parts 改指到 'shoe' 不是 'hood'。 */
   m7: { idle:'base-human-m7-idle.glb', walk:'base-human-m7-walk.glb',
-        parts: { Ch06_body:'skin', Ch06_body1:'shoe', Ch06_eyelashes:'eyes' } }
+        parts: { Ch06_body:'skin', Ch06_body1:'shoe', Ch06_eyelashes:'eyes' } },
+  /* 2026-09-03,kc:「你能不能找到別的女生模型啊」——越式按摩那位
+     (game.html workerIndoor)原本借用 `f`(Sophie),跟「阿姨等背景女性
+     NPC」共用同一副,跟小美哥/旺鴻補 m5/m6 專屬骨架同一個理由(具名
+     角色不該跟背景路人共用)。Mixamo 搜 casual/girl 篩出三個候選,kc
+     說「先換好 然後三個都下載 才可以自由換路人」——三副都轉檔收進
+     registry,`workerIndoor` 這輪先接 f3(Jody,理由見下面),f4/f5
+     留著給以後路人湊數用,不是白下載。
+     三副都是分件乾淨的拓樸(Body/Shirt/Pants/Shoes/Hair/Eyelashes 各自
+     獨立 mesh 節點,不是 kid/Ortiz 那種單一合併 mesh),換色不會踩到
+     「一顆 mesh 分不開」的坑。 */
+  f3: { idle:'base-human-f3-idle.glb', walk:'base-human-f3-walk.glb',
+        /* Jody——kc 挑的是頭髮色調最接近既有 worker-portrait.png 大頭貼
+           的一個(深色短髮,其餘兩個 Elizabeth 捲髮/Kate 金髮色差更大)。
+           臉本身沒辦法照大頭貼客製,Mixamo 角色的臉是固定的。Ch37_Zipper
+           是外套拉鍊那塊小裝飾,沒有獨立衣服區域可以對應,疊到 hood 色
+           跟著外套一起染,不留白。 */
+        parts: { Ch37_Body:'skin', Ch37_Shirt:'hood', Ch37_Zipper:'hood',
+                  Ch37_Pants:'pants', Ch37_Sneakers:'shoe',
+                  Ch37_Hair:'hair', Ch37_Eyeleashes:'eyes' } },
+  f4: { idle:'base-human-f4-idle.glb', walk:'base-human-f4-walk.glb',
+        /* Elizabeth——備用,先轉檔收著,還沒接到任何角色身上。 */
+        parts: { Ch26_Body:'skin', Ch26_Shirt:'hood', Ch26__Pants:'pants',
+                  Ch26_Heels:'shoe', Ch26_Hair:'hair', Ch26_Eyelashes:'eyes' } },
+  f5: { idle:'base-human-f5-idle.glb', walk:'base-human-f5-walk.glb',
+        /* Kate——備用,先轉檔收著,還沒接到任何角色身上。 */
+        parts: { Ch21_Body:'skin', Ch21_Shirt:'hood', Ch21_Pants:'pants',
+                  Ch21_Shoes:'shoe', Ch21_Hair:'hair', Ch21_Eyelasshes:'eyes' } }
 };
 
 /* 快取:每個 glb 只 fetch+parse 一次,buildPlayer 跟 buildNPC(2026-08-12 起
