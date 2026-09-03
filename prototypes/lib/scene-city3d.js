@@ -2646,10 +2646,18 @@ export function buildCity(THREE, scene){
        黑色面板退到牆裡面 HOLE_DEPTH(接近 richStoreFront 那套真的洞的
        深度量級),門片留在洞口附近,深度分開了才讀得出「這是洞,不是另
        一片板子」。 */
+    /* 第四輪,kc:「原本的牆壁是一個正方體 所以你需要挖洞進去 做不到也
+       很簡單 針對門的地方再貼一張沒有厚度的純黑紙就可以了」——牆本身是
+       alley() 蓋的一整塊實心箱體,沒有真的挖穿(three.js 沒有現成的
+       CSG 布林運算,真的要挖要把牆拆成好幾塊箱體繞開洞口,成本高很多)。
+       採 kc 給的簡單解法:不用箱體,退進牆裡的位置改貼一張零厚度的
+       PlaneGeometry(沒有側面/邊緣可以被誤讀成「另一塊板子」),法向
+       朝走道(-side 方向),兩面都上色(DoubleSide)保險。 */
     const HOLE_DEPTH = 1.1;
-    const dark = std({ color:0x050505, roughness:.95 });
-    const cavityFaces = Array.from({length:6}, (_,i) => i===mainIdx ? dark : M.recess);
-    add(box(RECESS, DH, DW, cavityFaces), innerX + side*HOLE_DEPTH, DH/2, sz, false, true);
+    const dark = std({ color:0x050505, roughness:.95, side:THREE.DoubleSide });
+    const holePlane = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), dark);
+    holePlane.rotation.y = -side * Math.PI/2;
+    add(holePlane, innerX + side*HOLE_DEPTH, DH/2, sz, false, false);
     const fm = frameMaterial(THREE);
     /* 第三輪,kc:「還是有鐵門 要刪掉」——上面那塊「門框」原本是一整塊
        實心薄板(`box(.16, DH+.3, DW+.3, fm)`),尺寸幾乎跟門洞一樣大,
