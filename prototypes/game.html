@@ -3253,10 +3253,15 @@ const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:fals
    她專屬的(理由/候選見 MODELS.f3 那則長筆記),跟小美哥/旺鴻補 m5/m6
    同一個精神。indoorScene 那具 workerIndoor(進按摩室內用)也一起換,
    兩邊要是同一個人。 */
+/* stillFace(2026-09-03,kc:「人物動作完全都沒有站姿」)——跟工地老闆
+   同一個開關(見 buildNPC() opts.stillFace 那則筆記),連著頭一起釘死,
+   不玩 idle 動畫也不玩 glance/sway,骨架定格在 Breathing Idle 播放的
+   第一格站姿。光明巷這三個 + 室內 workerIndoor 都要一起加,不然街上/
+   室內表現不一致。 */
 const workerNPC = buildNPC(THREE, scene, {
   x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:-Math.PI/2, rig:'f3',
   skin:'#c9a077', hair:'#241f1c',
-  hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
+  hood:'#7a2f45', pants:'#232323', shoe:'#3a3430', stillFace:true
 });
 NPCS.push(workerNPC);
 /* 嫖客:單純站在旁邊撐場面(kc:「也有嫖客」),沒有互動,只是讓這條巷子
@@ -3283,13 +3288,13 @@ NPCS.push(clientNPC);
 const alleyWorker2 = buildNPC(THREE, scene, {
   x:-26.4, z:-30, rotationY:Math.PI/2, rig:'f4',
   skin:'#c9a077', hair:'#2a1f1a',
-  hood:'#3a5f52', pants:'#26241f', shoe:'#3a3430'
+  hood:'#3a5f52', pants:'#26241f', shoe:'#3a3430', stillFace:true
 });
 NPCS.push(alleyWorker2);
 const alleyWorker3 = buildNPC(THREE, scene, {
   x:-21.6, z:-50, rotationY:-Math.PI/2, rig:'f5',
   skin:'#d1a67e', hair:'#c9a24a',
-  hood:'#4a3a5f', pants:'#2b2b2b', shoe:'#3a3430'
+  hood:'#4a3a5f', pants:'#2b2b2b', shoe:'#3a3430', stillFace:true
 });
 NPCS.push(alleyWorker3);
 
@@ -5125,6 +5130,56 @@ function tweakMassageScenePanel(){
     });
   });
 }
+/* 光明巷三個女性 NPC 位置/朝向滑桿(2026-09-03,kc:「開滑桿給我」)——
+   跟上面 tweakMassageScenePanel 那組不同物件:這組調的是 3D 街景裡
+   workerNPC/alleyWorker2/alleyWorker3 三具骨架本身的 x/z/朝向,不是室內
+   2D 場景。直接改 group.position(buildNPC() 回傳的 group 是掛在 scene
+   底下的外層容器)+呼叫 setFacing()(改的是 animate() 每幀寫回的
+   baseRotationY,見 scene-city3d.js buildNPC() setFacing 那則筆記,不能
+   直接改 group.rotation.y,那層會被每幀蓋掉)。rotationY 沒有 getter 可讀
+   回目前值,用這個物件自己存一份當滑桿初始值的來源,跟三具角色宣告時給的
+   初始 rotationY 對齊。 */
+const ALLEY_TWEAK = {
+  w1x:ALLEY_WORKER.x, w1z:ALLEY_WORKER.z, w1r:-Math.PI/2,
+  w2x:-26.4, w2z:-30, w2r:Math.PI/2,
+  w3x:-21.6, w3z:-50, w3r:-Math.PI/2
+};
+function tweakAlleyWorkersPanel(){
+  const old = document.getElementById('alleyWorkersTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['aw_w1x','工作者 X', -30, -18, .1, 'w1x', workerNPC],
+    ['aw_w1z','工作者 Z', -56, -28, .1, 'w1z', workerNPC],
+    ['aw_w1r','工作者 朝向(弧度)', -3.2, 3.2, .05, 'w1r', workerNPC],
+    ['aw_w2x','背景1 X', -30, -18, .1, 'w2x', alleyWorker2],
+    ['aw_w2z','背景1 Z', -56, -28, .1, 'w2z', alleyWorker2],
+    ['aw_w2r','背景1 朝向(弧度)', -3.2, 3.2, .05, 'w2r', alleyWorker2],
+    ['aw_w3x','背景2 X', -30, -18, .1, 'w3x', alleyWorker3],
+    ['aw_w3z','背景2 Z', -56, -28, .1, 'w3z', alleyWorker3],
+    ['aw_w3r','背景2 朝向(弧度)', -3.2, 3.2, .05, 'w3r', alleyWorker3]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'alleyWorkersTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:260px;box-shadow:0 4px 20px #000a;max-height:90vh;overflow-y:auto';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">光明巷三人位置/朝向滑桿</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${ALLEY_TWEAK[key].toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${ALLEY_TWEAK[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakAlleyWorkers()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,key,npc]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value;
+      ALLEY_TWEAK[key] = v;
+      document.getElementById(`${id}_v`).textContent = v.toFixed(2);
+      if(key.endsWith('x')) npc.group.position.x = v;
+      else if(key.endsWith('z')) npc.group.position.z = v;
+      else npc.setFacing(v);
+    });
+  });
+}
 /* 小看板(路線圖/時刻表/路線號碼/公益廣告)大小/間距/高度滑桿(2026-09-01,
    kc:「讓我調整小看板」)——調的是 `busStopRef.boardMeshes`(4 個 mesh,
    各自記了相對 boardsCenterX 的基準 dx/baseY/baseZ),縮放用 mesh.scale,
@@ -5475,7 +5530,7 @@ const heroIndoor = buildPlayer(THREE, indoorScene);
    載入 glb 沒必要),平常不顯示,只有 PLACE==='massage' 時在
    renderIndoor3D() 裡打開 visible 並定位。 */
 const workerIndoor = buildNPC(THREE, indoorScene, {
-  rig:'f3', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
+  rig:'f3', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430', stillFace:true
 });
 workerIndoor.group.visible = false;
 let MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
@@ -11646,6 +11701,7 @@ window.__dbg = {
   tweakPassengerSeat: tweakPassengerSeatPanel,
   tweakMassageDoor: tweakMassageDoorPanel,
   tweakMassageScene: tweakMassageScenePanel,
+  tweakAlleyWorkers: tweakAlleyWorkersPanel,
   /* 阿霞後座測試開關(2026-09-01)——不用真的滿足「有機車+騎車經過她」
      這串前置條件就能現場測後座位置,跟 troupeTest()/spotWatchJob() 同一
      個理由。 */
