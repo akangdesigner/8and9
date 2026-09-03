@@ -11154,14 +11154,29 @@ function talkToMotoBoss(){
    擋掉,不是每次進店都能再選一次,也不是消耗品)。cost/cool/star 三個
    數字是我先抓的,沒跟 kc 對過,拉滿意再說。 */
 const MOTO_MOD_COST = 1200, MOTO_MOD_COOL = 15, MOTO_MOD_STAR = -8;
+/* 改車補一段老闆對話(2026-09-03,kc:「改管太少了啦 應該會有一段老闆的
+   對話之類比如勸你還是要學好」)——原本選了直接扣錢生效,一句 toast 帶過,
+   太單薄。補一段 playBeats() 多句對話,接回他自己的底(見上面「舊剪報
+   揭露」那段劇情——他年輕時混過收保護費,蹲過幾年才開這間店),勸你的
+   話不是空泛說教,是他自己走過那條路的真心話;講完還是尊重玩家決定
+   (「你的車,你決定」),不是硬攔下來不讓你改——這遊戲的基準線是「不
+   站在角色對立面說教」,老闆勸歸勸,最後選擇權還是在玩家。讀完對話才
+   真的扣錢生效。 */
 function offerMotoMod(m){
   openMenu('機車行', [
     { label:'改車(排氣管+外觀)', cost:'$'+MOTO_MOD_COST, cls: ST.money<MOTO_MOD_COST?'bad':'',
       run(){
         if(ST.money < MOTO_MOD_COST){ toast('錢不夠,老闆搖搖頭。', 2000); return; }
-        chg('money', -MOTO_MOD_COST); chg('cool', MOTO_MOD_COOL); chg('star', MOTO_MOD_STAR);
-        m.modded = true;
-        toast('排氣管換了一支更響的,車身也貼了幾張貼紙——騎出去回頭率不一樣了,但這麼吵，遲早被人盯上。（帥潮 +' + MOTO_MOD_COOL + '／風評 ' + MOTO_MOD_STAR + '）', 3600);
+        playBeats([
+          { who:'motoboss', text:'他停下手上的動作,看了你一眼。' },
+          { who:'motoboss', text:'「改是可以改,但排氣管這麼吵,警察一定會盯上你。」' },
+          { who:'motoboss', text:'「我以前也覺得這種東西耍帥,結果差點賠上一輩子。」' },
+          { who:'motoboss', text:'「你要學好,其實比較划算。」他頓了一下。「不過,你的車,你決定。」' }
+        ], 0, () => {
+          chg('money', -MOTO_MOD_COST); chg('cool', MOTO_MOD_COOL); chg('star', MOTO_MOD_STAR);
+          m.modded = true;
+          toast('排氣管換了一支更響的,車身也貼了幾張貼紙——騎出去回頭率不一樣了,但這麼吵，遲早被人盯上。（帥潮 +' + MOTO_MOD_COOL + '／風評 ' + MOTO_MOD_STAR + '）', 3600);
+        });
       } },
     { label:'不用了', cls:'back', run(){} }
   ]);
