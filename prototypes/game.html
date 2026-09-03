@@ -524,7 +524,7 @@
       <div class="invCol invMid">
         <div class="equipBadges" id="equipLeft"></div>
         <img id="invPortrait" src="../assets/bg/pc-fullbody.png?v=1" alt=""
-             onerror="this.onerror=null; this.src='../assets/bg/pc-portrait.png?v=1';">
+             onerror="this.onerror=null; this.src='../assets/bg/pc-portrait.png?v=2';">
         <div class="equipBadges" id="equipRight"></div>
       </div>
       <div class="invCol invRight">
@@ -1726,42 +1726,42 @@ const WHO = {
    `SF.person()` 像素小人。**PORTRAIT_IMGS 集中管理**,不要再一個角色一個
    if/else 分支——加新角色的照片只要在這個表加一行。 */
 const PORTRAIT_IMGS = {
-  clerk:  loadPortraitImg('../assets/bg/clerk-portrait.png?v=2'),
-  pc:     loadPortraitImg('../assets/bg/pc-portrait.png?v=1'),
-  mom:    loadPortraitImg('../assets/bg/mom-portrait.png?v=1'),
-  dad:    loadPortraitImg('../assets/bg/dad-portrait.png?v=1'),
+  clerk:  loadPortraitImg('../assets/bg/clerk-portrait.png?v=3'),
+  pc:     loadPortraitImg('../assets/bg/pc-portrait.png?v=2'),
+  mom:    loadPortraitImg('../assets/bg/mom-portrait.png?v=2'),
+  dad:    loadPortraitImg('../assets/bg/dad-portrait.png?v=2'),
   /* worker/acheng(2026-08-20)——廟口真人頭像這輪的前兩張,阿源/阿姨
      還沒生,那兩個 key 沒進這個表之前 drawPortrait() 會自動退回
      SF.person() 像素小人(既有 fallback,不會壞)。 */
-  worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=2'),
-  acheng: loadPortraitImg('../assets/bg/acheng-portrait.png?v=2'),
-  ayi:    loadPortraitImg('../assets/bg/ayi-portrait.png?v=1'),
-  yuan:   loadPortraitImg('../assets/bg/yuan-portrait.png?v=2'),
+  worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=3'),
+  acheng: loadPortraitImg('../assets/bg/acheng-portrait.png?v=3'),
+  ayi:    loadPortraitImg('../assets/bg/ayi-portrait.png?v=2'),
+  yuan:   loadPortraitImg('../assets/bg/yuan-portrait.png?v=3'),
   /* 學校三人(2026-08-24)——先試過拿 3D 模型近拍當大頭貼,kc 抓到「沒有
      眼球」(骨架轉檔時原廠臉部貼圖被剝掉,只剩 Eyelashes 那個獨立 mesh,
      見跟 kc 的對話紀錄),改回跟店員/爸媽同一套 AI 生真人照片。阿仁刻意
      生成光頭,呼應他在遊戲裡本來就是禿頭(骨架 m3/Brian 沒有 Hair mesh),
      不是巧合。 */
-  mei:    loadPortraitImg('../assets/bg/mei-portrait.png?v=2'),
-  aren:   loadPortraitImg('../assets/bg/aren-portrait.png?v=1'),
-  kai:    loadPortraitImg('../assets/bg/kai-portrait.png?v=1'),
+  mei:    loadPortraitImg('../assets/bg/mei-portrait.png?v=3'),
+  aren:   loadPortraitImg('../assets/bg/aren-portrait.png?v=2'),
+  kai:    loadPortraitImg('../assets/bg/kai-portrait.png?v=2'),
   /* 刺青店老闆(2026-08-28)——kc 丟的真人照片,跟 tattooMasterIndoor 那具
      3D 骨架配色是同一個人設定(見那則筆記),之前對話框一直退回
      SF.person() 像素小人 fallback,這輪補真的照片。 */
-  tattooMaster: loadPortraitImg('../assets/bg/tattooMaster-portrait.png?v=1'),
+  tattooMaster: loadPortraitImg('../assets/bg/tattooMaster-portrait.png?v=2'),
   /* 工地老闆(2026-08-28)——kc 丟的照片背景其實是張很淺的棋盤格透明示意圖
      (不是真的 alpha,PIL 讀出來是 RGB 不是 RGBA),直接貼上去對話框會看到
      一整片淺灰棋盤格。用 white-to-alpha.py(閾值 225,棋盤格兩種灰階都夠
      亮,擋得掉,又不會咬到安全帽的黃)去背,不是這裡才第一次踩到「AI
      生圖工具自己的透明示意畫面被存成真的像素」這個坑,以後遇到同款
      棋盤格背景圖都可以先試同一支腳本。 */
-  foreman: loadPortraitImg('../assets/bg/foreman-portrait.png?v=1'),
+  foreman: loadPortraitImg('../assets/bg/foreman-portrait.png?v=2'),
   /* 阿正(2026-08-31)——先接資料,照片還沒生,跟 worker/bo/motoboss/foreman
      當初同一套先例:檔案還沒存在時 img.naturalWidth 是 0,drawPortrait()
      自動退回 SF.person() 像素小人,不會壞,kc 丟真的照片進來對話框會
      自動換上,不用再回來改這裡。生圖 prompt 見這輪聊天紀錄,沒有寫進
      PROMPTS.md(見 feedback_prompts_in_chat_not_md 那條慣例)。 */
-  brother: loadPortraitImg('../assets/bg/brother-portrait.png?v=1')
+  brother: loadPortraitImg('../assets/bg/brother-portrait.png?v=2')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
