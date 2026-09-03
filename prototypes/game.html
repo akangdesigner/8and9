@@ -11183,9 +11183,25 @@ let shopMoto = null;
    offerBuyMoto()「我要買車/算了」→ offerMotoPayment()「直接付款/分期
    付款/算了」→ offerMotoColor()「12 色任選」,選色完成才真的現生車+
    mountMoto() 騎走。 */
+/* 過渡對話(2026-09-03,kc:「老闆會有過度對話啊 唷 年紀輕輕就要買車唷
+   要買哪種顏色 類似這種」)——原本選單跳選單全程沒人開口,選了「我要
+   買車」直接彈付款方式、付完錢直接彈選色,冷冰冰。兩個轉場點各補一句
+   老闆的反應,借 say() 開對話框(跟聊天/劇情同一套,不是 toast),玩家
+   按空白鍵讀完才繼續跳下一層選單——跟其他角色 talk[] 池同一個「兩句輪流
+   別每次都一樣」的做法,不是新開一套系統。 */
+const MOTOBOSS_BUY_LINES = [
+  '「唷,年紀輕輕就要買車了唷?」他抬頭看你一眼,又低下頭繼續轉螺絲。',
+  '「要買車喔——行,錢帶夠了嗎?」'
+];
+const MOTOBOSS_COLOR_LINES = [
+  '「要選什麼顏色?」',
+  '「顏色自己挑,挑完別後悔。」'
+];
 function offerBuyMoto(){
   openMenu('機車行', [
-    { label:'我要買車', run(){ offerMotoPayment(); } },
+    { label:'我要買車', run(){
+        say('motoboss', MOTOBOSS_BUY_LINES[Math.random()*MOTOBOSS_BUY_LINES.length|0], () => offerMotoPayment());
+      } },
     { label:'算了', cls:'back', run(){} }
   ]);
 }
@@ -11206,7 +11222,7 @@ function offerMotoPayment(){
         if(ST.money < price){ toast('錢不夠,老闆看了你一眼。', 2000); return; }
         chg('money', -price);
         toast(discount ? '「你這個人可以,算你便宜一點。」' : '「錢收到了。」', 2000);
-        offerMotoColor();
+        say('motoboss', MOTOBOSS_COLOR_LINES[Math.random()*MOTOBOSS_COLOR_LINES.length|0], () => offerMotoColor());
       } },
     { label:'分期付款', cost: busyLoan ? '上一台還沒繳完,不能再分期' : '訂金 $'+down+'　尾款分 6 週還',
       cls: (busyLoan || ST.money<down) ? 'bad' : '',
@@ -11219,7 +11235,7 @@ function offerMotoPayment(){
         MOTO_LOAN.weekly = weekly;
         MOTO_LOAN.nextDueDay = day + 7;
         toast('訂金付了——尾款收據收好,以後每週回家睡覺會自動扣一次。', 2800);
-        offerMotoColor();
+        say('motoboss', MOTOBOSS_COLOR_LINES[Math.random()*MOTOBOSS_COLOR_LINES.length|0], () => offerMotoColor());
       } },
     { label:'算了', cls:'back', run(){} }
   ]);
