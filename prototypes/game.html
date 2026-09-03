@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugFieldTrip()">跳校外教學</button><button class="tool" onclick="debugGotoPolice()">跳警局</button><button class="tool" onclick="debugGotoAlley()">跳巷子</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoGrandmaAfternoon()">跳五點</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugGotoSchool()">跳學校</button><button class="tool" onclick="debugGotoTemple()">跳廟口</button><button class="tool" onclick="debugGotoGrandmaDay()">跳阿嬤那天</button><button class="tool" onclick="debugGotoGrandmaAfternoon()">跳五點</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1471,74 +1471,12 @@ window.debugGotoSchool = debugGotoSchool;
    小胖三個點。 */
 function debugGotoTemple(){ toast(__dbg.at(2, -95), 2000); }
 window.debugGotoTemple = debugGotoTemple;
-/* 跳校外教學按鈕(2026-09-02 第十輪,kc:「幫我加專屬按鈕」)——這次是
-   kc 自己開口要專屬按鈕,跟上面 +1天 那則筆記講的「不要 debug 硬塞狀態」
-   不衝突:那次是我自己主動要幫他省麻煩、他嫌蓋掉了「自然觸發」的驗證
-   意義;這次是他直接下指令要一顆按鈕,不是我猜的捷徑。
-   把 day 寫死成 18、清乾淨 CLASSFUND/CLASSMATE_QUEST 兩組狀態跟任務面板
-   殘留(同一次分頁裡重複點測,不重新整理也不會卡到上一輪留下的旗標,
-   跟 debugGotoGrandmaDay() 那則筆記同一個理由),再呼叫 checkFieldTrip()
-   讓它照正常那套邏輯播第一階段(老師宣布校外教學、warp 去廟口、搬同學
-   過去)——跟真的用 +7天/+1天/跳學校 湊到 day18 再走進教室是同一條路徑,
-   只是把「湊天數」這步跳過,後面播的內容完全一樣。 */
-function debugFieldTrip(){
-  day = 18;
-  CLASSFUND.tripStarted = false; CLASSFUND.active = false;
-  CLASSFUND.askedBrother = false; CLASSFUND.foundEvidence = false;
-  CLASSFUND.toldByFat = false; CLASSFUND.confirmedByMaster = false; CLASSFUND.resolved = null;
-  CLASSMATE_QUEST.active = false; CLASSMATE_QUEST.talkedMei = false; CLASSMATE_QUEST.talkedAren = false;
-  CLASSMATE_QUEST.talkedKai = false; CLASSMATE_QUEST.allTalked = false; CLASSMATE_QUEST.resolved = false;
-  moveClassmatesHome();
-  for(const qid of ['classmate', 'classfund']){
-    const qi = ACTIVE_QUESTS.findIndex(q => q.id === qid); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
-  }
-  renderQuestPanel();
-  syncHUD();
-  checkFieldTrip();
-}
-window.debugFieldTrip = debugFieldTrip;
-/* 跳警局按鈕(2026-09-02,kc:「假設我們已經去過校外教學了 我要準備做
-   筆錄」)——直接假設校外教學/指控那段已經播完(CLASSFUND.active=true、
-   askedBrother 重置回 false),不用重新玩一次 debugFieldTrip() 那整段
-   再走回教室,省下前面已經測過的部分,直接測「去警局跟阿正做筆錄」
-   這一步。跟 debugFieldTrip() 同一個理由清乾淨殘留狀態,任務面板補上
-   跟 checkFieldTrip() 第二階段一樣的 classfund 卡片文字。 */
-function debugGotoPolice(){
-  day = 18;
-  CLASSFUND.tripStarted = true; CLASSFUND.active = true;
-  CLASSFUND.askedBrother = false; CLASSFUND.foundEvidence = false;
-  CLASSFUND.toldByFat = false; CLASSFUND.confirmedByMaster = false; CLASSFUND.resolved = null;
-  CLASSMATE_QUEST.active = false; CLASSMATE_QUEST.talkedMei = false; CLASSMATE_QUEST.talkedAren = false;
-  CLASSMATE_QUEST.talkedKai = false; CLASSMATE_QUEST.allTalked = false; CLASSMATE_QUEST.resolved = false;
-  moveClassmatesHome();
-  const cqi = ACTIVE_QUESTS.findIndex(q => q.id === 'classmate'); if(cqi >= 0) ACTIVE_QUESTS.splice(cqi, 1);
-  const fqi = ACTIVE_QUESTS.findIndex(q => q.id === 'classfund');
-  if(fqi >= 0) ACTIVE_QUESTS.splice(fqi, 1);
-  ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'老師叫你放學後去警察局做筆錄' });
-  renderQuestPanel();
-  syncHUD();
-  toast(__dbg.at(BROTHER.x, BROTHER.z + 3), 2000);
-}
-window.debugGotoPolice = debugGotoPolice;
-/* 跳巷子按鈕(2026-09-02,kc:「幫我傳過去測試」)——直接假設班費案已經
-   查到最後一步(阿正問過、供桌翻過、小胖指過、師傅也確認過),讓 kc
-   直接測剛改好的三輪逼問對質,不用整條案子重查一次。跟 debugGotoPolice()
-   同一個理由,warp 到 ALLEY_WORKER 座標前方 3 格,不疊在同一點。 */
-function debugGotoAlley(){
-  day = 18;
-  CLASSFUND.tripStarted = true; CLASSFUND.active = true;
-  CLASSFUND.askedBrother = true; CLASSFUND.foundEvidence = true;
-  CLASSFUND.toldByFat = true; CLASSFUND.confirmedByMaster = true;
-  CLASSFUND.resolved = null;
-  ALLEY_WORKER.gone = false;
-  const fqi = ACTIVE_QUESTS.findIndex(q => q.id === 'classfund');
-  if(fqi >= 0) ACTIVE_QUESTS.splice(fqi, 1);
-  ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'去巷子找她問清楚' });
-  renderQuestPanel();
-  syncHUD();
-  toast(__dbg.at(ALLEY_WORKER.x, ALLEY_WORKER.z + 3), 2000);
-}
-window.debugGotoAlley = debugGotoAlley;
+/* 班費失竊那組專屬 debug 按鈕(跳校外教學/跳警局/跳巷子)2026-09-03
+   拿掉了(kc:「底下一些奇怪的跳任務按鈕整理一下」)——這條任務(校外
+   教學→警局→廟口→小胖→刺青店→巷子對質→還給老師)整條已經在瀏覽器裡
+   完整測過好幾輪,四種結局分支(揭發/放過各自的教師對質)都驗證過,
+   不用再留專屬捷徑。跟「跳學校」按鈕那則舊筆記同一個收尾邏輯:功能
+   定案收工,對應的測試按鈕就跟著拿掉,不要放著長期占位。 */
 /* +1天按鈕(2026-09-02,kc:「但我希望自然觸發 不然我不知道是不是卡bug」)——
    上一輪補的「跳班費事件」按鈕直接把 day 寫死成 18,kc 不要這種「我幫你
    把狀態喬好」的捷徑,他要看到事件是靠遊戲自己的天數機制走到、真的
