@@ -2677,6 +2677,24 @@ export function buildCity(THREE, scene){
     const holePlane = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), dark);
     holePlane.rotation.y = -side * Math.PI/2;
     add(holePlane, innerX + side*HOLE_DEPTH, DH/2, sz, false, false);
+    /* 第七輪,kc:「給我提示詞我去生圖好了 做成凹進去的嘿嘿感」——沒圖
+       之前維持純黑(MeshBasicMaterial 不吃光,上面第六輪那則筆記),圖
+       生完直接放 assets/tex/shop-massage.png 就會自動接上,不用再改
+       程式。裁切邏輯跟 shopFront()/signImage() 同一套(依實際門片寬高
+       比 DW/DH 置中裁切,不拉伸),套圖後材質顏色要轉白(MeshBasicMaterial
+       的 color 跟 map 是相乘關係,黑底 0x000000 乘任何貼圖都還是純黑,
+       這是 shopFront() 的 applyImg() 也在做的同一步,不是新踩的坑)。
+       材質維持 MeshBasicMaterial(不吃光),圖片本身的明暗就要靠生圖時
+       自己壓,不能指望場景燈光幫忙打暗。 */
+    loader.load(TEX_DIR + 'shop-massage.png', img => {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      const targetAspect = DW/DH, ia = img.width/img.height;
+      if(ia > targetAspect){ const r = targetAspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2,0); }
+      else { const r = ia/targetAspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      t.needsUpdate = true;
+      dark.map = t; dark.color.setHex(0xffffff); dark.needsUpdate = true;
+    }, undefined, () => {});
     massageDoorRef.holePlane = holePlane;
     massageDoorRef.base = { innerX, side, sz };
     const fm = frameMaterial(THREE);

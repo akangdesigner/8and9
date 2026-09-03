@@ -6433,3 +6433,15 @@ DH, DW, ...)` 換成零厚度的 `THREE.PlaneGeometry(DW, DH)`(`DoubleSide`
 `MeshBasicMaterial`(純黑 `0x000000`)——完全不計算光照,不管旁邊幾盞
 燈都固定同一個純黑色,沒有高光可以破功。已在瀏覽器裡查證材質類型
 確實是 `MeshBasicMaterial`。
+
+**第七輪,kc:「給我提示詞我去生圖好了 做成凹進去的嘿嘿感」**——補上
+`assets/tex/shop-massage.png` 的載入(沒圖前維持純黑,`MeshBasicMaterial`
+不吃光那條規則不變,圖生完自動接上不用再改程式)。裁切邏輯跟
+`shopFront()`/`signImage()` 同一套(依門片實際寬高比 `DW/DH`≈.55 置中
+裁切,不拉伸);套圖後材質顏色要轉白(`MeshBasicMaterial` 的 `color`
+跟 `map` 相乘,黑底乘任何貼圖還是純黑,這是既有 `shopFront()`
+`applyImg()` 也在做的同一步)。材質維持不吃光,圖片本身的明暗要靠
+生圖時自己壓,不能指望場景燈光幫忙打暗——這點提示詞裡有講。
+
+prompt 直接在對話裡給 kc(不寫進 `assets/tex/PROMPTS.md`,理由同
+[[feedback_prompts_in_chat_not_md]]),沒有寫進這份文件重複一次。
