@@ -11176,6 +11176,20 @@ function offerMotoMod(m){
    旁邊 openStallMenu() 那套「自己人價」七折邏輯,只是門檻換成風評而不是
    有沒有跳陣頭。折數/門檻都是先湊的數字,沒跟 kc 對過。 */
 const MOTOBOSS_REP_DISCOUNT_MIN = 10;
+/* 車色選擇(2026-09-03,kc:「白色的車我覺得好醜 應該是老闆會讓你選顏色
+   你買了之後才會出現」)——原本 forSale 那台不管買不買都固定同一個展示色
+   (scene-city3d.js 那邊已經改成銀色,不再是白色),買下的瞬間直接沿用
+   展示色,玩家完全沒得選。改成:錢付完、m.owned 設定完之後,插一個純選色
+   選單(m.setSkin(idx),見 scene-city3d.js parkMoto() 那則筆記),選完才
+   真的 mountMoto() 騎走——「買了之後才會出現」的字面意思,不是先選色再
+   結帳。顏色本身不加價,包在車價裡。 */
+const MOTO_SKIN_NAMES = ['白','紅','藏青','黑','銀','黃','橘','綠','粉','米','貼花塗裝','復古鏽色'];
+function offerMotoColor(m){
+  openMenu('挑個顏色', MOTO_SKIN_NAMES.map((name, idx) => ({
+    label: name,
+    run(){ m.setSkin(idx); toast('老闆幫你換上了' + name + '色的烤漆——這台現在真的是你的了。', 2600); mountMoto(m); }
+  })));
+}
 function buyMoto(m){
   /* 已經有一張分期收據還沒繳完的時候不能再開一張——MOTO_LOAN 是單一物件
      不是陣列,兩張分期同時掛著會互相蓋掉到期日/餘額。這裡跟哪一台 forSale
@@ -11192,8 +11206,8 @@ function buyMoto(m){
       run(){
         if(ST.money < price){ toast('錢不夠,老闆看了你一眼。', 2000); return; }
         chg('money', -price); m.owned = true;
-        toast(discount ? '「你這個人可以,算你便宜一點。」這台現在是你的了。' : '這台現在是你的了。', 2400);
-        mountMoto(m);
+        toast(discount ? '「你這個人可以,算你便宜一點。」' : '「錢收到了。」', 2000);
+        offerMotoColor(m);
       } },
     { label:'分期付款', cost: busyLoan ? '上一台還沒繳完,不能再分期' : '訂金 $'+down+'　尾款分 6 週還',
       cls: (busyLoan || ST.money<down) ? 'bad' : '',
@@ -11205,8 +11219,8 @@ function buyMoto(m){
         MOTO_LOAN.balance = total - down;
         MOTO_LOAN.weekly = weekly;
         MOTO_LOAN.nextDueDay = day + 7;
-        toast('訂金付了,車牽走——尾款收據收好,以後每週回家睡覺會自動扣一次。', 3200);
-        mountMoto(m);
+        toast('訂金付了——尾款收據收好,以後每週回家睡覺會自動扣一次。', 2800);
+        offerMotoColor(m);
       } },
     { label:'算了', cls:'back', run(){} }
   ]);
