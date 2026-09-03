@@ -3335,7 +3335,7 @@ function resolveWatchJob(success){
 /* gone(2026-09-02,班費失竊「揭發」結局用)——見 talkToWorker() 那段
    CLASSFUND.resolved==='exposed' 分支,跟廟口那批「這裡的人會消失」
    同一條規矩,不解釋、不哀悼,純粹從 nearProp 判斷裡拿掉互動點。 */
-const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false, gone:false };
+const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false, gone:false, freeMassageOwed:false };
 const workerNPC = buildNPC(THREE, scene, {
   x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:Math.PI*.4, rig:'f',
   skin:'#c9a077', hair:'#241f1c',
@@ -11068,7 +11068,18 @@ function talkToWorker(w){
             const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'classfund');
             if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
             renderQuestPanel();
-            toast('你自己把班費補上了。沒有人知道真相，你也沒有講。（$−1200，歸屬感 +4）', 3600);
+            /* 放過她的額外回饋(2026-09-03,kc:「如果你放過他 他會多給你一些
+               對話回饋 然後可以免費獎勵你一次色情按摩」)——她不會演成千恩
+               萬謝、掏心掏肺,跟這遊戲一貫「沒有人乞求同情」的分寸一致,
+               就一句道謝+一句承諾,自己收著。免費那次用 ALLEY_WORKER.
+               freeMassageOwed 這個旗標記,下面「付錢,跟她走」選單讀到這個
+               旗標才會把那次的錢免掉,用完就地歸零,不是每次都免費。 */
+            ALLEY_WORKER.freeMassageOwed = true;
+            playBeats([
+              { who:'worker', text:'她愣了一下，像是沒想到你會這樣選。' },
+              { who:'worker', text:'「……謝了。」她說得很小聲，沒再多說什麼。' },
+              { who:'worker', text:'她看了你一眼。「下次，算我的，你不用給錢。」' }
+            ], 0, () => toast('你自己把班費補上了。沒有人知道真相，你也沒有講。（$−1200，歸屬感 +4）', 3600));
           } }
       ]);
     };
@@ -11145,16 +11156,26 @@ function talkToWorker(w){
   }
   const pool = w.talked ? WORKER_TALK.after : WORKER_TALK.before;
   const line = pool[Math.random()*pool.length|0];
+  /* 免費那次(2026-09-03,見上面「放過她」那則筆記)——欠她一次的旗標
+     只影響這顆按鈕的文字/花費,選單其餘部分(聊兩句/走掉)不受影響。 */
+  const freeOne = ALLEY_WORKER.freeMassageOwed;
   say('worker', line, () => {
     openMenu('巷子裡', [
-      { label:'付錢,跟她走', cost:'$'+WORKER_PRICE, cls: ST.money<WORKER_PRICE?'bad':'',
+      { label: freeOne ? '跟她走（她說這次算她的）' : '付錢,跟她走',
+        cost: freeOne ? '免費' : '$'+WORKER_PRICE,
+        cls: (!freeOne && ST.money<WORKER_PRICE) ? 'bad' : '',
         run(){
           /* 2026-08-20 kc 糾正:「付錢才會換場景」——開場白+選單本來就在
              街上(這個 run() 之前的部分沒動),錢不夠就留在街上跳一句
              toast 就好,不用進場景再送出來。真的付錢才呼叫 enterMassage()
              切進越式按摩室內。 */
-          if(ST.money < WORKER_PRICE){ toast('錢不夠。她聳聳肩,轉向別人。', 2000); return; }
-          chg('money', -WORKER_PRICE); chg('mood', 6); chg('stamina', -10);   // advanceTime 交給 chg() 統一算
+          if(freeOne){
+            ALLEY_WORKER.freeMassageOwed = false;
+          } else {
+            if(ST.money < WORKER_PRICE){ toast('錢不夠。她聳聳肩,轉向別人。', 2000); return; }
+            chg('money', -WORKER_PRICE);
+          }
+          chg('mood', 6); chg('stamina', -10);   // advanceTime 交給 chg() 統一算
           w.talked = true;
           enterMassage(w);
         } },
