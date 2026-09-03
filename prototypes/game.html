@@ -5022,7 +5022,11 @@ function tweakMassageScenePanel(){
   const rows = [
     ['ms_px','玩家 X(IN.px)', 0, 640, 1, () => IN.px, v => IN.px = v],
     ['ms_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 360, 1, () => IN.py, v => IN.py = v],
-    ['ms_wpx','她的 X(MASSAGE_WORKER_PX)', 0, 640, 1, () => MASSAGE_WORKER_PX, v => MASSAGE_WORKER_PX = v],
+    /* 順便同步 MASSAGE.spots 裡 'worker' 那個互動判定框的 x(2026-09-03,
+       走過去才觸發對話那輪加的),不然滑桿把人挪走了,判定框沒跟著動,
+       會變成站在她面前反而摸不到互動點。 */
+    ['ms_wpx','她的 X(MASSAGE_WORKER_PX)', 0, 640, 1, () => MASSAGE_WORKER_PX,
+      v => { MASSAGE_WORKER_PX = v; MASSAGE.spots.find(s=>s.id==='worker').x = v-40; }],
     ['ms_scale','兩人縮放(HERO_TARGET_PX.massage)', 150, 400, 1, () => HERO_TARGET_PX.massage, v => HERO_TARGET_PX.massage = v]
   ];
   const panel = document.createElement('div');
@@ -5385,6 +5389,25 @@ const workerIndoor = buildNPC(THREE, indoorScene, {
 workerIndoor.group.visible = false;
 let MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
                                 // let 不是 const(2026-09-03):tweakMassageScenePanel() 滑桿要能現場改這個值
+/* 越式按摩室內走動邊界+互動點(2026-09-03,kc:「進去畫面之後 是我們人要
+   走過去找他才會觸發對話 可以選擇 聊天 摸摸他 抱抱」)——原本整段是進場
+   自動播的一次性演出(updateIndoor() 開頭直接 `if(PLACE==='massage')
+   return;` 擋掉移動),這輪改成跟 tattoo/store 同一套「真的室內場景」:
+   開放走動,走近她(`worker` 這個 spot)才觸發選單,不是進場就自動開口。
+   座標算法:`massage-wall.png` 原始 1672×941,drawImage() 整張貼滿
+   1280×720 畫布,logical px = native_x * (640/1672)——跟 school/tattoo
+   那批照片場景同一套換算公式(見 SCHOOL_PHOTO/TATTOO_PHOTO 那組筆記)。
+   `worker` 這個 spot 的 x 跟著 `MASSAGE_WORKER_PX` 走(滑桿改她的站位時
+   `tweakMassageScenePanel()` 會同步搬動這個判定框,不會脫鉤)。walkN/
+   walkS/`door` spot 的座標是肉眼抓的第一版(參考照片裡簾子門在左側),
+   沒有實際拿 grid.png 量過,卡怪/摸不到跟 kc 說要往哪調。 */
+const MASSAGE = {
+  walkN: 270, walkS: 345,
+  spots: [
+    { id:'door',   name:'門口',   x:90,                  w:90, y0:300, y1:345 },
+    { id:'worker', name:'她',     x:MASSAGE_WORKER_PX-40, w:80, y0:300, y1:345 }
+  ]
+};
 /* 刺青師傅(2026-08-28,kc:「刺青店還沒把師父接上去 我要怎用」)——
    talkToTattooMaster() 這輪之前只是站在'chair'判定區按空白鍵觸發的
    隱形對話,場景裡完全沒有畫出這個人,kc 才問不到要跟誰講話。跟
@@ -6122,6 +6145,11 @@ function openIndoorSpot(id){
     else if(id === 'case'){ toast('玻璃櫃裡是耳環跟鼻環，你沒有多餘的錢想那個。', 2600); return; }
     return;
   }
+  if(PLACE === 'massage'){
+    if(id === 'door'){ leaveIndoor(); return; }
+    else if(id === 'worker'){ talkToWorkerIndoor(); return; }
+    return;
+  }
   if(id === 'door'){
     /* 2026-08-24 kc:「如果沒結帳會不讓你出門(你也可以放回去)」——basket
        非空就擋在門口,另外開一個小選單,不是單純 toast 卡死沒有退路。 */
@@ -6649,13 +6677,10 @@ function coSayChain(who, lines, i, after){
 }
 
 function updateIndoor(dt){
-  /* 越式按摩室內(2026-08-20)沒有 spots/collider,整段是 say()/openMenu()
-     鎖住輸入的對話場景,kc 明確要求「不用走動」——直接在這裡擋掉,不要
-     依賴 busy/dlg.on 剛好全程都是 true 這個隱含假設(付錢那個分支 toast
-     跟下一段對話中間有一小段 busy/dlg.on 都是 false 的空檔,那段空檔方向鍵
-     還是會動,所以要在這裡明講擋掉,不是繞個彎湊巧擋住)。 */
-  if(PLACE === 'massage') return;
-  /* 醫院(2026-09-02)——跟越式按摩同一個做法,整段是 playBeats() 鎖住輸入
+  /* 越式按摩室內(2026-09-03 推翻):原本整段擋掉移動(kc 明講「不用走動」),
+     這輪 kc 要求改成「走過去找她才會觸發對話」,跟下面正常的 spots
+     判斷共用同一套機制,見上面 MASSAGE 那則長筆記——不再特判擋掉。 */
+  /* 醫院(2026-09-02)——跟越式按摩不同,這是 playBeats() 鎖住輸入
      的一次性演出,見上面「阿嬤在醫院」那則長筆記跟 scene-hospital.js
      開頭的說明。 */
   if(PLACE === 'hospital') return;
@@ -6744,7 +6769,8 @@ function updateIndoor(dt){
 
   const bounds = PLACE === 'store' ? STORE : PLACE === 'home' ? HOME
                : PLACE === 'school' ? SCHOOL : PLACE === 'arcade' ? ARCADE
-               : PLACE === 'corridor' ? CORRIDOR : PLACE === 'tattoo' ? TATTOO : BEDROOM;
+               : PLACE === 'corridor' ? CORRIDOR : PLACE === 'tattoo' ? TATTOO
+               : PLACE === 'massage' ? MASSAGE : BEDROOM;
 
   let dx=0, dy=0;
   if(keys['a']||keys['arrowleft'])  dx -= 1;
@@ -7300,14 +7326,15 @@ function warpToParkWithMei(){
 }
 /* 越式按摩店(2026-08-20)——巷子那位 ALLEY_WORKER 站在街上,但真正談的
  * 地方是這間店,對照現實的暗巷色情店常見掛牌方式(見 DESIGN_NOTES)。
- * 沒有實體的門(city.doors),直接從 talkToWorker() 的「付錢,跟她走」
+ * 沒有實體的門(city.doors),直接從 talkToWorker() 的「要不要爽一下?」
  * 分支呼叫(**不是**走近她講話就切場景——kc 糾正過一次,開場白+選單
  * 維持在街上,只有真的付錢才進場景),比照 sleep()/enterBedroom() 那種
  * 「不用走去門口」的簡化版 fade,不走 enterIndoor() 的 walkIn 那段(那是
  * 給真的 3D 街上門口用的)。跟 enterIndoor() 一樣要存 returnTo,
  * leaveIndoor() 才知道要把玩家放回哪。金錢/時間/mood/stamina 的變動、
  * w.talked 都已經在呼叫端(talkToWorker() 的付錢分支)處理完才呼叫這裡,
- * 這個函式只管「切場景 + 講故事 + 離場」。 */
+ * 這個函式只管「切場景」——講故事/離場都移進 talkToWorkerIndoor()
+ * (2026-09-03 起,見那則筆記),進場不再自動觸發任何對話。 */
 function enterMassage(w){
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
@@ -7317,34 +7344,52 @@ function enterMassage(w){
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    /* 站位(2026-08-20 kc 生完 massage-wall.png 之後現場肉眼調的):按摩床
-       在畫面正中央,站中間會疊到床上——挪到床左前方那塊空地(盆栽跟床
-       中間),不會疊到任何家具。face 用 'R' 不是 'F'(kc:「兩人要側身
-       面對面講話」)——workerIndoor 站在她右邊、面朝 'L',兩人側身相對,
-       見 renderIndoor3D()。 */
-    IN.px = 190; IN.py = 345; IN.face = 'R';
+    /* 站位(2026-09-03 第二輪,kc:「進去畫面之後 是我們人要走過去找他才
+       會觸發對話」)——原本直接站在她面前(IN.px=190 貼著 workerIndoor
+       的 290),現在要走過去才有意義,退到門口/簾子那側(MASSAGE 那組
+       spots 的 'door',見上面長筆記),face 用 'F' 面朝房間裡走。 */
+    IN.px = 110; IN.py = 320; IN.face = 'F';
     document.getElementById('where').textContent = '越式按摩';
     hintEl.classList.remove('on');   // 進場前殘留的「按空白鍵搭話」提示清掉,updateIndoor() 這個 PLACE 不會再幫忙清
     paintMassageBackdrop();
-    /* 完整故事(圓環雕像那條支線,2026-08-20,見 DESIGN_NOTES)只在第一次
-       「付錢跟她走」之後追加,用 setTimeout 延遲跳出來,讓玩家先看一眼
-       場景(門/床/她本人)再開口,不是一進場就疊對話框。原本這段延遲
-       是接在一句「一小時四十分後,你一個人走回巷口」的 toast 淡出之後
-       (kc:「這句話拿掉」,2026-09-03 已刪),延遲數字沒有跟著改,單純
-       當一段安靜的停頓用,不用重新抓時間。w.toldStory 擋之後重複——比較
-       像「她只在那一次多說了」,不是每次都重播同一段獨白。錢買的是她的
-       時間,不是這段故事本身,所以框架上不寫成「因為付了錢所以講」,
-       是她自己選擇在這段安靜時間裡說出來。 */
-    if(!w.toldStory){
-      w.toldStory = true;
-      setTimeout(() => say('worker',
-        '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」',
-        leaveIndoor
-      ), 2700);
-    } else {
-      setTimeout(leaveIndoor, 2700);
-    }
   });
+}
+/* 越式按摩室內・走過去找她(2026-09-03,kc:「是我們人要走過去找他才會
+   觸發對話 可以選擇 聊天 摸摸他 抱抱」)——原本 enterMassage() 一進場就
+   自動播故事、播完自動 leaveIndoor(),整段不用走動。這輪改成真的走進來
+   互動:openIndoorSpot() 的 'worker' 分支呼叫這裡,開一個三選項的選單。
+   三個選項各自對應不同深淺的親密程度,選完都會結束這次見面(leaveIndoor)
+   ——一次見面對應一個動作,不是選完可以無限疊加刷數值。三個效果數字都是
+   這輪自己抓的小的可逆參數,不喜歡跟我說一聲就改。
+   完整故事(圓環雕像那條支線,見 DESIGN_NOTES)原本掛在 enterMassage()
+   自動播,現在移進「聊天」選項,只在第一次「聊天」時講(w.toldStory 擋
+   之後重複),之後「聊天」改抽 WORKER_TALK.after 那個閒聊池。 */
+function talkToWorkerIndoor(){
+  const w = ALLEY_WORKER;
+  openMenu('她', [
+    { label:'聊天', run(){
+        if(!w.toldStory){
+          w.toldStory = true;
+          chg('mood', 2);
+          say('worker',
+            '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」',
+            leaveIndoor
+          );
+        } else {
+          chg('mood', 2);
+          const pool = WORKER_TALK.after;
+          say('worker', pool[Math.random()*pool.length|0], leaveIndoor);
+        }
+      } },
+    { label:'摸摸她', run(){
+        chg('calm', 3);
+        say('worker', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。', leaveIndoor);
+      } },
+    { label:'抱抱', run(){
+        chg('calm', 6); chg('mood', 3);
+        say('worker', '你伸手抱住她。她僵了一下,像是很久沒有人這樣抱過她——過了幾秒,肩膀鬆下來,靠著你,誰都沒有先開口。', leaveIndoor);
+      } }
+  ]);
 }
 /* 客廳 ⇄ 房間:兩個都算「室內」(MODE 全程維持 'indoor'),只是 PLACE 換,
  * 不用像 enterIndoor/leaveIndoor 那樣牽動 3D 街景/`returnTo`。 */

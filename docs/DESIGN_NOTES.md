@@ -6490,3 +6490,43 @@ store 的 275.6)讓滑桿有東西可以寫,順便拆開「調 store 縮放會�
 已在瀏覽器裡付錢進場景實測過:面板四顆滑桿讀到的初始值跟程式碼裡的
 常數一致(190/345/290/276),拖「她的 X」到 400 角色即時移到畫面另一側,
 確認 renderIndoor3D() 的即時生效路徑真的有作用,測完改回 290。
+
+**第十二輪,kc:「進去畫面之後 是我們人要走過去找他才會觸發對話 可以
+選擇 聊天 摸摸他 抱抱」**——推翻 2026-08-20 那條「不用走動」的舊決定
+(見上面「越式按摩店室內場景」那節),越式按摩室內從「進場自動播故事、
+播完自動離場」的一次性演出,改成跟 tattoo/store 同一套真的可以走動的
+2D 室內場景。
+
+**改動範圍**:
+- `updateIndoor()` 開頭那行 `if(PLACE==='massage') return;` 直接拿掉,
+  `PLACE==='massage'` 併進正常的 `bounds`(新的 `MASSAGE` 物件)+spots
+  判斷,不用再另開一套機制。`lockDepth` 那個「只能轉面不能走深度」的
+  清單(home/bedroom/corridor)沒有加 massage,跟 tattoo/store 一樣可以
+  自由走動。
+- 新增 `MASSAGE = { walkN, walkS, spots:[door, worker] }`,座標算法沿用
+  `massage-wall.png` 原始尺寸(1672×941)換算 logical px 的公式(跟
+  SCHOOL_PHOTO/TATTOO_PHOTO 同一套),`worker` 這個 spot 的 x 綁定
+  `MASSAGE_WORKER_PX`(滑桿改她的站位時,`tweakMassageScenePanel()` 的
+  '她的 X' 那顆滑桿同步改這個判定框的 x,不會脫鉤)。walkN/walkS/`door`
+  座標是肉眼抓的第一版,沒有拿 grid.png 實際量過,卡怪/摸不到跟我說要
+  往哪調。
+- `openIndoorSpot()` 補 `PLACE==='massage'` 分支:`door`→`leaveIndoor()`,
+  `worker`→新函式 `talkToWorkerIndoor()`。
+- `enterMassage()` 不再自動播任何對話——只負責 fade 進場景、把玩家放在
+  門口/簾子那側(`IN.px=110,IN.py=320,face:'F'`,面朝房間裡走),要走過去
+  找她才會觸發。
+- 新函式 `talkToWorkerIndoor()`:`openMenu('她', [...])` 三個選項——
+  **聊天**(第一次講圓環雕像那條故事支線,原本掛在 `enterMassage()` 自動
+  播,現在移進這裡,只在第一次觸發,`w.toldStory` 擋之後重複;之後改抽
+  `WORKER_TALK.after` 閒聊池,`mood +2`)、**摸摸她**(`calm +3`,一句
+  安靜的小動作,不寫露骨內容)、**抱抱**(`calm +6`、`mood +3`,稍微更
+  深一點的靠近)。**三個選項選完都會 `leaveIndoor()` 結束這次見面**——
+  一次付錢對應一次互動,不是選完可以在同一次進場裡連續刷好幾個動作
+  疊加數值,這是這輪自己選的參數,不喜歡跟我說一聲就改(例如改成選完
+  不自動離場,允許同一次進場多次互動)。三個效果的數字/文字都是自己抓
+  的小的可逆參數。
+
+已在瀏覽器裡完整測過一輪:付錢進場景→站在門口(不會自動觸發任何對話)
+→手動移到她附近→出現「她　按 空白鍵」提示→開出三選項選單→選「摸摸她」
+→歸屬感 55→58(+3 對得上)→對話播完→自動 `leaveIndoor()` 退回巷子,
+console 沒有錯誤。
