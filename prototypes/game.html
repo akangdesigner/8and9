@@ -3129,6 +3129,14 @@ const WATCHJOB_PATH = [[60, 10], [0, 10], [0, 15]];
 const WATCHJOB_STAKEOUT = { x:10, z:14 };
 const WATCHJOB = { active:false, spotted:false, resolved:false, walker:null, lastDay:-1, exclaim:null };
 function startWatchJob(){
+  /* 接任務當下的位置(2026-09-03,kc:「顧場臨時去找阿嬤 回來會回到當初
+     接任務的地方」)——下面 fade() 會把玩家瞬移到固定的盯梢點
+     (WATCHJOB_STAKEOUT,在中華路附近),瞬移前先存進 returnTo,跟
+     enterIndoor() 走進門前存 returnTo 同一個道理(離開前存「回得去的
+     位置」)。沒有這行的話,中途被拉去醫院會把 goToHospital() 看到的
+     「當下位置」(其實是盯梢點)存成 returnTo,回來就卡在中華路,跟
+     真正接任務的地方對不上。 */
+  returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   WATCHJOB.active = true; WATCHJOB.spotted = false; WATCHJOB.resolved = false;
   brotherNPC.group.visible = false;
   WATCHJOB.walker = buildNPC(THREE, scene, {
@@ -7766,7 +7774,11 @@ function goToHospital(){
      「你倒在路邊」死亡畫面,那句台詞跟這裡要演的東西完全對不上。
      advanceTime 走 chg() 統一算,這裡不用另外呼叫。 */
   chg('stamina', -Math.min(30, Math.max(0, ST.stamina - 1)));
-  if(MODE === 'city'){ returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z; }
+  /* WATCHJOB 進行中(2026-09-03)——玩家人在固定的盯梢點(見
+     startWatchJob() 那則筆記),不是「當下位置」,不能覆蓋掉
+     startWatchJob() 已經存好的接任務地點,否則回程會被送去盯梢點
+     (中華路附近)而不是玩家真正出發的地方。 */
+  if(MODE === 'city' && !WATCHJOB.active){ returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z; }
   enterHospital();
 }
 function enterHospital(){
