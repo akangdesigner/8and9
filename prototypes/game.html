@@ -4968,6 +4968,47 @@ function tweakBusStopWallPanel(){
     wall.roughness = state.roughness; wall.needsUpdate = true;
   });
 }
+/* 越式按摩門(黑洞紙片+半開門片)滑桿(2026-09-03,kc:「我沒看到」+
+   「你把紙的滑桿給我」)——根因查出來了:黑洞那張零厚度紙片原本退牆
+   深度 HOLE_DEPTH=1.1,退進了牆體實心體積裡面,牆自己的正面貼圖整片
+   擋在紙前面,從任何角度都看不到,不是材質/顏色的問題。已經把預設值
+   改成 -.03(貼在牆面上、往走道側探出一點點,避免跟牆面同深度
+   z-fighting),這裡另外留一顆滑桿讓 kc 自己現場找感覺對的深度/門片
+   開合角度,不用再靠截圖來回猜。`scene-city3d.js` buildAlleyShopfront()
+   把 `holePlane`/`doorGroup`/`base`(innerX/side/sz)存進
+   `city.massageDoor`,這裡直接讀寫。 */
+function tweakMassageDoorPanel(){
+  const old = document.getElementById('massageDoorTweakPanel');
+  if(old){ old.remove(); return; }
+  const ref = city.massageDoor;
+  if(!ref || !ref.holePlane || !ref.doorGroup){
+    alert('越式按摩門還沒生成,晚點再開一次滑桿');
+    return;
+  }
+  const { innerX, side, sz } = ref.base;
+  const state = { holeDepth:-.03, leafAngle:-.55 };
+  const panel = document.createElement('div');
+  panel.id = 'massageDoorTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:260px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">越式按摩門滑桿</div>' +
+    '<div style="margin-bottom:8px">黑洞紙片退牆深度(負=往走道探出,正=退進牆裡): <span id="md_hd_v">' + state.holeDepth.toFixed(2) + '</span><br>' +
+    '<input type="range" id="md_hd" min="-0.5" max="2" step="0.01" value="' + state.holeDepth + '" style="width:100%"></div>' +
+    '<div style="margin-bottom:8px">門片開合角度(rad): <span id="md_la_v">' + state.leafAngle.toFixed(2) + '</span><br>' +
+    '<input type="range" id="md_la" min="-1.4" max="1.4" step="0.01" value="' + state.leafAngle + '" style="width:100%"></div>' +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakMassageDoor()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  document.getElementById('md_hd').addEventListener('input', e => {
+    state.holeDepth = +e.target.value;
+    document.getElementById('md_hd_v').textContent = state.holeDepth.toFixed(2);
+    ref.holePlane.position.set(innerX + side*state.holeDepth, ref.holePlane.position.y, sz);
+  });
+  document.getElementById('md_la').addEventListener('input', e => {
+    state.leafAngle = +e.target.value;
+    document.getElementById('md_la_v').textContent = state.leafAngle.toFixed(2);
+    ref.doorGroup.rotation.y = state.leafAngle;
+  });
+}
 /* 小看板(路線圖/時刻表/路線號碼/公益廣告)大小/間距/高度滑桿(2026-09-01,
    kc:「讓我調整小看板」)——調的是 `busStopRef.boardMeshes`(4 個 mesh,
    各自記了相對 boardsCenterX 的基準 dx/baseY/baseZ),縮放用 mesh.scale,
@@ -11402,6 +11443,7 @@ window.__dbg = {
   tweakBusStopBoards: tweakBusStopBoardsPanel,
   tweakBusStopProps: tweakBusStopPropsPanel,
   tweakPassengerSeat: tweakPassengerSeatPanel,
+  tweakMassageDoor: tweakMassageDoorPanel,
   /* 阿霞後座測試開關(2026-09-01)——不用真的滿足「有機車+騎車經過她」
      這串前置條件就能現場測後座位置,跟 troupeTest()/spotWatchJob() 同一
      個理由。 */

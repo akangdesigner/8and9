@@ -510,6 +510,10 @@ export function buildCity(THREE, scene){
      用陣列蒐集每一台的 group/基準座標,滑桿套一個共用倍率/位移到全部
      實例上,不用逐台各開一組滑桿。 */
   const constructionRef = { bulldozers: [], cones: [] };
+  /* 越式按摩門(2026-09-03)——kc 說「我沒看到」,黑洞面板存在但看不到,
+     開一顆滑桿讓他自己現場拉找出正確的退牆深度,不用再靠截圖來回猜。
+     buildAlleyShopfront() 填,game.html tweakMassageDoor() 讀。 */
+  const massageDoorRef = {};
   let parkBounds = null;                              // 見下面 park(),whereAmI() 要用
   const add = (mesh,x,y,z,cast,recv) => {
     mesh.position.set(x,y,z);
@@ -2653,11 +2657,21 @@ export function buildCity(THREE, scene){
        採 kc 給的簡單解法:不用箱體,退進牆裡的位置改貼一張零厚度的
        PlaneGeometry(沒有側面/邊緣可以被誤讀成「另一塊板子」),法向
        朝走道(-side 方向),兩面都上色(DoubleSide)保險。 */
-    const HOLE_DEPTH = 1.1;
+    /* 第五輪,kc:「我沒看到」——查出真正的原因:牆本身是實心箱體
+       (`x±3` 都是牆),HOLE_DEPTH=1.1 把這片紙埋在牆的實心體積裡面,
+       牆自己的正面(貼圖那面)整片擋在紙前面,紙從任何角度都被遮住,
+       等於根本沒有畫出來。退牆深度該是負值(往走道那側探出一點點,
+       貼在牆面上,不是往牆裡塞)——改成 -.03(比牆面略凸一點點,避免
+       跟牆面同一深度打架/z-fighting),同時留一顆滑桿(見 game.html
+       tweakMassageDoorPanel())讓 kc 自己現場找感覺對的深度,不用再靠
+       截圖來回猜。 */
+    const HOLE_DEPTH = -.03;
     const dark = std({ color:0x050505, roughness:.95, side:THREE.DoubleSide });
     const holePlane = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), dark);
     holePlane.rotation.y = -side * Math.PI/2;
     add(holePlane, innerX + side*HOLE_DEPTH, DH/2, sz, false, false);
+    massageDoorRef.holePlane = holePlane;
+    massageDoorRef.base = { innerX, side, sz };
     const fm = frameMaterial(THREE);
     /* 第三輪,kc:「還是有鐵門 要刪掉」——上面那塊「門框」原本是一整塊
        實心薄板(`box(.16, DH+.3, DW+.3, fm)`),尺寸幾乎跟門洞一樣大,
@@ -2679,6 +2693,7 @@ export function buildCity(THREE, scene){
     leaf.castShadow = true; leaf.receiveShadow = true;
     doorGroup.add(leaf);
     scene.add(doorGroup);
+    massageDoorRef.doorGroup = doorGroup;
     /* 招牌:比照 row() 的招牌箱體做法但縮小、壓暗——巷子裡一塊小小的、
        不太亮的招牌,不是正常店面那種過曝亮度。 */
     const signW = DW+.8, signH = 1.3;
@@ -3683,7 +3698,7 @@ export function buildCity(THREE, scene){
        不要看到舊註解就自動接回這批 tower。 */
   })();
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef };
 }
 
 /* ---------------- 角色 ----------------

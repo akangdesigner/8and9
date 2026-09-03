@@ -6398,3 +6398,29 @@ DH, DW, ...)` 換成零厚度的 `THREE.PlaneGeometry(DW, DH)`(`DoubleSide`
 已在瀏覽器裡讀 THREE.js 場景圖確認這片 plane 的世界座標/朝向/尺寸都
 對得上設定值,console 沒有錯誤;畫面驗證這輪 kc 說他自己上機看,沒有
 截圖比對。
+
+**第五輪,kc:「我沒看到」+「你把紙的滑桿給我 因為我沒看到」**——真正
+的根因找到了:`HOLE_DEPTH=1.1` 是正值,把這片紙退進了牆的實心體積
+裡面(巷子牆 `alley()` 蓋的是一整塊 `box(6,13,len,...)`,x 方向 ±3 都
+是實心),牆自己朝走道那面的貼圖整片擋在紙前面,紙從任何角度都被
+完全遮住,等於畫了等於沒畫——不是材質/顏色的問題,是深度算反了。
+退牆深度該是**負值**(往走道側探出一點點,貼在牆面上,呼應 kc 原話
+「貼一張紙」,不是「塞進牆裡」),預設值改成 `-.03`(比牆面略凸,
+避免跟牆面同一深度 z-fighting)。
+
+同時補了 `game.html tweakMassageDoorPanel()`(`__dbg.tweakMassageDoor()`
+開關,跟 `tweakBusStop()` 那批滑桿同一套「滑桿現場拉、最終數字回報給
+我寫死」的既有慣例)——兩顆滑桿:黑洞紙片退牆深度、門片開合角度。
+`scene-city3d.js` 新增 `massageDoorRef`(`buildAlleyShopfront()` 填
+`holePlane`/`doorGroup`/`base`,`buildCity()` 回傳物件掛 `massageDoor`
+鍵),滑桿直接讀寫這兩個 three.js 物件的 `position`/`rotation.y`,不用
+重新整理頁面就能即時看到變化。
+
+驗證:直接用瀏覽器 JS 查證 `holePlane` 的 `visible`/`position`/
+`material` 都正常(`visible:true`、`side:DoubleSide`、退牆深度改成負值
+之後世界座標確實移到牆面實心體積之外),排除「沒有畫出來」這個假設;
+但把深度滑桿拉到 `-0.5`(明顯浮出牆面)肉眼截圖比對,黑色紙片在這麼
+暗的巷子裡跟背景陰影對比還是很低,不容易一眼認出邊界——這不是深度
+算錯的問題了,是純黑色在暗場景裡天生沒有對比度。滑桿留著讓 kc 自己
+現場拉數字判斷觀感,拉到滿意直接跟我說最終深度/角度就好,我再寫死
++ 拔掉滑桿。
