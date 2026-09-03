@@ -5009,6 +5009,40 @@ function tweakMassageDoorPanel(){
     ref.doorGroup.rotation.y = state.leafAngle;
   });
 }
+/* 越式按摩室內 2D 場景滑桿(2026-09-03,kc:「開滑桿給我調整」)——跟
+   tweakMassageDoor() 那組滑桿是同一輪但不同物件:那組調的是巷子裡的
+   3D 門,這組調的是進場之後那個 2D 室內場景(paintMassageBackdrop()
+   那張照片背景+疊在上面的兩具 3D 骨架)。renderIndoor3D() 每幀都重讀
+   IN.px/IN.py/MASSAGE_WORKER_PX/HERO_TARGET_PX.massage,滑桿直接改這幾個
+   全域值就會即時生效,不用另外呼叫重繪。只有站在 PLACE==='massage'
+   時開這組滑桿才看得出效果(進場才會顯示 workerIndoor)。 */
+function tweakMassageScenePanel(){
+  const old = document.getElementById('massageSceneTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['ms_px','玩家 X(IN.px)', 0, 640, 1, () => IN.px, v => IN.px = v],
+    ['ms_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 360, 1, () => IN.py, v => IN.py = v],
+    ['ms_wpx','她的 X(MASSAGE_WORKER_PX)', 0, 640, 1, () => MASSAGE_WORKER_PX, v => MASSAGE_WORKER_PX = v],
+    ['ms_scale','兩人縮放(HERO_TARGET_PX.massage)', 150, 400, 1, () => HERO_TARGET_PX.massage, v => HERO_TARGET_PX.massage = v]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'massageSceneTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:260px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">越式按摩室內滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(0)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakMassageScene()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,get,set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      set(+e.target.value);
+      document.getElementById(`${id}_v`).textContent = (+e.target.value).toFixed(0);
+    });
+  });
+}
 /* 小看板(路線圖/時刻表/路線號碼/公益廣告)大小/間距/高度滑桿(2026-09-01,
    kc:「讓我調整小看板」)——調的是 `busStopRef.boardMeshes`(4 個 mesh,
    各自記了相對 boardsCenterX 的基準 dx/baseY/baseZ),縮放用 mesh.scale,
@@ -5259,7 +5293,10 @@ const HERO_TARGET_PX = {
   arcade: 296,   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
   corridor: 296,   // 2026-08-28:灰模走廊,同上先借同一個量級
   tattoo: 296,   // 2026-08-28:刺青店灰模,同上先借同一個量級
-  hospital: 296   // 2026-09-02:醫院灰模,同上先借同一個量級
+  hospital: 296,   // 2026-09-02:醫院灰模,同上先借同一個量級
+  massage: 275.6   // 2026-09-03:原本靠 `?? HERO_TARGET_PX.store` 隱性借用同一個數字,
+                    // kc 要滑桿調越式按摩室內站位/縮放,開一個真的獨立 key 讓滑桿有
+                    // 東西可以寫,不要再隱性共用 store 那個(調 store 不該連動這裡)
 };
 const INDOOR_HERO_TARGET_PX = HERO_TARGET_PX.store;   // 給 spawnClerk/spawnDad/spawnMom 那些除錯用的定格截圖工具用,跟超商比例校正
 const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
@@ -5346,7 +5383,8 @@ const workerIndoor = buildNPC(THREE, indoorScene, {
   rig:'f', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
 });
 workerIndoor.group.visible = false;
-const MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
+let MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
+                                // let 不是 const(2026-09-03):tweakMassageScenePanel() 滑桿要能現場改這個值
 /* 刺青師傅(2026-08-28,kc:「刺青店還沒把師父接上去 我要怎用」)——
    talkToTattooMaster() 這輪之前只是站在'chair'判定區按空白鍵觸發的
    隱形對話,場景裡完全沒有畫出這個人,kc 才問不到要跟誰講話。跟
@@ -11450,6 +11488,7 @@ window.__dbg = {
   tweakBusStopProps: tweakBusStopPropsPanel,
   tweakPassengerSeat: tweakPassengerSeatPanel,
   tweakMassageDoor: tweakMassageDoorPanel,
+  tweakMassageScene: tweakMassageScenePanel,
   /* 阿霞後座測試開關(2026-09-01)——不用真的滿足「有機車+騎車經過她」
      這串前置條件就能現場測後座位置,跟 troupeTest()/spotWatchJob() 同一
      個理由。 */

@@ -6470,3 +6470,23 @@ prompt 直接在對話裡給 kc(不寫進 `assets/tex/PROMPTS.md`,理由同
 這句 toast 淡出之後才跳出來,拿掉 toast 之後延遲數字沒有跟著改,單純
 當一段安靜停頓用(玩家先看一眼場景再開口),不用重新抓時間——旁邊的
 註解已經更新,不留「還在講一句已經被刪掉的 toast」的過時說明。
+
+**第十一輪,kc:「然後我們調整2d場景內」+「開滑桿給我調整」**——問清楚
+是指越式按摩室內那個 2D 場景(照片背景+疊在上面的 heroIndoor/
+workerIndoor 兩具 3D 骨架),跟 `tweakMassageDoor()` 是同一輪但調不同
+物件(那組調巷子裡的 3D 門,這組調進場之後的室內)。新增
+`tweakMassageScenePanel()`(`__dbg.tweakMassageScene()`)四顆滑桿:
+玩家 X/Y(`IN.px`/`IN.py`)、她的 X(`MASSAGE_WORKER_PX`)、兩人縮放
+(`HERO_TARGET_PX.massage`)。`renderIndoor3D()` 本來就每幀重讀這幾個
+全域值,滑桿直接改值就即時生效,不用另外呼叫重繪。
+
+兩個變數順手改了宣告方式才能被滑桿寫:`MASSAGE_WORKER_PX` 從 `const`
+改 `let`;`HERO_TARGET_PX` 原本沒有 `massage` 這個 key,渲染端(`heroIndoor`
+/`workerIndoor` 的 scale 計算)靠 `HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store`
+隱性借用 store 那組數字,現在開一個真的獨立的 `massage` key(初始值抄
+store 的 275.6)讓滑桿有東西可以寫,順便拆開「調 store 縮放會不會連動
+按摩室內」這條原本不明顯的隱性耦合。
+
+已在瀏覽器裡付錢進場景實測過:面板四顆滑桿讀到的初始值跟程式碼裡的
+常數一致(190/345/290/276),拖「她的 X」到 400 角色即時移到畫面另一側,
+確認 renderIndoor3D() 的即時生效路徑真的有作用,測完改回 290。
