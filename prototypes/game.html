@@ -1758,7 +1758,7 @@ const PORTRAIT_IMGS = {
   /* worker/acheng(2026-08-20)——廟口真人頭像這輪的前兩張,阿源/阿姨
      還沒生,那兩個 key 沒進這個表之前 drawPortrait() 會自動退回
      SF.person() 像素小人(既有 fallback,不會壞)。 */
-  worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=3'),
+  worker: loadPortraitImg('../assets/bg/worker-portrait.png?v=4'),
   acheng: loadPortraitImg('../assets/bg/acheng-portrait.png?v=3'),
   ayi:    loadPortraitImg('../assets/bg/ayi-portrait.png?v=2'),
   yuan:   loadPortraitImg('../assets/bg/yuan-portrait.png?v=3'),
@@ -1781,6 +1781,12 @@ const PORTRAIT_IMGS = {
      生圖工具自己的透明示意畫面被存成真的像素」這個坑,以後遇到同款
      棋盤格背景圖都可以先試同一支腳本。 */
   foreman: loadPortraitImg('../assets/bg/foreman-portrait.png?v=2'),
+  /* 老師/阿嬤(2026-09-03)——之前一直退回 SF.person() 像素小人(見 WHO.teacher/
+     WHO.granny 那兩則筆記的先例說明),這輪 kc 補真人照片,跟其他角色同一套
+     接法:PORTRAIT_IMGS 加一行,WHO 的顏色設定不用動,drawPortrait() 自動
+     改用照片。 */
+  teacher: loadPortraitImg('../assets/bg/teacher-portrait.png?v=1'),
+  granny:  loadPortraitImg('../assets/bg/granny-portrait.png?v=1'),
   /* 阿正(2026-08-31)——先接資料,照片還沒生,跟 worker/bo/motoboss/foreman
      當初同一套先例:檔案還沒存在時 img.naturalWidth 是 0,drawPortrait()
      自動退回 SF.person() 像素小人,不會壞,kc 丟真的照片進來對話框會
@@ -3244,6 +3250,26 @@ const clientNPC = buildNPC(THREE, scene, {
   hood:'#33383f', pants:'#26241f', shoe:'#3a3430'
 });
 NPCS.push(clientNPC);
+/* 再多兩個(2026-09-03,kc:「多放兩個妓女在這條街」)——跟 workerNPC
+   同一個等級的純背景裝飾(沒有 nearProp/對話,不是新增兩條可互動的
+   支線角色),讓光明巷讀起來不只有一個人在站,呼應「這裡正在發生」的
+   感覺。剛好接上這輪新下載的 f4(Elizabeth)/f5(Kate)——備用骨架
+   派上用場,不用再另外找。z 挑巷子兩端(-30 靠中華路那頭、-50 靠廟口路
+   那頭),跟 ALLEY_WORKER(z:-38)/clientNPC(z:-36.6)拉開,也避開
+   alley() 自己排的冷氣機/電表箱/紙箱堆那些牆面裝飾的 z 位置(見
+   scene-city3d.js alley() 那則長筆記量過的座標)。 */
+const alleyWorker2 = buildNPC(THREE, scene, {
+  x:-26.4, z:-30, rotationY:Math.PI*.15, rig:'f4',
+  skin:'#c9a077', hair:'#2a1f1a',
+  hood:'#3a5f52', pants:'#26241f', shoe:'#3a3430'
+});
+NPCS.push(alleyWorker2);
+const alleyWorker3 = buildNPC(THREE, scene, {
+  x:-21.6, z:-50, rotationY:-Math.PI*.35, rig:'f5',
+  skin:'#d1a67e', hair:'#c9a24a',
+  hood:'#4a3a5f', pants:'#2b2b2b', shoe:'#3a3430'
+});
+NPCS.push(alleyWorker3);
 
 /* 隨地小便(2026-08-26)——kc 要的「不只是偷東西」那類小事件之一,借同一條
    巷子(alley(-24,-27,-51))裡跟 ALLEY_WORKER(z:-38)拉開距離的另一端,
