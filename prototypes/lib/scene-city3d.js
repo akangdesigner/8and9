@@ -2665,8 +2665,15 @@ export function buildCity(THREE, scene){
        跟牆面同一深度打架/z-fighting),同時留一顆滑桿(見 game.html
        tweakMassageDoorPanel())讓 kc 自己現場找感覺對的深度,不用再靠
        截圖來回猜。 */
+    /* 第六輪,kc:「這邊要做成純黑的黑洞不能有反光 不能會破功」——位置
+       對了之後才發現剩下的問題是材質:`std()` 是 MeshStandardMaterial
+       (PBR),就算 roughness 拉到 .95 還是會吃光源算高光,巷子那盞粉紅
+       招牌燈近距離打上去會在紙片上留一點亮斑,黑洞看起來像「有光澤的
+       深色板子」而不是真的無反射的洞。換成 MeshBasicMaterial——完全
+       不計算光照,不管旁邊有幾盞燈都固定是同一個純黑色,沒有高光可以
+       破功。 */
     const HOLE_DEPTH = -.03;
-    const dark = std({ color:0x050505, roughness:.95, side:THREE.DoubleSide });
+    const dark = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.DoubleSide });
     const holePlane = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), dark);
     holePlane.rotation.y = -side * Math.PI/2;
     add(holePlane, innerX + side*HOLE_DEPTH, DH/2, sz, false, false);
