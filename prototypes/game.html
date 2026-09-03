@@ -11068,7 +11068,7 @@ function talkToWorker(w){
   const freeOne = ALLEY_WORKER.freeMassageOwed;
   say('worker', line, () => {
     openMenu('巷子裡', [
-      { label: freeOne ? '跟她走（她說這次算她的）' : '付錢,跟她走',
+      { label: freeOne ? '要不要爽一下？（她說這次算她的）' : '要不要爽一下？',
         cost: freeOne ? '免費' : '$'+WORKER_PRICE,
         cls: (!freeOne && ST.money<WORKER_PRICE) ? 'bad' : '',
         run(){

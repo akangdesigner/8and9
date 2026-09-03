@@ -360,17 +360,11 @@ export function buildCity(THREE, scene){
    * 一次生滿。variant 沒傳(其他業態,店數少不需要變體)行為不變。 */
   const FRONT_ASPECT = (UNIT - .4 - 2.6) / 4.6;
   const frontMats = {};
-  /* aspectOverride(2026-09-03,越式按摩巷子門加的)——原本這個函式一律
-     用 FRONT_ASPECT(row() 店面箱體的寬高比,約 2:1)裁圖,套用在別的
-     箱體比例上圖會被裁歪。alley() 的窄門是直的(DW/DH≈.55,高比寬長
-     多),不能沿用這個假設,加一個可選第三參數讓呼叫端自己指定實際
-     要貼的那個面的寬高比,不傳就照舊用 FRONT_ASPECT,不影響其他呼叫端。 */
-  function shopFront(kind, variant, aspectOverride){
+  function shopFront(kind, variant){
     if(!kind || kind === 'shutter' || kind === 'gap') return null;
     const ck = variant == null ? kind : `${kind}-${variant}`;
     if(ck in frontMats) return frontMats[ck];
 
-    const targetAspect = aspectOverride || FRONT_ASPECT;
     /* 還沒載到圖的時候要跟原本長得一模一樣,不能因為多了這條管線就變差 */
     const m = std(kind === 'store'
       ? { color:0xe4ead8, emissive:0xf4f6e8, emissiveIntensity:1.1, roughness:.35 }
@@ -379,8 +373,8 @@ export function buildCity(THREE, scene){
       const t = new THREE.Texture(img);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
       const ia = img.width / img.height;
-      if(ia > targetAspect){ const r = targetAspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
-      else { const r = ia/targetAspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      if(ia > FRONT_ASPECT){ const r = FRONT_ASPECT/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
+      else { const r = ia/FRONT_ASPECT; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
       m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = .55;
       m.color.setHex(0xffffff); m.roughness = .6; m.metalness = 0; m.needsUpdate = true;
     };
@@ -2640,25 +2634,48 @@ export function buildCity(THREE, scene){
     const DW = 2.4, DH = 4.4, RECESS = .3;
     const innerX = x + side*HW;                       // 巷子牆內側面(面朝走道)
     const mainIdx = side > 0 ? 1 : 0;                  // 東牆內面朝 -x(index1),西牆內面朝 +x(index0)
-    /* 門片是直的(DW/DH≈.55),跟一般 row() 店面的橫式比例(FRONT_ASPECT
-       ≈2:1)差很多——傳實際寬高比進去,shopFront() 才不會照錯誤的比例
-       裁圖(見 shopFront() 的 aspectOverride 那則筆記)。 */
-    const photo = shopFront(id, undefined, DW/DH);
-    const faces = Array.from({length:6}, (_,i) => i===mainIdx ? photo : M.recess);
-    /* OUT = -side:牆內面「朝走道」的方向。凹進去(門片)要往牆裡退
-       (+side),招牌/燈要往走道那邊探出來(-side)——跟 richStoreFront()
-       的 RECESS 退/OUT 探同一個方向邏輯,只是 side 這裡是「牆在哪一側」
-       不是「店面面朝哪」,符號因此相反,不要照抄 richStoreFront 的正負號。 */
-    add(box(RECESS, DH, DW, faces), innerX + side*(RECESS/2), DH/2, sz, false, true);
+    /* 門半開(2026-09-03,kc:「門做成半開 裡面黑色就好反正很昏暗」)——
+       不用等 shop-massage.png 這張圖了,退回不用貼圖的做法:凹進去那個
+       洞維持全黑(近黑色,不是 M.recess 那個帶一點灰的深色,巷子本來就暗,
+       黑洞看起來就是「看不清楚裡面」,不用假裝有東西可看),門片本身是
+       另一塊獨立薄板,繞著門洞其中一側的軸轉開一個角度,擋住大半個門洞、
+       露出一道黑縫——比「門關著」更清楚讀出「這是一扇門,不是一塊死板」。 */
+    /* 黑洞深度(2026-09-03 第二輪,kc:「原本的門要拔掉啊 那邊就是變成挖
+       一個黑洞的感覺」)——第一版黑色面板跟門片幾乎貼在同一個深度,兩塊
+       東西疊在一起,看起來像「兩扇門」而不是「一扇門開著、後面是暗的」。
+       黑色面板退到牆裡面 HOLE_DEPTH(接近 richStoreFront 那套真的洞的
+       深度量級),門片留在洞口附近,深度分開了才讀得出「這是洞,不是另
+       一片板子」。 */
+    const HOLE_DEPTH = 1.1;
+    const dark = std({ color:0x050505, roughness:.95 });
+    const cavityFaces = Array.from({length:6}, (_,i) => i===mainIdx ? dark : M.recess);
+    add(box(RECESS, DH, DW, cavityFaces), innerX + side*HOLE_DEPTH, DH/2, sz, false, true);
     const fm = frameMaterial(THREE);
     add(box(.16, DH+.3, DW+.3, fm), innerX - side*.02, DH/2+.05, sz, false, false);
+    /* 門片:鉸鏈設在門洞靠 z0(sz-DW/2)那一側,繞 Y 軸轉開,材質沿用
+       frameMaterial()(門框同一種深色木紋,沒圖時退回深灰,不用另開一顆
+       材質)。轉開方向讓門片往走道外推(側面法線 -side),跟人從走道
+       推門進去的直覺一致。門片留在洞口(接近牆面),不跟著黑色面板退進去
+       ——門是「開著擋在洞口旁邊」,不是也躲進黑洞裡。 */
+    const leafW = DW * .92, leafT = .08, hingeZ = sz - DW/2;
+    const doorGroup = new THREE.Group();
+    doorGroup.position.set(innerX + side*(RECESS*.5), DH/2, hingeZ);
+    doorGroup.rotation.y = -side * .55;
+    const leaf = box(leafT, DH - .1, leafW, fm);
+    leaf.position.set(0, 0, leafW/2);
+    leaf.castShadow = true; leaf.receiveShadow = true;
+    doorGroup.add(leaf);
+    scene.add(doorGroup);
     /* 招牌:比照 row() 的招牌箱體做法但縮小、壓暗——巷子裡一塊小小的、
        不太亮的招牌,不是正常店面那種過曝亮度。 */
     const signW = DW+.8, signH = 1.3;
     const sign = signImage(signKey, signW/signH, .75);
     add(box(.24, signH, signW, Array.from({length:6}, (_,i) => i===mainIdx ? sign : fm)),
         innerX - side*.5, DH+.9, sz, false, false);
-    lampSpots.push({ x:innerX - side*.4, y:3.4, z:sz, c:0xd8608c, i:9, r:9 });
+    /* 燈的強度(2026-09-03 第二輪)——原本 i:9 把退進牆裡的黑洞打得太亮,
+       黑洞變成一片粉紅,跟「裡面黑色就好」的要求相反。壓到 i:3,只留一點
+       曖昧的粉紅色氣氛(招牌本身的光),不會把黑洞蓋過去。 */
+    lampSpots.push({ x:innerX - side*.4, y:3.4, z:sz, c:0xd8608c, i:3, r:7 });
     doors.push({ id, name:label, x:innerX - side*1.6, z:sz });
   }
   /* 巷子店面(2026-09-03,kc:「兩個店都要3D場景裡面有店面」)——越式按摩
