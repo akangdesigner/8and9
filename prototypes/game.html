@@ -2064,18 +2064,14 @@ const questPanelEl = document.getElementById('questPanel');
    精神,只是這次「沒有任務」換成「使用者選擇收合」)。 */
 let questPanelCollapsed = false;
 function toggleQuestPanel(){ questPanelCollapsed = !questPanelCollapsed; renderQuestPanel(); }
-/* 2026-09-02,kc 回報「收合功能又失敗了」——查證抓到真正原因:按鈕是用
-   `onclick="toggleQuestPanel()"` 這種內嵌屬性寫的,每次 renderQuestPanel()
-   都會整個 innerHTML 重新蓋一次、按鈕整顆換新的 DOM 節點。如果手上還
-   拿著「重畫前」那顆按鈕的參照去點(不管是自動化測試用 accessibility
-   tree 的舊 ref,還是瀏覽器極端情況下事件時序卡在舊節點),點下去會
-   完全沒反應,因為那個節點已經不在畫面上了。改成事件代理(delegation):
-   監聽 questPanelEl 本身(這個容器元素從頭到尾是同一個,不會被
-   innerHTML 換掉)的 click,判斷 e.target 是不是落在 .qpToggle 裡面,
-   不用管按鈕節點本身換過幾次都抓得到。 */
-questPanelEl.addEventListener('click', e => {
-  if(e.target.closest('.qpToggle')) toggleQuestPanel();
-});
+/* 2026-09-02,kc 問「為何不寫成按鈕」——上一版把 click 掛在外層
+   questPanelEl 上用事件代理接,按鈕標籤本身不帶 onclick。改回按鈕自己
+   帶事件:renderQuestPanel() 用 innerHTML 蓋完之後,直接抓剛蓋出來的
+   那顆 .qpToggle,對它自己呼叫 addEventListener('click', toggleQuestPanel)
+   ——不是寫死在 HTML 字串裡的 `onclick="..."`(那種要靠字串在點擊當下
+   解析出全域函式名,舊版本的做法),是真的 JS 函式參照掛在按鈕物件上。
+   每次 renderQuestPanel() 都會重新蓋一次 innerHTML、按鈕整顆換新節點,
+   所以這行也要每次重畫都重新掛一次,不能只掛一次。 */
 function renderQuestPanel(){
   if(!ACTIVE_QUESTS.length){ questPanelEl.classList.remove('on', 'collapsed'); questPanelEl.innerHTML = ''; return; }
   questPanelEl.classList.add('on');
@@ -2084,6 +2080,7 @@ function renderQuestPanel(){
   questPanelEl.innerHTML = toggleBtn + (questPanelCollapsed ? '' : ACTIVE_QUESTS.map(q =>
     `<div class="qpItem"><div class="qpTitle">${q.title}</div><div class="qpHint">${q.hint}</div></div>`
   ).join(''));
+  questPanelEl.querySelector('.qpToggle').addEventListener('click', toggleQuestPanel);
 }
 window.toggleQuestPanel = toggleQuestPanel;
 const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
