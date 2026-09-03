@@ -2651,7 +2651,12 @@ export function buildCity(THREE, scene){
     const cavityFaces = Array.from({length:6}, (_,i) => i===mainIdx ? dark : M.recess);
     add(box(RECESS, DH, DW, cavityFaces), innerX + side*HOLE_DEPTH, DH/2, sz, false, true);
     const fm = frameMaterial(THREE);
-    add(box(.16, DH+.3, DW+.3, fm), innerX - side*.02, DH/2+.05, sz, false, false);
+    /* 第三輪,kc:「還是有鐵門 要刪掉」——上面那塊「門框」原本是一整塊
+       實心薄板(`box(.16, DH+.3, DW+.3, fm)`),尺寸幾乎跟門洞一樣大,
+       等於在洞口正前方又焊了一塊鐵灰色平板,肉眼看起來就是第二扇關著
+       的鐵門,不是裝飾邊框。不是「調淡」的問題,是這塊板子整個不該
+       存在——直接刪掉,門洞邊緣就交給牆體本身的厚度收邊,不用額外補
+       一圈假框。 */
     /* 門片:鉸鏈設在門洞靠 z0(sz-DW/2)那一側,繞 Y 軸轉開,材質沿用
        frameMaterial()(門框同一種深色木紋,沒圖時退回深灰,不用另開一顆
        材質)。轉開方向讓門片往走道外推(側面法線 -side),跟人從走道
