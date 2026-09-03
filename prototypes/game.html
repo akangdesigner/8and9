@@ -8629,9 +8629,7 @@ function updateCity(dt){
   } else if(nearProp && !busy && !dlg.on){
     hintEl.innerHTML = nearProp.type === 'pet' ? nearProp.ref.label + '　按 <b>空白鍵</b> 摸摸看'
                       : nearProp.type === 'play' ? nearProp.ref.label + '　按 <b>空白鍵</b> 玩一下'
-                      : nearProp.type === 'moto' ? (nearProp.ref.forSale && !nearProp.ref.owned
-                          ? '按 <b>空白鍵</b> 跟老闆談車'
-                          : '按 <b>空白鍵</b> 騎上去')
+                      : nearProp.type === 'moto' ? '按 <b>空白鍵</b> 騎上去'
                       : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'altar' ? '按 <b>空白鍵</b> 靠近功德箱'
@@ -8837,9 +8835,6 @@ function tweakPassengerSeatPanel(){
     });
   });
 }
-/* 跟機車行買車(2026-08-17)——m.forSale 那台才會走這條,其餘車(包括這台
-   買下之前)按空白鍵直接是 mountMoto(),見下面 interactProp() 那段判斷。
-   付完錢當場 owned=true,之後騎這台不再扣風評(見 mountMoto())。 */
 /* 廟口兩個攤販老闆(2026-08-20)——npc-temple.js 的 NpcTemple.NPCS 資料
    第一次真的接上 3D 世界,之前那份資料完全沒有介面在消費。阿姨/阿成共用
    同一套邏輯(openStallMenu/talkToStallVendor),按空白鍵:先跑 events[]
@@ -11147,10 +11142,9 @@ function talkToMotoBoss(){
     });
     return;
   }
-  const m = city.motos.find(mm => mm.forSale);
   talkToStallVendor(MOTOBOSS, StoryMotoBoss, 'motoboss', () => {
-    if(m && !m.owned) buyMoto(m);
-    else if(m && m.owned && !m.modded) offerMotoMod(m);
+    if(!shopMoto) offerBuyMoto();
+    else if(!shopMoto.modded) offerMotoMod(shopMoto);
   });
 }
 /* 改車(2026-09-03,kc:「機車行可以決定要不要改車 會加很多帥潮但扣錢扣
@@ -11176,25 +11170,30 @@ function offerMotoMod(m){
    旁邊 openStallMenu() 那套「自己人價」七折邏輯,只是門檻換成風評而不是
    有沒有跳陣頭。折數/門檻都是先湊的數字,沒跟 kc 對過。 */
 const MOTOBOSS_REP_DISCOUNT_MIN = 10;
-/* 車色選擇(2026-09-03,kc:「白色的車我覺得好醜 應該是老闆會讓你選顏色
-   你買了之後才會出現」)——原本 forSale 那台不管買不買都固定同一個展示色
-   (scene-city3d.js 那邊已經改成銀色,不再是白色),買下的瞬間直接沿用
-   展示色,玩家完全沒得選。改成:錢付完、m.owned 設定完之後,插一個純選色
-   選單(m.setSkin(idx),見 scene-city3d.js parkMoto() 那則筆記),選完才
-   真的 mountMoto() 騎走——「買了之後才會出現」的字面意思,不是先選色再
-   結帳。顏色本身不加價,包在車價裡。 */
-const MOTO_SKIN_NAMES = ['白','紅','藏青','黑','銀','黃','橘','綠','粉','米','貼花塗裝','復古鏽色'];
-function offerMotoColor(m){
-  openMenu('挑個顏色', MOTO_SKIN_NAMES.map((name, idx) => ({
-    label: name,
-    run(){ m.setSkin(idx); toast('老闆幫你換上了' + name + '色的烤漆——這台現在真的是你的了。', 2600); mountMoto(m); }
-  })));
+/* shopMoto(2026-09-03,kc:「不要有展示車」)——原本用 city.motos.find(mm =>
+   mm.forSale) 找機車行門口預先停好的那台展示車,這輪 kc 推翻「展示車」
+   這個概念,門口不再預先停車,買車前壓根沒有實體車可以找。改成這個變數
+   記「玩家跟這間店買下的那台」,null 就是還沒買過;真正的 3D 車模型要等
+   選色選單選完那一刻,用 city.spawnMoto() 現生一台才存進來(見下面
+   offerMotoColor 最後一步),不是預先擺一台等玩家選色。 */
+let shopMoto = null;
+/* 買車流程改三層(2026-09-03,kc:「選項是 我要買車/算了 點買車後選直接
+   付款或分期 然後才選顏色」)——原本「付錢買下這台/分期付款/算了」三個
+   選項擠在同一層,買車意願跟付款方式沒有分開問。改成:
+   offerBuyMoto()「我要買車/算了」→ offerMotoPayment()「直接付款/分期
+   付款/算了」→ offerMotoColor()「12 色任選」,選色完成才真的現生車+
+   mountMoto() 騎走。 */
+function offerBuyMoto(){
+  openMenu('機車行', [
+    { label:'我要買車', run(){ offerMotoPayment(); } },
+    { label:'算了', cls:'back', run(){} }
+  ]);
 }
-function buyMoto(m){
+function offerMotoPayment(){
   /* 已經有一張分期收據還沒繳完的時候不能再開一張——MOTO_LOAN 是單一物件
-     不是陣列,兩張分期同時掛著會互相蓋掉到期日/餘額。這裡跟哪一台 forSale
-     車無關(現在只剩中華路這一間機車行,見 scene-city3d.js row() 那則
-     筆記),但邏輯本身不寫死「只會有一間」,之後真的多開一間也不用改。 */
+     不是陣列,兩張分期同時掛著會互相蓋掉到期日/餘額。這裡跟哪一間機車行
+     無關(現在只剩中華路這一間,見 scene-city3d.js row() 那則筆記),但
+     邏輯本身不寫死「只會有一間」,之後真的多開一間也不用改。 */
   const busyLoan = MOTO_LOAN.active;
   const discount = ST.star >= MOTOBOSS_REP_DISCOUNT_MIN;
   const price = discount ? Math.round(MOTO_PRICE * .7) : MOTO_PRICE;
@@ -11202,28 +11201,46 @@ function buyMoto(m){
   const total = discount ? Math.round(MOTO_INSTALLMENT_TOTAL * .7) : MOTO_INSTALLMENT_TOTAL;
   const weekly = Math.round((total - down) / 6);
   openMenu('機車行', [
-    { label: discount ? '付錢買下這台(老實人價)' : '付錢買下這台', cost:'$'+price, cls: ST.money<price?'bad':'',
+    { label: discount ? '直接付款(老實人價)' : '直接付款', cost:'$'+price, cls: ST.money<price?'bad':'',
       run(){
         if(ST.money < price){ toast('錢不夠,老闆看了你一眼。', 2000); return; }
-        chg('money', -price); m.owned = true;
+        chg('money', -price);
         toast(discount ? '「你這個人可以,算你便宜一點。」' : '「錢收到了。」', 2000);
-        offerMotoColor(m);
+        offerMotoColor();
       } },
     { label:'分期付款', cost: busyLoan ? '上一台還沒繳完,不能再分期' : '訂金 $'+down+'　尾款分 6 週還',
       cls: (busyLoan || ST.money<down) ? 'bad' : '',
       run(){
         if(busyLoan){ toast('「你上一台的錢都還沒還完，先別急。」', 2400); return; }
         if(ST.money < down){ toast('連訂金都不夠,老闆搖搖頭。', 2000); return; }
-        chg('money', -down); m.owned = true;
+        chg('money', -down);
         MOTO_LOAN.active = true;
         MOTO_LOAN.balance = total - down;
         MOTO_LOAN.weekly = weekly;
         MOTO_LOAN.nextDueDay = day + 7;
         toast('訂金付了——尾款收據收好,以後每週回家睡覺會自動扣一次。', 2800);
-        offerMotoColor(m);
+        offerMotoColor();
       } },
     { label:'算了', cls:'back', run(){} }
   ]);
+}
+/* 車色選擇(2026-09-03,kc:「白色的車我覺得好醜 應該是老闆會讓你選顏色
+   你買了之後才會出現」)——錢付完之後才插這個選色選單,選好直接用選到的
+   idx 現生一台車(city.spawnMoto(),見 scene-city3d.js parkMoto() 那則
+   長筆記),不用再多一步 setSkin()——展示車拿掉之後,車根本不存在,
+   一次到位比「生一台銀色再換色」乾淨。顏色本身不加價,包在車價裡。 */
+const MOTO_SKIN_NAMES = ['白','紅','藏青','黑','銀','黃','橘','綠','粉','米','貼花塗裝','復古鏽色'];
+function offerMotoColor(){
+  openMenu('挑個顏色', MOTO_SKIN_NAMES.map((name, idx) => ({
+    label: name,
+    run(){
+      const m = city.spawnMoto(3, -13, idx, false);
+      m.owned = true;
+      shopMoto = m;
+      toast('老闆幫你烤上了' + name + '色的漆——這台現在真的是你的了。', 2600);
+      mountMoto(m);
+    }
+  })));
 }
 /* 巷子那段互動(2026-08-17)——價位($500)先湊的數字,沒跟 kc 對過,比照
    MOTO_PRICE 那個做法先訂再說。三個選項刻意不寫成「選了壞結局/好結局」
@@ -11531,11 +11548,11 @@ function interactProp(prop){
     return;
   }
   if(prop.type === 'moto'){
-    /* 2026-08-25 kc:「要付錢買應該是要跟機車行老闆對話」——forSale 那台
-       車不再直接跳買車選單,改走 talkToMotoBoss()(先對話,對完話才開
-       buyMoto() 選單),跟走到旺鴻本人旁邊觸發同一條路徑。 */
-    if(prop.ref.forSale && !prop.ref.owned) talkToMotoBoss();
-    else mountMoto(prop.ref);
+    /* forSale 展示車拿掉了(2026-09-03,kc:「不要有展示車」)——買車完全
+       走 talkToMotoBoss()(見上面 offerBuyMoto()/offerMotoPayment()/
+       offerMotoColor() 那組),街上碰到的車一律是「別人的」或「已經是
+       自己的」,按空白鍵都是直接騎上去,不會再跳買車選單。 */
+    mountMoto(prop.ref);
     return;
   }
   if(prop.type === 'pet'){

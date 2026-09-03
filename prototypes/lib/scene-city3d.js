@@ -3526,6 +3526,10 @@ export function buildCity(THREE, scene){
        只是資料,判斷跟扣分邏輯都在 game.html 的 mountMoto()/interactProp()。 */
     const entry = { x, z, group:holder, ridden:false, forSale:!!forSale, owned:false };
     motos.push(entry);
+    /* return entry(2026-09-03)——現生一台車(見上面 spawnMoto 那則筆記)
+       呼叫端要拿到這個 entry 才能標 owned/存起來,不是純副作用函式了。
+       group 這時候還是 fallback 灰盒子(glb 還沒載完),但 x/z/owned 這些
+       欄位呼叫端當下就用得到,不用等 glb 載完才能標記。 */
     loadModel('moto-vespa.glb').then(gltf => {
       scene.remove(holder);
       const propGroup = propModel(THREE, gltf, 4.3, 'z');
@@ -3538,6 +3542,7 @@ export function buildCity(THREE, scene){
          實作細節留在這個檔案」同一個模式,applyMotoSkin() 保持不 export。 */
       entry.setSkin = idx => applyMotoSkin(THREE, propGroup, MOTO_SKINS[idx % MOTO_SKINS.length]);
     }).catch(() => {});
+    return entry;
   }
   /* 2026-08-17 從 4 台擴到 12 台,湊滿 MOTO_SKINS 的顏色數——沿用原本兩處
      機車行門口的人行道深度(z=-13/59,見上面的驗證註解),往同一條街的
@@ -3551,17 +3556,16 @@ export function buildCity(THREE, scene){
      2026-08-21:kc「只會有一間機車行」——後火車站那間分店拆了(見上面
      row() 那則筆記),z=59/z=85 這六台跟著拿掉,不留「門口沒有店卻停著
      機車行的車」這種對不上的畫面。中華路那 6 台(z=-13/z=13)維持原樣。 */
-  /* forSale:機車行門口原本就停在那的第一台(中華路 x=3)標成「可以買」,
-     其餘 5 台維持「別人的車」。
-     展示色(2026-09-03,kc:「白色的車我覺得好醜」)——forSale 這台原本
-     跟其他車一樣照 forEach index 分配車色(i=0 → MOTO_SKINS[0] 白),改成
-     固定用銀色(idx 4)當展示車,不是白色;買下之後 game.html buyMoto()
-     會呼叫 entry.setSkin() 換成玩家自己選的顏色,銀色只是展示期間的過渡,
-     不是「以後永遠銀色」。其餘 5 台維持 i 本身當 skinIdx,不受影響。 */
+  /* forSale 展示車拿掉了(2026-09-03,kc:「不要有展示車」)——上一輪才
+     加的「銀色展示車」這輪直接推翻,門口(中華路 x=3,z=-13)那個位置
+     空著,不再預先停一台可以買的車。買車現在完全是跟 talkToMotoBoss()
+     對話走完整套流程(我要買車→付款方式→選色)之後,才用下面 spawnMoto
+     (=parkMoto 本體,見 return 那行)在這個座標**現生一台**,不是預先
+     擺一台等玩家選色。其餘 5 台(別人的車,不能買)維持原樣。 */
   [
-    [3,-13],[9,-13],[21,-13],[27,-13],
+    [9,-13],[21,-13],[27,-13],
     [3,13],[9,13]
-  ].forEach(([x,z], i) => parkMoto(x, z, (x === 3 && z === -13) ? 4 : i, x === 3 && z === -13));
+  ].forEach(([x,z], i) => parkMoto(x, z, i, false));
   /* 算命攤機車(2026-08-27,kc:「也可以放一些...機車都可以」)——停在
      角落附近,靠西牆那側,不算進上面「機車行門口」那批的清點。 */
   parkMoto(-56, -90, 6, false);
@@ -3730,7 +3734,10 @@ export function buildCity(THREE, scene){
        不要看到舊註解就自動接回這批 tower。 */
   })();
 
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef };
+  /* spawnMoto:parkMoto() 本體直接掛出去(2026-09-03,配合「不要有展示車」
+     那輪——買車現在要現生一台,見上面 forSale 那段長筆記),回傳新 entry
+     讓呼叫端(game.html)自己標 owned/存起來,不是回傳 void。 */
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
 }
 
 /* ---------------- 角色 ----------------
