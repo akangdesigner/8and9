@@ -9961,6 +9961,33 @@ function talkToTeacher(){
     });
     return;
   }
+  /* 班費・covered 回報(2026-09-03,kc:「如果你放過他還是要回報老師啊
+     老師會說果然是你這種社會底層偷的 然後講一些大道理」)——跟上面
+     exposed 那條刻意不對稱:揭發真凶之後老師鬆一口氣、不再追問;這裡
+     錢一樣補回去了,但玩家自己墊錢私了,老師不知道真相,只看到「錢
+     莫名其妙又出現了」,懷疑不會因此消失,反而覺得「果然是你」——做
+     對的事、自己出錢解決,得到的還是被貼標籤,呼應 CLAUDE.md 基準線
+     核心那句話。歸屬感給小額負值(−5),跟這遊戲一貫「情緒/歸屬感隨社交
+     互動變動」同一套,反映「事情解決了,但那句話還是扎人」——這個負值
+     是我自己抓的小數字,kc 不喜歡可以直接改。 */
+  if(CLASSFUND.resolved === 'covered' && !CLASSFUND.returnedToTeacher){
+    CLASSFUND.returnedToTeacher = true;
+    const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'classfund-return');
+    if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1);
+    renderQuestPanel();
+    playBeats([
+      { who:'pc',      text:'你跟老師說，錢找到了，已經補回去了。' },
+      { who:'teacher', text:'他看著你，沒有很意外的樣子。' },
+      { who:'teacher', text:'「果然是你這種社會底層會做的事。」' },
+      { who:'teacher', text:'「我不是說你一定壞，但你自己想想，平常跟哪些人混、上課心思在哪裡——會被懷疑，不是沒有原因的。」' },
+      { who:'teacher', text:'「以後多花點心思在正經事上，少讓自己看起來像會做這種事的人。」' },
+      { who:'pc',      text:'你沒有辯，錢是你自己補的，說什麼都像是在狡辯。' }
+    ], 0, () => {
+      chg('calm', -5);
+      toast('錢補回去了，但老師的懷疑並沒有真的消失。（歸屬感 −5）', 3600);
+    });
+    return;
+  }
   /* 清寒補助(2026-08-26,見上面 TEACHER_STATE 那則筆記)——讀過書架那張
      公告(BOOKSHELF_CLUES.tuitionAdFound)才會冒出來,問過一次就核准入帳,
      不是每月都要來領一次(沒做那套時間/資源分配的系統,跟 mei3「交往後
@@ -11067,6 +11094,12 @@ function talkToWorker(w){
             chg('money', -1200); chg('calm', 4);
             const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'classfund');
             if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+            /* 放過她也要回報老師(2026-09-03,kc:「如果你放過他還是要回報
+               老師啊」)——原本這條線在這裡就直接結案,沒有後續。改成跟
+               「揭發她」一樣,推一個「去跟老師說一聲」的任務,talkToTeacher()
+               補一段對應的攔截(見那邊「班費・covered 回報」那則筆記)——
+               那段才是這個分支真正的重點:錢補上了,懷疑並沒有真的消失。 */
+            ACTIVE_QUESTS.push({ id:'classfund-return', title:'班費不見了', hint:'去跟老師說一聲' });
             renderQuestPanel();
             /* 放過她的額外回饋(2026-09-03,kc:「如果你放過他 他會多給你一些
                對話回饋 然後可以免費獎勵你一次色情按摩」)——她不會演成千恩
@@ -11079,7 +11112,7 @@ function talkToWorker(w){
               { who:'worker', text:'她愣了一下，像是沒想到你會這樣選。' },
               { who:'worker', text:'「……謝了。」她說得很小聲，沒再多說什麼。' },
               { who:'worker', text:'她看了你一眼。「下次，算我的，你不用給錢。」' }
-            ], 0, () => toast('你自己把班費補上了。沒有人知道真相，你也沒有講。（$−1200，歸屬感 +4）', 3600));
+            ], 0, () => toast('你自己把班費補上了。（$−1200，歸屬感 +4）記得去跟老師說一聲。', 3600));
           } }
       ]);
     };
