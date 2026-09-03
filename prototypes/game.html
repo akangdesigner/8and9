@@ -7326,8 +7326,8 @@ function warpToParkWithMei(){
 }
 /* 越式按摩店(2026-08-20)——巷子那位 ALLEY_WORKER 站在街上,但真正談的
  * 地方是這間店,對照現實的暗巷色情店常見掛牌方式(見 DESIGN_NOTES)。
- * 沒有實體的門(city.doors),直接從 talkToWorker() 的「要不要爽一下?」
- * 分支呼叫(**不是**走近她講話就切場景——kc 糾正過一次,開場白+選單
+ * 沒有實體的門(city.doors),直接從 talkToWorker() 的「爽一下」分支
+ * 呼叫(**不是**走近她講話就切場景——kc 糾正過一次,開場白+選單
  * 維持在街上,只有真的付錢才進場景),比照 sleep()/enterBedroom() 那種
  * 「不用走去門口」的簡化版 fade,不走 enterIndoor() 的 walkIn 那段(那是
  * 給真的 3D 街上門口用的)。跟 enterIndoor() 一樣要存 returnTo,
@@ -11033,9 +11033,9 @@ const WORKER_PRICE = 500;
    都重播一模一樣的句子,不管談過幾次。改成依 w.talked 分兩桶隨機抽,
    跟阿姨/阿成 talk[] 同一套邏輯,menu 本身選項不變。 */
 /* 「陪你走一段」(2026-09-03,kc:「不要問要不要陪你走一段 這到底三小」)
-   ——拿掉,她的台詞不用重複問一次選單本身已經在問的事(「要不要爽一下?」
+   ——拿掉,她的台詞不用重複講一次選單按鈕本身已經講的事(「爽一下」
    在下面 openMenu() 那顆按鈕),改成單純的「怎樣?」開場,語氣更貼她
-   established 的「不堆笑臉、就是在問」——問句本身留給選單負責。 */
+   established 的「不堆笑臉、就是在問」。 */
 const WORKER_TALK = {
   before: ['「怎樣?」\n\n她看你一眼,沒有堆笑臉,就是在問。'],
   after: [
@@ -11198,7 +11198,7 @@ function talkToWorker(w){
   const freeOne = ALLEY_WORKER.freeMassageOwed;
   say('worker', line, () => {
     openMenu('巷子裡', [
-      { label: freeOne ? '要不要爽一下？（她說這次算她的）' : '要不要爽一下？',
+      { label: freeOne ? '爽一下（她說這次算她的）' : '爽一下',
         cost: freeOne ? '免費' : '$'+WORKER_PRICE,
         cls: (!freeOne && ST.money<WORKER_PRICE) ? 'bad' : '',
         run(){
