@@ -360,11 +360,17 @@ export function buildCity(THREE, scene){
    * 一次生滿。variant 沒傳(其他業態,店數少不需要變體)行為不變。 */
   const FRONT_ASPECT = (UNIT - .4 - 2.6) / 4.6;
   const frontMats = {};
-  function shopFront(kind, variant){
+  /* aspectOverride(2026-09-03,越式按摩巷子門加的)——原本這個函式一律
+     用 FRONT_ASPECT(row() 店面箱體的寬高比,約 2:1)裁圖,套用在別的
+     箱體比例上圖會被裁歪。alley() 的窄門是直的(DW/DH≈.55,高比寬長
+     多),不能沿用這個假設,加一個可選第三參數讓呼叫端自己指定實際
+     要貼的那個面的寬高比,不傳就照舊用 FRONT_ASPECT,不影響其他呼叫端。 */
+  function shopFront(kind, variant, aspectOverride){
     if(!kind || kind === 'shutter' || kind === 'gap') return null;
     const ck = variant == null ? kind : `${kind}-${variant}`;
     if(ck in frontMats) return frontMats[ck];
 
+    const targetAspect = aspectOverride || FRONT_ASPECT;
     /* 還沒載到圖的時候要跟原本長得一模一樣,不能因為多了這條管線就變差 */
     const m = std(kind === 'store'
       ? { color:0xe4ead8, emissive:0xf4f6e8, emissiveIntensity:1.1, roughness:.35 }
@@ -373,8 +379,8 @@ export function buildCity(THREE, scene){
       const t = new THREE.Texture(img);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
       const ia = img.width / img.height;
-      if(ia > FRONT_ASPECT){ const r = FRONT_ASPECT/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
-      else { const r = ia/FRONT_ASPECT; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+      if(ia > targetAspect){ const r = targetAspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
+      else { const r = ia/targetAspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
       m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = .55;
       m.color.setHex(0xffffff); m.roughness = .6; m.metalness = 0; m.needsUpdate = true;
     };
@@ -2634,7 +2640,10 @@ export function buildCity(THREE, scene){
     const DW = 2.4, DH = 4.4, RECESS = .3;
     const innerX = x + side*HW;                       // 巷子牆內側面(面朝走道)
     const mainIdx = side > 0 ? 1 : 0;                  // 東牆內面朝 -x(index1),西牆內面朝 +x(index0)
-    const photo = shopFront(id, undefined);
+    /* 門片是直的(DW/DH≈.55),跟一般 row() 店面的橫式比例(FRONT_ASPECT
+       ≈2:1)差很多——傳實際寬高比進去,shopFront() 才不會照錯誤的比例
+       裁圖(見 shopFront() 的 aspectOverride 那則筆記)。 */
+    const photo = shopFront(id, undefined, DW/DH);
     const faces = Array.from({length:6}, (_,i) => i===mainIdx ? photo : M.recess);
     /* OUT = -side:牆內面「朝走道」的方向。凹進去(門片)要往牆裡退
        (+side),招牌/燈要往走道那邊探出來(-side)——跟 richStoreFront()
