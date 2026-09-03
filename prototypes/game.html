@@ -1802,7 +1802,12 @@ const PORTRAIT_IMGS = {
      自動退回 SF.person() 像素小人,不會壞,kc 丟真的照片進來對話框會
      自動換上,不用再回來改這裡。生圖 prompt 見這輪聊天紀錄,沒有寫進
      PROMPTS.md(見 feedback_prompts_in_chat_not_md 那條慣例)。 */
-  brother: loadPortraitImg('../assets/bg/brother-portrait.png?v=2')
+  brother: loadPortraitImg('../assets/bg/brother-portrait.png?v=2'),
+  /* 旺鴻(2026-09-03)——之前退回 SF.person() 像素小人(見 WHO.motoboss 那則
+     筆記),這輪 kc 補真人照片。原圖背景是 AI 生圖工具自己畫的假棋盤格
+     示意透明(不是真的 alpha),跟 foreman-portrait 當初踩過同一個坑(見
+     上面那則長筆記),用同一支 tools/white-to-alpha.py(閾值 225)去背。 */
+  motoboss: loadPortraitImg('../assets/bg/motoboss-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
 function drawPortrait(who){
