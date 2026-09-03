@@ -3253,15 +3253,15 @@ const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:fals
    她專屬的(理由/候選見 MODELS.f3 那則長筆記),跟小美哥/旺鴻補 m5/m6
    同一個精神。indoorScene 那具 workerIndoor(進按摩室內用)也一起換,
    兩邊要是同一個人。 */
-/* stillFace(2026-09-03,kc:「人物動作完全都沒有站姿」)——跟工地老闆
-   同一個開關(見 buildNPC() opts.stillFace 那則筆記),連著頭一起釘死,
-   不玩 idle 動畫也不玩 glance/sway,骨架定格在 Breathing Idle 播放的
-   第一格站姿。光明巷這三個 + 室內 workerIndoor 都要一起加,不然街上/
-   室內表現不一致。 */
+/* stillFace 加過又拿掉(2026-09-03)——一開始以為「完全都沒有站姿」是動畫
+   本身的問題,加了 stillFace 定格;後來發現真正問題是位置/朝向沒對準
+   (用 __dbg.tweakAlleyWorkers() 滑桿調好之後),kc:「ok了欸 那可以保留
+   呼吸跟輕微搖晃轉頭嗎」——所以拿掉 stillFace,保留 Breathing Idle +
+   animate() 裡原本就有的 glance/sway 那層「有點活著」的細節。 */
 const workerNPC = buildNPC(THREE, scene, {
   x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:-Math.PI/2, rig:'f3',
   skin:'#c9a077', hair:'#241f1c',
-  hood:'#7a2f45', pants:'#232323', shoe:'#3a3430', stillFace:true
+  hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
 });
 NPCS.push(workerNPC);
 /* 嫖客:單純站在旁邊撐場面(kc:「也有嫖客」),沒有互動,只是讓這條巷子
@@ -3288,13 +3288,13 @@ NPCS.push(clientNPC);
 const alleyWorker2 = buildNPC(THREE, scene, {
   x:-26.4, z:-30, rotationY:Math.PI/2, rig:'f4',
   skin:'#c9a077', hair:'#2a1f1a',
-  hood:'#3a5f52', pants:'#26241f', shoe:'#3a3430', stillFace:true
+  hood:'#3a5f52', pants:'#26241f', shoe:'#3a3430'
 });
 NPCS.push(alleyWorker2);
 const alleyWorker3 = buildNPC(THREE, scene, {
   x:-21.6, z:-50, rotationY:-Math.PI/2, rig:'f5',
   skin:'#d1a67e', hair:'#c9a24a',
-  hood:'#4a3a5f', pants:'#2b2b2b', shoe:'#3a3430', stillFace:true
+  hood:'#4a3a5f', pants:'#2b2b2b', shoe:'#3a3430'
 });
 NPCS.push(alleyWorker3);
 
@@ -5530,7 +5530,7 @@ const heroIndoor = buildPlayer(THREE, indoorScene);
    載入 glb 沒必要),平常不顯示,只有 PLACE==='massage' 時在
    renderIndoor3D() 裡打開 visible 並定位。 */
 const workerIndoor = buildNPC(THREE, indoorScene, {
-  rig:'f3', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430', stillFace:true
+  rig:'f3', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
 });
 workerIndoor.group.visible = false;
 let MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
