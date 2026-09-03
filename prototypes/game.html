@@ -7155,6 +7155,17 @@ function warpIntoPlace(door){
   checkGrandmaCall();
 }
 function enterIndoor(door){
+  /* 越式按摩店的門(2026-09-03,scene-city3d.js buildAlleyShopfront())——
+     門本身不是新的進場入口,只是讓 ALLEY_WORKER 站的地方有個真的店面。
+     走近門按空白鍵,效果跟走近她本人按空白鍵完全一樣(talkToWorker()),
+     不用另外寫一套對話——nearDoor 判斷在 updateCity() 裡本來就會蓋過
+     nearProp,門/人兩個觸發點疊在一起也只會呼叫到同一個函式一次。 */
+  if(door.id === 'massage'){ talkToWorker(ALLEY_WORKER); return; }
+  /* 醫院的門(2026-09-03,同一輪)——阿嬤在醫院那幕是傍晚電話自動觸發
+     (checkGrandmaCall()),不是走進門觸發,跟站在哪裡無關。這棟建築純粹
+     是視覺存在,平常走近按空白鍵只回一句「沒有理由進去」,不接 fade/
+     warpIntoPlace() 那條路。 */
+  if(door.id === 'hospital'){ toast('醫院的門口。你現在沒有理由進去。', 2600); return; }
   if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
     toast(door.name + ' 的室內場景還沒做。', 3600);
     return;

@@ -1086,7 +1086,7 @@ export function buildCity(THREE, scene){
               idx === (axis==='x' ? (face>0?4:5) : (face>0?0:1)) ? photo : M.alumFrame)
           : (lit?M.glassLit:M.glassOff);
         add(box(faceW,4.6,faceD, mat), fX+offX, 2.5, fZ+offZ, false, true);
-        if(lit || s.kind==='tattoo' || s.kind==='arcade')
+        if(lit || s.kind==='tattoo' || s.kind==='arcade' || s.kind==='hospital')
           lampSpots.push({ x:fX + (axis==='z'?face*2.6:0), y:3.2, z:fZ + (axis==='x'?face*2.6:0),
                            c: lit?0xf6f7ec:(s.sign||0x88aacc), i: lit?30:18, r: lit?28:20 });
       }
@@ -1223,7 +1223,16 @@ export function buildCity(THREE, scene){
        另外開一套進場機制。 */
     arcade:()=>({kind:'arcade',sign:0xff4fa0,text:'遊藝場',signKey:'arcade',id:'arcade',label:'遊藝場'}),
     moto:()=>({kind:'moto',sign:0x3f8fd8,text:'機車行',signKey:'moto'}),
-    drug:()=>({kind:'drug',sign:0x35b06a,text:'藥局',signKey:'drug'})
+    drug:()=>({kind:'drug',sign:0x35b06a,text:'藥局',signKey:'drug'}),
+    /* 醫院(2026-09-03,kc:「兩個店都要3D場景裡面有店面」)——阿嬤在醫院
+       那幕(scene-hospital.js)之前只是灰模室內,城市裡完全沒有對應的
+       建築,「進醫院」純粹是傍晚電話自動觸發,跟站在哪裡無關(見 game.html
+       checkGrandmaCall() 那則長筆記)。這裡補的建築純粹是視覺存在,不是
+       新的進場入口——enterIndoor() 特判 id==='hospital' 只回一句「沒有
+       理由進去」的 toast,真正的劇情還是走電話那條路,兩邊不會打架。
+       名字/色系自己選的虛構名字(仁和醫院,不對應真實醫院連鎖),kc 不
+       喜歡可以直接換。 */
+    hospital:()=>({kind:'hospital',sign:0x35b0a0,text:'仁和醫院',signKey:'hospital',id:'hospital',label:'仁和醫院'})
   };
 
   /* 中華路:你家、超商在這條 */
@@ -2385,8 +2394,10 @@ export function buildCity(THREE, scene){
   /* 縱街——這兩排原本各多開一個 food/betel slot,會讓 nFood/nBetel 的計數器
      繞回 FOOD.length/BETEL.length 重複到前面已經出現過的店名(2026-08-14 kc
      抓到「麵店」重複)。FOOD 6 種、BETEL 3 種都已經在前面的排用滿,這裡多出來
-     的 slot 換成拉鐵門的店面(S.sh,已有 shutter.png),不再喊 S.food()/S.betel()。 */
-  row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
+     的 slot 換成拉鐵門的店面(S.sh,已有 shutter.png),不再喊 S.food()/S.betel()。
+     西園街第 4 格(2026-09-03)換成 S.hospital()——這條街本來就是一整排
+     沒有名字的鐵捲門,挑中間一格換掉不影響其餘 7 格的既有觀感。 */
+  row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.sh,S.sh,S.hospital(),S.sh,S.sh,S.sh,S.sh ]});
   row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
 
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 =====
@@ -2615,12 +2626,46 @@ export function buildCity(THREE, scene){
   const MB_Y = { row: 1.8/.42 + .65, single: 1.0/.42 + .65 };
   const AC_TIER = ['high','mid','low'];
   const alleys = [];
-  function alley(x, z0, z1, name){
+  /* 嵌進巷子牆面的窄店門,比照 richStoreFront() 的「凹進去+鋁框+暖光」
+     邏輯簡化(巷子門面本來就該窄小寒酸,不是正常店面規格)。side:+1 東牆
+     (內面朝 -x)/-1 西牆(內面朝 +x),z 是沿巷子長度的世界座標。 */
+  function buildAlleyShopfront(x, HW, sz, side, cfg){
+    const { id, label, signKey } = cfg;
+    const DW = 2.4, DH = 4.4, RECESS = .3;
+    const innerX = x + side*HW;                       // 巷子牆內側面(面朝走道)
+    const mainIdx = side > 0 ? 1 : 0;                  // 東牆內面朝 -x(index1),西牆內面朝 +x(index0)
+    const photo = shopFront(id, undefined);
+    const faces = Array.from({length:6}, (_,i) => i===mainIdx ? photo : M.recess);
+    /* OUT = -side:牆內面「朝走道」的方向。凹進去(門片)要往牆裡退
+       (+side),招牌/燈要往走道那邊探出來(-side)——跟 richStoreFront()
+       的 RECESS 退/OUT 探同一個方向邏輯,只是 side 這裡是「牆在哪一側」
+       不是「店面面朝哪」,符號因此相反,不要照抄 richStoreFront 的正負號。 */
+    add(box(RECESS, DH, DW, faces), innerX + side*(RECESS/2), DH/2, sz, false, true);
+    const fm = frameMaterial(THREE);
+    add(box(.16, DH+.3, DW+.3, fm), innerX - side*.02, DH/2+.05, sz, false, false);
+    /* 招牌:比照 row() 的招牌箱體做法但縮小、壓暗——巷子裡一塊小小的、
+       不太亮的招牌,不是正常店面那種過曝亮度。 */
+    const signW = DW+.8, signH = 1.3;
+    const sign = signImage(signKey, signW/signH, .75);
+    add(box(.24, signH, signW, Array.from({length:6}, (_,i) => i===mainIdx ? sign : fm)),
+        innerX - side*.5, DH+.9, sz, false, false);
+    lampSpots.push({ x:innerX - side*.4, y:3.4, z:sz, c:0xd8608c, i:9, r:9 });
+    doors.push({ id, name:label, x:innerX - side*1.6, z:sz });
+  }
+  /* 巷子店面(2026-09-03,kc:「兩個店都要3D場景裡面有店面」)——越式按摩
+     那位 ALLEY_WORKER(game.html)一直是站在巷子的素牆(冷氣機/電表箱那套
+     通用裝飾)前面講話,沒有真的店門,「有店面」名不符實。alley() 加一個
+     可選的第五參數 opts.shopfront,只有 光明巷 那通呼叫會傳,太平巷不受
+     影響。材質沿用 shopFront()/signImage() 既有管線(沒圖先素色,kc 生完
+     `assets/tex/shop-massage.png`/`sign-massage.png` 自動接上),不用另開
+     一套貼圖系統。 */
+  function alley(x, z0, z1, name, opts){
     alleys.push({ x, z0, z1, name });                  // 小地圖要畫,別在外面重算一次
     /* 巷子寬度(2026-08-18 第四輪加寬到 3.6、第九輪 kc 說「不要加寬好了」
        改回來)——維持 3.2,跟 alleyDiag() 的 3.6 不一致,kc 接受這個不一致,
        不用特地拉齊。 */
     const HW = 3.2, len = Math.abs(z1-z0), cz = (z0+z1)/2;
+    const sf = opts && opts.shopfront;
     add(box(HW*2+8, .28, len, M.alleyFloor), x, .14, cz, false, true);
     [-1,1].forEach(s => {
       add(box(6, 13, len, alleyWallFaces(len)), x + s*(HW+3), 6.5, cz);
@@ -2631,14 +2676,19 @@ export function buildCity(THREE, scene){
        同一個 y;電箱從「3 顆各自散開」改成「1 排 3 個緊靠+1 個單獨」,跟
        參考圖裡「電箱(橫向一排)」+「電箱(單個)」那組構圖一致。第二十七輪
        每顆冷氣機補一條 addPipe() 管線(見上面那則筆記),偏移量抓箱體
-       正面寬度(AC_DIMS[2])的 .42 倍,落在箱體邊緣附近、不會穿模。 */
+       正面寬度(AC_DIMS[2])的 .42 倍,落在箱體邊緣附近、不會穿模。
+       有 shopfront 時,跳過跟店面同一側、z 落在店門範圍內的那顆冷氣機
+       ——不然箱體會直接穿模長在店門正中央。 */
     [.1,.38,.64,.9].forEach((f, i) => {
       const zz = z0 + (z1-z0)*f;
-      const ux = x + (i%2?1:-1)*(HW-.3);
+      const side = i%2 ? 1 : -1;
+      if(sf && sf.side === side && Math.abs(zz - sf.z) < 2.5) return;
+      const ux = x + side*(HW-.3);
       const uy = AC_Y[AC_TIER[i%3]];
       wallUnit(...AC_DIMS, ...AC_FILES, ux, uy, zz);
       addPipe(ux, uy - AC_DIMS[1]/2, .3, zz + AC_DIMS[2]*.42);
     });
+    if(sf) buildAlleyShopfront(x, HW, sf.z, sf.side, sf);
     const mbRowZ = z0 + (z1-z0)*.5;
     [-1.1,0,1.1].forEach(dz =>
       wallUnit(...MB_DIMS, ...MB_FILES, x - (HW-.3), MB_Y.row, mbRowZ + dz));
@@ -2665,7 +2715,11 @@ export function buildCity(THREE, scene){
      巷弄常見、語感中性的名字(太平巷/自強巷),不強加反諷——不是每條巷
      都要複製「光明巷」那個反差,那樣會濫用同一招。這兩個是我選的,kc
      不喜歡可以直接換。 */
-  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + B_LINE + DEPTH/2, '光明巷');   // 中華路 ⇄ 廟口路
+  /* shopfront.z=-38 對齊 game.html 的 ALLEY_WORKER.z(-38)——她站的位置
+     本來就已經偏東牆(x:-22.3,巷子中心 x=-24),店門開在她面前那面牆上,
+     不用另外挪她的座標。 */
+  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + B_LINE + DEPTH/2, '光明巷',
+    { shopfront:{ side:1, z:-38, id:'massage', label:'越式按摩', signKey:'massage' } });   // 中華路 ⇄ 廟口路
   alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  84 - B_LINE - DEPTH/2, '太平巷');   // 中華路 ⇄ 後火車站
 
   /* ===== 斜巷:跟 alley() 同一套「兩排素牆夾一條走道」邏輯,只是不沿 x/z
