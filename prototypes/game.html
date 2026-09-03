@@ -3297,6 +3297,24 @@ const alleyWorker3 = buildNPC(THREE, scene, {
   hood:'#4a3a5f', pants:'#2b2b2b', shoe:'#3a3430'
 });
 NPCS.push(alleyWorker3);
+/* 兩個背景角色的搭話台詞(2026-09-03,kc:「另外兩個妓女也要有一些像路人
+   的對話吧 不要頭像那種」)——跟 ALLEY_WORKER 那種開頭像選單的正式互動
+   不同層級,借 nearProp 'pedestrian' 那條共用路徑(見 updateCity() 裡
+   PEDESTRIANS 迴圈旁邊、interactProp() 'pedestrian' 分支裡 statueLine/
+   AXIA_NPC 那套「特例 ref 蓋過共用閒聊池」的作法),純 toast 一句,不開
+   對話框也不叫她們的名字(沒有名字,跟 clientNPC 同一個「純背景」層級)。
+   x/z 對齊上面 alleyWorker2/alleyWorker3 建 buildNPC() 時給的座標,不是
+   另外量一次。 */
+const ALLEY_WORKER2 = { x:-26.4, z:-30, solicit:[
+  '「來看看唷,我很便宜的。」',
+  '「小帥哥,要不要坐一下?」',
+  '「今天生意不好,算你便宜一點都行。」'
+] };
+const ALLEY_WORKER3 = { x:-21.6, z:-50, solicit:[
+  '「要不要進來坐?」',
+  '「別看了,要就進來,不要就快走。」',
+  '「站這裡也是站,不如陪個客人。」'
+] };
 
 /* 隨地小便(2026-08-26)——kc 要的「不只是偷東西」那類小事件之一,借同一條
    巷子(alley(-24,-27,-51))裡跟 ALLEY_WORKER(z:-38)拉開距離的另一端,
@@ -8483,6 +8501,10 @@ function updateCity(dt){
       if(!m.ridden && !(MOTO_IMPOUND.active && m === MOTO_IMPOUND.motoRef) && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
     if(!nearProp && !ALLEY_WORKER.gone && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 3.2)
       nearProp = { type:'worker', ref:ALLEY_WORKER };
+    if(!nearProp && Math.hypot(pos.x-ALLEY_WORKER2.x, pos.z-ALLEY_WORKER2.z) < 3.2)
+      nearProp = { type:'pedestrian', ref:ALLEY_WORKER2 };
+    if(!nearProp && Math.hypot(pos.x-ALLEY_WORKER3.x, pos.z-ALLEY_WORKER3.z) < 3.2)
+      nearProp = { type:'pedestrian', ref:ALLEY_WORKER3 };
     if(!nearProp && Math.hypot(pos.x-STATUE.x, pos.z-STATUE.z) < 3.2)
       nearProp = { type:'statue', ref:STATUE };
     if(!nearProp && Math.hypot(pos.x-PISS_SPOT.x, pos.z-PISS_SPOT.z) < 3.2)
@@ -11468,7 +11490,11 @@ function interactProp(prop){
      跟撿垃圾同一個「直接觸發」層級。 */
   if(prop.type === 'piss'){
     chg('star', -1);
-    toast('公廁要收清潔費，五塊。你摸了摸口袋，找了個牆角解決。', 2600);
+    /* 原本那句「公廁要收清潔費，五塊。你摸了摸口袋，找了個牆角解決。」
+       kc:「公廁那句話我不懂」——沒講清楚「沒付那五塊」是因為省錢、
+       嫌麻煩才不去公廁,也沒有照 DESIGN_NOTES「對話要暗示數值變化」那條
+       慣例標風評扣分。改寫成因果講清楚+補（風評 −1）括號提示。 */
+    toast('公廁要收五塊清潔費，你嫌麻煩，直接在牆角解決，被路人瞄到皺了皺眉。（風評 −1）', 2800);
     return;
   }
   /* 灌木叢・桃木劍藏身處(2026-08-27)——算命攤跑腿任務的其中一個地點,
@@ -11551,6 +11577,10 @@ function interactProp(prop){
     /* statueLine(2026-08-20):圓環雕像旁那隻路人專屬台詞,優先於下面的
        共用池——不受風評檔位影響,他講的是雕像的來歷,不是關於玩家的閒話。 */
     if(prop.ref.statueLine){ toast(prop.ref.statueLine, 3200); return; }
+    /* 光明巷兩個背景角色(2026-09-03)——同一招,ref.solicit 這個陣列存在
+       就代表是她們,蓋過下面共用的閒聊池,不受風評檔位影響(跟玩家風評
+       高低無關,她們招攬客人是她們自己的事,不是對玩家的評價)。 */
+    if(prop.ref.solicit){ toast(prop.ref.solicit[Math.random()*prop.ref.solicit.length|0], 2400); return; }
     /* 阿霞(2026-09-01)——同一招,身分比對用 prop.ref === AXIA_NPC(她沒有
        statueLine 那種掛在資料上的固定台詞,對話要開選單,所以另外呼叫
        talkToAxia() 而不是單純 toast)。 */
