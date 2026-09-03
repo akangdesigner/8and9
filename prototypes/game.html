@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1505,6 +1505,13 @@ function debugJumpTemple(){
 window.debugJumpHome = debugJumpHome;
 window.debugJumpSchool = debugJumpSchool;
 window.debugJumpTemple = debugJumpTemple;
+/* 阿嬤那天(2026-09-03)——直接呼叫 triggerGrandmaCall()(定義在下面,跟
+   checkGrandmaCall() 平常在 day16 傍晚自動觸發的是同一個函式,這裡沒有
+   另外塞 GRANDMA 旗標或跳 day/minute,單純省去等到 day16 傍晚的等待),
+   跳出「現在去/不去」選單,點「現在去」就會走真的 enterHospital() 流程,
+   方便測剛接的阿嬤大頭貼。 */
+function debugTriggerGrandma(){ triggerGrandmaCall(); }
+window.debugTriggerGrandma = debugTriggerGrandma;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
@@ -1787,6 +1794,9 @@ const PORTRAIT_IMGS = {
      改用照片。 */
   teacher: loadPortraitImg('../assets/bg/teacher-portrait.png?v=1'),
   granny:  loadPortraitImg('../assets/bg/granny-portrait.png?v=1'),
+  /* 小胖(2026-09-03)——之前退回 SF.person() 像素小人(見 WHO.fat 那則筆記),
+     這輪 kc 補真人照片,跟老師/阿嬤同一輪一起生的。 */
+  fat: loadPortraitImg('../assets/bg/fat-portrait.png?v=1'),
   /* 阿正(2026-08-31)——先接資料,照片還沒生,跟 worker/bo/motoboss/foreman
      當初同一套先例:檔案還沒存在時 img.naturalWidth 是 0,drawPortrait()
      自動退回 SF.person() 像素小人,不會壞,kc 丟真的照片進來對話框會
@@ -3236,7 +3246,7 @@ const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:fals
    同一個精神。indoorScene 那具 workerIndoor(進按摩室內用)也一起換,
    兩邊要是同一個人。 */
 const workerNPC = buildNPC(THREE, scene, {
-  x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:Math.PI*.4, rig:'f3',
+  x:ALLEY_WORKER.x, z:ALLEY_WORKER.z, rotationY:-Math.PI/2, rig:'f3',
   skin:'#c9a077', hair:'#241f1c',
   hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
 });
@@ -3257,15 +3267,19 @@ NPCS.push(clientNPC);
    派上用場,不用再另外找。z 挑巷子兩端(-30 靠中華路那頭、-50 靠廟口路
    那頭),跟 ALLEY_WORKER(z:-38)/clientNPC(z:-36.6)拉開,也避開
    alley() 自己排的冷氣機/電表箱/紙箱堆那些牆面裝飾的 z 位置(見
-   scene-city3d.js alley() 那則長筆記量過的座標)。 */
+   scene-city3d.js alley() 那則長筆記量過的座標)。
+   rotationY(2026-09-03 第二輪,kc:「三個人都轉錯方向」)——三個原本各自
+   隨手挑的角度,結果都面向巷子牆面不是走道。這副骨架 rotationY=0 面朝
+   世界 +Z,+90°面朝 +X,實測過:靠東牆(x 較大,workerNPC/alleyWorker3)
+   要 -90°面向 -X(走道那側),靠西牆(alleyWorker2)要 +90°面向 +X。 */
 const alleyWorker2 = buildNPC(THREE, scene, {
-  x:-26.4, z:-30, rotationY:Math.PI*.15, rig:'f4',
+  x:-26.4, z:-30, rotationY:Math.PI/2, rig:'f4',
   skin:'#c9a077', hair:'#2a1f1a',
   hood:'#3a5f52', pants:'#26241f', shoe:'#3a3430'
 });
 NPCS.push(alleyWorker2);
 const alleyWorker3 = buildNPC(THREE, scene, {
-  x:-21.6, z:-50, rotationY:-Math.PI*.35, rig:'f5',
+  x:-21.6, z:-50, rotationY:-Math.PI/2, rig:'f5',
   skin:'#d1a67e', hair:'#c9a24a',
   hood:'#4a3a5f', pants:'#2b2b2b', shoe:'#3a3430'
 });
