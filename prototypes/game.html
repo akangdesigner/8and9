@@ -3316,14 +3316,6 @@ const ALLEY_WORKER3 = { x:-21.6, z:-50, solicit:[
   '「站這裡也是站,不如陪個客人。」'
 ] };
 
-/* 隨地小便(2026-08-26)——kc 要的「不只是偷東西」那類小事件之一,借同一條
-   巷子(alley(-24,-27,-51))裡跟 ALLEY_WORKER(z:-38)拉開距離的另一端,
-   z:-48,純環境互動,不加新模型。動機寫成「公廁要收費、懶得繞路」,呼應
-   這個遊戲一貫的「窮到連小事都要算計」基調,不是拿來搞笑用的——跟
-   CLAUDE.md 那條基準線同一個道理。deterministic,沒有被抓到的機率(跟
-   偷東西那個「有風險」的質感刻意分開,這裡單純是代價,不是策略)。 */
-const PISS_SPOT = { x:-24, z:-48 };
-
 /* 機車行老闆(2026-08-21,kc:「幫我抓一個人當機車行老闆,他會站在門口」)——
    純裝飾,跟 clientNPC 同一個等級,沒有獨立的 nearProp/對話狀態機。「跟
    老闆談車」這句台詞本來就已經接在 buyMoto()(走近 forSale 那台車觸發),
@@ -8507,8 +8499,6 @@ function updateCity(dt){
       nearProp = { type:'pedestrian', ref:ALLEY_WORKER3 };
     if(!nearProp && Math.hypot(pos.x-STATUE.x, pos.z-STATUE.z) < 3.2)
       nearProp = { type:'statue', ref:STATUE };
-    if(!nearProp && Math.hypot(pos.x-PISS_SPOT.x, pos.z-PISS_SPOT.z) < 3.2)
-      nearProp = { type:'piss', ref:PISS_SPOT };
     if(!nearProp && Math.hypot(pos.x-BUSH_SPOT.x, pos.z-BUSH_SPOT.z) < 4)
       nearProp = { type:'bushes', ref:BUSH_SPOT };
     /* 供桌本身的 solid() 碰撞會擋住正中央,半徑用 4.5(理由同 AYI/ACHENG,
@@ -8640,7 +8630,6 @@ function updateCity(dt){
                       : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'altar' ? '按 <b>空白鍵</b> 靠近功德箱'
-                      : nearProp.type === 'piss' ? '按 <b>空白鍵</b> 解決一下'
                       : nearProp.type === 'bushes' ? '按 <b>空白鍵</b> 翻翻草叢'
                       : nearProp.type === 'bench' ? '按 <b>空白鍵</b> 坐下來休息一下'
                       : nearProp.type === 'ayi' ? '按 <b>空白鍵</b> 找阿姨'
@@ -8719,8 +8708,8 @@ const PLAY_LINES = [
    位置→下車位置」直線距離門檻,超過 MOTO_JOYRIDE_MIN_DIST 才算真的兜了
    一圈,不是原地上下車骗獎勵——跟摸貓狗/長椅同一個「單一動作、單一
    結算點」的層級,只是結算點放在下車,不是上車(上車那一刻還不知道
-   玩家會不會真的騎去哪裡)。沒有每日次數限制,跟功德箱/隨地小便同一個
-   「不特別防刷,反正要花真的遊玩時間騎過去」的態度。 */
+   玩家會不會真的騎去哪裡)。沒有每日次數限制,跟功德箱同一個「不特別
+   防刷,反正要花真的遊玩時間騎過去」的態度。 */
 const MOTO_JOYRIDE_MIN_DIST = 15, MOTO_JOYRIDE_MOOD = 5;
 let motoMountPos = null;
 function mountMoto(m){
@@ -11484,17 +11473,6 @@ function interactProp(prop){
         } }] : []),
       { label:'走開', cls:'back', run(){} }
     ]);
-    return;
-  }
-  /* 隨地小便(2026-08-26)——見上面 PISS_SPOT 那則筆記,單一動作沒有選單,
-     跟撿垃圾同一個「直接觸發」層級。 */
-  if(prop.type === 'piss'){
-    chg('star', -1);
-    /* 原本那句「公廁要收清潔費，五塊。你摸了摸口袋，找了個牆角解決。」
-       kc:「公廁那句話我不懂」——沒講清楚「沒付那五塊」是因為省錢、
-       嫌麻煩才不去公廁,也沒有照 DESIGN_NOTES「對話要暗示數值變化」那條
-       慣例標風評扣分。改寫成因果講清楚+補（風評 −1）括號提示。 */
-    toast('公廁要收五塊清潔費，你嫌麻煩，直接在牆角解決，被路人瞄到皺了皺眉。（風評 −1）', 2800);
     return;
   }
   /* 灌木叢・桃木劍藏身處(2026-08-27)——算命攤跑腿任務的其中一個地點,

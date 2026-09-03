@@ -6578,4 +6578,19 @@ NPC 都適用),三個都改成面向走道方向後修好。這輪 kc 打斷說�
 (呼吸幅度小、幾乎原地不動),三隻角色(f3 Jody/f4 Elizabeth/f5 Kate)
 都重新下載套用,用 `tools/fbx2glb.py ... full` 覆蓋各自的 `-idle.glb`,
 骨架/mesh/材質名稱不變只換動畫檔。這次沒有做隔離渲染逐一核對,照 kc
-要求直接完成後回報,由 kc 自己在瀏覽器裡看。
+要求直接完成後回報,由 kc 自己在瀏覽器裡看。位置/朝向另外開了
+`__dbg.tweakAlleyWorkers()` 滑桿(kc:「開滑桿給我」)讓 kc 自己現場調,
+拉完 kc:「ok了欸 那可以保留呼吸跟輕微搖晃轉頭嗎」——原本加的
+`stillFace:true` 是誤判(以為是動畫本身的問題,其實是位置/朝向沒對準),
+拿掉還原成正常 Breathing Idle + glance/sway。
+
+**第十七輪,kc:「另外兩個妓女也要有一些像路人的對話吧 不要頭像那種」**
+——alleyWorker2/alleyWorker3 加 `ALLEY_WORKER2`/`ALLEY_WORKER3` 兩個資料
+物件,借 nearProp `'pedestrian'` 那條共用路徑(跟圓環雕像 `statueLine`、
+阿霞 `AXIA_NPC` 同一套「特例 ref 蓋過共用閒聊池」),按空白鍵純 toast 一句
+招攬台詞,不開對話框、不叫名字。順便把「隨地小便」那句 kc 看不懂的台詞
+(「公廁要收清潔費，五塊。你摸了摸口袋，找了個牆角解決。」)改寫成
+因果講清楚+補（風評 −1）括號提示,但下一輪 kc 直接說「把公廁這些東西
+刪掉 不要」,整個隨地小便小事件(`PISS_SPOT`、nearProp 判斷、hint 文字、
+`interactProp()` 的 `'piss'` 分支)全部砍掉,不留退場動畫或替代內容——
+kc 的原話是要拿掉,不是要改內容,不要自作主張留一個閹割版。
