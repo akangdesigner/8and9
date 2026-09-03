@@ -11150,7 +11150,27 @@ function talkToMotoBoss(){
   const m = city.motos.find(mm => mm.forSale);
   talkToStallVendor(MOTOBOSS, StoryMotoBoss, 'motoboss', () => {
     if(m && !m.owned) buyMoto(m);
+    else if(m && m.owned && !m.modded) offerMotoMod(m);
   });
+}
+/* 改車(2026-09-03,kc:「機車行可以決定要不要改車 會加很多帥潮但扣錢扣
+   風評」)——已經牽車的人再進機車行多一個選項,跟 buyMoto() 反過來:單次
+   花錢把車改裝(排氣管+外觀),帥潮大幅加分,但改裝車不合規、吵、招警察
+   注意,風評扣分當代價。跟刺青同一個「買一次永久生效」模型(m.modded
+   擋掉,不是每次進店都能再選一次,也不是消耗品)。cost/cool/star 三個
+   數字是我先抓的,沒跟 kc 對過,拉滿意再說。 */
+const MOTO_MOD_COST = 1200, MOTO_MOD_COOL = 15, MOTO_MOD_STAR = -8;
+function offerMotoMod(m){
+  openMenu('機車行', [
+    { label:'改車(排氣管+外觀)', cost:'$'+MOTO_MOD_COST, cls: ST.money<MOTO_MOD_COST?'bad':'',
+      run(){
+        if(ST.money < MOTO_MOD_COST){ toast('錢不夠,老闆搖搖頭。', 2000); return; }
+        chg('money', -MOTO_MOD_COST); chg('cool', MOTO_MOD_COOL); chg('star', MOTO_MOD_STAR);
+        m.modded = true;
+        toast('排氣管換了一支更響的,車身也貼了幾張貼紙——騎出去回頭率不一樣了,但這麼吵，遲早被人盯上。（帥潮 +' + MOTO_MOD_COOL + '／風評 ' + MOTO_MOD_STAR + '）', 3600);
+      } },
+    { label:'不用了', cls:'back', run(){} }
+  ]);
 }
 /* 風評 ≥10 打七折(2026-08-25 kc:「老闆是善的代表」)——沿用 talkToStallVendor
    旁邊 openStallMenu() 那套「自己人價」七折邏輯,只是門檻換成風評而不是
