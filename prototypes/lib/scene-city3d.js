@@ -2634,10 +2634,9 @@ export function buildCity(THREE, scene){
      邏輯簡化(巷子門面本來就該窄小寒酸,不是正常店面規格)。side:+1 東牆
      (內面朝 -x)/-1 西牆(內面朝 +x),z 是沿巷子長度的世界座標。 */
   function buildAlleyShopfront(x, HW, sz, side, cfg){
-    const { id, label, signKey } = cfg;
+    const { id, label } = cfg;
     const DW = 2.4, DH = 4.4, RECESS = .3;
     const innerX = x + side*HW;                       // 巷子牆內側面(面朝走道)
-    const mainIdx = side > 0 ? 1 : 0;                  // 東牆內面朝 -x(index1),西牆內面朝 +x(index0)
     /* 門半開(2026-09-03,kc:「門做成半開 裡面黑色就好反正很昏暗」)——
        不用等 shop-massage.png 這張圖了,退回不用貼圖的做法:凹進去那個
        洞維持全黑(近黑色,不是 M.recess 那個帶一點灰的深色,巷子本來就暗,
@@ -2719,12 +2718,9 @@ export function buildCity(THREE, scene){
     doorGroup.add(leaf);
     scene.add(doorGroup);
     massageDoorRef.doorGroup = doorGroup;
-    /* 招牌:比照 row() 的招牌箱體做法但縮小、壓暗——巷子裡一塊小小的、
-       不太亮的招牌,不是正常店面那種過曝亮度。 */
-    const signW = DW+.8, signH = 1.3;
-    const sign = signImage(signKey, signW/signH, .75);
-    add(box(.24, signH, signW, Array.from({length:6}, (_,i) => i===mainIdx ? sign : fm)),
-        innerX - side*.5, DH+.9, sz, false, false);
+    /* 第八輪,kc:「為何有奇怪的招牌 刪掉啦」——原本比照 row() 店面掛一塊
+       縮小壓暗的招牌箱體,kc 覺得奇怪,直接刪掉不留。巷子裡這種門本來
+       就不用掛招牌才符合「暗巷、不張揚」的調性,少一塊東西反而更對。 */
     /* 燈的強度(2026-09-03 第二輪)——原本 i:9 把退進牆裡的黑洞打得太亮,
        黑洞變成一片粉紅,跟「裡面黑色就好」的要求相反。壓到 i:3,只留一點
        曖昧的粉紅色氣氛(招牌本身的光),不會把黑洞蓋過去。 */
@@ -2798,7 +2794,7 @@ export function buildCity(THREE, scene){
      本來就已經偏東牆(x:-22.3,巷子中心 x=-24),店門開在她面前那面牆上,
      不用另外挪她的座標。 */
   alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + B_LINE + DEPTH/2, '光明巷',
-    { shopfront:{ side:1, z:-38, id:'massage', label:'越式按摩', signKey:'massage' } });   // 中華路 ⇄ 廟口路
+    { shopfront:{ side:1, z:-38, id:'massage', label:'越式按摩' } });   // 中華路 ⇄ 廟口路
   alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  84 - B_LINE - DEPTH/2, '太平巷');   // 中華路 ⇄ 後火車站
 
   /* ===== 斜巷:跟 alley() 同一套「兩排素牆夾一條走道」邏輯,只是不沿 x/z

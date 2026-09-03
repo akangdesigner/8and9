@@ -6445,3 +6445,11 @@ DH, DW, ...)` 換成零厚度的 `THREE.PlaneGeometry(DW, DH)`(`DoubleSide`
 
 prompt 直接在對話裡給 kc(不寫進 `assets/tex/PROMPTS.md`,理由同
 [[feedback_prompts_in_chat_not_md]]),沒有寫進這份文件重複一次。
+
+**第八輪,kc:「為何有奇怪的招牌 刪掉啦」**——原本比照 row() 店面掛一塊
+縮小壓暗的招牌箱體(`signImage('massage', ...)`),kc 覺得奇怪,直接
+整塊刪掉。順手清掉因此變成無用的變數:`cfg` 解構不再取 `signKey`、
+`mainIdx`(原本只有招牌箱體的材質陣列在用)、`alley()` 呼叫端 shopfront
+設定也拿掉 `signKey:'massage'`——不留「傳進去但沒人讀」的死欄位。巷子
+裡這種門本來就不用掛招牌才符合「暗巷、不張揚」的調性,少一塊東西反而
+更對。
