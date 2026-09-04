@@ -173,11 +173,11 @@ export const CITY = {
      連帶影響:火車站/警察局門口那段街也一起解鎖了,不是只有工地——
      兩邊建築本體都各自有 solid() 擋著,不會被穿模,只是玩家現在可以
      站到比以前更北的空地上,不是壞事。 */
-  /* x[0]:-100→-112(2026-09-04)——同一招 z[1] 100→122 那次(見上面
-     那則筆記,工地/警察局那排解鎖的理由):hospitalCompound() 的門口
-     腹地蓋到 x=-109,不拉寬這個硬邊界,pos.x 每幀會被夾回 -100,玩家
-     進不去廣場,只能站在原本的街面線上看。 */
-  bounds: { x:[-112,100], z:[-118,122] },
+  /* x[0] 一度 -100→-112(2026-09-04,配合醫院廣場腹地拉寬邊界,同一招
+     z[1] 100→122 那次的理由),第七輪 kc「不要廣場」退回最小可行版本
+     之後跟著退回 -100——沒有廣場地板,拉寬邊界只會讓玩家走進沒鋪過的
+     空地,見 hospitalCompound() 開頭那則筆記。 */
+  bounds: { x:[-100,100], z:[-118,122] },
   spawn: { x:0, z:-11.5 }                                             // 中華路北側人行道
 };
 
@@ -2408,140 +2408,40 @@ export function buildCity(THREE, scene){
   /* ===== 醫院(獨立建築,2026-09-04)=====
    * 2026-09-03 先塞進 row() 當一間 12 米單店面(S.hospital()),kc 隔天說
    * 「可是診所啊罵躺在裡面很怪欸」→「我是不是應該跟工地一樣獨立做醫院」
-   * ——問過方向(位置維持西園街原本這格 / 搬去後火車站那圈?量體感做到
-   * 警察局/工地規格能走進去逛,還是輕量地標?),kc 兩題都選了重的那個:
-   * 位置不動,量體比照警察局/工地。這裡是那個決定的落地,取代上面
-   * row() 第 4/5 格(S.gap,S.gap)空出來的位置。
+   * ——問過方向(位置維持西園街原本這格,量體比照警察局/工地),這裡是
+   * 那個決定的落地,取代上面 row() 第 4/5 格(S.gap,S.gap)空出來的位置。
    *
-   * 警察局是「站到台階前」那種假裝走得進去,工地是真的有圍籬+大門+
-   * 腹地讓玩家走進去。醫院這裡做的是後者但收斂成醫院會有的樣子——不是
-   * 工地鐵皮圍籬,是車寄/廣場那種開放式腹地:前面(朝西園街那側,+x)
-   * 整個敞開當車道/候診廣場,玩家從街上直接走進廣場,一路走到醫院大樓
-   * 正門台階。CITY.bounds.x[0] 從 -100 拉到 -112(見上面 CITY 定義那則
-   * 筆記)才能真的走進來,不然 pos.x 每幀被夾回 -100。
-   *
-   * 2026-09-04 第二輪,kc 給了一張參考圖(白磁磚立面+整面一樓玻璃自動門,
-   * 看得到裡面候診椅/櫃檯+暖光、門口兩側小花圃(不是長條矮牆)+一側
-   * 扶手欄杆+寬招牌「仁和醫院」橫在門口上方+右側小一塊直立的紅色
-   * 「急診→」招牌+雙路燈框住入口),說「仔細看原圖很貼合」——上一輪
-   * 「南北兩道及腰矮牆貫穿整個廣場深度」的猜測是錯的,參考圖裡根本沒有
-   * 長牆,只有貼著台階兩側的小花圃。這輪照圖改:拿掉那兩道長矮牆,換成
-   * 貼台階的小花圃箱體+一段扶手,台階加寬到接近入口玻璃寬度,加一塊
-   * 寬招牌板(貼圖那輪疊「仁和醫院」字樣上去)+急診小招牌移到入口右側
-   * (原本在左側,參考圖是右側,鏡像過來),雙路燈往內收,貼近花圃外側
-   * 框住入口,不是貼著街面線。
-   *
-   * 2026-09-04 第三輪,kc 截圖抓到「沒有貼齊,人物站的地方那邊不能有
-   * 空隙」——原本 bW=15 只填滿 row() 讓出的 24.4 寬缺口中間一段,兩側
-   * 各留約 4.7 沒圍起來,z:-28.2~-3.8 那個缺口邊緣跟隔壁店面(index2/
-   * index5,牆體只到 x=-111)之間沒有任何東西銜接,人站在那條縫裡直接
-   * 看穿到背景天空色,場景切名也掉回「巷子」(沒被任何建築判定住)。
-   * 修法:bW 直接拉滿整個缺口(24,兩側各留 .2 避免跟隔壁 z-fighting,
-   * 這一點點不算「空隙」,人物collision box塞不進去),大樓本體自己
-   * 銜接兩邊店面,不用另外補填縫牆。雨遮寬度改用獨立常數
-   * (原本 `bW*.6` 會跟著 bW 一起變寬到 14.4,比入口台階寬一大截,
-   * 不合理),不再跟著 bW 綁死。
-   *
-   * 2026-09-04 第五輪,kc:「你越改越爛,你多開一些滑桿我看問題在哪裡,
-   * 你方向好像也轉錯邊」——連續三輪都是我截圖猜數字、kc 再截圖抓下一個
-   * 破綻,跟 DESIGN_NOTES 其他建築(算命攤桌子、警察局貼圖、工地三角錐)
-   * 早就踩過的坑一模一樣:不該我猜,直接把量體/位置參數暴露成
-   * `HOSPITAL` 設定值 + `buildHospital()` 重畫函式,滑桿改一個數字就
-   * 呼叫 `city.hospital.rebuild()` 整組重畫,kc 自己拉到滿意,不用再
-   * 猜-截圖-猜的循環。跟著 `fortuneStall`/`FORTUNE_STALL` 那套同一招
-   * (見 buildFortuneStall() 那段),差別是這裡東西更多,連 collider
-   * 也要跟著滑桿更新——原本每個位置各呼叫一次 `solid()`,滑桿重畫會
-   * 疊加出一堆卡在舊位置的殘留碰撞箱(這也可能是「越改越爛」的一部分
-   * 成因:door/collider 座標一直用新的算式覆蓋鏡射方向,但沒人把「這裡
-   * 對齊警察局那套碰撞箱有沒有跟著滑桿走」講清楚)。改成碰撞箱物件先
-   * push 一次,`buildHospital()` 只改物件裡的數字,不重新 push。
-   * `mirror`(1/-1)控制急診招牌/花圃/扶手偏到哪一側,對應 kc 說的
-   * 「方向轉錯邊」——不用我猜是鏡像錯還是座標算錯,滑桿/切換直接讓他
-   * 自己看兩種各長怎樣。 */
-  /* plazaD 9→16、bH 26→20(2026-09-04 第六輪,kc:「問題應該是你的灰色
-     模塊把廣場吃掉了 所以看起來就是灰色方塊」)——用滑桿面板現場比對過:
-     舊數字(廣場深 9、大樓高 26)站在街面線看,廣場那 9 個單位深度撐不住
-     一棟 26 高的牆,鏡頭隨便一站牆就整片糊到眼前,廣場的台階/花圃/雨遮
-     全部被前景的巨大立面蓋掉,肉眼只讀得出「一塊灰色方塊」,不是碰撞箱
-     或座標算錯這種硬體 bug。廣場深度拉到 16、大樓高降到 20 之後在瀏覽器
-     裡站在街面線/廣場中段/門口三個位置各截圖比對過,廣場能讀出是一塊
-     獨立的開闊空間,不會被牆吃掉。 */
-  const HOSPITAL = { frontX:-100, plazaD:16, bW:24, bD:13, bH:20, bz:-16, floorMargin:12, mirror:1 };
+   * 中間(第二~六輪)一路加參考圖立面細節(花圃/招牌/雨遮/台階)+廣場
+   * 腹地+滑桿面板,結果 kc 連續踩到好幾個坑(縫隙、地板破洞、越改越爛、
+   * 滑桿死區、console 指令),來回好幾輪都在修這些附加細節,反而模糊了
+   * 「這棟樓到底該站在哪裡」這個最基本的問題。2026-09-04 第七輪 kc 喊
+   * 停:「不要廣場 你聽我說 你先放一個醫院主體的長方體 我們先調整長方體
+   * 位置」——退回最小可行版本,只留一個長方體+碰撞箱,其餘(廣場地板/
+   * 雨遮/招牌/花圃/台階/扶手/急診招牌/雙路燈)全部拿掉,等位置/量體
+   * 定案之後才按同一個順序疊回去,不要在位置都還沒定案時就疊一堆細節
+   * 互相干擾判斷。CITY.bounds.x[0] 也跟著退回 -100(沒有廣場就不用拉寬
+   * 邊界讓玩家走進去,拉了反而會走進沒鋪地板的區域)。 */
+  const HOSPITAL = { x:-115, z:-16, w:24, d:13, h:20 };
   const hospitalWallM = std({ color:0xb5b0a2, roughness:.85 });
-  const hospitalTrimM = std({ color:0x8f8a7c, roughness:.8 });
-  const hospitalSignM = std({ color:0xe8e6de, roughness:.6 });   // 寬招牌板底色,貼圖那輪換成「仁和醫院」照片
-  const hospitalPotM = std({ color:0x7c7568, roughness:.9 });     // 花圃箱體
-  const hospitalLeafM = std({ color:0x3f6b3a, roughness:.85 });   // 花圃植栽,先拿一塊綠色箱體佔位
-  const hospitalErM = std({ color:0xd23b3b, emissive:0xd23b3b, emissiveIntensity:1.5, roughness:.5 });
   const hospitalCollider = { x:0, z:0, hw:0, hd:0 };
-  const hospitalPotColliders = [ { x:0, z:0, hw:0, hd:0 }, { x:0, z:0, hw:0, hd:0 } ];
   const hospitalDoor = { id:'hospital', name:'仁和醫院', x:0, z:0 };
-  colliders.push(hospitalCollider, ...hospitalPotColliders);
+  colliders.push(hospitalCollider);
   doors.push(hospitalDoor);
   let hospitalParts = [];
   function buildHospital(){
     hospitalParts.forEach(m => scene.remove(m));
     hospitalParts = [];
-    const { frontX, plazaD, bW, bD, bH, bz, floorMargin, mirror } = HOSPITAL;
-    const bFrontX = frontX - plazaD;   // 大樓正面(朝 +x,面向廣場/街道那側)
-    const bx = bFrontX - bD/2;         // 大樓中心 x
-    const put = (...a) => hospitalParts.push(add(...a));
-
-    put(box(bW, bH, bD, hospitalWallM), bx, bH/2, bz);
-    hospitalCollider.x = bx; hospitalCollider.z = bz; hospitalCollider.hw = bW/2; hospitalCollider.hd = bD/2;
-    /* 屋頂收邊,跟警察局同一招:矮矮一圈女兒牆,不是貼圖範圍 */
-    put(box(bW+.5, .5, bD+.5, hospitalTrimM), bx, bH+.25, bz, false, true);
-
-    /* 廣場地板——見上面長筆記(第四輪那次「????????」的坑):城市的地面
-       系統只鋪到街面線(x=frontX)就停了,再往裡面本來就沒有地板,鏡頭
-       斜俯角還會看過花圃/矮牆瞄到沒鋪到的地方。地板寬度/深度都留出
-       `floorMargin` 餘裕,不只鋪到大樓正面/廣場寬度那條線。 */
-    const floorX0 = CITY.bounds.x[0], floorZHalf = bW/2 + floorMargin;
-    put(box(frontX - floorX0, .3, floorZHalf*2, M.walk), (frontX+floorX0)/2, .15, bz, false, true);
-
-    /* 車寄雨遮:大樓正門外一片薄板,遮住廣場靠近大樓那一段,不用柱子撐
-      (跟騎樓那套「全街只留兩間有柱子」同個理由,遠看看不出差異,省一次
-       穿模風險)。固定寬度,不跟 bW 綁在一起(bW 拉滿缺口之後 bW*.6 會
-       比入口寬一大截)。 */
-    put(box(9, .3, plazaD*.7, hospitalTrimM), bFrontX - plazaD*.35, 4.2, bz, false, true);
-
-    /* 寬招牌板,橫在入口玻璃上方——貼圖那輪疊「仁和醫院」+綠十字上去 */
-    put(box(.3, 2.2, 9, hospitalSignM), bFrontX + .2, 6.6, bz, false, true);
-
-    /* 台階,加寬到接近入口玻璃寬度(參考圖是一整片台階) */
-    put(box(3, .35, 8, hospitalTrimM), bFrontX + 1.5, .18, bz, false, true);
-
-    /* 扶手(參考圖只有一側,`mirror` 決定貼哪一側),貼台階邊緣一段矮
-       欄杆——立柱+橫桿各一根箱體湊意思 */
-    const railZ = bz - 4*mirror;
-    put(box(3, .9, .12, hospitalTrimM), bFrontX + 1.5, .55, railZ, false, true);
-    put(box(.12, .9, .12, hospitalTrimM), bFrontX + .1, .45, railZ, false, true);
-    put(box(.12, .9, .12, hospitalTrimM), bFrontX + 2.9, .45, railZ, false, true);
-
-    /* 台階兩側小花圃(不是貫穿整個廣場的長矮牆) */
-    [bz - 5, bz + 5].forEach((pz, i) => {
-      put(box(2.2, .7, 1.8, hospitalPotM), bFrontX + .8, .35, pz, false, true);
-      put(box(1.7, .5, 1.3, hospitalLeafM), bFrontX + .8, .82, pz, false, true);
-      hospitalPotColliders[i].x = bFrontX + .8; hospitalPotColliders[i].z = pz;
-      hospitalPotColliders[i].hw = 1.1; hospitalPotColliders[i].hd = .9;
-    });
-
-    /* 急診小招牌——`mirror` 決定貼入口哪一側,先上一塊發光色塊佔位,
-       字/箭頭圖等貼圖那輪再補(見上面長筆記) */
-    put(box(.3, 1.6, 2.4, hospitalErM), bFrontX + .2, 4.6, bz + 5.5*mirror, false, true);
-
-    hospitalDoor.x = bFrontX + 2.4; hospitalDoor.z = bz;
+    const { x, z, w, d, h } = HOSPITAL;
+    hospitalParts.push(add(box(w, h, d, hospitalWallM), x, h/2, z));
+    hospitalCollider.x = x; hospitalCollider.z = z; hospitalCollider.hw = w/2; hospitalCollider.hd = d/2;
+    /* 門口互動座標貼著大樓面向街道那一側(+x 面)往外推 2.4,跟 row()
+       原本 `if(s.id) doors.push(...)` 的算式同一招——沒有廣場,玩家站在
+       人行道(x<=-93,見 CITY.WALK_W)就能觸發,不用走進大樓量體範圍。 */
+    hospitalDoor.x = x + d/2 + 2.4; hospitalDoor.z = z;
   }
   buildHospital();
-  /* landmark/路燈只在建好的當下擺一次,不跟著滑桿即時重畫(跟
-     buildFortuneStall() 旁那組火把/大樹裝飾同一個理由——這兩樣是次要
-     裝飾,不是滑桿要盯的量體/位置問題,拉滑桿拉到滿意再手動對一次
-     landmark/路燈座標就好,不用每次 rebuild 都連帶重建 async 載入的
-     路燈模型)。 */
-  landmarks.push({ x:HOSPITAL.frontX-HOSPITAL.plazaD, y:HOSPITAL.bH+1.2, z:HOSPITAL.bz, text:'仁和醫院' });
-  lampSpots.push({ x:HOSPITAL.frontX-HOSPITAL.plazaD+1, y:HOSPITAL.bH-3, z:HOSPITAL.bz, c:0xfff0d8, i:16, r:18 });
-  placeAlleyLamp(HOSPITAL.frontX-HOSPITAL.plazaD+3.2, HOSPITAL.bz - 6.5);
-  placeAlleyLamp(HOSPITAL.frontX-HOSPITAL.plazaD+3.2, HOSPITAL.bz + 6.5);
+  /* landmark 飄浮字先不加——位置還在滑桿調整階段,加了也只會顯示在
+     初始座標,滑桿一拉就跟大樓本體對不起來,等位置定案再補。 */
 
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 =====
    * 冷氣機/電表箱箱體尺寸沿革(第十五→二十二輪,2026-08-18):從「一張照片

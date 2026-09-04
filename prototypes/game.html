@@ -4854,26 +4854,26 @@ function tweakHospitalPanel(){
   const old = document.getElementById('hospitalTweakPanel');
   if(old){ old.remove(); return; }
   const cfg = city.hospital.cfg;
+  /* 2026-09-04 第七輪,kc:「不要廣場...你先放一個醫院主體的長方體 我們
+     先調整長方體位置」——退回最小可行版本,滑桿只留長方體本身的位置
+     (x/z)跟量體(w/d/h),其餘(廣場/花圃/招牌/方向)那批滑桿先拿掉,
+     等位置定案再一項項疊回來。 */
   const rows = [
-    ['frontX','街面線 x',-110,-90,0.5],
-    ['plazaD','廣場深度',3,20,0.5],
-    ['bW','大樓寬(z)',10,30,0.5],
-    ['bD','大樓深(x)',6,20,0.5],
-    ['bH','大樓高',10,40,1],
-    ['bz','大樓 z 中心',-40,10,0.5],
-    ['floorMargin','地板餘裕',0,20,1],
+    ['x','大樓 x 中心',-140,-95,0.5],
+    ['z','大樓 z 中心',-40,10,0.5],
+    ['w','大樓寬(z)',10,30,0.5],
+    ['d','大樓深(x)',6,20,0.5],
+    ['h','大樓高',10,40,1],
   ];
   const panel = document.createElement('div');
   panel.id = 'hospitalTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a;max-height:90vh;overflow:auto';
   panel.innerHTML =
-    '<div style="font-weight:bold;margin-bottom:6px">醫院量體滑桿</div>' +
+    '<div style="font-weight:bold;margin-bottom:6px">醫院長方體滑桿</div>' +
     rows.map(([key,label,min,max,step]) =>
       `<div style="margin-bottom:8px">${label}: <span id="hoptweak_${key}_v">${cfg[key].toFixed(2)}</span><br>
        <input type="range" id="hoptweak_${key}" min="${min}" max="${max}" step="${step}" value="${cfg[key]}" style="width:100%"></div>`
     ).join('') +
-    `<div style="margin-bottom:8px">方向(急診/花圃側): <span id="hoptweak_mirror_v">${cfg.mirror>0?'右':'左'}</span><br>
-     <button id="hoptweak_mirror_btn" style="width:100%;padding:6px;margin-top:2px;background:#3a4152;color:#eee;border:1px solid #5a6478;border-radius:5px;cursor:pointer">切換左右</button></div>` +
     '<div style="margin-top:4px;opacity:.7">關掉:再按一次下面的「醫院滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
   document.body.appendChild(panel);
   rows.forEach(([key]) => {
@@ -4882,11 +4882,6 @@ function tweakHospitalPanel(){
       document.getElementById(`hoptweak_${key}_v`).textContent = cfg[key].toFixed(2);
       city.hospital.rebuild();
     });
-  });
-  document.getElementById('hoptweak_mirror_btn').addEventListener('click', () => {
-    cfg.mirror = -cfg.mirror;
-    document.getElementById('hoptweak_mirror_v').textContent = cfg.mirror>0?'右':'左';
-    city.hospital.rebuild();
   });
 }
 /* 警察局貼圖位置/縮放滑桿(2026-08-27,kc:「開滑桿讓我調整貼圖位置跟
