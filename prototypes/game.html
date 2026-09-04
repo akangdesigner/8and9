@@ -5358,7 +5358,9 @@ function tweakHospitalScenePanel(){
   const rows = [
     ['hs_px','玩家 X(IN.px)', 0, 640, 1, () => IN.px, v => IN.px = v],
     ['hs_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 360, 1, () => IN.py, v => IN.py = v],
-    ['hs_scale','縮放(HERO_TARGET_PX.hospital)', 150, 400, 1, () => HERO_TARGET_PX.hospital, v => HERO_TARGET_PX.hospital = v]
+    /* 上限原本 400,kc 拉到頂回報「縮放不夠大」——放寬到 900(跟 x軸滑桿
+       那次「20不夠」同一個坑,不要又卡死一次)。 */
+    ['hs_scale','縮放(HERO_TARGET_PX.hospital)', 150, 900, 1, () => HERO_TARGET_PX.hospital, v => HERO_TARGET_PX.hospital = v]
   ];
   const panel = document.createElement('div');
   panel.id = 'hospitalSceneTweakPanel';
