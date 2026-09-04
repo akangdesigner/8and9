@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button><button class="tool" onclick="debugTweakHospitalScene()">醫院站位滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1544,6 +1544,21 @@ function debugTweakHospitalProps(){
   tweakHospitalPropsPanel();
 }
 window.debugTweakHospitalProps = debugTweakHospitalProps;
+/* 醫院站位滑桿按鈕(2026-09-04,kc:「主角3d人物要放進去 但不能走路」
+   截圖抓到角色疊在床上)——直接進醫院室內預覽(不跑對話,跟 __dbg.
+   viewHospital() 同一套)+開 tweakHospitalScenePanel()，不用先走一輪
+   對話才能開始調站位。 */
+function debugTweakHospitalScene(){
+  MODE = 'indoor'; PLACE = 'hospital';
+  document.getElementById('city').style.display = 'none';
+  wlabelsEl.style.display = 'none';
+  document.getElementById('indoor').classList.add('on');
+  IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
+  document.getElementById('where').textContent = '醫院';
+  paintHospitalBackdrop();
+  tweakHospitalScenePanel();
+}
+window.debugTweakHospitalScene = debugTweakHospitalScene;
 /* 阿嬤那天(2026-09-03)——直接呼叫 triggerGrandmaCall()(定義在下面,跟
    checkGrandmaCall() 平常在 day16 傍晚自動觸發的是同一個函式,這裡沒有
    另外塞 GRANDMA 旗標或跳 day/minute,單純省去等到 day16 傍晚的等待),
@@ -5327,6 +5342,39 @@ function tweakMassageScenePanel(){
     });
   });
 }
+/* 醫院室內站位/縮放滑桿(2026-09-04,kc:「主角3d人物要放進去 但不能
+   走路」)——放進去之後 kc 截圖抓到角色疊在床上、比例明顯不對(位置
+   IN.px/IN.py=320,300 是 2026-09-02 寫下沒被驗證過的數字,那時候角色
+   整個被隱藏,從來沒人真的看過落點對不對)。跟 tweakMassageScenePanel()
+   同一招,直接暴露 IN.px/IN.py/HERO_TARGET_PX.hospital 給滑桿,不用我
+   猜第二輪座標。 */
+function tweakHospitalScenePanel(){
+  const old = document.getElementById('hospitalSceneTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['hs_px','玩家 X(IN.px)', 0, 640, 1, () => IN.px, v => IN.px = v],
+    ['hs_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 360, 1, () => IN.py, v => IN.py = v],
+    ['hs_scale','縮放(HERO_TARGET_PX.hospital)', 150, 400, 1, () => HERO_TARGET_PX.hospital, v => HERO_TARGET_PX.hospital = v]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'hospitalSceneTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:260px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">醫院室內站位滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(0)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次下面的「醫院站位滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,get,set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      set(+e.target.value);
+      document.getElementById(`${id}_v`).textContent = (+e.target.value).toFixed(0);
+    });
+  });
+}
+window.tweakHospitalScenePanel = tweakHospitalScenePanel;
 /* 光明巷三個女性 NPC 位置/朝向滑桿(2026-09-03,kc:「開滑桿給我」)——
    跟上面 tweakMassageScenePanel 那組不同物件:這組調的是 3D 街景裡
    workerNPC/alleyWorker2/alleyWorker3 三具骨架本身的 x/z/朝向,不是室內
@@ -5789,12 +5837,14 @@ const TATTOO_MASTER_PX = 460, TATTOO_MASTER_PY = 300;
 function renderIndoor3D(dt){
   /* 讀書解題/偷玩手遊(2026-08-31,kc:「底圖直接換認真上課圖 所以真人3d
      會暫時消失 只留下選題目」)——底圖換成场景本身的特寫時,角色不該還
-     疊在上面,見 askStudyQuestion()/startPhoneGame() 那兩則筆記。醫院
-     (2026-09-03,kc 看了生好的病房圖回覆「這個圖片定案了 不要放主角
-     直接對話即可」)——這張圖已經是定案的完整照片(阿嬤已經在圖裡),
-     3D 玩家骨架疊上去只會多一具人形穿模在畫面正中央,跟 studyTakeover
-     那條同一個道理,一併擋掉。 */
-  heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active || PLACE === 'hospital');
+     疊在上面,見 askStudyQuestion()/startPhoneGame() 那兩則筆記。
+     ⚠ 醫院(2026-09-03,kc 當時要求「這個圖片定案了 不要放主角直接對話
+     即可」,一度把 PLACE==='hospital' 也擋進這條——2026-09-04 推翻,
+     kc:「主角3d人物要放進去 但不能走路」。改回顯示,IN.px/IN.py 固定
+     一組值(visitGrandma()/enterHospital() 都設 320,300),`updateIndoor()`
+     開頭 `if(PLACE==='hospital') return;` 沒有動,角色站在那裡不會走,
+     滿足「不能走路」但人要看得到。 */
+  heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active);
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
   heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : PLACE === 'store' ? storeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
@@ -7910,8 +7960,34 @@ function checkGrandmaMonthly(){
   if(day < GRANDMA.nextCheckDay) return;
   const ok = GRANDMA.visits >= GRANDMA_VISITS_NEEDED && GRANDMA.feeds >= GRANDMA_FEEDS_NEEDED;
   GRANDMA.visits = 0; GRANDMA.feeds = 0; GRANDMA.nextCheckDay = day + GRANDMA_MONTH_DAYS;
-  if(ok) toast('阿嬤這陣子狀況穩定下來了——你這個月常去看她。', 3000);
+  if(ok){ toast('阿嬤這陣子狀況穩定下來了——你這個月常去看她。', 3000); updateGrandmaQuestHint(); }
   else notifyGrandmaDeath();
+}
+/* 續命任務提示(2026-09-04,kc:「系統提示你一個月要去兩次等等等」)——
+   跟 ACTIVE_QUESTS 既有的「已存在就更新 hint,不存在就 push」慣例同一招
+   (見 moto-impound/id-card/snitch/axia 那幾條),數字即時反映目前進度,
+   不用玩家自己去猜還差幾次。呼叫點:visitGrandma()/feedGrandma()(進度
+   有變動)、checkGrandmaMonthly() 撐過一個月之後(數字歸零重新算)、
+   hospitalRemindCall()(見下面,醫院打電話提醒那通,任務卡第一次出現的
+   時間點)。GRANDMA.dead 之後由 notifyGrandmaDeath() 直接拔卡,不會
+   留著一張再也不會更新的舊任務。 */
+function updateGrandmaQuestHint(){
+  if(!GRANDMA.critical || GRANDMA.dead) return;
+  const hint = `這個月已探望 ${GRANDMA.visits}/${GRANDMA_VISITS_NEEDED} 次、餵食 ${GRANDMA.feeds}/${GRANDMA_FEEDS_NEEDED} 次`;
+  const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit');
+  if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint;
+  else ACTIVE_QUESTS.push({ id:'grandma-visit', title:'常去看阿嬤', hint });
+  renderQuestPanel();
+}
+/* 阿源安慰完之後,醫院打來提醒你要常探望(2026-09-04,kc:「我希望可以是
+   跟阿源聊完天後 醫院會再打電話來說有空要多看看啊罵之類」)——呼應
+   triggerGrandmaCall() 那通「手機震了一下」的開場,語氣放鬆(病情已經
+   從剛病危那晚的緊急感緩下來,變成日常提醒),呼叫點見 talkToYuan()
+   安慰戲收尾。 */
+function hospitalRemindCall(){
+  say('pc', '手機又震了一下。是醫院打來的——說阿嬤狀況先穩定下來了，有空要常過去看看她。', () => {
+    updateGrandmaQuestHint();
+  });
 }
 /* 晚上真的開始顧場子(2026-09-02,kc 玩過回報「為何沒有任務匡」)——早上
    那通電話(見 sleep() 裡的長筆記)只負責約好,真正接上遊戲裡已經做好的
@@ -7998,6 +8074,9 @@ function nudgeToFindYuan(){
    趕過去,語氣故意平靜、不慌張——那件事已經結束了,剩下的只是知道。 */
 function notifyGrandmaDeath(){
   GRANDMA.dead = true;
+  /* 死了之後拔掉續命任務卡(見 updateGrandmaQuestHint()),不留一張
+     再也不會更新、內容也不對的舊任務。 */
+  { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); renderQuestPanel(); }
   playBeats([
     { who:'pc',  text:'手機又震了一下。' },
     { who:'pc',  text:'是媽。' },
@@ -8056,7 +8135,7 @@ const HOSPITAL_GO_BEATS = [
   { who:'granny',text:'「拿去,五百塊。」她硬塞進你手裡。' },
   { who:'pc',    text:'「阿嬤,我不用⋯⋯」' },
   { who:'granny',text:'「拿著。」她抓著你的手不放。「要好好念書,知不知道。」' },
-  { who:'pc',    text:'你點頭,把信封收進口袋。' }
+  { who:'pc',    text:'你點頭,把信封收進口袋。（金錢 +500）' }
 ];
 const HOSPITAL_LAST_WORDS_SAID = [
   { who:'granny', text:'她愣了一下,然後笑了,伸手拍了拍你的手背。' }
@@ -8074,7 +8153,7 @@ const HOSPITAL_LAST_WORDS_SILENT = [
 const HOSPITAL_CLOSING_BEATS = [
   { who:'pc', text:'她沒有再說話,只是看著你,像在把你的臉記下來。' },
   { who:'pc', text:'你握著她的手坐著,直到護士進來,說時間到了,要你們先出去。' },
-  { who:'pc', text:'你跟媽一起走出醫院,誰都沒有先開口。' }
+  { who:'pc', text:'你跟媽一起走出醫院,誰都沒有先開口。（歸屬感 +10）' }
 ];
 /* goToHospital() 只管扣代價+切場景,「切場景+講故事+離場」那段拆進
    enterHospital(),跟 enterMassage() 同一個分工。 */
@@ -8107,7 +8186,7 @@ function enterHospital(){
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 320; IN.py = 300; IN.face = 'F'; IN.near = null;
+    IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
     paintHospitalBackdrop();
@@ -8120,9 +8199,13 @@ function enterHospital(){
           GRANDMA.critical = true;
           GRANDMA.nextCheckDay = day + GRANDMA_MONTH_DAYS;
           GRANDMA.visits++;
+          /* 2026-09-04,kc:「獲得五百塊 對話框要提示」——原本只有這句
+             trailing toast,沒有寫進對話框本身。改成兩個提示都直接寫進
+             beats 文字裡(金錢 +500 在 HOSPITAL_GO_BEATS 塞信封那句、
+             歸屬感 +10 在 HOSPITAL_CLOSING_BEATS 最後一句),這裡不用再
+             另外跳 toast 重複講一次。 */
           chg('calm', 10);
-          chg('money', 500);   // 阿嬤塞的五百塊,見 HOSPITAL_GO_BEATS 那則筆記
-          toast('（歸屬感 +10，$+500）', 2600);
+          chg('money', 500);   // 阿嬤塞的五百塊,提示已經寫進 HOSPITAL_GO_BEATS 最後一句
           leaveIndoor();
           /* 2026-09-02 第十六輪,kc:「走出醫院後 可能會說你心情很難過
              想回去找阿源 然後他會安慰你之類的」——這裡只負責提示/埋鉤子,
@@ -8190,29 +8273,47 @@ function visitGrandma(){
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
+    /* 2026-09-04,kc:「主角3d人物要放進去 但不能走路」——沒設的話 IN.px/
+       IN.py 沿用上一個室內場景殘留的值,現在角色會顯示(見 renderIndoor3D()
+       那則筆記),要給一組固定站位,跟 enterHospital() 那個一次性劇情
+       用同一組數字,兩個入口站位一致。原本沿用舊的 320,300(角色被隱藏
+       時代留下、從沒被驗證過的座標)疊在床上很怪,用 tweakHospitalScenePanel()
+       現場拉到 250,320(站在床邊地板上,不疊床)才改對。updateIndoor()
+       開頭 `if(PLACE==='hospital') return;` 沒有動,角色站著不會走。 */
+    IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
     paintHospitalBackdrop();
     /* day16 病危宣告之前純粹是氣氛互動，不計入續命門檻——GRANDMA.critical
-       為 false 時這裡不累加，見 checkGrandmaMonthly()。 */
-    if(GRANDMA.critical) GRANDMA.visits++;
-    const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
-    const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
-    say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
-      const opts = [];
-      if(FOOD.length) opts.push({ label:'餵她吃東西', run: feedGrandma });
-      opts.push({ label:'先出去', cls:'back', run: leaveIndoor });
-      openMenu('探望阿嬤', opts);
-    });
+       為 false 時這裡不累加，見 checkGrandmaMonthly()。只在真正走進來
+       那一刻算一次，「陪她坐一下」重覆聊天不會疊加。 */
+    if(GRANDMA.critical){ GRANDMA.visits++; updateGrandmaQuestHint(); }
+    grandmaVisitLine();
+  });
+}
+/* 2026-09-04,kc:「平常探望為何只有先出去的選項」——沒帶食物時選單只剩
+   一顆「先出去」,感覺像壞掉。加一個「陪她坐一下」,永遠都在,再抽一句
+   （不計入 visits，那個只在真正走進來那一刻算），讓玩家有事可做，不是
+   進來看一句就只能走。 */
+function grandmaVisitLine(){
+  const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
+  const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
+  say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
+    const opts = [ { label:'陪她坐一下', run: grandmaVisitLine } ];
+    if(FOOD.length) opts.push({ label:'餵她吃東西', run: feedGrandma });
+    opts.push({ label:'先出去', cls:'back', run: leaveIndoor });
+    openMenu('探望阿嬤', opts);
   });
 }
 function feedGrandma(){
   FOOD.splice(0, 1);   // 拿隨身第一份食物餵她，不特別挑品項
-  if(GRANDMA.critical) GRANDMA.feeds++;
-  say('pc', GRANDMA_FEED_LINES[Math.floor(Math.random()*GRANDMA_FEED_LINES.length)], () => {
+  if(GRANDMA.critical){ GRANDMA.feeds++; updateGrandmaQuestHint(); }
+  /* 2026-09-04,kc:「獲得五百塊 對話框要提示」同一條規則——提示改寫進
+     這句台詞本身,不再另外跳 toast。餵完不強制離開,回到 grandmaVisitLine()
+     選單，跟「陪她坐一下」同一套，玩家自己決定要不要繼續留著。 */
+  say('pc', GRANDMA_FEED_LINES[Math.floor(Math.random()*GRANDMA_FEED_LINES.length)] + '（歸屬感 +3）', () => {
     chg('calm', 3);
-    toast('（歸屬感 +3）', 2000);
-    leaveIndoor();
+    grandmaVisitLine();
   });
 }
 /* 主動找爸爸(2026-08-19,kc:「跟他講話可以了解他的近況」):跟
@@ -9624,6 +9725,10 @@ function talkToYuan(){
     ], 0, () => {
       chg('mood', 10); chg('calm', 6);
       toast('（情緒 +10，歸屬感 +6）', 2600);
+      /* 2026-09-04,kc:「跟阿源聊完天後 醫院會再打電話來說有空要多看看
+         啊罵」——聊完不是就沒事了,提醒玩家接下來要靠平常探望續命。延遲
+         一下讓上面那句 toast 先讀完,不是緊接著疊上來。 */
+      setTimeout(hospitalRemindCall, 1800);
     });
     return;
   }
@@ -9874,7 +9979,13 @@ function yuanCasualTalk(){
       if(ev.quiet) toast(ev.quiet, 3200);
     });
   } else {
-    say('yuan', YUAN_DATA.lowCoolTalk[Math.random()*YUAN_DATA.lowCoolTalk.length|0]);
+    /* 2026-09-04,kc 玩到這條酸話回報「阿源嘲笑你帥潮 要提示要帥潮之類」
+       ——跟 tryJoinTroupe() rejectCool 那段同一套慣例(「提示是在對話之中
+       用（）在最後面」,數字帶出來不混進台詞本身),原本這裡只有酸話沒有
+       數字提示,補上。 */
+    say('yuan', YUAN_DATA.lowCoolTalk[Math.random()*YUAN_DATA.lowCoolTalk.length|0], () => {
+      toast('（帥潮要到 31 以上，他才會把你當朋友——目前 ' + ST.cool + '）', 3400);
+    });
   }
 }
 /* 學校三人(2026-08-21)——接 lib/npc-school.js,見那份檔案開頭的筆記
@@ -12070,15 +12181,17 @@ window.__dbg = {
                    metalness: m.metalness, roughness: m.roughness
                  })) })); },
   leave(){ leaveIndoor(); },
-  /* 醫院場景只能靠傍晚電話劇情觸發(見 enterHospital()),平常沒有門可以
-     走進去——加這個純視覺預覽版本(不跑對話、不扣體力、不設 GRANDMA 旗標),
-     方便直接看背景美術,不用真的跑一輪劇情。 */
+  /* ⚠ 這則筆記已經過時(2026-09-04 起大門本身就能走進去探望,見
+     visitGrandma())——這個純視覺預覽版本(不跑對話、不扣體力、不設
+     GRANDMA 旗標)留著單純方便直接看背景美術/角色站位,不用真的觸發
+     一輪探望互動。debugTweakHospitalScene()(#bar「醫院站位滑桿」按鈕)
+     就是包這個 + tweakHospitalScenePanel()。 */
   viewHospital(){
     MODE = 'indoor'; PLACE = 'hospital';
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 320; IN.py = 300; IN.face = 'F'; IN.near = null;
+    IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     paintHospitalBackdrop();
     return MODE;
