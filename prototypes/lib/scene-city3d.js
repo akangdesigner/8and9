@@ -2416,14 +2416,20 @@ export function buildCity(THREE, scene){
    * 警察局是「站到台階前」那種假裝走得進去,工地是真的有圍籬+大門+
    * 腹地讓玩家走進去。醫院這裡做的是後者但收斂成醫院會有的樣子——不是
    * 工地鐵皮圍籬,是車寄/廣場那種開放式腹地:前面(朝西園街那側,+x)
-   * 整個敞開當車道/候診廣場,只在南北兩側各補一道及腰矮牆(像分隔車道
-   * 用的花圃矮牆,不是圍起整圈的圍籬),玩家從街上直接走進廣場,一路
-   * 走到醫院大樓正門台階。CITY.bounds.x[0] 從 -100 拉到 -112(見上面
-   * CITY 定義那則筆記)才能真的走進來,不然 pos.x 每幀被夾回 -100。
+   * 整個敞開當車道/候診廣場,玩家從街上直接走進廣場,一路走到醫院大樓
+   * 正門台階。CITY.bounds.x[0] 從 -100 拉到 -112(見上面 CITY 定義那則
+   * 筆記)才能真的走進來,不然 pos.x 每幀被夾回 -100。
    *
-   * 灰模先做——這輪只確認量體/動線,貼圖(招牌/立面照片)照 kc 原話
-   * 「先暫緩,等獨立建築的方案定案再說」,等這版量體他自己截圖確認過
-   * 沒問題,下一輪再補真的照片,不要先生圖又要拆掉重貼。 */
+   * 2026-09-04 第二輪,kc 給了一張參考圖(白磁磚立面+整面一樓玻璃自動門,
+   * 看得到裡面候診椅/櫃檯+暖光、門口兩側小花圃(不是長條矮牆)+一側
+   * 扶手欄杆+寬招牌「仁和醫院」橫在門口上方+右側小一塊直立的紅色
+   * 「急診→」招牌+雙路燈框住入口),說「仔細看原圖很貼合」——上一輪
+   * 「南北兩道及腰矮牆貫穿整個廣場深度」的猜測是錯的,參考圖裡根本沒有
+   * 長牆,只有貼著台階兩側的小花圃。這輪照圖改:拿掉那兩道長矮牆,換成
+   * 貼台階的小花圃箱體+一段扶手,台階加寬到接近入口玻璃寬度,加一塊
+   * 寬招牌板(貼圖那輪疊「仁和醫院」字樣上去)+急診小招牌移到入口右側
+   * (原本在左側,參考圖是右側,鏡像過來),雙路燈往內收,貼近花圃外側
+   * 框住入口,不是貼著街面線。 */
   (function hospitalCompound(){
     const frontX = -100;            // 廣場最靠街那條線,跟隔壁店面同一條建築線,立面才接得上
     const plazaD = 9;                // 廣場深度(x 方向):街面線→大樓正面
@@ -2434,35 +2440,47 @@ export function buildCity(THREE, scene){
 
     const wallM = std({ color:0xb5b0a2, roughness:.85 });
     const trimM = std({ color:0x8f8a7c, roughness:.8 });
+    const signM = std({ color:0xe8e6de, roughness:.6 });        // 寬招牌板底色,貼圖那輪換成「仁和醫院」照片
+    const potM = std({ color:0x7c7568, roughness:.9 });          // 花圃箱體
+    const leafM = std({ color:0x3f6b3a, roughness:.85 });        // 花圃植栽,先拿一塊綠色箱體佔位
     add(box(bW, bH, bD, wallM), bx, bH/2, bz);
     solid(bx, bz, bW/2, bD/2);
     /* 屋頂收邊,跟警察局同一招:矮矮一圈女兒牆,不是貼圖範圍 */
     add(box(bW+.5, .5, bD+.5, trimM), bx, bH+.25, bz, false, true);
-
-    /* 廣場兩側矮牆(及腰花圃牆,不是圍籬)——南北各一段,從街面線一路
-       到大樓正面,劃出「這塊是醫院腹地」的邊界,但不封死正面(車寄開放)。 */
-    const wallHalfLen = plazaD/2, wallCx = frontX - wallHalfLen;
-    add(box(plazaD, 1.0, .4, trimM), wallCx, .5, bz - bW/2 - 2.2, false, true);
-    solid(wallCx, bz - bW/2 - 2.2, plazaD/2, .2);
-    add(box(plazaD, 1.0, .4, trimM), wallCx, .5, bz + bW/2 + 2.2, false, true);
-    solid(wallCx, bz + bW/2 + 2.2, plazaD/2, .2);
 
     /* 車寄雨遮:大樓正門外一片薄板,遮住廣場靠近大樓那一段,不用柱子撐
       (跟騎樓那套「全街只留兩間有柱子」同個理由,遠看看不出差異,省一次
        穿模風險)。 */
     add(box(bW*.6, .3, plazaD*.7, trimM), bFrontX - plazaD*.35, 4.2, bz, false, true);
 
-    /* 台階,收在建築線內側 */
-    add(box(6, .35, 1.6, trimM), bFrontX + .8, .18, bz, false, true);
+    /* 寬招牌板,橫在入口玻璃上方——貼圖那輪疊「仁和醫院」+綠十字上去 */
+    add(box(.3, 2.2, 9, signM), bFrontX + .2, 6.6, bz, false, true);
 
-    /* 急診燈箱——先上一塊發光色塊佔位,字/圖等貼圖那輪再補(見上面長筆記) */
+    /* 台階,加寬到接近入口玻璃寬度(原本 1.6 太窄,參考圖是一整片台階) */
+    add(box(3, .35, 8, trimM), bFrontX + 1.5, .18, bz, false, true);
+
+    /* 扶手(參考圖只有一側),貼台階邊緣一段矮欄杆——立柱+橫桿各一根箱體湊意思 */
+    add(box(3, .9, .12, trimM), bFrontX + 1.5, .55, bz - 4, false, true);
+    add(box(.12, .9, .12, trimM), bFrontX + .1, .45, bz - 4, false, true);
+    add(box(.12, .9, .12, trimM), bFrontX + 2.9, .45, bz - 4, false, true);
+
+    /* 台階兩側小花圃(不是貫穿整個廣場的長矮牆——2026-09-04 第二輪照參考圖改) */
+    [bz - 5, bz + 5].forEach(pz => {
+      add(box(2.2, .7, 1.8, potM), bFrontX + .8, .35, pz, false, true);
+      add(box(1.7, .5, 1.3, leafM), bFrontX + .8, .82, pz, false, true);
+      solid(bFrontX + .8, pz, 1.1, .9);
+    });
+
+    /* 急診小招牌——移到入口右側(參考圖鏡像位置),先上一塊發光色塊佔位,
+       字/箭頭圖等貼圖那輪再補(見上面長筆記) */
     const erM = std({ color:0xd23b3b, emissive:0xd23b3b, emissiveIntensity:1.5, roughness:.5 });
-    add(box(.3, 1.6, 3.2, erM), bFrontX + .2, 5.4, bz - 4, false, true);
+    add(box(.3, 1.6, 2.4, erM), bFrontX + .2, 4.6, bz + 5.5, false, true);
 
     landmarks.push({ x:bFrontX, y:bH+1.2, z:bz, text:'仁和醫院' });
     lampSpots.push({ x:bFrontX+1, y:bH-3, z:bz, c:0xfff0d8, i:16, r:18 });
-    placeAlleyLamp(frontX - 2, bz - 6);
-    placeAlleyLamp(frontX - 2, bz + 6);
+    /* 雙路燈往內收,貼近花圃外側框住入口(原本貼在街面線,離台階太遠) */
+    placeAlleyLamp(bFrontX + 3.2, bz - 6.5);
+    placeAlleyLamp(bFrontX + 3.2, bz + 6.5);
 
     /* 門口互動——沿用 row() 那套 `if(s.id) doors.push(...)` 的座標公式
        (面朝建築正面外推 2.4),game.html enterIndoor() 對 id==='hospital'
