@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1505,6 +1505,21 @@ function debugJumpTemple(){
 window.debugJumpHome = debugJumpHome;
 window.debugJumpSchool = debugJumpSchool;
 window.debugJumpTemple = debugJumpTemple;
+/* 醫院滑桿按鈕(2026-09-04,kc:「滑感不見了」)——上一輪我叫 kc 自己在
+   console 打 `__dbg.tweakHospital()` 開滑桿,踩了 [[feedback_no_console_commands_add_buttons]]
+   那條早就記過的坑:kc 不打 console 指令,叫他打等於滑桿直接消失。跟
+   跳廟口/家裡/學校同一套,按鈕直接瞬移到醫院廣場(廟口那種開放空間,
+   沒有 city.doors 可以借,城市模式直接丟座標)+順便呼叫
+   tweakHospitalPanel() 把滑桿叫出來,一次到位不用先跳過去再手動開。 */
+function debugTweakHospital(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(-90, .3, -16);
+  tweakHospitalPanel();
+}
+window.debugTweakHospital = debugTweakHospital;
 /* 阿嬤那天(2026-09-03)——直接呼叫 triggerGrandmaCall()(定義在下面,跟
    checkGrandmaCall() 平常在 day16 傍晚自動觸發的是同一個函式,這裡沒有
    另外塞 GRANDMA 旗標或跳 day/minute,單純省去等到 day16 傍晚的等待),
@@ -4859,7 +4874,7 @@ function tweakHospitalPanel(){
     ).join('') +
     `<div style="margin-bottom:8px">方向(急診/花圃側): <span id="hoptweak_mirror_v">${cfg.mirror>0?'右':'左'}</span><br>
      <button id="hoptweak_mirror_btn" style="width:100%;padding:6px;margin-top:2px;background:#3a4152;color:#eee;border:1px solid #5a6478;border-radius:5px;cursor:pointer">切換左右</button></div>` +
-    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakHospital()<br>拉到滿意後跟我說最終數字就好</div>';
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次下面的「醫院滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
   document.body.appendChild(panel);
   rows.forEach(([key]) => {
     document.getElementById(`hoptweak_${key}`).addEventListener('input', e => {
