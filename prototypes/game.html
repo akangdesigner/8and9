@@ -5658,11 +5658,21 @@ function paintTattooBackdrop(){
 const hospitalRoomImg = new Image();
 hospitalRoomImg.onload = () => { paintHospitalBackdrop(); };
 hospitalRoomImg.src = '../assets/bg/hospital-room.png?v=1';
-function paintHospitalBackdrop(){
+/* 醒著版(2026-09-04,kc:「啊罵在對話 或是醒著的時候用這張圖片」)——
+   眼睛睜開、望向側邊的那張,跟原本閉眼躺著那張是同一個場景兩個狀態。
+   grandmaVisitLine() 抽到「清醒」那個分支時換這張,昏迷/預設狀態維持
+   原本那張。 */
+const hospitalRoomAwakeImg = new Image();
+hospitalRoomAwakeImg.onload = () => { paintHospitalBackdrop(hospitalCurrentAwake); };
+hospitalRoomAwakeImg.src = '../assets/bg/hospital-room-awake.png?v=1';
+let hospitalCurrentAwake = false;   // 記住目前該畫哪一張,圖片非同步載入完成時 onload 才知道要重畫哪個狀態
+function paintHospitalBackdrop(awake){
+  hospitalCurrentAwake = !!awake;
   gbg.clearRect(0,0,1280,720);
-  if(hospitalRoomImg.complete && hospitalRoomImg.naturalWidth){
+  const img = hospitalCurrentAwake ? hospitalRoomAwakeImg : hospitalRoomImg;
+  if(img.complete && img.naturalWidth){
     gbg.imageSmoothingEnabled = true;
-    gbg.drawImage(hospitalRoomImg, 0,0,1280,720);
+    gbg.drawImage(img, 0,0,1280,720);
   } else {
     gbg.save(); gbg.scale(SC,SC);
     SceneHospital.renderBackground(gbg, { vignette:true });
@@ -8209,7 +8219,7 @@ function enterHospital(){
     IN.px = 525; IN.py = 360; IN.face = 'L'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
-    paintHospitalBackdrop();
+    paintHospitalBackdrop(true);   // 這整場戲阿嬤都醒著在講話(HOSPITAL_GO_BEATS),用清醒那張圖
     playBeats(HOSPITAL_GO_BEATS, 0, () => {
       askFreeText('你想跟阿嬤說什麼？', '（打字,留白也可以）', text => {
         const said = text ? [{ who:'pc', text:'「'+text+'」' }].concat(HOSPITAL_LAST_WORDS_SAID) : HOSPITAL_LAST_WORDS_SILENT;
@@ -8317,6 +8327,7 @@ function visitGrandma(){
    進來看一句就只能走。 */
 function grandmaVisitLine(){
   const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
+  paintHospitalBackdrop(awake);   // 清醒/昏迷各換一張背景照片，見上面 hospitalRoomAwakeImg 那則筆記
   const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
   say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
     const opts = [ { label:'陪她坐一下', run: grandmaVisitLine } ];
@@ -8328,6 +8339,8 @@ function grandmaVisitLine(){
 function feedGrandma(){
   FOOD.splice(0, 1);   // 拿隨身第一份食物餵她，不特別挑品項
   if(GRANDMA.critical){ GRANDMA.feeds++; updateGrandmaQuestHint(); }
+  paintHospitalBackdrop(true);   // 餵食當下算清醒，換清醒那張背景
+
   /* 2026-09-04,kc:「獲得五百塊 對話框要提示」同一條規則——提示改寫進
      這句台詞本身,不再另外跳 toast。餵完不強制離開,回到 grandmaVisitLine()
      選單，跟「陪她坐一下」同一套，玩家自己決定要不要繼續留著。 */
