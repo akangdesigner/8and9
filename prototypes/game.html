@@ -1553,7 +1553,7 @@ function debugTweakHospitalScene(){
   document.getElementById('city').style.display = 'none';
   wlabelsEl.style.display = 'none';
   document.getElementById('indoor').classList.add('on');
-  IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
+  IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
   document.getElementById('where').textContent = '醫院';
   paintHospitalBackdrop();
   tweakHospitalScenePanel();
@@ -5347,7 +5347,11 @@ function tweakMassageScenePanel(){
    IN.px/IN.py=320,300 是 2026-09-02 寫下沒被驗證過的數字,那時候角色
    整個被隱藏,從來沒人真的看過落點對不對)。跟 tweakMassageScenePanel()
    同一招,直接暴露 IN.px/IN.py/HERO_TARGET_PX.hospital 給滑桿,不用我
-   猜第二輪座標。 */
+   猜第二輪座標。
+   同一天第二輪,kc:「玩家在醫院內要是側面」——IN.face 從 'F'(面朝
+   鏡頭)改預設 'R'(側面朝右,看向床的方向),另外補一顆「切換左右」
+   按鈕(跟花圃 mirror 那顆同一招,二選一不用滑桿,見那則筆記),不用
+   我猜是 L 還是 R。 */
 function tweakHospitalScenePanel(){
   const old = document.getElementById('hospitalSceneTweakPanel');
   if(old){ old.remove(); return; }
@@ -5365,6 +5369,8 @@ function tweakHospitalScenePanel(){
       `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(0)}</span><br>
        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
     ).join('') +
+    `<div style="margin-bottom:8px">朝向(IN.face): <span id="hs_face_v">${IN.face}</span><br>
+     <button id="hs_face_btn" style="width:100%;padding:6px;margin-top:2px;background:#3a4152;color:#eee;border:1px solid #5a6478;border-radius:5px;cursor:pointer">切換左右</button></div>` +
     '<div style="margin-top:4px;opacity:.7">關掉:再按一次下面的「醫院站位滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
   document.body.appendChild(panel);
   rows.forEach(([id,,,,,get,set]) => {
@@ -5372,6 +5378,10 @@ function tweakHospitalScenePanel(){
       set(+e.target.value);
       document.getElementById(`${id}_v`).textContent = (+e.target.value).toFixed(0);
     });
+  });
+  document.getElementById('hs_face_btn').addEventListener('click', () => {
+    IN.face = IN.face === 'R' ? 'L' : 'R';
+    document.getElementById('hs_face_v').textContent = IN.face;
   });
 }
 window.tweakHospitalScenePanel = tweakHospitalScenePanel;
@@ -8186,7 +8196,7 @@ function enterHospital(){
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
+    IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
     paintHospitalBackdrop();
@@ -8280,7 +8290,7 @@ function visitGrandma(){
        時代留下、從沒被驗證過的座標)疊在床上很怪,用 tweakHospitalScenePanel()
        現場拉到 250,320(站在床邊地板上,不疊床)才改對。updateIndoor()
        開頭 `if(PLACE==='hospital') return;` 沒有動,角色站著不會走。 */
-    IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
+    IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
     paintHospitalBackdrop();
@@ -12191,7 +12201,7 @@ window.__dbg = {
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 250; IN.py = 320; IN.face = 'F'; IN.near = null;
+    IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     paintHospitalBackdrop();
     return MODE;
