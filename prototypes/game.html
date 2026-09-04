@@ -8299,10 +8299,19 @@ const GRANDMA_ASLEEP_LINES = [
   '她閉著眼睛，監視器規律地響著，像是在替她數著時間。',
   '喊了幾聲，她沒有醒。你幫她把被子拉好，轉身出去。'
 ];
-const GRANDMA_FEED_LINES = [
-  '你把水果切成小塊，一口一口餵她吃。',
-  '她慢慢地吃了幾口，「好吃。」聲音很小。',
-  '你端著碗餵她喝了幾口粥，她閉著眼睛，像很享受。'
+/* 2026-09-04,kc:「不是喂他吃粥 要真的買東西給他 所以點選項後會跳出
+   可以選擇的食物」——原本「餵她吃東西」是固定 $30 換一句隨機空泛台詞
+   (水果/粥,店裡根本不賣這些),不是真的買東西。改成點下去先跳出一張
+   真的商品清單(直接借超商鮮食櫃/貨架/飲料櫃那批品項+價錢,見
+   openMenu('鮮食櫃'...)那幾段,不用另外編一套價目表),選哪樣就餵哪樣,
+   台詞裡直接帶出商品名字。 */
+const GRANDMA_FOOD_ITEMS = [
+  { name:'排骨便當', price:89 },
+  { name:'蔬菜便當', price:75 },
+  { name:'茶葉蛋', price:15 },
+  { name:'豆漿', price:20 },
+  { name:'運動飲料', price:30 },
+  { name:'奶茶', price:35 }
 ];
 function visitGrandma(){
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
@@ -8340,7 +8349,6 @@ function visitGrandma(){
    買過東西的玩家 FOOD 是空的,選單直接看不到這個選項,kc 以為是壞掉。
    改成花錢當場買(跟隨身 FOOD 庫存脫鉤),永遠顯示,錢不夠才擋——這個
    互動本來就該獨立於「玩家自己有沒有囤食物」,不是同一件事。 */
-const GRANDMA_FEED_COST = 30;
 function grandmaVisitLine(){
   const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
   paintHospitalBackdrop(awake);   // 清醒/昏迷各換一張背景照片，見上面 hospitalRoomAwakeImg 那則筆記
@@ -8348,22 +8356,30 @@ function grandmaVisitLine(){
   say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
     const opts = [
       { label:'陪她坐一下', run: grandmaVisitLine },
-      { label:'餵她吃東西', cost:'$'+GRANDMA_FEED_COST, cls: ST.money<GRANDMA_FEED_COST?'bad':'', run: feedGrandma },
+      { label:'餵她吃東西', run: openGrandmaFoodMenu },
       { label:'先出去', cls:'back', run: leaveIndoor }
     ];
     openMenu('探望阿嬤', opts);
   });
 }
-function feedGrandma(){
-  if(ST.money < GRANDMA_FEED_COST){ toast('身上的錢不夠買東西給阿嬤吃。', 2200); return; }
-  chg('money', -GRANDMA_FEED_COST);
+function openGrandmaFoodMenu(){
+  const opts = GRANDMA_FOOD_ITEMS.map(it => ({
+    label:'買'+it.name, cost:'$'+it.price, cls: ST.money<it.price?'bad':'',
+    run: () => feedGrandma(it)
+  }));
+  opts.push({ label:'算了', cls:'back', run: grandmaVisitLine });
+  openMenu('買東西給阿嬤', opts);
+}
+function feedGrandma(item){
+  if(ST.money < item.price){ toast('身上的錢不夠。', 2000); return; }
+  chg('money', -item.price);
   if(GRANDMA.critical){ GRANDMA.feeds++; updateGrandmaQuestHint(); }
   paintHospitalBackdrop(true);   // 餵食當下算清醒，換清醒那張背景
 
   /* 2026-09-04,kc:「獲得五百塊 對話框要提示」同一條規則——提示改寫進
      這句台詞本身,不再另外跳 toast。餵完不強制離開,回到 grandmaVisitLine()
      選單，跟「陪她坐一下」同一套，玩家自己決定要不要繼續留著。 */
-  say('pc', GRANDMA_FEED_LINES[Math.floor(Math.random()*GRANDMA_FEED_LINES.length)] + `（金錢 -${GRANDMA_FEED_COST}，歸屬感 +3）`, () => {
+  say('pc', `你把${item.name}遞給她，一口一口餵她吃。（金錢 -${item.price}，歸屬感 +3）`, () => {
     chg('calm', 3);
     grandmaVisitLine();
   });
