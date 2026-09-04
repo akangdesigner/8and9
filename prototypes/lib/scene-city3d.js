@@ -173,7 +173,11 @@ export const CITY = {
      連帶影響:火車站/警察局門口那段街也一起解鎖了,不是只有工地——
      兩邊建築本體都各自有 solid() 擋著,不會被穿模,只是玩家現在可以
      站到比以前更北的空地上,不是壞事。 */
-  bounds: { x:[-100,100], z:[-118,122] },
+  /* x[0]:-100→-112(2026-09-04)——同一招 z[1] 100→122 那次(見上面
+     那則筆記,工地/警察局那排解鎖的理由):hospitalCompound() 的門口
+     腹地蓋到 x=-109,不拉寬這個硬邊界,pos.x 每幀會被夾回 -100,玩家
+     進不去廣場,只能站在原本的街面線上看。 */
+  bounds: { x:[-112,100], z:[-118,122] },
   spawn: { x:0, z:-11.5 }                                             // 中華路北側人行道
 };
 
@@ -1090,7 +1094,7 @@ export function buildCity(THREE, scene){
               idx === (axis==='x' ? (face>0?4:5) : (face>0?0:1)) ? photo : M.alumFrame)
           : (lit?M.glassLit:M.glassOff);
         add(box(faceW,4.6,faceD, mat), fX+offX, 2.5, fZ+offZ, false, true);
-        if(lit || s.kind==='tattoo' || s.kind==='arcade' || s.kind==='hospital')
+        if(lit || s.kind==='tattoo' || s.kind==='arcade')
           lampSpots.push({ x:fX + (axis==='z'?face*2.6:0), y:3.2, z:fZ + (axis==='x'?face*2.6:0),
                            c: lit?0xf6f7ec:(s.sign||0x88aacc), i: lit?30:18, r: lit?28:20 });
       }
@@ -1227,16 +1231,10 @@ export function buildCity(THREE, scene){
        另外開一套進場機制。 */
     arcade:()=>({kind:'arcade',sign:0xff4fa0,text:'遊藝場',signKey:'arcade',id:'arcade',label:'遊藝場'}),
     moto:()=>({kind:'moto',sign:0x3f8fd8,text:'機車行',signKey:'moto'}),
-    drug:()=>({kind:'drug',sign:0x35b06a,text:'藥局',signKey:'drug'}),
-    /* 醫院(2026-09-03,kc:「兩個店都要3D場景裡面有店面」)——阿嬤在醫院
-       那幕(scene-hospital.js)之前只是灰模室內,城市裡完全沒有對應的
-       建築,「進醫院」純粹是傍晚電話自動觸發,跟站在哪裡無關(見 game.html
-       checkGrandmaCall() 那則長筆記)。這裡補的建築純粹是視覺存在,不是
-       新的進場入口——enterIndoor() 特判 id==='hospital' 只回一句「沒有
-       理由進去」的 toast,真正的劇情還是走電話那條路,兩邊不會打架。
-       名字/色系自己選的虛構名字(仁和醫院,不對應真實醫院連鎖),kc 不
-       喜歡可以直接換。 */
-    hospital:()=>({kind:'hospital',sign:0x35b0a0,text:'仁和醫院',signKey:'hospital',id:'hospital',label:'仁和醫院'})
+    drug:()=>({kind:'drug',sign:0x35b06a,text:'藥局',signKey:'drug'})
+    /* 醫院原本在這裡當 row() 店面(2026-09-03),2026-09-04 改成獨立建築
+       (hospitalCompound(),見下面 row() 之後),不再是 S 底下的一個 shop
+       kind,S.hospital() 已經拿掉。 */
   };
 
   /* 中華路:你家、超商在這條 */
@@ -2399,10 +2397,79 @@ export function buildCity(THREE, scene){
      繞回 FOOD.length/BETEL.length 重複到前面已經出現過的店名(2026-08-14 kc
      抓到「麵店」重複)。FOOD 6 種、BETEL 3 種都已經在前面的排用滿,這裡多出來
      的 slot 換成拉鐵門的店面(S.sh,已有 shutter.png),不再喊 S.food()/S.betel()。
-     西園街第 4 格(2026-09-03)換成 S.hospital()——這條街本來就是一整排
-     沒有名字的鐵捲門,挑中間一格換掉不影響其餘 7 格的既有觀感。 */
-  row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.sh,S.sh,S.hospital(),S.sh,S.sh,S.sh,S.sh ]});
+     西園街第 4/5 格(2026-09-04)讓給 hospitalCompound()——醫院原本
+     (2026-09-03)是塞進 row() 當一間 12 米單店面,kc 隔天推翻「應該跟
+     工地一樣獨立做醫院」,見 DESIGN_NOTES 待辦清單那節+下面 hospitalCompound()
+     開頭的長筆記。這裡改成兩格 S.gap 空出腹地,建築本體挪到 row() 外面
+     自己蓋,不再走 row() 的單店面板+貼圖裁切那套。 */
+  row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.sh,S.sh,S.gap,S.gap,S.sh,S.sh,S.sh ]});
   row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
+
+  /* ===== 醫院(獨立建築,2026-09-04)=====
+   * 2026-09-03 先塞進 row() 當一間 12 米單店面(S.hospital()),kc 隔天說
+   * 「可是診所啊罵躺在裡面很怪欸」→「我是不是應該跟工地一樣獨立做醫院」
+   * ——問過方向(位置維持西園街原本這格 / 搬去後火車站那圈?量體感做到
+   * 警察局/工地規格能走進去逛,還是輕量地標?),kc 兩題都選了重的那個:
+   * 位置不動,量體比照警察局/工地。這裡是那個決定的落地,取代上面
+   * row() 第 4/5 格(S.gap,S.gap)空出來的位置。
+   *
+   * 警察局是「站到台階前」那種假裝走得進去,工地是真的有圍籬+大門+
+   * 腹地讓玩家走進去。醫院這裡做的是後者但收斂成醫院會有的樣子——不是
+   * 工地鐵皮圍籬,是車寄/廣場那種開放式腹地:前面(朝西園街那側,+x)
+   * 整個敞開當車道/候診廣場,只在南北兩側各補一道及腰矮牆(像分隔車道
+   * 用的花圃矮牆,不是圍起整圈的圍籬),玩家從街上直接走進廣場,一路
+   * 走到醫院大樓正門台階。CITY.bounds.x[0] 從 -100 拉到 -112(見上面
+   * CITY 定義那則筆記)才能真的走進來,不然 pos.x 每幀被夾回 -100。
+   *
+   * 灰模先做——這輪只確認量體/動線,貼圖(招牌/立面照片)照 kc 原話
+   * 「先暫緩,等獨立建築的方案定案再說」,等這版量體他自己截圖確認過
+   * 沒問題,下一輪再補真的照片,不要先生圖又要拆掉重貼。 */
+  (function hospitalCompound(){
+    const frontX = -100;            // 廣場最靠街那條線,跟隔壁店面同一條建築線,立面才接得上
+    const plazaD = 9;                // 廣場深度(x 方向):街面線→大樓正面
+    const bW = 15, bD = 13, bH = 26; // 大樓量體:z 寬 15、x 深 13、高 26——比隔壁公寓(17~27)高一截,撐得住「裡面躺著要見最後一面的阿嬤」那種份量
+    const bz = -16;                  // z 中心,原本 row() 第 4/5 格(index3/4)的中點,S.gap 空出來的範圍是 z:-28.2~-3.8,兩側各留約 4.7 margin
+    const bFrontX = frontX - plazaD;         // 大樓正面(朝 +x,面向廣場/街道那側)= -109
+    const bx = bFrontX - bD/2;               // 大樓中心 x = -115.5
+
+    const wallM = std({ color:0xb5b0a2, roughness:.85 });
+    const trimM = std({ color:0x8f8a7c, roughness:.8 });
+    add(box(bW, bH, bD, wallM), bx, bH/2, bz);
+    solid(bx, bz, bW/2, bD/2);
+    /* 屋頂收邊,跟警察局同一招:矮矮一圈女兒牆,不是貼圖範圍 */
+    add(box(bW+.5, .5, bD+.5, trimM), bx, bH+.25, bz, false, true);
+
+    /* 廣場兩側矮牆(及腰花圃牆,不是圍籬)——南北各一段,從街面線一路
+       到大樓正面,劃出「這塊是醫院腹地」的邊界,但不封死正面(車寄開放)。 */
+    const wallHalfLen = plazaD/2, wallCx = frontX - wallHalfLen;
+    add(box(plazaD, 1.0, .4, trimM), wallCx, .5, bz - bW/2 - 2.2, false, true);
+    solid(wallCx, bz - bW/2 - 2.2, plazaD/2, .2);
+    add(box(plazaD, 1.0, .4, trimM), wallCx, .5, bz + bW/2 + 2.2, false, true);
+    solid(wallCx, bz + bW/2 + 2.2, plazaD/2, .2);
+
+    /* 車寄雨遮:大樓正門外一片薄板,遮住廣場靠近大樓那一段,不用柱子撐
+      (跟騎樓那套「全街只留兩間有柱子」同個理由,遠看看不出差異,省一次
+       穿模風險)。 */
+    add(box(bW*.6, .3, plazaD*.7, trimM), bFrontX - plazaD*.35, 4.2, bz, false, true);
+
+    /* 台階,收在建築線內側 */
+    add(box(6, .35, 1.6, trimM), bFrontX + .8, .18, bz, false, true);
+
+    /* 急診燈箱——先上一塊發光色塊佔位,字/圖等貼圖那輪再補(見上面長筆記) */
+    const erM = std({ color:0xd23b3b, emissive:0xd23b3b, emissiveIntensity:1.5, roughness:.5 });
+    add(box(.3, 1.6, 3.2, erM), bFrontX + .2, 5.4, bz - 4, false, true);
+
+    landmarks.push({ x:bFrontX, y:bH+1.2, z:bz, text:'仁和醫院' });
+    lampSpots.push({ x:bFrontX+1, y:bH-3, z:bz, c:0xfff0d8, i:16, r:18 });
+    placeAlleyLamp(frontX - 2, bz - 6);
+    placeAlleyLamp(frontX - 2, bz + 6);
+
+    /* 門口互動——沿用 row() 那套 `if(s.id) doors.push(...)` 的座標公式
+       (面朝建築正面外推 2.4),game.html enterIndoor() 對 id==='hospital'
+       的特判(「醫院的門口。你現在沒有理由進去。」)不用動,劇情還是走
+       電話那條路,這裡純粹讓玩家能站到門口互動觸發那句 toast。 */
+    doors.push({ id:'hospital', name:'仁和醫院', x: bFrontX + 2.4, z: bz });
+  })();
 
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 =====
    * 冷氣機/電表箱箱體尺寸沿革(第十五→二十二輪,2026-08-18):從「一張照片
