@@ -2515,7 +2515,10 @@ export function buildCity(THREE, scene){
      tweakPoliceCarPanel()/tweakBusStopProps() 同一招,存 ref(mesh+
      基準座標)給 game.html 開滑桿即時調 scale/rotation.y,不用我猜角度
      猜半天。花圃初始旋轉直接套 90°(kc 已經講明是 90 度,不用再靠滑桿
-     從 0 試),滑桿還是留著方便之後再微調。 */
+     從 0 試),滑桿還是留著方便之後再微調。
+     2026-09-04 第十三輪,kc 自己拉滑桿定案:花圃縮放 0.70、樓梯縮放
+     0.62(旋轉都維持 90°),寫死當初始值,不再是滑桿預設的 1.0——滑桿
+     還在,拉到更滿意隨時再調。 */
   const hospitalPropRef = { planters: [], stairs: null };
   const hospFrontX = HOSPITAL.x + HOSPITAL.d/2, hospZ = HOSPITAL.z, hospW = HOSPITAL.w;
   [hospZ - hospW*.22, hospZ + hospW*.22].forEach((pz, i) => {
