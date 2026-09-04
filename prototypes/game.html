@@ -7613,11 +7613,10 @@ function enterIndoor(door){
      不用另外寫一套對話——nearDoor 判斷在 updateCity() 裡本來就會蓋過
      nearProp,門/人兩個觸發點疊在一起也只會呼叫到同一個函式一次。 */
   if(door.id === 'massage'){ talkToWorker(ALLEY_WORKER); return; }
-  /* 醫院的門(2026-09-03,同一輪)——阿嬤在醫院那幕是傍晚電話自動觸發
-     (checkGrandmaCall()),不是走進門觸發,跟站在哪裡無關。這棟建築純粹
-     是視覺存在,平常走近按空白鍵只回一句「沒有理由進去」,不接 fade/
-     warpIntoPlace() 那條路。 */
-  if(door.id === 'hospital'){ toast('醫院的門口。你現在沒有理由進去。', 2600); return; }
+  /* 醫院的門(2026-09-03 原本只回一句「沒有理由進去」,day16 病危劇情
+     另外走電話自動觸發——2026-09-04 推翻,見上面「醫院探望+續命」長
+     筆記:阿嬤本來就住院,大門本來就能探望,改接 visitGrandma()。 */
+  if(door.id === 'hospital'){ visitGrandma(); return; }
   if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
     toast(door.name + ' 的室內場景還沒做。', 3600);
     return;
@@ -7818,10 +7817,9 @@ let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
       跳出「現在去／不去」,跟阿源的「看場子」任務完全脫鉤——不去就是
       正常過完這天剩下的行程,不寫任何「阿源那邊怎麼看你」的專屬反應,
       會不會撞期純粹是體力/時間經濟自然算出來的結果,不用另外寫劇情。
-   ② **阿嬤這次真的走了,去不去都一樣、不可逆**(kc 拍板)——呼應
-      story-bet.js TRUTHS[4]「阿嬤走了以後,她沒有停」,這是那句話第一次
-      被搬到玩家眼前演出來,不再只是媽媽嘴裡的一句話。day18「她不來了」
-      那個既有節點沒有動,它很符合「阿嬤剛走,媽在迴避」的氣氛,不用重寫。
+   ② ⚠ **「阿嬤這次真的走了,去不去都一樣、不可逆」——2026-09-04 已推翻**,
+      見下面「醫院探望+續命」那則新筆記。這條原本的設計是這次改動之前
+      的定案,舊註解留著給改動歷史,不要照這條理解現在的行為。
    ③ **不管玩家人在哪都要追得到**(kc:「不要的話你就是正常去學校之類,
       但傍晚還是會觸發」)——用既有的 day/minute 時鐘判斷,不開
       setInterval。但沒有做成「每一幀都檢查」那麼激進:這個檔案裡有不少
@@ -7835,24 +7833,85 @@ let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
       enterCorridor()/leaveCorridorToClassroom() 各自的 fade 回呼尾端)
       ——玩家正常玩幾乎每次切場景都會經過這些點,不會感覺是「卡在等
       什麼」,但避開了鏈式演出中間的空檔。
-   ④ **醫院那幕不能走動**(跟越式按摩室內同一套,`updateIndoor()` 開頭
-      直接 `if(PLACE==='hospital') return;`),見 scene-hospital.js
-      開頭的筆記。
+   ④ ⚠ **「醫院那幕不能走動」——維持,但這條是指劇情演出那段(playBeats
+      鎖住輸入),不是指「能不能走進醫院」。** 見下面新筆記,現在醫院
+      大門本身平常就能走進去,只是進去之後跟越式按摩室內同一套「靜態
+      對話,不能在室內走動」的規格(`updateIndoor()` 開頭
+      `if(PLACE==='hospital') return;`,scene-hospital.js 開頭的筆記
+      沒有變)。
    日期(day16)、傍晚時間點(18:00)、體力代價(−30,經過 chg() 那條
    「扣體力換算時間」規則會自動變成 300 分鐘=5 小時,2026-09-02 第三輪
    比例調到 10 分鐘/點,這裡數字跟著變,不是筆誤)、去/不去的歸屬感增減都是
-   我自己選的參數,不喜歡跟我說一聲就改。 */
+   我自己選的參數,不喜歡跟我說一聲就改。
+
+   ⭐ **醫院探望+續命(2026-09-04)**——kc 看到醫院大門建好之後說「進去會
+   接到躺在病床上的奶奶畫面 你可以去探望他 他平常會昏迷 只會斷斷續續的
+   回應你 你可以給奶奶食物 會增加歸屬感 也會觸發更多對話」,接著糾正我
+   兩個誤解:
+   - 我一開始以為「阿嬤住院」是 day16 才揭曉的新事件,問 kc 要不要把大門
+     鎖到 day16 才能走進去——kc:「不是奶奶一開始就住院了 只是16天奶奶
+     瀕臨死亡」,阿嬤本來就在醫院,大門從頭就能走進去探望,day16 不是
+     「住院」這件事發生的那天,是她**病危**(狀況轉重)的那天。
+   - 我提議「連續 7 天探望滿 5 次」當續命門檻——kc:「護士找上你 原本就
+     有醫院電話啊 你先看原本的任務」,糾正我不要另外發明一個「護士找
+     上你」的新通知機制,day16 那通電話(`triggerGrandmaCall()`)本來就
+     是這件事,改台詞/改後果就好,不要重蓋一套。續命門檻也簡化成
+     「每個月探望兩次跟兩份食物就好」。
+
+   落地成這樣:
+   - **平常(任何時候)**:醫院大門走近按空白鍵直接進 `visitGrandma()`
+     (取代原本的「沒有理由進去」toast)——跟 HOSPITAL_GO_BEATS 那種
+     playBeats() 鎖死的一次性演出不一樣,這是輕量、可以重複進來的探望:
+     她大部分時間昏迷(`GRANDMA_AWAKE_CHANCE`),偶爾清醒會回你一句話;
+     有帶食物(`FOOD` 陣列,跟 `eatFood()` 同一份庫存)可以選「餵她吃
+     東西」,+歸屬感,多一句對話。day16 之前純粹是氣氛/歸屬感的日常
+     互動,不計入任何門檻——`GRANDMA.critical` 為 false 時 visits/feeds
+     不累加。
+   - **day16 傍晚那通電話**——`triggerGrandmaCall()` 台詞改成「病情惡化,
+     隨時可能會走」,不再是「住院了要人去」的新事件揭曉。「現在去」
+     (`goToHospital()`→`enterHospital()`,原本那 20 幾句道別戲整段保留,
+     當作「第一次真正意識到有多嚴重」那次探望)跟「不去」
+     (`declineHospitalCall()`,−20 歸屬感)都設 `GRANDMA.critical=true`
+     +啟動 `GRANDMA.nextCheckDay = day+30`,不再是「兩條路都導向必死」。
+   - **每 30 天**(`checkGrandmaMonthly()`,掛在 `checkGrandmaCall()` 尾端
+     同一批安全點檢查)結算一次:這個月累積 visits≥2 且 feeds≥2 就算撐
+     過去,兩個計數器歸零重新算下一個月;沒有的話呼叫既有的
+     `notifyGrandmaDeath()`(原本「找完阿源之後」那條無條件死訊通知,
+     現在死亡完全由這個月結算決定,不再無條件觸發)。
+   - `talkToYuan()` 那段「阿源安慰你」的收尾戲觸發條件從
+     `(GRANDMA.wentToSee || GRANDMA.dead)` 改成
+     `(GRANDMA.wentToSee || GRANDMA.critical)`——day16 那天不管去不去都
+     該有這場安慰戲(受到驚嚇的當下),但**拿掉戲後面那個無條件呼叫
+     `notifyGrandmaDeath()` 的 `setTimeout`**,死亡改交給
+     `checkGrandmaMonthly()` 判定,不再是「安慰完兩秒後一定收到死訊」。
+
+   續命門檻(30 天 / 探望 2 次 / 餵食 2 次)是我自己選的參數,不喜歡跟我
+   說一聲就改;沒有防洗次數(同一天狂探望狂餵食也算數,不用湊到不同天),
+   kc 沒特別要求節奏管控,先簡單版。 */
 const GRANDMA_CALL_DAY = 16, GRANDMA_CALL_MINUTE = 18*60;
 let hospitalCallFired = false;
 let yuanMorningCallFired = false;   // sleep() 那段「阿源早上打電話來」用,見那則筆記
-const GRANDMA = { dead:false, wentToSee:false, toldYuan:false };
+const GRANDMA = { dead:false, wentToSee:false, toldYuan:false, critical:false, nextCheckDay:-1, visits:0, feeds:0 };
+const GRANDMA_MONTH_DAYS = 30, GRANDMA_VISITS_NEEDED = 2, GRANDMA_FEEDS_NEEDED = 2;
 let altarTalkDay = -1, altarIncenseDay = -1;   // 家裡牌位互動一天一次,見 openIndoorSpot() PLACE==='home' 那段
 function checkGrandmaCall(){
-  if(hospitalCallFired || gameOver || busy || dlg.on) return;
-  if(day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= GRANDMA_CALL_MINUTE)){
+  if(gameOver || busy || dlg.on) return;
+  if(!hospitalCallFired && (day > GRANDMA_CALL_DAY || (day === GRANDMA_CALL_DAY && minute >= GRANDMA_CALL_MINUTE))){
     hospitalCallFired = true;
     triggerGrandmaCall();
+    return;
   }
+  checkGrandmaMonthly();
+}
+/* 續命月結算——見上面「醫院探望+續命」那則長筆記。掛在跟
+   checkGrandmaCall() 同一批安全點,不用另外找呼叫點。 */
+function checkGrandmaMonthly(){
+  if(!GRANDMA.critical || GRANDMA.dead) return;
+  if(day < GRANDMA.nextCheckDay) return;
+  const ok = GRANDMA.visits >= GRANDMA_VISITS_NEEDED && GRANDMA.feeds >= GRANDMA_FEEDS_NEEDED;
+  GRANDMA.visits = 0; GRANDMA.feeds = 0; GRANDMA.nextCheckDay = day + GRANDMA_MONTH_DAYS;
+  if(ok) toast('阿嬤這陣子狀況穩定下來了——你這個月常去看她。', 3000);
+  else notifyGrandmaDeath();
 }
 /* 晚上真的開始顧場子(2026-09-02,kc 玩過回報「為何沒有任務匡」)——早上
    那通電話(見 sleep() 裡的長筆記)只負責約好,真正接上遊戲裡已經做好的
@@ -7891,8 +7950,11 @@ function checkYuanEveningWatch(){
   }
 }
 function triggerGrandmaCall(){
-  say('pc', '手機震了一下。是媽打來的——阿嬤在醫院,狀況不太對,要人去。', () => {
-    openMenu('阿嬤在醫院', [
+  /* 台詞 2026-09-04 改(見上面「醫院探望+續命」長筆記)——阿嬤本來就在
+     醫院、大門本來就能走進去探望,day16 這通電話不是「她住院了」這件事
+     第一次揭曉,是她病情轉重、有生命危險。 */
+  say('pc', '手機震了一下。是媽打來的——阿嬤病情惡化,醫生說隨時可能會走,要你常去看看她。', () => {
+    openMenu('阿嬤病危', [
       { label:'現在去', run: goToHospital },
       { label:'不去', cls:'back', run: declineHospitalCall }
     ]);
@@ -7908,7 +7970,11 @@ const HOSPITAL_DECLINE_BEATS = [
   { who:'pc', text:'但你還是沒有動身。' }
 ];
 function declineHospitalCall(){
-  GRANDMA.dead = true;
+  /* 2026-09-04 改:不再當場判定死亡(見「醫院探望+續命」長筆記)——這裡
+     只是「這次沒去」,續命門檻照樣從今天開始算,靠之後平常探望
+     (visitGrandma())補回來也來得及。 */
+  GRANDMA.critical = true;
+  GRANDMA.nextCheckDay = day + GRANDMA_MONTH_DAYS;
   playBeats(HOSPITAL_DECLINE_BEATS, 0, () => {
     chg('calm', -20);
     toast('（歸屬感 −20）', 2400);
@@ -8049,6 +8115,11 @@ function enterHospital(){
       askFreeText('你想跟阿嬤說什麼？', '（打字,留白也可以）', text => {
         const said = text ? [{ who:'pc', text:'「'+text+'」' }].concat(HOSPITAL_LAST_WORDS_SAID) : HOSPITAL_LAST_WORDS_SILENT;
         playBeats(said.concat(HOSPITAL_CLOSING_BEATS), 0, () => {
+          /* 2026-09-04 補(見「醫院探望+續命」長筆記):這次探望算病危宣告
+             後的第一次探望,啟動續命月結算,不再直接走向必死。 */
+          GRANDMA.critical = true;
+          GRANDMA.nextCheckDay = day + GRANDMA_MONTH_DAYS;
+          GRANDMA.visits++;
           chg('calm', 10);
           chg('money', 500);   // 阿嬤塞的五百塊,見 HOSPITAL_GO_BEATS 那則筆記
           toast('（歸屬感 +10，$+500）', 2600);
@@ -8056,10 +8127,10 @@ function enterHospital(){
           /* 2026-09-02 第十六輪,kc:「走出醫院後 可能會說你心情很難過
              想回去找阿源 然後他會安慰你之類的」——這裡只負責提示/埋鉤子,
              真的安慰的戲留給玩家自己走去找阿源那一刻(talkToYuan() 開頭
-             GRANDMA.dead && !GRANDMA.toldYuan 那段,跟這個檔案一貫「引導
-             但不強迫」的手感一致,不用在這裡直接切場景過去)。setTimeout
-             等 fade() 淡出淡入跑完(見 fade() 定義,mid 在 1150ms 觸發)
-             才跳,不會被淡出蓋掉看不到。 */
+             GRANDMA.wentToSee || GRANDMA.critical 那段,跟這個檔案一貫
+             「引導但不強迫」的手感一致,不用在這裡直接切場景過去)。
+             setTimeout 等 fade() 淡出淡入跑完(見 fade() 定義,mid 在
+             1150ms 觸發)才跳,不會被淡出蓋掉看不到。 */
           setTimeout(nudgeToFindYuan, 1300);
         });
       });
@@ -8086,6 +8157,63 @@ function eatFood(id){
   if(item.mood) chg('mood', item.mood);
   toast(`吃了${item.name}。`, 1600);
   openInventory();
+}
+/* 醫院探望阿嬤(2026-09-04,見上面「醫院探望+續命」長筆記)——跟
+   HOSPITAL_GO_BEATS 那個 playBeats() 鎖死的一次性道別戲不一樣,這是可以
+   反覆走進來的日常探望,輕量的 say()/openMenu(),不鎖死整段輸入。她大
+   部分時間昏迷,偶爾清醒會回應——kc 原話「他平常會昏迷 只會斷斷續續的
+   回應你」,昏迷/清醒各自一組句子池隨機挑一句,不是固定台詞。 */
+const GRANDMA_AWAKE_CHANCE = .35;
+const GRANDMA_AWAKE_LINES = [
+  '「你來啦。」她的聲音很小，但看得出來是高興的。',
+  '「有沒有吃飽。」她問，跟以前一樣。',
+  '她拉著你的手，沒說什麼，只是笑了一下。',
+  '「乖，常回來看阿嬤。」',
+  '「外面是不是很冷。」她望向窗外，窗簾其實是拉著的。'
+];
+const GRANDMA_ASLEEP_LINES = [
+  '阿嬤睡著了，呼吸很輕。你在床邊坐了一會兒就走了。',
+  '她閉著眼睛，監視器規律地響著，像是在替她數著時間。',
+  '喊了幾聲，她沒有醒。你幫她把被子拉好，轉身出去。'
+];
+const GRANDMA_FEED_LINES = [
+  '你把水果切成小塊，一口一口餵她吃。',
+  '她慢慢地吃了幾口，「好吃。」聲音很小。',
+  '你端著碗餵她喝了幾口粥，她閉著眼睛，像很享受。'
+];
+function visitGrandma(){
+  returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
+  busy = true;
+  fade('醫院', () => {
+    MODE = 'indoor';
+    PLACE = 'hospital';
+    document.getElementById('city').style.display = 'none';
+    wlabelsEl.style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    document.getElementById('where').textContent = '醫院';
+    hintEl.classList.remove('on');
+    paintHospitalBackdrop();
+    /* day16 病危宣告之前純粹是氣氛互動，不計入續命門檻——GRANDMA.critical
+       為 false 時這裡不累加，見 checkGrandmaMonthly()。 */
+    if(GRANDMA.critical) GRANDMA.visits++;
+    const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
+    const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
+    say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
+      const opts = [];
+      if(FOOD.length) opts.push({ label:'餵她吃東西', run: feedGrandma });
+      opts.push({ label:'先出去', cls:'back', run: leaveIndoor });
+      openMenu('探望阿嬤', opts);
+    });
+  });
+}
+function feedGrandma(){
+  FOOD.splice(0, 1);   // 拿隨身第一份食物餵她，不特別挑品項
+  if(GRANDMA.critical) GRANDMA.feeds++;
+  say('pc', GRANDMA_FEED_LINES[Math.floor(Math.random()*GRANDMA_FEED_LINES.length)], () => {
+    chg('calm', 3);
+    toast('（歸屬感 +3）', 2000);
+    leaveIndoor();
+  });
 }
 /* 主動找爸爸(2026-08-19,kc:「跟他講話可以了解他的近況」):跟
    story-drink.js 按天觸發的節點是兩回事——那邊是「他的事找上你」,
@@ -9477,17 +9605,15 @@ function talkToYuan(){
      betrayed 分支同一個「事情剛發生的當下優先權最高」的精神。他不多問
      細節、不講大道理,安靜陪著就好——呼應阿源這個角色一貫的說話量級
      (「你就是常跟我妹混的那個?」那種一句話帶過,不是溫情喊話型)。
-     觸發條件是「去看過她」或「已經知道她走了」任一成立(wentToSee 涵蓋
-     goToHospital() 那條——這時候她理論上還活著,見那則筆記;dead 涵蓋
-     declineHospitalCall() 那條,那邊是當場就定生死,沒有中間這一段)。
-     ✅ 第十七輪,kc:「找完阿源後手機會收到通知說他走了」——安慰戲收尾
-     之後,如果這時候她還沒被標記死亡(代表玩家是從「去看她」那條路來
-     的,散心的當下阿嬤還活著),延遲跳出真正的死訊通知
-     (notifyGrandmaDeath()),死亡這件事這裡才真的發生/揭曉。已經是
-     declineHospitalCall() 那條來的(dead 已經是 true)就不用再通知一次。 */
-  if((GRANDMA.wentToSee || GRANDMA.dead) && !GRANDMA.toldYuan){
+     觸發條件是「去看過她」或「已經進入病危狀態」任一成立(wentToSee 涵蓋
+     goToHospital() 那條;critical 涵蓋 declineHospitalCall() 那條——兩條
+     都是 day16 那通電話之後才會成立)。
+     ⚠ 2026-09-04 推翻「安慰完兩秒後一定收到死訊」那段(見「醫院探望+
+     續命」長筆記)——原本 `dead` 涵蓋 declineHospitalCall() 是因為那條
+     舊版當場判死,現在兩條都只是進入病危/續命倒數,死亡改交給
+     `checkGrandmaMonthly()` 判定,這裡不再呼叫 `notifyGrandmaDeath()`。 */
+  if((GRANDMA.wentToSee || GRANDMA.critical) && !GRANDMA.toldYuan){
     GRANDMA.toldYuan = true;
-    const alreadyKnew = GRANDMA.dead;
     { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-comfort'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); }
     renderQuestPanel();
     playBeats([
@@ -9498,7 +9624,6 @@ function talkToYuan(){
     ], 0, () => {
       chg('mood', 10); chg('calm', 6);
       toast('（情緒 +10，歸屬感 +6）', 2600);
-      if(!alreadyKnew) setTimeout(notifyGrandmaDeath, 2000);
     });
     return;
   }
