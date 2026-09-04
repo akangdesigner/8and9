@@ -2532,6 +2532,7 @@ export function buildCity(THREE, scene){
       fallback.forEach(m => scene.remove(m));
       const g = add(propModel(THREE, gltf, 3.2, 'z'), hospFrontX + .8, 0, pz, true, true);
       g.rotation.y = Math.PI/2;
+      g.scale.setScalar(.70);
       hospitalPropRef.planters.push({ mesh:g, baseX:hospFrontX + .8, baseY:0, baseZ:pz });
     }).catch(() => {});
   });
@@ -2542,6 +2543,7 @@ export function buildCity(THREE, scene){
       scene.remove(stepsFallback);
       const g = add(propModel(THREE, gltf, HOSPITAL.stepsW, 'x'), hospFrontX + HOSPITAL.stepsD/2, 0, hospZ, true, true);
       g.rotation.y = Math.PI/2;
+      g.scale.setScalar(.62);
       hospitalPropRef.stairs = { mesh:g, baseX:hospFrontX + HOSPITAL.stepsD/2, baseY:0, baseZ:hospZ };
     }).catch(() => {});
   }
