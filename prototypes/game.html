@@ -1557,6 +1557,12 @@ function debugTweakHospitalScene(){
   document.getElementById('where').textContent = '醫院';
   paintHospitalBackdrop();
   tweakHospitalScenePanel();
+  /* 2026-09-04,kc 拉完站位滑桿問「啊我的對話框呢」——這顆按鈕原本是
+     純視覺預覽(不叫 say()),站位看起來對不對其實要連對話框一起看
+     (對話框佔掉畫面下半部,會不會剛好擋到角色腳,只看空場景看不出來)。
+     補一句 grandmaVisitLine()，跟玩家真的走近門口按空白鍵看到的畫面
+     一致，不是只看半套。 */
+  grandmaVisitLine();
 }
 window.debugTweakHospitalScene = debugTweakHospitalScene;
 /* 阿嬤那天(2026-09-03)——直接呼叫 triggerGrandmaCall()(定義在下面,跟
