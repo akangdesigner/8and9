@@ -2458,7 +2458,15 @@ export function buildCity(THREE, scene){
    * `mirror`(1/-1)控制急診招牌/花圃/扶手偏到哪一側,對應 kc 說的
    * 「方向轉錯邊」——不用我猜是鏡像錯還是座標算錯,滑桿/切換直接讓他
    * 自己看兩種各長怎樣。 */
-  const HOSPITAL = { frontX:-100, plazaD:9, bW:24, bD:13, bH:26, bz:-16, floorMargin:12, mirror:1 };
+  /* plazaD 9→16、bH 26→20(2026-09-04 第六輪,kc:「問題應該是你的灰色
+     模塊把廣場吃掉了 所以看起來就是灰色方塊」)——用滑桿面板現場比對過:
+     舊數字(廣場深 9、大樓高 26)站在街面線看,廣場那 9 個單位深度撐不住
+     一棟 26 高的牆,鏡頭隨便一站牆就整片糊到眼前,廣場的台階/花圃/雨遮
+     全部被前景的巨大立面蓋掉,肉眼只讀得出「一塊灰色方塊」,不是碰撞箱
+     或座標算錯這種硬體 bug。廣場深度拉到 16、大樓高降到 20 之後在瀏覽器
+     裡站在街面線/廣場中段/門口三個位置各截圖比對過,廣場能讀出是一塊
+     獨立的開闊空間,不會被牆吃掉。 */
+  const HOSPITAL = { frontX:-100, plazaD:16, bW:24, bD:13, bH:20, bz:-16, floorMargin:12, mirror:1 };
   const hospitalWallM = std({ color:0xb5b0a2, roughness:.85 });
   const hospitalTrimM = std({ color:0x8f8a7c, roughness:.8 });
   const hospitalSignM = std({ color:0xe8e6de, roughness:.6 });   // 寬招牌板底色,貼圖那輪換成「仁和醫院」照片
