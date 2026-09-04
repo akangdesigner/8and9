@@ -2437,7 +2437,7 @@ export function buildCity(THREE, scene){
    * 位置算式跟著 x/z/w/d 走,面板同步加兩個滑桿(不用等 kc 再抱怨滑桿
    * 不見了)。寬度預設 6,跟兩側花圃內緣淨空(w=24 時約 7.4)留一點
    * margin,不會一開始就穿模卡進花圃裡。 */
-  const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21, signW:6 };
+  const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21, signW:6, signDX:.2, signY:6.7, signDZ:0 };
   /* 2026-09-04 第十輪,kc:「我們先貼醫院的圖好了」——立面照片先只做
      正面(+x,面向街道那面),跟 policeStation() 同一套「素色先頂著,
      圖到位就換上」做法:hospitalFrontM 是正面專用材質,其餘 5 面
@@ -2465,8 +2465,20 @@ export function buildCity(THREE, scene){
      照片比例綁死。這裡先用一塊灰色招牌板佔位(跟 row() 招牌那套的完整
      signKey/signImage() 管線比,這裡量體是獨立蓋的,不走 row(),暫時
      沒有現成的 signKey 掛,先用素色板子,之後生招牌小圖再貼上去,不用
-     另外接一套新機制)。 */
-  const hospitalSignM = std({ color:0xe8e6de, roughness:.6 });
+     另外接一套新機制)。
+     2026-09-04 第十五輪,kc 生了招牌圖(白底綠字「仁和醫院」+綠十字,
+     edge-to-edge 無黑邊)+「招牌位置也給我滑感」——貼圖跟大樓正面同一招
+     (hospitalSignFrontM 專用材質,其餘 5 面共用 hospitalSideM),圖檔
+     assets/tex/hospital-sign.png(已用 PIL 量 alpha bounding box 裁掉
+     透明邊)。位置從寫死的 `frontX+.2, h*.32, z` 改成三個可調參數
+     (signDX/signY/signDZ),滑桿面板同步加三列。 */
+  const hospitalSignFrontM = std({ color:0xe8e6de, roughness:.6 });
+  new THREE.ImageLoader().load(TEX_DIR + 'hospital-sign.png', img => {
+    const t = new THREE.Texture(img);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    t.needsUpdate = true;
+    hospitalSignFrontM.map = t; hospitalSignFrontM.color.setHex(0xffffff); hospitalSignFrontM.needsUpdate = true;
+  }, undefined, () => {});
   const hospitalCollider = { x:0, z:0, hw:0, hd:0 };
   const hospitalPotColliders = [ { x:0, z:0, hw:0, hd:0 }, { x:0, z:0, hw:0, hd:0 } ];
   const hospitalDoor = { id:'hospital', name:'仁和醫院', x:0, z:0 };
@@ -2476,7 +2488,7 @@ export function buildCity(THREE, scene){
   function buildHospital(){
     hospitalParts.forEach(m => scene.remove(m));
     hospitalParts = [];
-    const { x, z, w, d, h, signW } = HOSPITAL;
+    const { x, z, w, d, h, signW, signDX, signY, signDZ } = HOSPITAL;
     const put = (...a) => hospitalParts.push(add(...a));
     /* BoxGeometry 六面材質陣列順序 [+x,-x,+y,-y,+z,-z](跟 row() 那段
        `mainIdx = axis==='x'?(face>0?4:5):(face>0?0:1)` 反推出來的順序
@@ -2489,10 +2501,11 @@ export function buildCity(THREE, scene){
     const frontX = x + d/2;
     hospitalDoor.x = frontX + 2.4; hospitalDoor.z = z;
 
-    /* 招牌板,橫在入口上方,獨立於立面照片(見上面長筆記)——寬度用
-       signW+3(比入口寬一截才夠壓場),高度固定 2.2,y 用大樓高的比例抓
-       (h*.32),大樓高滑桿調整時招牌高度會跟著等比例走。 */
-    put(box(.3, 2.2, signW+3, hospitalSignM), frontX + .2, h*.32, z, false, true);
+    /* 招牌板,獨立於立面照片(見上面長筆記)——寬度用 signW+3(比入口寬
+       一截才夠壓場),高度固定 2.2,位置(x/y/z 偏移)三個都給滑桿,
+       不再是寫死的公式。 */
+    put(box(.3, 2.2, signW+3, [hospitalSignFrontM, hospitalSideM, hospitalSideM, hospitalSideM, hospitalSideM, hospitalSideM]),
+      frontX + signDX, signY, z + signDZ, false, true);
   }
   buildHospital();
   /* 雙路燈,貼花圃外側框住入口——只在初始定案位置放一次(見上面長筆記),

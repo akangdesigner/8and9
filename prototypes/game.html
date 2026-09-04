@@ -4888,7 +4888,9 @@ function tweakHospitalPanel(){
      跟著補進來,不要又讓 kc 抓到「滑感不見了」。
      第十四輪 kc:「樓梯刪掉」——樓梯 3D 模型連同 `stepsD` 這個滑桿一起
      拿掉(見 scene-city3d.js hospitalCompound() 那則長筆記),`stepsW`
-     改名 `signW`(現在只剩招牌板寬度在用它)。 */
+     改名 `signW`(現在只剩招牌板寬度在用它)。
+     第十五輪,kc 生完招牌圖說「招牌位置也給我滑感」——signDX/signY/
+     signDZ 三個位置滑桿補進來,不再是寫死的 `frontX+.2, h*.32, z`。 */
   const rows = [
     ['x','大樓 x 中心',-200,-95,0.5],
     ['z','大樓 z 中心',-40,10,0.5],
@@ -4896,6 +4898,9 @@ function tweakHospitalPanel(){
     ['d','大樓深(x)',6,60,0.5],
     ['h','大樓高',10,40,1],
     ['signW','招牌寬(z)',2,12,0.5],
+    ['signDX','招牌 x 偏移(離牆)',-2,3,0.05],
+    ['signY','招牌高度(y)',2,20,0.1],
+    ['signDZ','招牌 z 偏移',-8,8,0.2],
   ];
   const panel = document.createElement('div');
   panel.id = 'hospitalTweakPanel';
