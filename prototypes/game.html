@@ -8204,8 +8204,18 @@ function goToHospital(){
   /* WATCHJOB 進行中(2026-09-03)——玩家人在固定的盯梢點(見
      startWatchJob() 那則筆記),不是「當下位置」,不能覆蓋掉
      startWatchJob() 已經存好的接任務地點,否則回程會被送去盯梢點
-     (中華路附近)而不是玩家真正出發的地方。 */
-  if(MODE === 'city' && !WATCHJOB.active){ returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z; }
+     (中華路附近)而不是玩家真正出發的地方。
+     2026-09-04,kc:「醫院出來就要出現在醫院門口」——這通電話「不管玩家
+     人在哪都要追得到」(見上面「阿嬤在醫院」長筆記③),觸發當下玩家可能
+     人在學校、廟口、任何地方,原本回程直接送回「電話響起那一刻站的
+     位置」,跟醫院完全無關,不是 kc 要的。改成固定送回醫院大門口
+     (city.doors 找 id==='hospital' 那個門的座標),跟平常探望
+     visitGrandma() 進去前也是站在門口同一個邏輯,離開自然還在門口。 */
+  if(MODE === 'city' && !WATCHJOB.active){
+    const hd = city.doors.find(d => d.id === 'hospital');
+    if(hd){ returnTo.x = hd.x; returnTo.z = hd.z; }
+    else { returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z; }
+  }
   enterHospital();
 }
 function enterHospital(){
@@ -8325,26 +8335,35 @@ function visitGrandma(){
    一顆「先出去」,感覺像壞掉。加一個「陪她坐一下」,永遠都在,再抽一句
    （不計入 visits，那個只在真正走進來那一刻算），讓玩家有事可做，不是
    進來看一句就只能走。 */
+/* 2026-09-04,kc:「任務觸發後 我為何不能選擇給啊罵食物」——原本「餵她
+   吃東西」綁 FOOD.length(玩家隨身食物庫存,超商結帳才會有),早期/沒去
+   買過東西的玩家 FOOD 是空的,選單直接看不到這個選項,kc 以為是壞掉。
+   改成花錢當場買(跟隨身 FOOD 庫存脫鉤),永遠顯示,錢不夠才擋——這個
+   互動本來就該獨立於「玩家自己有沒有囤食物」,不是同一件事。 */
+const GRANDMA_FEED_COST = 30;
 function grandmaVisitLine(){
   const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
   paintHospitalBackdrop(awake);   // 清醒/昏迷各換一張背景照片，見上面 hospitalRoomAwakeImg 那則筆記
   const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
   say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
-    const opts = [ { label:'陪她坐一下', run: grandmaVisitLine } ];
-    if(FOOD.length) opts.push({ label:'餵她吃東西', run: feedGrandma });
-    opts.push({ label:'先出去', cls:'back', run: leaveIndoor });
+    const opts = [
+      { label:'陪她坐一下', run: grandmaVisitLine },
+      { label:'餵她吃東西', cost:'$'+GRANDMA_FEED_COST, cls: ST.money<GRANDMA_FEED_COST?'bad':'', run: feedGrandma },
+      { label:'先出去', cls:'back', run: leaveIndoor }
+    ];
     openMenu('探望阿嬤', opts);
   });
 }
 function feedGrandma(){
-  FOOD.splice(0, 1);   // 拿隨身第一份食物餵她，不特別挑品項
+  if(ST.money < GRANDMA_FEED_COST){ toast('身上的錢不夠買東西給阿嬤吃。', 2200); return; }
+  chg('money', -GRANDMA_FEED_COST);
   if(GRANDMA.critical){ GRANDMA.feeds++; updateGrandmaQuestHint(); }
   paintHospitalBackdrop(true);   // 餵食當下算清醒，換清醒那張背景
 
   /* 2026-09-04,kc:「獲得五百塊 對話框要提示」同一條規則——提示改寫進
      這句台詞本身,不再另外跳 toast。餵完不強制離開,回到 grandmaVisitLine()
      選單，跟「陪她坐一下」同一套，玩家自己決定要不要繼續留著。 */
-  say('pc', GRANDMA_FEED_LINES[Math.floor(Math.random()*GRANDMA_FEED_LINES.length)] + '（歸屬感 +3）', () => {
+  say('pc', GRANDMA_FEED_LINES[Math.floor(Math.random()*GRANDMA_FEED_LINES.length)] + `（金錢 -${GRANDMA_FEED_COST}，歸屬感 +3）`, () => {
     chg('calm', 3);
     grandmaVisitLine();
   });
