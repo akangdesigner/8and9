@@ -2430,11 +2430,18 @@ export function buildCity(THREE, scene){
    * 花圃會跟著大樓一起動;路燈用 `placeAlleyLamp()`(async 載入真 3D
    * 路燈模型,不方便隨滑桿重建,見 fortuneStall 周邊裝飾同一個理由)
    * 只在這裡放一次,之後再調位置滑桿路燈不會跟著動,需要的話手動改
-   * 這裡的座標。 */
-  const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21 };
+   * 這裡的座標。
+   *
+   * 2026-09-04 第九輪,kc:「加上樓梯 在花圃中間 然後給我滑感」——
+   * `stepsW`/`stepsD` 加進同一個 `HOSPITAL` 設定值,台階跟花圃一樣
+   * 位置算式跟著 x/z/w/d 走,面板同步加兩個滑桿(不用等 kc 再抱怨滑桿
+   * 不見了)。寬度預設 6,跟兩側花圃內緣淨空(w=24 時約 7.4)留一點
+   * margin,不會一開始就穿模卡進花圃裡。 */
+  const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21, stepsW:6, stepsD:3 };
   const hospitalWallM = std({ color:0xb5b0a2, roughness:.85 });
   const hospitalPotM = std({ color:0x7c7568, roughness:.9 });    // 花圃箱體
   const hospitalLeafM = std({ color:0x3f6b3a, roughness:.85 });  // 花圃植栽,先拿一塊綠色箱體佔位
+  const hospitalStepM = std({ color:0x9c988c, roughness:.85 });  // 台階,跟警察局台階同一色
   const hospitalCollider = { x:0, z:0, hw:0, hd:0 };
   const hospitalPotColliders = [ { x:0, z:0, hw:0, hd:0 }, { x:0, z:0, hw:0, hd:0 } ];
   const hospitalDoor = { id:'hospital', name:'仁和醫院', x:0, z:0 };
@@ -2444,7 +2451,7 @@ export function buildCity(THREE, scene){
   function buildHospital(){
     hospitalParts.forEach(m => scene.remove(m));
     hospitalParts = [];
-    const { x, z, w, d, h } = HOSPITAL;
+    const { x, z, w, d, h, stepsW, stepsD } = HOSPITAL;
     const put = (...a) => hospitalParts.push(add(...a));
     put(box(w, h, d, hospitalWallM), x, h/2, z);
     hospitalCollider.x = x; hospitalCollider.z = z; hospitalCollider.hw = w/2; hospitalCollider.hd = d/2;
@@ -2463,6 +2470,11 @@ export function buildCity(THREE, scene){
       hospitalPotColliders[i].x = frontX + .8; hospitalPotColliders[i].z = pz;
       hospitalPotColliders[i].hw = .9; hospitalPotColliders[i].hd = 1.6;
     });
+
+    /* 樓梯,卡在兩個花圃中間(z 中心跟大樓一樣,寬度用 stepsW 控制,
+       花圃已經佔住兩側,樓梯自己不用再避開——寬度滑桿本身就是拿來
+       避免穿模用的)。 */
+    put(box(stepsD, .35, stepsW, hospitalStepM), frontX + stepsD/2, .18, z, false, true);
   }
   buildHospital();
   /* 雙路燈,貼花圃外側框住入口——只在初始定案位置放一次(見上面長筆記),
