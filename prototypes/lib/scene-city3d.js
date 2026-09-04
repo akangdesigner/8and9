@@ -2438,7 +2438,23 @@ export function buildCity(THREE, scene){
    * 不見了)。寬度預設 6,跟兩側花圃內緣淨空(w=24 時約 7.4)留一點
    * margin,不會一開始就穿模卡進花圃裡。 */
   const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21, stepsW:6, stepsD:3 };
-  const hospitalWallM = std({ color:0xb5b0a2, roughness:.85 });
+  /* 2026-09-04 第十輪,kc:「我們先貼醫院的圖好了」——立面照片先只做
+     正面(+x,面向街道那面),跟 policeStation() 同一套「素色先頂著,
+     圖到位就換上」做法:hospitalFrontM 是正面專用材質,其餘 5 面
+     (含背面/頂/底/兩側)共用 hospitalSideM 素色,不用另外生側面照片
+     ——大樓深(d)雖然拉到 24.5,但巷子/隔壁店面擋住了兩側視角,玩家
+     實際只看得到正面。圖檔 assets/tex/hospital-front.png,repeat/
+     offset 先給一組保守初始值(1,1 / 0,0),kc 生完圖之後用
+     tweakHospitalTexturePanel() 現場裁切,不用我猜公式。 */
+  const hospitalFrontM = std({ color:0xb5b0a2, roughness:.75 });
+  const hospitalSideM = std({ color:0x9c988c, roughness:.85 });
+  new THREE.ImageLoader().load(TEX_DIR + 'hospital-front.png', img => {
+    const t = new THREE.Texture(img);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    t.repeat.set(1, 1); t.offset.set(0, 0);
+    t.needsUpdate = true;
+    hospitalFrontM.map = t; hospitalFrontM.color.setHex(0xffffff); hospitalFrontM.needsUpdate = true;
+  }, undefined, () => {});
   const hospitalPotM = std({ color:0x7c7568, roughness:.9 });    // 花圃箱體
   const hospitalLeafM = std({ color:0x3f6b3a, roughness:.85 });  // 花圃植栽,先拿一塊綠色箱體佔位
   const hospitalStepM = std({ color:0x9c988c, roughness:.85 });  // 台階,跟警察局台階同一色
@@ -2453,7 +2469,10 @@ export function buildCity(THREE, scene){
     hospitalParts = [];
     const { x, z, w, d, h, stepsW, stepsD } = HOSPITAL;
     const put = (...a) => hospitalParts.push(add(...a));
-    put(box(w, h, d, hospitalWallM), x, h/2, z);
+    /* BoxGeometry 六面材質陣列順序 [+x,-x,+y,-y,+z,-z](跟 row() 那段
+       `mainIdx = axis==='x'?(face>0?4:5):(face>0?0:1)` 反推出來的順序
+       一致)——index0 是 +x,正是大樓朝街道那面。 */
+    put(box(w, h, d, [hospitalFrontM, hospitalSideM, hospitalSideM, hospitalSideM, hospitalSideM, hospitalSideM]), x, h/2, z);
     hospitalCollider.x = x; hospitalCollider.z = z; hospitalCollider.hw = w/2; hospitalCollider.hd = d/2;
     /* 門口互動座標貼著大樓面向街道那一側(+x 面)往外推 2.4,跟 row()
        原本 `if(s.id) doors.push(...)` 的算式同一招——沒有廣場,玩家站在
@@ -3817,7 +3836,7 @@ export function buildCity(THREE, scene){
   /* spawnMoto:parkMoto() 本體直接掛出去(2026-09-03,配合「不要有展示車」
      那輪——買車現在要現生一台,見上面 forSale 那段長筆記),回傳新 entry
      讓呼叫端(game.html)自己標 owned/存起來,不是回傳 void。 */
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
 }
 
 /* ---------------- 角色 ----------------

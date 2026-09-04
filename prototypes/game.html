@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1520,6 +1520,18 @@ function debugTweakHospital(){
   tweakHospitalPanel();
 }
 window.debugTweakHospital = debugTweakHospital;
+/* 醫院貼圖滑桿按鈕(2026-09-04 第十輪,kc:「我們先貼醫院的圖好了」)——
+   跟上面 debugTweakHospital() 同一招,瞬移到門口正面(比量體滑桿站更
+   近,才看得出貼圖裁切對不對)+開 tweakHospitalTexturePanel()。 */
+function debugTweakHospitalTexture(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(-95, .3, city.hospital.cfg.z);
+  tweakHospitalTexturePanel();
+}
+window.debugTweakHospitalTexture = debugTweakHospitalTexture;
 /* 阿嬤那天(2026-09-03)——直接呼叫 triggerGrandmaCall()(定義在下面,跟
    checkGrandmaCall() 平常在 day16 傍晚自動觸發的是同一個函式,這裡沒有
    另外塞 GRANDMA 旗標或跳 day/minute,單純省去等到 day16 傍晚的等待),
@@ -4890,6 +4902,46 @@ function tweakHospitalPanel(){
     });
   });
 }
+/* 醫院立面貼圖滑桿(2026-09-04 第十輪,kc:「我們先貼醫院的圖好了」)——
+   跟 tweakPolicePanel() 同一招(改 THREE.Texture 的 repeat/offset,不是
+   mesh 的 scale/position),但只有正面一張圖,不用side 鏡射那組共用
+   參數換算,四個滑桿(repeat.x/y、offset.x/y)直接對應。 */
+function tweakHospitalTexturePanel(){
+  const old = document.getElementById('hospitalTexTweakPanel');
+  if(old){ old.remove(); return; }
+  const hw = city.hospitalWall;
+  if(!hw || !hw.front || !hw.front.map){
+    alert('醫院立面貼圖還沒載入完成(先確認 assets/tex/hospital-front.png 已經放進去),晚點再開一次滑桿');
+    return;
+  }
+  const fm = hw.front.map;
+  const rows = [
+    ['hoptex_rx','repeat.x', 0.2, 1, 0.01, () => fm.repeat.x, v => fm.repeat.x = v],
+    ['hoptex_ry','repeat.y', 0.2, 1, 0.01, () => fm.repeat.y, v => fm.repeat.y = v],
+    ['hoptex_ox','offset.x', -0.5, 0.5, 0.01, () => fm.offset.x, v => fm.offset.x = v],
+    ['hoptex_oy','offset.y', -0.5, 0.5, 0.01, () => fm.offset.y, v => fm.offset.y = v],
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'hospitalTexTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">醫院貼圖滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次下面的「醫院貼圖滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,, set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value;
+      set(v);
+      document.getElementById(`${id}_v`).textContent = v.toFixed(2);
+      fm.needsUpdate = true;
+    });
+  });
+}
+window.tweakHospitalTexturePanel = tweakHospitalTexturePanel;
 /* 警察局貼圖位置/縮放滑桿(2026-08-27,kc:「開滑桿讓我調整貼圖位置跟
    縮放」)——跟上面幾個滑桿同一招,但改的是 THREE.Texture 的 repeat/
    offset,不是 mesh 的 scale/position。正面(front)四個值都給滑桿
