@@ -4822,6 +4822,46 @@ function tweakFortuneStallPanel(){
     });
   });
 }
+/* 醫院量體滑桿(2026-09-04,kc:「你越改越爛,你多開一些滑桿我看問題在
+   哪裡,你方向好像也轉錯邊」)——連三輪我截圖猜數字被抓包,跟
+   tweakFortuneStallPanel() 同一招,把 scene-city3d.js hospitalCompound()
+   的量體/位置參數(見那邊 HOSPITAL 設定值+buildHospital() 那則長筆記)
+   直接暴露成滑桿,kc 自己拉、自己看碰撞箱/地板/招牌跟不跟得上,不用再
+   等我猜一輪再截圖。mirror 是 -1/1 兩檔(不是連續滑桿),對應「方向轉
+   錯邊」那句——急診招牌/花圃/扶手要偏哪一側,直接切換看兩種各長怎樣。 */
+function tweakHospitalPanel(){
+  const old = document.getElementById('hospitalTweakPanel');
+  if(old){ old.remove(); return; }
+  const cfg = city.hospital.cfg;
+  const rows = [
+    ['frontX','街面線 x',-110,-90,0.5],
+    ['plazaD','廣場深度',3,20,0.5],
+    ['bW','大樓寬(z)',10,30,0.5],
+    ['bD','大樓深(x)',6,20,0.5],
+    ['bH','大樓高',10,40,1],
+    ['bz','大樓 z 中心',-40,10,0.5],
+    ['floorMargin','地板餘裕',0,20,1],
+    ['mirror','方向(急診/花圃側)',-1,1,2],
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'hospitalTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a;max-height:90vh;overflow:auto';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">醫院量體滑桿</div>' +
+    rows.map(([key,label,min,max,step]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="hoptweak_${key}_v">${cfg[key].toFixed(2)}</span><br>
+       <input type="range" id="hoptweak_${key}" min="${min}" max="${max}" step="${step}" value="${cfg[key]}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakHospital()<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([key]) => {
+    document.getElementById(`hoptweak_${key}`).addEventListener('input', e => {
+      cfg[key] = +e.target.value;
+      document.getElementById(`hoptweak_${key}_v`).textContent = cfg[key].toFixed(2);
+      city.hospital.rebuild();
+    });
+  });
+}
 /* 警察局貼圖位置/縮放滑桿(2026-08-27,kc:「開滑桿讓我調整貼圖位置跟
    縮放」)——跟上面幾個滑桿同一招,但改的是 THREE.Texture 的 repeat/
    offset,不是 mesh 的 scale/position。正面(front)四個值都給滑桿
@@ -11786,6 +11826,7 @@ window.__dbg = {
   tweakArcade: tweakArcadePanel,
   tweakTattoo: tweakTattooPanel,
   tweakFortuneStall: tweakFortuneStallPanel,
+  tweakHospital: tweakHospitalPanel,
   tweakPolice: tweakPolicePanel,
   tweakPoliceCar: tweakPoliceCarPanel,
   tweakConstruction: tweakConstructionPanel,
