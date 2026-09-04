@@ -1553,7 +1553,7 @@ function debugTweakHospitalScene(){
   document.getElementById('city').style.display = 'none';
   wlabelsEl.style.display = 'none';
   document.getElementById('indoor').classList.add('on');
-  IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
+  IN.px = 525; IN.py = 360; IN.face = 'L'; IN.near = null;
   document.getElementById('where').textContent = '醫院';
   paintHospitalBackdrop();
   tweakHospitalScenePanel();
@@ -5357,7 +5357,9 @@ function tweakHospitalScenePanel(){
   if(old){ old.remove(); return; }
   const rows = [
     ['hs_px','玩家 X(IN.px)', 0, 640, 1, () => IN.px, v => IN.px = v],
-    ['hs_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 360, 1, () => IN.py, v => IN.py = v],
+    /* 上限原本 360,kc 定案的數字剛好卡在頂——先多留一截餘裕(450),
+       不用等他真的喊「不夠」才放寬。 */
+    ['hs_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 450, 1, () => IN.py, v => IN.py = v],
     /* 上限原本 400,kc 拉到頂回報「縮放不夠大」——放寬到 900(跟 x軸滑桿
        那次「20不夠」同一個坑,不要又卡死一次)。 */
     ['hs_scale','縮放(HERO_TARGET_PX.hospital)', 150, 900, 1, () => HERO_TARGET_PX.hospital, v => HERO_TARGET_PX.hospital = v]
@@ -5699,7 +5701,7 @@ const HERO_TARGET_PX = {
   arcade: 296,   // 2026-08-26:灰模場景沒有真的透視好校正,先借 home 那個量級,跟其他固定鏡頭室內同一批
   corridor: 296,   // 2026-08-28:灰模走廊,同上先借同一個量級
   tattoo: 296,   // 2026-08-28:刺青店灰模,同上先借同一個量級
-  hospital: 296,   // 2026-09-02:醫院灰模,同上先借同一個量級
+  hospital: 601,   // 2026-09-04:kc 拉 tweakHospitalScenePanel() 定案(原本 296 是灰模時代借用的量級,換照片背景+角色顯示之後比例對不起來,重新拉過)
   massage: 275.6   // 2026-09-03:原本靠 `?? HERO_TARGET_PX.store` 隱性借用同一個數字,
                     // kc 要滑桿調越式按摩室內站位/縮放,開一個真的獨立 key 讓滑桿有
                     // 東西可以寫,不要再隱性共用 store 那個(調 store 不該連動這裡)
@@ -8198,7 +8200,7 @@ function enterHospital(){
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
+    IN.px = 525; IN.py = 360; IN.face = 'L'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
     paintHospitalBackdrop();
@@ -8292,7 +8294,7 @@ function visitGrandma(){
        時代留下、從沒被驗證過的座標)疊在床上很怪,用 tweakHospitalScenePanel()
        現場拉到 250,320(站在床邊地板上,不疊床)才改對。updateIndoor()
        開頭 `if(PLACE==='hospital') return;` 沒有動,角色站著不會走。 */
-    IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
+    IN.px = 525; IN.py = 360; IN.face = 'L'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
     paintHospitalBackdrop();
@@ -12203,7 +12205,7 @@ window.__dbg = {
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 250; IN.py = 320; IN.face = 'R'; IN.near = null;
+    IN.px = 525; IN.py = 360; IN.face = 'L'; IN.near = null;
     document.getElementById('where').textContent = '醫院';
     paintHospitalBackdrop();
     return MODE;
