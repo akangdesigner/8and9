@@ -2510,8 +2510,13 @@ export function buildCity(THREE, scene){
      位置跟花圃/台階原本的 box 版本(x/z/w/d 算出來的 frontX 等)完全
      沿用同一組數字,只是這輪固定寫死不再隨 x/z/w/d 滑桿即時重畫——跟
      雙路燈同一個理由(位置已經定案,滑桿階段結束,見上面雙路燈那則
-     筆記)。花圃/樓梯的旋轉(ry)沒有原始模型可以預覽軸向,先猜一個
-     角度,不對的話用 __dbg.near() 查完再調,不用重新下載。 */
+     筆記)。
+     2026-09-04 第十二輪,kc:「讓我調整大小跟花圃要轉90度」——跟
+     tweakPoliceCarPanel()/tweakBusStopProps() 同一招,存 ref(mesh+
+     基準座標)給 game.html 開滑桿即時調 scale/rotation.y,不用我猜角度
+     猜半天。花圃初始旋轉直接套 90°(kc 已經講明是 90 度,不用再靠滑桿
+     從 0 試),滑桿還是留著方便之後再微調。 */
+  const hospitalPropRef = { planters: [], stairs: null };
   const hospFrontX = HOSPITAL.x + HOSPITAL.d/2, hospZ = HOSPITAL.z, hospW = HOSPITAL.w;
   [hospZ - hospW*.22, hospZ + hospW*.22].forEach((pz, i) => {
     hospitalPotColliders[i].x = hospFrontX + .8; hospitalPotColliders[i].z = pz;
@@ -2522,7 +2527,9 @@ export function buildCity(THREE, scene){
     ];
     loadModel('planter-bushes.glb').then(gltf => {
       fallback.forEach(m => scene.remove(m));
-      add(propModel(THREE, gltf, 3.2, 'z'), hospFrontX + .8, 0, pz, true, true);
+      const g = add(propModel(THREE, gltf, 3.2, 'z'), hospFrontX + .8, 0, pz, true, true);
+      g.rotation.y = Math.PI/2;
+      hospitalPropRef.planters.push({ mesh:g, baseX:hospFrontX + .8, baseY:0, baseZ:pz });
     }).catch(() => {});
   });
   {
@@ -2530,7 +2537,9 @@ export function buildCity(THREE, scene){
       hospFrontX + HOSPITAL.stepsD/2, .18, hospZ, false, true);
     loadModel('stairs.glb').then(gltf => {
       scene.remove(stepsFallback);
-      add(propModel(THREE, gltf, HOSPITAL.stepsW, 'x', Math.PI/2), hospFrontX + HOSPITAL.stepsD/2, 0, hospZ, true, true);
+      const g = add(propModel(THREE, gltf, HOSPITAL.stepsW, 'x'), hospFrontX + HOSPITAL.stepsD/2, 0, hospZ, true, true);
+      g.rotation.y = Math.PI/2;
+      hospitalPropRef.stairs = { mesh:g, baseX:hospFrontX + HOSPITAL.stepsD/2, baseY:0, baseZ:hospZ };
     }).catch(() => {});
   }
   /* landmark 飄浮字先不加——量體/立面(招牌/台階/雨遮)還沒疊完,等
@@ -3869,7 +3878,7 @@ export function buildCity(THREE, scene){
   /* spawnMoto:parkMoto() 本體直接掛出去(2026-09-03,配合「不要有展示車」
      那輪——買車現在要現生一台,見上面 forSale 那段長筆記),回傳新 entry
      讓呼叫端(game.html)自己標 owned/存起來,不是回傳 void。 */
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
+  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, hospitalProps:hospitalPropRef, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
 }
 
 /* ---------------- 角色 ----------------
