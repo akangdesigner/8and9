@@ -2420,28 +2420,57 @@ export function buildCity(THREE, scene){
    * 雨遮/招牌/花圃/台階/扶手/急診招牌/雙路燈)全部拿掉,等位置/量體
    * 定案之後才按同一個順序疊回去,不要在位置都還沒定案時就疊一堆細節
    * 互相干擾判斷。CITY.bounds.x[0] 也跟著退回 -100(沒有廣場就不用拉寬
-   * 邊界讓玩家走進去,拉了反而會走進沒鋪地板的區域)。 */
-  const HOSPITAL = { x:-115, z:-16, w:24, d:13, h:20 };
+   * 邊界讓玩家走進去,拉了反而會走進沒鋪地板的區域)。
+   *
+   * 2026-09-04 第八輪,kc 自己拉滑桿定案位置/量體(x:-113、z:-16.5、
+   * w:24、d:24.5、h:21),寫死當新預設值,說「更新完後 在前面加兩個
+   * 長方形花圃以及路燈」——照上面「一項項疊回去」的順序,這輪只加這
+   * 兩樣(花圃+路燈),不要一次把招牌/雨遮/台階/扶手全部疊回來。花圃
+   * 位置跟著 HOSPITAL 設定值算(大樓正面 = x+d/2),滑桿再調 x/z/w/d
+   * 花圃會跟著大樓一起動;路燈用 `placeAlleyLamp()`(async 載入真 3D
+   * 路燈模型,不方便隨滑桿重建,見 fortuneStall 周邊裝飾同一個理由)
+   * 只在這裡放一次,之後再調位置滑桿路燈不會跟著動,需要的話手動改
+   * 這裡的座標。 */
+  const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21 };
   const hospitalWallM = std({ color:0xb5b0a2, roughness:.85 });
+  const hospitalPotM = std({ color:0x7c7568, roughness:.9 });    // 花圃箱體
+  const hospitalLeafM = std({ color:0x3f6b3a, roughness:.85 });  // 花圃植栽,先拿一塊綠色箱體佔位
   const hospitalCollider = { x:0, z:0, hw:0, hd:0 };
+  const hospitalPotColliders = [ { x:0, z:0, hw:0, hd:0 }, { x:0, z:0, hw:0, hd:0 } ];
   const hospitalDoor = { id:'hospital', name:'仁和醫院', x:0, z:0 };
-  colliders.push(hospitalCollider);
+  colliders.push(hospitalCollider, ...hospitalPotColliders);
   doors.push(hospitalDoor);
   let hospitalParts = [];
   function buildHospital(){
     hospitalParts.forEach(m => scene.remove(m));
     hospitalParts = [];
     const { x, z, w, d, h } = HOSPITAL;
-    hospitalParts.push(add(box(w, h, d, hospitalWallM), x, h/2, z));
+    const put = (...a) => hospitalParts.push(add(...a));
+    put(box(w, h, d, hospitalWallM), x, h/2, z);
     hospitalCollider.x = x; hospitalCollider.z = z; hospitalCollider.hw = w/2; hospitalCollider.hd = d/2;
     /* 門口互動座標貼著大樓面向街道那一側(+x 面)往外推 2.4,跟 row()
        原本 `if(s.id) doors.push(...)` 的算式同一招——沒有廣場,玩家站在
        人行道(x<=-93,見 CITY.WALK_W)就能觸發,不用走進大樓量體範圍。 */
-    hospitalDoor.x = x + d/2 + 2.4; hospitalDoor.z = z;
+    const frontX = x + d/2;
+    hospitalDoor.x = frontX + 2.4; hospitalDoor.z = z;
+
+    /* 兩個長方形花圃,貼大樓正面兩側(參考圖那種入口花圃,不是貫穿
+       廣場的長矮牆——上一輪「越改越爛」那次已經踩過這個坑,這裡故意
+       做短)。位置跟著 x/z/w 算,滑桿調整大樓時花圃自動跟過去。 */
+    [z - w*.22, z + w*.22].forEach((pz, i) => {
+      put(box(1.8, .7, 3.2, hospitalPotM), frontX + .8, .35, pz, false, true);
+      put(box(1.3, .5, 2.6, hospitalLeafM), frontX + .8, .82, pz, false, true);
+      hospitalPotColliders[i].x = frontX + .8; hospitalPotColliders[i].z = pz;
+      hospitalPotColliders[i].hw = .9; hospitalPotColliders[i].hd = 1.6;
+    });
   }
   buildHospital();
-  /* landmark 飄浮字先不加——位置還在滑桿調整階段,加了也只會顯示在
-     初始座標,滑桿一拉就跟大樓本體對不起來,等位置定案再補。 */
+  /* 雙路燈,貼花圃外側框住入口——只在初始定案位置放一次(見上面長筆記),
+     不隨滑桿重建。 */
+  placeAlleyLamp(HOSPITAL.x + HOSPITAL.d/2 + 3, HOSPITAL.z - HOSPITAL.w*.32);
+  placeAlleyLamp(HOSPITAL.x + HOSPITAL.d/2 + 3, HOSPITAL.z + HOSPITAL.w*.32);
+  /* landmark 飄浮字先不加——量體/立面(招牌/台階/雨遮)還沒疊完,等
+     全部定案再補一次,不要現在加了之後之後又要跟著搬。 */
 
   /* ===== 巷子:把兩條橫街接起來,走過去就是了 =====
    * 冷氣機/電表箱箱體尺寸沿革(第十五→二十二輪,2026-08-18):從「一張照片
