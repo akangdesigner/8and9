@@ -2490,21 +2490,6 @@ export function buildCity(THREE, scene){
     const frontX = x + d/2;
     hospitalDoor.x = frontX + 2.4; hospitalDoor.z = z;
 
-    /* 兩個長方形花圃,貼大樓正面兩側(參考圖那種入口花圃,不是貫穿
-       廣場的長矮牆——上一輪「越改越爛」那次已經踩過這個坑,這裡故意
-       做短)。位置跟著 x/z/w 算,滑桿調整大樓時花圃自動跟過去。 */
-    [z - w*.22, z + w*.22].forEach((pz, i) => {
-      put(box(1.8, .7, 3.2, hospitalPotM), frontX + .8, .35, pz, false, true);
-      put(box(1.3, .5, 2.6, hospitalLeafM), frontX + .8, .82, pz, false, true);
-      hospitalPotColliders[i].x = frontX + .8; hospitalPotColliders[i].z = pz;
-      hospitalPotColliders[i].hw = .9; hospitalPotColliders[i].hd = 1.6;
-    });
-
-    /* 樓梯,卡在兩個花圃中間(z 中心跟大樓一樣,寬度用 stepsW 控制,
-       花圃已經佔住兩側,樓梯自己不用再避開——寬度滑桿本身就是拿來
-       避免穿模用的)。 */
-    put(box(stepsD, .35, stepsW, hospitalStepM), frontX + stepsD/2, .18, z, false, true);
-
     /* 招牌板,橫在入口上方,獨立於立面照片(見上面長筆記)——寬度跟樓梯
        同一個量級(stepsW+3,比入口寬一截才夠壓場),高度固定 2.2,y 用
        大樓高的比例抓(h*.32),大樓高滑桿調整時招牌高度會跟著等比例走。 */
@@ -2515,6 +2500,39 @@ export function buildCity(THREE, scene){
      不隨滑桿重建。 */
   placeAlleyLamp(HOSPITAL.x + HOSPITAL.d/2 + 3, HOSPITAL.z - HOSPITAL.w*.32);
   placeAlleyLamp(HOSPITAL.x + HOSPITAL.d/2 + 3, HOSPITAL.z + HOSPITAL.w*.32);
+
+  /* 花圃+樓梯換真 3D 模型(2026-09-04 第十一輪,kc:「樓梯跟花圃有沒有
+     3d模型」→「先給我花圃/樓梯」)——跟樹/路燈/警車/長椅同一套「先蓋
+     灰模占位,glb 到了再替換」手法(見 realTree()/placeAlleyLamp() 等
+     函式)。從 poly.pizza 下載:`planter-bushes.glb`(Planter & Bushes,
+     J-Toastie,CC-BY,跟 litter-lunchbox.glb 同一個作者)、`stairs.glb`
+     (Stairs,Quaternius,CC0),存進 assets/models/,記得補 CREDITS.md。
+     位置跟花圃/台階原本的 box 版本(x/z/w/d 算出來的 frontX 等)完全
+     沿用同一組數字,只是這輪固定寫死不再隨 x/z/w/d 滑桿即時重畫——跟
+     雙路燈同一個理由(位置已經定案,滑桿階段結束,見上面雙路燈那則
+     筆記)。花圃/樓梯的旋轉(ry)沒有原始模型可以預覽軸向,先猜一個
+     角度,不對的話用 __dbg.near() 查完再調,不用重新下載。 */
+  const hospFrontX = HOSPITAL.x + HOSPITAL.d/2, hospZ = HOSPITAL.z, hospW = HOSPITAL.w;
+  [hospZ - hospW*.22, hospZ + hospW*.22].forEach((pz, i) => {
+    hospitalPotColliders[i].x = hospFrontX + .8; hospitalPotColliders[i].z = pz;
+    hospitalPotColliders[i].hw = .9; hospitalPotColliders[i].hd = 1.6;
+    const fallback = [
+      add(box(1.8, .7, 3.2, hospitalPotM), hospFrontX + .8, .35, pz, false, true),
+      add(box(1.3, .5, 2.6, hospitalLeafM), hospFrontX + .8, .82, pz, false, true)
+    ];
+    loadModel('planter-bushes.glb').then(gltf => {
+      fallback.forEach(m => scene.remove(m));
+      add(propModel(THREE, gltf, 3.2, 'z'), hospFrontX + .8, 0, pz, true, true);
+    }).catch(() => {});
+  });
+  {
+    const stepsFallback = add(box(HOSPITAL.stepsD, .35, HOSPITAL.stepsW, hospitalStepM),
+      hospFrontX + HOSPITAL.stepsD/2, .18, hospZ, false, true);
+    loadModel('stairs.glb').then(gltf => {
+      scene.remove(stepsFallback);
+      add(propModel(THREE, gltf, HOSPITAL.stepsW, 'x', Math.PI/2), hospFrontX + HOSPITAL.stepsD/2, 0, hospZ, true, true);
+    }).catch(() => {});
+  }
   /* landmark 飄浮字先不加——量體/立面(招牌/台階/雨遮)還沒疊完,等
      全部定案再補一次,不要現在加了之後之後又要跟著搬。 */
 

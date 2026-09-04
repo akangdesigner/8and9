@@ -37,6 +37,8 @@
 | `trash-bin.glb` | Trashcan Small | Quaternius | Public Domain (CC0) | https://poly.pizza/m/i7HDuYDLkx |
 | `recycle-bin.glb` | Recycle bin | Yuwei Xi | CC-BY | https://poly.pizza/m/92Iv-tdQ49h |
 | `donation-box.glb` | Ballot Box | Thomas de Rivaz | CC-BY | https://poly.pizza/m/94qEZYJE84Q |
+| `planter-bushes.glb` | Planter & Bushes | J-Toastie | CC-BY | https://poly.pizza/m/wn85Xr9lM3 |
+| `stairs.glb` | Stairs | Quaternius | Public Domain (CC0) | https://poly.pizza/m/Rh9shsu2hx |
 
 CC-BY 3.0 可以商用、可以改,但要留這份 credit——公開發布時記得帶著這份清單
 (或至少「遊具模型來自 Poly by Google,CC-BY 3.0」這句話),不要漏掉。
@@ -83,3 +85,11 @@ Sketchfab 上有真的「賽銭箱」照片掃描模型,但要登入才能下載
 三角面、CC-BY),檔名照功能取成 `donation-box.glb` 不叫 ballot-box,跟
 incense-bowl.glb 原名叫「Bowl Dirty」被借來當香爐同一個做法。用
 `placeAltarProp()` 放上供桌,見 `scene-city3d.js` temple() 那段呼叫。
+
+**`planter-bushes.glb`/`stairs.glb`(2026-09-04,kc:「樓梯跟花圃有沒有
+3d模型」→「先給我花圃/樓梯」):** 醫院獨立建築(見 `scene-city3d.js`
+`hospitalCompound()`)入口的花圃/台階原本是灰模箱體,跟公車站長椅/
+垃圾桶同一個理由換真模型。花圃挑跟現有木箱造型接近的「Planter &
+Bushes」(J-Toastie,跟本專案 litter-lunchbox.glb 同作者);台階挑
+Quaternius 的素色「Stairs」,跟專案裡其餘 Quaternius 模型同一種低模
+灰白材質風格,不用另外調色。
