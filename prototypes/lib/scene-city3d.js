@@ -2458,6 +2458,16 @@ export function buildCity(THREE, scene){
   const hospitalPotM = std({ color:0x7c7568, roughness:.9 });    // 花圃箱體
   const hospitalLeafM = std({ color:0x3f6b3a, roughness:.85 });  // 花圃植栽,先拿一塊綠色箱體佔位
   const hospitalStepM = std({ color:0x9c988c, roughness:.85 });  // 台階,跟警察局台階同一色
+  /* 招牌(2026-09-04 第十輪第二次,kc:「奇怪招牌應該要分開吧」)——原本
+     打算把「仁和醫院」字樣烤進 hospital-front.png 那張整面照片裡,跟
+     policeStation() 同一招。kc 抓到:一般店面(row() 那套)招牌本來就是
+     獨立的 signKey/signImage() 小物件,跟店面照片分開——這樣以後招牌
+     文字要換、要重生圖,不用整張立面照片重拍,尺寸/位置也能自己調不被
+     照片比例綁死。這裡先用一塊灰色招牌板佔位(跟 row() 招牌那套的完整
+     signKey/signImage() 管線比,這裡量體是獨立蓋的,不走 row(),暫時
+     沒有現成的 signKey 掛,先用素色板子,之後生招牌小圖再貼上去,不用
+     另外接一套新機制)。 */
+  const hospitalSignM = std({ color:0xe8e6de, roughness:.6 });
   const hospitalCollider = { x:0, z:0, hw:0, hd:0 };
   const hospitalPotColliders = [ { x:0, z:0, hw:0, hd:0 }, { x:0, z:0, hw:0, hd:0 } ];
   const hospitalDoor = { id:'hospital', name:'仁和醫院', x:0, z:0 };
@@ -2494,6 +2504,11 @@ export function buildCity(THREE, scene){
        花圃已經佔住兩側,樓梯自己不用再避開——寬度滑桿本身就是拿來
        避免穿模用的)。 */
     put(box(stepsD, .35, stepsW, hospitalStepM), frontX + stepsD/2, .18, z, false, true);
+
+    /* 招牌板,橫在入口上方,獨立於立面照片(見上面長筆記)——寬度跟樓梯
+       同一個量級(stepsW+3,比入口寬一截才夠壓場),高度固定 2.2,y 用
+       大樓高的比例抓(h*.32),大樓高滑桿調整時招牌高度會跟著等比例走。 */
+    put(box(.3, 2.2, stepsW+3, hospitalSignM), frontX + .2, h*.32, z, false, true);
   }
   buildHospital();
   /* 雙路燈,貼花圃外側框住入口——只在初始定案位置放一次(見上面長筆記),
