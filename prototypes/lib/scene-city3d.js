@@ -2437,27 +2437,26 @@ export function buildCity(THREE, scene){
    * 位置算式跟著 x/z/w/d 走,面板同步加兩個滑桿(不用等 kc 再抱怨滑桿
    * 不見了)。寬度預設 6,跟兩側花圃內緣淨空(w=24 時約 7.4)留一點
    * margin,不會一開始就穿模卡進花圃裡。 */
-  const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21, stepsW:6, stepsD:3 };
+  const HOSPITAL = { x:-113, z:-16.5, w:24, d:24.5, h:21, signW:6 };
   /* 2026-09-04 第十輪,kc:「我們先貼醫院的圖好了」——立面照片先只做
      正面(+x,面向街道那面),跟 policeStation() 同一套「素色先頂著,
      圖到位就換上」做法:hospitalFrontM 是正面專用材質,其餘 5 面
      (含背面/頂/底/兩側)共用 hospitalSideM 素色,不用另外生側面照片
      ——大樓深(d)雖然拉到 24.5,但巷子/隔壁店面擋住了兩側視角,玩家
-     實際只看得到正面。圖檔 assets/tex/hospital-front.png,repeat/
-     offset 先給一組保守初始值(1,1 / 0,0),kc 生完圖之後用
-     tweakHospitalTexturePanel() 現場裁切,不用我猜公式。 */
+     實際只看得到正面。圖檔 assets/tex/hospital-front.png,repeat/offset
+     用 tweakHospitalTexturePanel() 現場裁切,不用猜公式——kc 拉滑桿
+     定案 repeat:(1,.63)、offset:(0,0),直接寫死當初始值。 */
   const hospitalFrontM = std({ color:0xb5b0a2, roughness:.75 });
   const hospitalSideM = std({ color:0x9c988c, roughness:.85 });
   new THREE.ImageLoader().load(TEX_DIR + 'hospital-front.png', img => {
     const t = new THREE.Texture(img);
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-    t.repeat.set(1, 1); t.offset.set(0, 0);
+    t.repeat.set(1, .63); t.offset.set(0, 0);
     t.needsUpdate = true;
     hospitalFrontM.map = t; hospitalFrontM.color.setHex(0xffffff); hospitalFrontM.needsUpdate = true;
   }, undefined, () => {});
   const hospitalPotM = std({ color:0x7c7568, roughness:.9 });    // 花圃箱體
   const hospitalLeafM = std({ color:0x3f6b3a, roughness:.85 });  // 花圃植栽,先拿一塊綠色箱體佔位
-  const hospitalStepM = std({ color:0x9c988c, roughness:.85 });  // 台階,跟警察局台階同一色
   /* 招牌(2026-09-04 第十輪第二次,kc:「奇怪招牌應該要分開吧」)——原本
      打算把「仁和醫院」字樣烤進 hospital-front.png 那張整面照片裡,跟
      policeStation() 同一招。kc 抓到:一般店面(row() 那套)招牌本來就是
@@ -2477,7 +2476,7 @@ export function buildCity(THREE, scene){
   function buildHospital(){
     hospitalParts.forEach(m => scene.remove(m));
     hospitalParts = [];
-    const { x, z, w, d, h, stepsW, stepsD } = HOSPITAL;
+    const { x, z, w, d, h, signW } = HOSPITAL;
     const put = (...a) => hospitalParts.push(add(...a));
     /* BoxGeometry 六面材質陣列順序 [+x,-x,+y,-y,+z,-z](跟 row() 那段
        `mainIdx = axis==='x'?(face>0?4:5):(face>0?0:1)` 反推出來的順序
@@ -2490,10 +2489,10 @@ export function buildCity(THREE, scene){
     const frontX = x + d/2;
     hospitalDoor.x = frontX + 2.4; hospitalDoor.z = z;
 
-    /* 招牌板,橫在入口上方,獨立於立面照片(見上面長筆記)——寬度跟樓梯
-       同一個量級(stepsW+3,比入口寬一截才夠壓場),高度固定 2.2,y 用
-       大樓高的比例抓(h*.32),大樓高滑桿調整時招牌高度會跟著等比例走。 */
-    put(box(.3, 2.2, stepsW+3, hospitalSignM), frontX + .2, h*.32, z, false, true);
+    /* 招牌板,橫在入口上方,獨立於立面照片(見上面長筆記)——寬度用
+       signW+3(比入口寬一截才夠壓場),高度固定 2.2,y 用大樓高的比例抓
+       (h*.32),大樓高滑桿調整時招牌高度會跟著等比例走。 */
+    put(box(.3, 2.2, signW+3, hospitalSignM), frontX + .2, h*.32, z, false, true);
   }
   buildHospital();
   /* 雙路燈,貼花圃外側框住入口——只在初始定案位置放一次(見上面長筆記),
@@ -2516,10 +2515,14 @@ export function buildCity(THREE, scene){
      基準座標)給 game.html 開滑桿即時調 scale/rotation.y,不用我猜角度
      猜半天。花圃初始旋轉直接套 90°(kc 已經講明是 90 度,不用再靠滑桿
      從 0 試),滑桿還是留著方便之後再微調。
-     2026-09-04 第十三輪,kc 自己拉滑桿定案:花圃縮放 0.70、樓梯縮放
-     0.62(旋轉都維持 90°),寫死當初始值,不再是滑桿預設的 1.0——滑桿
-     還在,拉到更滿意隨時再調。 */
-  const hospitalPropRef = { planters: [], stairs: null };
+     2026-09-04 第十三輪,kc 自己拉滑桿定案花圃縮放 0.70、樓梯縮放 0.62
+     (旋轉都維持 90°),寫死當初始值。
+     2026-09-04 第十四輪,kc 繼續拉花圃縮放到 0.50,然後說「樓梯刪掉」
+     ——樓梯 3D 模型跟它的 fallback box、collider 相關代碼整段拿掉,
+     `HOSPITAL.stepsD`(只有樓梯在用)跟著刪,`stepsW` 改名 `signW`
+     (現在只剩招牌板寬度在用它,見上面招牌那段)。入口變成花圃夾一條
+     平地走道直接進玻璃門,不再有台階高低差。 */
+  const hospitalPropRef = { planters: [] };
   const hospFrontX = HOSPITAL.x + HOSPITAL.d/2, hospZ = HOSPITAL.z, hospW = HOSPITAL.w;
   [hospZ - hospW*.22, hospZ + hospW*.22].forEach((pz, i) => {
     hospitalPotColliders[i].x = hospFrontX + .8; hospitalPotColliders[i].z = pz;
@@ -2532,21 +2535,10 @@ export function buildCity(THREE, scene){
       fallback.forEach(m => scene.remove(m));
       const g = add(propModel(THREE, gltf, 3.2, 'z'), hospFrontX + .8, 0, pz, true, true);
       g.rotation.y = Math.PI/2;
-      g.scale.setScalar(.70);
+      g.scale.setScalar(.50);
       hospitalPropRef.planters.push({ mesh:g, baseX:hospFrontX + .8, baseY:0, baseZ:pz });
     }).catch(() => {});
   });
-  {
-    const stepsFallback = add(box(HOSPITAL.stepsD, .35, HOSPITAL.stepsW, hospitalStepM),
-      hospFrontX + HOSPITAL.stepsD/2, .18, hospZ, false, true);
-    loadModel('stairs.glb').then(gltf => {
-      scene.remove(stepsFallback);
-      const g = add(propModel(THREE, gltf, HOSPITAL.stepsW, 'x'), hospFrontX + HOSPITAL.stepsD/2, 0, hospZ, true, true);
-      g.rotation.y = Math.PI/2;
-      g.scale.setScalar(.62);
-      hospitalPropRef.stairs = { mesh:g, baseX:hospFrontX + HOSPITAL.stepsD/2, baseY:0, baseZ:hospZ };
-    }).catch(() => {});
-  }
   /* landmark 飄浮字先不加——量體/立面(招牌/台階/雨遮)還沒疊完,等
      全部定案再補一次,不要現在加了之後之後又要跟著搬。 */
 

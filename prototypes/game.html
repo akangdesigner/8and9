@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃樓梯滑桿</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1532,8 +1532,9 @@ function debugTweakHospitalTexture(){
   tweakHospitalTexturePanel();
 }
 window.debugTweakHospitalTexture = debugTweakHospitalTexture;
-/* 醫院花圃/樓梯滑桿按鈕(2026-09-04 第十二輪,kc:「讓我調整大小跟花圃
-   要轉90度」)——同一套,瞬移到門口+開 tweakHospitalPropsPanel()。 */
+/* 醫院花圃滑桿按鈕(2026-09-04 第十二輪,kc:「讓我調整大小跟花圃
+   要轉90度」;第十四輪樓梯拿掉之後改名)——同一套,瞬移到門口+開
+   tweakHospitalPropsPanel()。 */
 function debugTweakHospitalProps(){
   MODE = 'city';
   document.getElementById('indoor').classList.remove('on');
@@ -4884,15 +4885,17 @@ function tweakHospitalPanel(){
      深(x)原本 max=20,kc 拉到頂回報「x軸20不夠」——放寬到 60,x 中心
      下限也跟著從 -140 拉到 -200,免得深度加大之後中心又被範圍卡住。
      第九輪加「加上樓梯 在花圃中間 然後給我滑感」——樓梯寬/深兩個滑桿
-     跟著補進來,不要又讓 kc 抓到「滑感不見了」。 */
+     跟著補進來,不要又讓 kc 抓到「滑感不見了」。
+     第十四輪 kc:「樓梯刪掉」——樓梯 3D 模型連同 `stepsD` 這個滑桿一起
+     拿掉(見 scene-city3d.js hospitalCompound() 那則長筆記),`stepsW`
+     改名 `signW`(現在只剩招牌板寬度在用它)。 */
   const rows = [
     ['x','大樓 x 中心',-200,-95,0.5],
     ['z','大樓 z 中心',-40,10,0.5],
     ['w','大樓寬(z)',10,30,0.5],
     ['d','大樓深(x)',6,60,0.5],
     ['h','大樓高',10,40,1],
-    ['stepsW','樓梯寬(z)',2,12,0.5],
-    ['stepsD','樓梯深(x)',1,6,0.5],
+    ['signW','招牌寬(z)',2,12,0.5],
   ];
   const panel = document.createElement('div');
   panel.id = 'hospitalTweakPanel';
@@ -4953,19 +4956,21 @@ function tweakHospitalTexturePanel(){
   });
 }
 window.tweakHospitalTexturePanel = tweakHospitalTexturePanel;
-/* 醫院花圃/樓梯縮放+旋轉滑桿(2026-09-04 第十二輪,kc:「讓我調整大小
-   跟花圃要轉90度」)——跟 tweakPoliceCarPanel()/tweakBusStopProps() 同
-   一招,滑桿改 mesh.scale/mesh.rotation.y,不是 cfg 數字+rebuild(這兩樣
-   是 async 載入的真模型,沒有 buildHospital() 那種可以整組重畫的函式)。
-   花圃兩顆共用一組縮放/旋轉(對稱擺放,沒必要分開調),樓梯獨立一組。
-   花圃旋轉預設已經是 90°(kc 講明的角度直接烤進初始值,見
-   scene-city3d.js 那則長筆記),滑桿還是留著方便之後再微調。 */
+/* 醫院花圃縮放+旋轉滑桿(2026-09-04 第十二輪,kc:「讓我調整大小跟花圃
+   要轉90度」)——跟 tweakPoliceCarPanel()/tweakBusStopProps() 同一招,
+   滑桿改 mesh.scale/mesh.rotation.y,不是 cfg 數字+rebuild(這是 async
+   載入的真模型,沒有 buildHospital() 那種可以整組重畫的函式)。花圃兩顆
+   共用一組縮放/旋轉(對稱擺放,沒必要分開調)。花圃旋轉預設已經是 90°
+   (kc 講明的角度直接烤進初始值,見 scene-city3d.js 那則長筆記),滑桿
+   還是留著方便之後再微調。
+   第十四輪 kc:「樓梯刪掉」——樓梯那組滑桿/ref 一起拿掉(見
+   scene-city3d.js hospitalCompound() 那則長筆記),面板只剩花圃。 */
 function tweakHospitalPropsPanel(){
   const old = document.getElementById('hospitalPropsTweakPanel');
   if(old){ old.remove(); return; }
   const ref = city.hospitalProps;
-  if(!ref || !ref.planters.length || !ref.stairs){
-    alert('醫院花圃/樓梯模型還沒載入完成,晚點再開一次滑桿');
+  if(!ref || !ref.planters.length){
+    alert('醫院花圃模型還沒載入完成,晚點再開一次滑桿');
     return;
   }
   const deg = r => r * 180/Math.PI;
@@ -4973,19 +4978,17 @@ function tweakHospitalPropsPanel(){
   const rows = [
     ['pot_scale','花圃縮放', 0.3, 3, 0.02, () => ref.planters[0].mesh.scale.x, v => ref.planters.forEach(p => p.mesh.scale.setScalar(v))],
     ['pot_rot','花圃旋轉(度)', 0, 360, 1, () => deg(ref.planters[0].mesh.rotation.y), v => ref.planters.forEach(p => p.mesh.rotation.y = rad(v))],
-    ['stairs_scale','樓梯縮放', 0.3, 3, 0.02, () => ref.stairs.mesh.scale.x, v => ref.stairs.mesh.scale.setScalar(v)],
-    ['stairs_rot','樓梯旋轉(度)', 0, 360, 1, () => deg(ref.stairs.mesh.rotation.y), v => ref.stairs.mesh.rotation.y = rad(v)],
   ];
   const panel = document.createElement('div');
   panel.id = 'hospitalPropsTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
   panel.innerHTML =
-    '<div style="font-weight:bold;margin-bottom:6px">醫院花圃/樓梯滑桿</div>' +
+    '<div style="font-weight:bold;margin-bottom:6px">醫院花圃滑桿</div>' +
     rows.map(([id,label,min,max,step,get]) =>
       `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(2)}</span><br>
        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
     ).join('') +
-    '<div style="margin-top:4px;opacity:.7">關掉:再按一次下面的「醫院花圃/樓梯滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次下面的「醫院花圃滑桿」按鈕<br>拉到滿意後跟我說最終數字就好</div>';
   document.body.appendChild(panel);
   rows.forEach(([id,,,,,, set]) => {
     document.getElementById(id).addEventListener('input', e => {
