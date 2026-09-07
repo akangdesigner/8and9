@@ -8300,19 +8300,13 @@ const GRANDMA_ASLEEP_LINES = [
   '喊了幾聲，她沒有醒。你幫她把被子拉好，轉身出去。'
 ];
 /* 2026-09-04,kc:「不是喂他吃粥 要真的買東西給他 所以點選項後會跳出
-   可以選擇的食物」——原本「餵她吃東西」是固定 $30 換一句隨機空泛台詞
-   (水果/粥,店裡根本不賣這些),不是真的買東西。改成點下去先跳出一張
-   真的商品清單(直接借超商鮮食櫃/貨架/飲料櫃那批品項+價錢,見
-   openMenu('鮮食櫃'...)那幾段,不用另外編一套價目表),選哪樣就餵哪樣,
-   台詞裡直接帶出商品名字。 */
-const GRANDMA_FOOD_ITEMS = [
-  { name:'排骨便當', price:89 },
-  { name:'蔬菜便當', price:75 },
-  { name:'茶葉蛋', price:15 },
-  { name:'豆漿', price:20 },
-  { name:'運動飲料', price:30 },
-  { name:'奶茶', price:35 }
-];
+   可以選擇的食物」——第一版改成點下去跳出超商價目表當場花錢買,kc 隔天
+   糾正:「不對 是跳出揹包裡的食物 如果沒有食物就顯示 無這個選項」。
+   真正要的是玩家自己隨身的 FOOD 庫存(超商結帳才會有,跟 eatFood() 同一
+   份資料),不是另開一個獨立的購買介面——這其實是回到第一版
+   （2026-09-04 更早那輪）「任務觸發後 我為何不能選擇給啊罵食物」以前的
+   FOOD.length 判斷,只是這次明確拍板「沒食物就該真的不顯示」是對的
+   行為,不是壞掉,中間那版「花錢當場買」的猜測整個推翻。 */
 function visitGrandma(){
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
@@ -8344,42 +8338,43 @@ function visitGrandma(){
    一顆「先出去」,感覺像壞掉。加一個「陪她坐一下」,永遠都在,再抽一句
    （不計入 visits，那個只在真正走進來那一刻算），讓玩家有事可做，不是
    進來看一句就只能走。 */
-/* 2026-09-04,kc:「任務觸發後 我為何不能選擇給啊罵食物」——原本「餵她
-   吃東西」綁 FOOD.length(玩家隨身食物庫存,超商結帳才會有),早期/沒去
-   買過東西的玩家 FOOD 是空的,選單直接看不到這個選項,kc 以為是壞掉。
-   改成花錢當場買(跟隨身 FOOD 庫存脫鉤),永遠顯示,錢不夠才擋——這個
-   互動本來就該獨立於「玩家自己有沒有囤食物」,不是同一件事。 */
 function grandmaVisitLine(){
   const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
   paintHospitalBackdrop(awake);   // 清醒/昏迷各換一張背景照片，見上面 hospitalRoomAwakeImg 那則筆記
   const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
   say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
-    const opts = [
-      { label:'陪她坐一下', run: grandmaVisitLine },
-      { label:'餵她吃東西', run: openGrandmaFoodMenu },
-      { label:'先出去', cls:'back', run: leaveIndoor }
-    ];
+    const opts = [ { label:'陪她坐一下', run: grandmaVisitLine } ];
+    /* 「沒食物就顯示無這個選項」是 kc 明確拍板的行為，不是壞掉——見上面
+       長筆記。FOOD 是玩家自己超商結帳存下來的隨身庫存，跟 eatFood()
+       同一份資料。 */
+    if(FOOD.length) opts.push({ label:'餵她吃東西', run: openGrandmaFoodMenu });
+    opts.push({ label:'先出去', cls:'back', run: leaveIndoor });
     openMenu('探望阿嬤', opts);
   });
 }
+/* 揹包裡的食物清單開成選單，每一項對應 FOOD 裡一筆庫存(用 id 找，跟
+   eatFood() 同一個 findIndex 慣例)，選哪個就餵哪個、從庫存扣掉，不用
+   另外花錢——錢已經在結帳那一刻付過了。 */
 function openGrandmaFoodMenu(){
-  const opts = GRANDMA_FOOD_ITEMS.map(it => ({
-    label:'買'+it.name, cost:'$'+it.price, cls: ST.money<it.price?'bad':'',
-    run: () => feedGrandma(it)
+  const opts = FOOD.map(it => ({
+    label:(it.icon?it.icon+' ':'')+it.name,
+    run: () => feedGrandma(it.id)
   }));
   opts.push({ label:'算了', cls:'back', run: grandmaVisitLine });
-  openMenu('買東西給阿嬤', opts);
+  openMenu('餵阿嬤吃什麼', opts);
 }
-function feedGrandma(item){
-  if(ST.money < item.price){ toast('身上的錢不夠。', 2000); return; }
-  chg('money', -item.price);
+function feedGrandma(foodId){
+  const i = FOOD.findIndex(f => f.id === foodId);
+  if(i < 0){ grandmaVisitLine(); return; }   // 這份東西已經被吃掉/移除了，退回探望選單，不報錯
+  const item = FOOD[i];
+  FOOD.splice(i, 1);
   if(GRANDMA.critical){ GRANDMA.feeds++; updateGrandmaQuestHint(); }
   paintHospitalBackdrop(true);   // 餵食當下算清醒，換清醒那張背景
 
   /* 2026-09-04,kc:「獲得五百塊 對話框要提示」同一條規則——提示改寫進
      這句台詞本身,不再另外跳 toast。餵完不強制離開,回到 grandmaVisitLine()
      選單，跟「陪她坐一下」同一套，玩家自己決定要不要繼續留著。 */
-  say('pc', `你把${item.name}遞給她，一口一口餵她吃。（金錢 -${item.price}，歸屬感 +3）`, () => {
+  say('pc', `你把${item.name}遞給她，一口一口餵她吃。（歸屬感 +3）`, () => {
     chg('calm', 3);
     grandmaVisitLine();
   });
