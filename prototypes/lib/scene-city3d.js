@@ -3949,8 +3949,15 @@ function buildCharacterMaterials(THREE){
   const M = {
     skin:new THREE.MeshStandardMaterial({color:C.skin,roughness:.85}),
     hair:new THREE.MeshStandardMaterial({color:C.hair,roughness:.9}),
-    hood:new THREE.MeshStandardMaterial({color:C.hood,roughness:.9}),
-    pants:new THREE.MeshStandardMaterial({color:C.pants,roughness:.9}),
+    /* side:DoubleSide(2026-09-09,kc:「但為何手有破圖」)——主角抬手的時候
+       腋下的布料網格會折疊、露出背面,預設 FrontSide 會把背面剔掉,畫面上
+       就是**肩膀/腋下破一個洞**。`buildNPC()` 那邊 2026-08-24 就為了同一件事
+       (kc 抓到坐姿腋下露出背景色)加過 DoubleSide,但主角這份材質一直沒跟著
+       加——之前主角沒有會抬手的姿勢,才沒暴露出來。
+       ⚠ 這不是骨骼角度的問題,調 SHOULDER_SHARE 或收窄滑桿範圍都治不了它。
+       只加在 hood/pants(會折疊的布料),skin/hair/shoe 沒這問題不用跟著改。 */
+    hood:new THREE.MeshStandardMaterial({color:C.hood,roughness:.9,side:THREE.DoubleSide}),
+    pants:new THREE.MeshStandardMaterial({color:C.pants,roughness:.9,side:THREE.DoubleSide}),
     shoe:new THREE.MeshStandardMaterial({color:C.shoe,roughness:.9}),
     eyes:new THREE.MeshStandardMaterial({color:0x1a1512,roughness:.4})
   };
