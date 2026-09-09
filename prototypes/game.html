@@ -5430,29 +5430,26 @@ function tweakPlayerFacePanel(){
   const old = document.getElementById('playerFaceTweakPanel');
   if(old){ old.remove(); return; }
   const F = PLAYER_FACE;
-  /* 2026-09-09 第二輪,kc:「太多滑感很難跳 重點是眼睛」——第一版 14 條
-     (眼四項+眉四項+嘴四項+角度+開關)砍到只剩眼睛這四條。兩眼中心 X 那條
-     也拿掉了,寫死在 PLAYER_FACE.eyeCX(見那裡的說明)。 */
+  /* 2026-09-09 第四輪,kc:「還是好難對其 我只是希望黑眼球在眼睛中間」——
+     位置的滑桿全部拿掉了(眼距/眼高/眼前後),黑眼球改成掛在兩根眼骨上自動
+     對準眼球中心,見 scene-city3d.js attachPlayerFace()。剩下的兩條都不是
+     「對位置」用的:突出是貼合眼球表面的深度,大小是黑眼球本身。 */
   const rows = [
-    /* 上限原本 .10,kc 拉到 .085 回報「要再分開一點」——放寬到 .20,跟醫院
-       縮放滑桿 400→900 那次同一個坑,不要又卡死一次。 */
-    ['pf_eyeDX','眼距(左右分開)', 0, .20, .001, 'eyeDX'],
-    ['pf_eyeY','眼睛高度', 3.40, 3.62, .002, 'eyeY'],
-    ['pf_eyeZ','眼睛前後(越大越突出)', .14, .32, .002, 'eyeZ'],
-    ['pf_irisR','瞳孔大小', .004, .070, .001, 'irisR']
+    ['pf_out','突出(貼合眼球表面)', .010, .070, .001, 'out'],
+    ['pf_irisR','黑眼球大小', .004, .050, .001, 'irisR']
   ];
   const panel = document.createElement('div');
   panel.id = 'playerFaceTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.5 sans-serif;width:250px;box-shadow:0 4px 20px #000a';
   panel.innerHTML =
     '<div style="font-weight:bold;margin-bottom:6px">主角眼睛滑桿</div>' +
-    '<div style="margin-bottom:8px;opacity:.75">室內鏡頭比較近,進超商/家裡調最準</div>' +
+    '<div style="margin-bottom:8px;opacity:.75">左右/高低已經自動對準眼球中心,這兩條只調深度跟大小</div>' +
     rows.map(([id,label,min,max,step,key]) =>
       `<div style="margin-bottom:9px">${label}: <span id="${id}_v">${F[key].toFixed(3)}</span><br>
        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${F[key]}" style="width:100%"></div>`
     ).join('') +
     `<div style="margin-bottom:8px"><button id="pf_on_btn" style="width:100%;padding:6px;background:#3a4152;color:#eee;border:1px solid #5a6478;border-radius:5px;cursor:pointer">眼睛開/關(現在:${F.on?'開':'關'})</button></div>` +
-    '<div style="margin-top:4px;opacity:.7">關掉面板:再按一次「主角眼睛滑桿」按鈕<br>拉到滿意後跟我說最終數字,我寫死+拔掉滑桿</div>';
+    '<div style="margin-top:4px;opacity:.7">關掉面板:再按一次「主角眼睛滑桿」按鈕</div>';
   document.body.appendChild(panel);
   rows.forEach(([id,,,,,key]) => {
     document.getElementById(id).addEventListener('input', e => {

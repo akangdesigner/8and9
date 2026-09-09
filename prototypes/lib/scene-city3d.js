@@ -4474,73 +4474,80 @@ function applyRidePose(bones){
  * 醫院站位/公車亭那批同一套慣例。 */
 export const PLAYER_FACE = {
   on: true,
-  /* eyeCX 是兩眼「整組」的左右偏移,不是滑桿——Remy 的頭本身就不對稱
-     (Eyes mesh 的 x 範圍 -0.086~0.106,中心落在 +0.01 不是 0),寫死照著
-     那個中心走就好,不用開一條滑桿讓 kc 再去對一次。 */
-  eyeCX: .010, eyeDX: .085, eyeY: 3.502, eyeZ: .222, irisR: .017,
-  /* headR:臉的曲率半徑,**不是滑桿**(kc 2026-09-09:「太多滑感很難跳」)。
-     臉是弧面不是平面,瞳孔往外拉的時候如果 z 不動,會直接埋進臉皮裡看不見
-     ——eyeDX 從 .048 拉到 .12 大概會陷進去 .036,比眼球半徑還深,畫面上
-     就是「拉了好像沒反應」。place 眼睛時用拋物線近似球面自動把 z 往後收,
-     基準點是 eyeDX=DX0 那一刻(在那個位置 z 完全等於 eyeZ,不偏移),所以
-     之前調好的 eyeZ 數字不會因為這條補償而跑掉。 */
-  headR: .10, DX0: .048,
+  /* 只剩兩個數字(kc 2026-09-09:「太多滑感很難跳」「我只是希望黑眼球在眼睛
+     中間」)——位置不再是猜出來的參數,黑眼球直接掛在 mixamorigLeftEye/
+     RightEye 兩根骨頭底下,那兩根本來就在眼球中心,左右/高低自動對準,連
+     模型本身左右不對稱(左眼 x +.048、右眼 x -.080)都一起處理掉。
+     out:沿臉的正前方推多遠(推到眼球表面上;太少會埋進眼白裡,太多會浮在
+     臉外面);irisR:黑眼球半徑。 */
+  out: .036, irisR: .010,
   iris: 0x231a13, sclera: 0xf1ece1
 };
 
-/* 把五官掛到頭骨上。回傳 { apply } 給滑桿即時重畫;拿不到 mixamorigHead
- * (換了骨架、或 glb 沒載到)就回 null,呼叫端當沒這回事,不會壞。 */
+/* 把黑眼球掛到兩根眼骨上。拿不到骨頭(換了骨架、或 glb 沒載到)就回 null,
+ * 呼叫端當沒這回事,不會壞。
+ *
+ * ⚠ **不要拿 glb 檔裡 Eyes mesh 的 bounding box 當座標基準**——2026-09-09
+ * 第一~三版都是這樣算的,一直對不準,kc 連拉三輪滑桿都對不上。根因:那組
+ * 數字(y 3.466~3.537)是 **bind pose、還沒經過骨架變換**的頂點座標,實際
+ * 渲染時眼球被眼骨帶到 y≈3.67,**差了 0.17**——頭高總共才 0.5,等於整組
+ * 五官掉到鼻子的位置。SkinnedMesh 的頂點實際在哪一律要看骨頭,不能看
+ * geometry 的 min/max(這條對之後任何「往角色身上貼東西」的需求都適用)。 */
 function attachPlayerFace(THREE, model){
-  const head = model.getObjectByName('mixamorigHead');
-  if(!head) return null;
+  const boneL = model.getObjectByName('mixamorigLeftEye');
+  const boneR = model.getObjectByName('mixamorigRightEye');
+  const head  = model.getObjectByName('mixamorigHead');
+  if(!boneL || !boneR || !head) return null;
   model.updateMatrixWorld(true);
 
-  /* 眼白用 Standard(吃光,跟皮膚一起明暗變化,不會在暗巷裡發亮);
-     虹膜/眉毛/嘴用 Basic 不吃光——臉在陰影裡的時候五官還讀得出來,
-     跟越式按摩那個黑洞「Basic 不吃光」同一個理由,只是方向相反。 */
   const F = PLAYER_FACE;
+  /* 眼白用 Standard(吃光,跟皮膚一起明暗,不會在暗巷裡發亮);黑眼球用
+     Basic 不吃光——臉在陰影裡的時候眼睛還讀得出來,跟越式按摩那個黑洞
+     「Basic 不吃光」同一個材質理由,只是方向相反。 */
   const sclera = model.getObjectByName('Eyes');
   if(sclera) sclera.material = new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.35 });
 
-  const mk = c => new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
-                                 new THREE.MeshBasicMaterial({ color:c }));
-  const P = { irisL:mk(F.iris), irisR:mk(F.iris) };
-  Object.values(P).forEach(m => { m.renderOrder = 5; head.add(m); });
+  /* CircleGeometry 不是 PlaneGeometry——第一版用方形 plane,高解析度特寫
+     渲染出來就是兩塊黑方塊糊在眼睛上(2026-09-09 kc 要求在超商裡看清楚才
+     抓到的,遊戲鏡頭下頭只有 30 px 根本看不出方的圓的)。 */
+  const mk = () => new THREE.Mesh(new THREE.CircleGeometry(.5, 24),
+                                  new THREE.MeshBasicMaterial({ color:F.iris }));
+  const P = { irisL:mk(), irisR:mk() };
+  P.irisL.renderOrder = 5; boneL.add(P.irisL);
+  P.irisR.renderOrder = 5; boneR.add(P.irisR);
 
-  const v = new THREE.Vector3(), qh = new THREE.Quaternion(), qm = new THREE.Quaternion();
-  /* ⚠ head 骨骼的 local 空間比 model 空間大 100 倍(Mixamo FBX 的 cm↔m 單位差:
-     Armature 自己帶 0.01 縮放,所以掛在骨骼底下的東西 1 個 local 單位只有
-     model 空間的 1/100)。**位置**不用管這件事——localToWorld→worldToLocal
-     來回換算會自動吃掉;**幾何尺寸**要自己乘 unitK,不然五官會小 100 倍,
-     肉眼等於沒畫(第一版就是這樣,在瀏覽器裡量 head.children 的座標才抓到)。
-     不寫死 100,現場量兩邊的世界縮放相除,換別的骨架也不會錯。 */
   const wsc = o => { const e = o.matrixWorld.elements; return Math.hypot(e[0], e[1], e[2]); };
-  const unitK = wsc(model) / Math.max(wsc(head), 1e-9);
-  /* 位置/朝向都在「model 空間」定義再換算進 head 的 local 空間:
-     head.worldToLocal() 會連 model 的縮放一起除掉,所以上面那組數字直接
-     用原始 glb 單位寫就好,不用跟著 PLAYER.height 換算。 */
-  function place(mesh, x, y, z, w, h, rotZ){
-    v.set(x, y, z);
-    model.localToWorld(v);
-    head.worldToLocal(v);
+  const v = new THREE.Vector3(), fwd = new THREE.Vector3(), qh = new THREE.Quaternion(), qb = new THREE.Quaternion();
+  /* 位置取眼骨(那兩根就在眼球中心,左右/高低自動對準,連模型左右不對稱都
+     一起處理掉),**朝向取 head 骨骼、不取眼骨自己的**——眼骨的 +Z 各自朝
+     內側(等於聚焦在鼻尖前方),照著推出去兩顆黑眼球會往鼻樑靠,正面看就是
+     鬥雞眼(2026-09-09 在超商裡拉高解析度特寫才看出來,遊戲鏡頭下頭只有
+     30 px 完全看不出來)。head 的 +Z 實測就是臉的正前方(角色低頭時它跟著
+     往下偏同一個角度),兩眼共用同一個方向才會平行朝前,而且頭一轉、一低頭
+     黑眼球會自己跟著走,不會滑到眼白外面。
+     ⚠ 骨骼的 local 空間比 model 空間大 100 倍(Mixamo FBX 的 cm↔m 單位差:
+     Armature 自己帶 0.01 縮放),out/irisR 這兩個以 model 空間寫的數字要換算
+     過去。不寫死 100,現場量兩邊的世界縮放,換骨架也不會錯。 */
+  function place(mesh, bone){
+    head.getWorldQuaternion(qh);
+    fwd.set(0, 0, 1).applyQuaternion(qh);            // 世界空間的「臉正前方」
+    bone.getWorldPosition(v).addScaledVector(fwd, F.out * wsc(model));
+    bone.worldToLocal(v);
     mesh.position.copy(v);
-    head.getWorldQuaternion(qh).invert();
-    model.getWorldQuaternion(qm);
-    mesh.quaternion.copy(qh.multiply(qm));
-    if(rotZ) mesh.rotateZ(rotZ);
+    bone.getWorldQuaternion(qb).invert();
+    mesh.quaternion.copy(qb.multiply(qh));           // 黑眼球正面朝臉的正前方
     mesh.geometry.dispose();
-    mesh.geometry = new THREE.PlaneGeometry(w * unitK, h * unitK);
+    mesh.geometry = new THREE.CircleGeometry(F.irisR * (wsc(model) / Math.max(wsc(bone), 1e-9)), 24);
   }
   function apply(){
     model.updateMatrixWorld(true);
-    Object.values(P).forEach(m => { m.visible = F.on; });
+    P.irisL.visible = P.irisR.visible = F.on;
     if(!F.on) return;
     if(sclera) sclera.material.color.setHex(F.sclera);
-    P.irisL.material.color.setHex(F.iris); P.irisR.material.color.setHex(F.iris);
-    const d = F.irisR * 2;
-    const z = F.eyeZ - (F.eyeDX*F.eyeDX - F.DX0*F.DX0) / (2*F.headR);   // 臉的弧度補償,見 PLAYER_FACE.headR
-    place(P.irisL, F.eyeCX - F.eyeDX, F.eyeY, z, d, d);
-    place(P.irisR, F.eyeCX + F.eyeDX, F.eyeY, z, d, d);
+    P.irisL.material.color.setHex(F.iris);
+    P.irisR.material.color.setHex(F.iris);
+    place(P.irisL, boneL);
+    place(P.irisR, boneR);
   }
   apply();
   return { apply, parts:P };
