@@ -7822,6 +7822,86 @@ function fade(label, mid){
    拿來判斷會誤判」。那個理由站不住:玩家還沒走到教室不代表今天沒事,今天
    本來就有事,只是還沒發生。三條線全部算,外加寫死日子的主線事件
    (day16 阿嬤病危那通電話)。 */
+/* ===== day5「放學後」的廟口那一段(2026-09-09) ==========================
+ * 教室那段(story-school.js day5)只是鋪陳:阿凱約你放學去廟口。真正的那一幕
+ * 在這裡,因為它要判斷「玩家有沒有真的走過去」——資料檔做不到。
+ *
+ * 這就是 kc 說的「貫穿當日的任務」:早上起床知道要上學 → 進教室被約 → 任務卡
+ * 換成「放學去廟口找阿凱」 → 你自己走過去 → 到了才是真正的選擇 → **當天沒去
+ * 就淡掉,不會留到隔天**。
+ *
+ * ⚠ 廟口用的是**現有場景**(廟埕、供桌那一帶),沒有為這節新做地點——舊版設在
+ * 「後面的樓梯間」,遊戲裡沒有那個地方,這是 kc 打回來的原因之一。 */
+const KAI_TEMPLE = { pending:false, done:false, joined:false, missed:false };
+const KAI_TEMPLE_POS = { x:18, z:-91 };      // 校外教學那套 CLASSMATE_TEMPLE_POS.kai 的同一個位置
+const KAI_TEMPLE_RANGE = 7;                  // 走多近算「走到了」,跟其他 nearProp 判斷同量級
+
+function moveKaiToTemple(){
+  KAI.x = KAI_TEMPLE_POS.x; KAI.z = KAI_TEMPLE_POS.z;
+  kaiNPC.group.position.set(KAI.x, kaiNPC.group.position.y, KAI.z);
+  kaiNPC.setFacing(-Math.PI*.5);
+}
+/* 掛在 checkGrandmaCall() 那批「場景剛安頓好」的安全點上(進城市街道每幀那個
+   呼叫點負責這一條),跟 checkYuanEveningWatch() 同一個做法。 */
+function checkKaiTemple(){
+  if(!KAI_TEMPLE.pending || KAI_TEMPLE.done) return;
+  if(MODE !== 'city' || gameOver || busy || dlg.on) return;
+  const p = hero.group.position;
+  if(Math.hypot(p.x - KAI_TEMPLE_POS.x, p.z - KAI_TEMPLE_POS.z) > KAI_TEMPLE_RANGE) return;
+  KAI_TEMPLE.done = true;
+  busy = true;
+  playBeats(KAI_TEMPLE_BEATS, 0, () => {
+    openMenu('他把手上的東西遞過來', [
+      { label:'接過來',   cost:'歸屬感 +8　帥潮 +2　風評 −4', run:() => kaiTempleTake(true) },
+      { label:'說你不用', cost:'歸屬感 −3',                   run:() => kaiTempleTake(false) }
+    ]);
+  });
+}
+const KAI_TEMPLE_BEATS = [
+  { who:'pc',  text:'廟埕邊上，供桌後面那排階梯。' },
+  { who:'pc',  text:'阿凱跟另外三個人蹲在那裡。' },
+  { who:'kai', text:'「你來啦。」' },
+  { who:'pc',  text:'他們往旁邊挪了一下，\n空出一個位子。' },
+  /* 遞過來的是什麼刻意不寫、鏡頭也不給特寫——這一幕的重點不是那個東西,是
+     「他們願意空一個位子給你」。要寫明的話跟 kc 講一聲再改。 */
+  { who:'pc',  text:'阿凱把手上的東西遞過來。' }
+];
+function kaiTempleTake(take){
+  clearTodayCard();
+  KAI_TEMPLE.joined = take;
+  if(take){
+    chg('calm', 8); chg('cool', 2); chg('star', -4);
+    playBeats([
+      { who:'pc',  text:'你咳了一下，他們笑了。' },
+      { who:'pc',  text:'但是沒有人叫你走。' },
+      { who:'pc',  text:'你在那個位子上坐到天黑。' },
+      { toast:'廟口那群人開始把你算成自己人了。', ms:4200 }
+    ], 0, () => { busy = false; });
+  } else {
+    chg('calm', -3);
+    playBeats([
+      { who:'kai', text:'「喔。」' },
+      { who:'pc',  text:'沒有人勉強你。' },
+      { who:'pc',  text:'他們繼續講話，\n你站在旁邊大概三十秒，然後走了。' },
+      { toast:'你沒有接。那個位子後來給了別人。', ms:4200 }
+    ], 0, () => { busy = false; });
+  }
+}
+/* 當天沒去就淡掉——掛在 sleep() 裡(睡覺 = 這天結束)。不留到隔天,那正是
+   「貫穿當日」的意思:錯過就是錯過了。 */
+function expireKaiTemple(){
+  if(!KAI_TEMPLE.pending || KAI_TEMPLE.done) return;
+  KAI_TEMPLE.done = true; KAI_TEMPLE.missed = true;
+  clearTodayCard();
+  moveKaiHomeFromTemple();
+  chg('calm', -2);
+  toast('你沒有去廟口。隔天阿凱沒有提這件事。', 3600);
+}
+function moveKaiHomeFromTemple(){
+  KAI.x = CLASSMATE_HOME.kai.x; KAI.z = CLASSMATE_HOME.kai.z;
+  kaiNPC.group.position.set(KAI.x, kaiNPC.group.position.y, KAI.z);
+}
+
 function hasStoryToday(){
   const home = [['bet', StoryBet], ['drink', StoryDrink]]
     .some(([key, src]) => src.NODES.some(n => n.day === day) && !seenStoryDays.has(key + '-' + day));
@@ -7852,13 +7932,22 @@ const DAY_TODO = {
      算「今天有事」(hasStoryToday() 不變,不會跳過渡選項),只是不主動叫玩家
      去哪。要放回來之前先跟 kc 過一輪內容跟場景。
      day18(班費失竊)留著:那條是 kc 自己起案、自己上機驗證過的。 */
+  5:  { line:'今天要上學。',                     quest:'去學校' },
   18: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }
 };
+/* 「有就更新、沒有才新增」——跟 updateGrandmaQuestHint() 同一套慣例。
+   直接 push 會疊卡:前一天的「今天」如果沒被收掉(例如那天的事沒有 expire
+   機制),隔天再 push 就會出現兩張 id 一樣的卡(實測踩到)。 */
+function setTodayCard(hint){
+  const q = ACTIVE_QUESTS.find(x => x.id === 'today');
+  if(q) q.hint = hint;
+  else ACTIVE_QUESTS.push({ id:'today', title:'今天', hint });
+  renderQuestPanel();
+}
 function todayBriefing(){
   const todo = DAY_TODO[day];
   if(!todo) return;
-  ACTIVE_QUESTS.push({ id:'today', title:'今天', hint:todo.quest });
-  renderQuestPanel();
+  setTodayCard(todo.quest);
   say('pc', todo.line, () => { busy = false; });
 }
 /* 事情真的發生了就把「今天」那張卡收掉——不收的話玩家做完了卡還掛在面板上。
@@ -8029,6 +8118,8 @@ function sleep(){
         + (skippedSchool ? '\n（昨天沒去學校，風評 −3）' : '')
         + loanMsg, 3800);
       busy = false;
+      expireKaiTemple();       // day5 那件事當天沒去就淡掉(睡覺 = 這天結束)
+      clearTodayCard();        // 「今天」的卡不跨日——昨天沒做完的事,隔天不該還掛在面板上
       maybeIdleDay();          // 今天沒排劇情的話,給一個「這天你要幹嘛」的過渡選項
     };
     if(impoundBeats) playBeats(impoundBeats, 0, wake);
@@ -9012,7 +9103,10 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
     const node = src.NODES.find(n => n.day === day);
     if(node && !seenStoryDays.has(key+'-'+node.day)){
       seenStoryDays.add(key+'-'+node.day);
-      clearTodayCard();          // 事情發生了,把早上那張「今天」的提醒卡收掉
+      /* 事情發生了就收掉早上那張提醒卡——**除非這個節點自己要換掉卡的內容**
+         (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
+         要留到那件事真的做完。 */
+      if(!node.questAfter) clearTodayCard();
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
@@ -9022,6 +9116,15 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
            改成兩階段,不再透過這裡的 schoolStorySource() 篩選觸發,見
            checkFieldTrip() 那則長筆記,不要看到 story-school.js day18
            節點還留著 classFundQuest:true 就以為這裡也要處理它。 */
+        /* questAfter / kaiToTemple(2026-09-09,day5 重寫用)——跟上面
+           node.tuitionQuest 同一個「資料檔只放資料,真的動狀態在這裡做」的
+           位置。questAfter 把早上那張「今天」的卡換成新的指示(不是 push
+           第二張,面板上只該有一張)。 */
+        if(node.questAfter) setTodayCard(node.questAfter.hint);
+        if(node.kaiToTemple){ KAI_TEMPLE.pending = true; moveKaiToTemple(); }
+        /* 沒有 menu 的節點(day5 那種「只是鋪陳、真正的選擇在別的場景」)
+           直接走 after,不要硬開一個空選單。 */
+        if(!node.menu){ if(after) after(); return; }
         openMenu(node.title, node.menu.map(item => ({
           label: item.label, cost: item.cost,
           run: () => { applyStoryChoice(item); playBeats(item.beats, 0, after || (() => {})); }
@@ -9190,6 +9293,7 @@ function updateCity(dt){
      兩段小遊戲搶輸入的分支已經 return 掉了,不會跑到這裡),見那則長筆記。 */
   checkGrandmaCall();
   checkYuanEveningWatch();
+  checkKaiTemple();
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -12682,7 +12786,7 @@ const SAVE_EVERY_MS = 3000;
 /* ① 純資料物件:讀檔時逐鍵寫回同一個物件(**不換掉物件本身**,因為到處都有
       人持有它的參照)。 */
 const SAVE_OBJECTS = {
-  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE,
+  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_TEMPLE,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE
@@ -13371,6 +13475,17 @@ window.__dbg = {
      MOTO_IMPOUND.reveal() 直接模擬 sleep() 那張拖吊通知單觸發,不用真的
      睡一覺。 */
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, syncMiscQuestPanel,
+  /* day5「放學後」測試用(2026-09-09)——跳過「睡到 day5 →走去學校→進教室
+     被阿凱約」那串前置,直接把狀態設成「已經被約、阿凱在廟口」,然後
+     __dbg.goto('temple') 之類走過去就會觸發。跟 spotWatchJob()/
+     MOTO_IMPOUND_reveal() 同一個「跳過前置條件」的精神。 */
+  KAI_TEMPLE,
+  kaiTempleArm(){
+    KAI_TEMPLE.pending = true; KAI_TEMPLE.done = false;
+    moveKaiToTemple();
+    setTodayCard('放學去廟口找阿凱');
+    return `阿凱已經在廟口 (${KAI_TEMPLE_POS.x}, ${KAI_TEMPLE_POS.z}),走過去就會觸發。`;
+  },
   /* 2026-09-09 從 #bar 拿掉按鈕之後,這幾個工具的入口改掛這裡(kc:「把不需要
      的清掉 只留跳轉地點跟重來」)。要用哪個就跟我說,我把按鈕加回 #bar——
      kc 不打 console 指令(見自動記憶 feedback_no_console_commands_add_buttons),
