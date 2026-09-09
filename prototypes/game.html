@@ -559,7 +559,7 @@
   .sp_sch.sp_ok:hover .sp_n { color:#000; }
 
   /* 那條線：線以上你都不用看了 */
-  .sp_cut { position: relative; margin: 18px 0 16px; }
+  .sp_cut { position: relative; margin: 18px 0 42px; }   /* 下緣留白加大,容納 lab3 那行說明 */
   .sp_cut hr { border:0; border-top: 2px dashed var(--sp-red); opacity:.85; margin:0; }
   .sp_cut .sp_lab {
     position:absolute; right:0; top:-17px; font-size:11px; letter-spacing:.14em;
@@ -567,6 +567,11 @@
   }
   .sp_cut .sp_lab2 {
     position:absolute; left:0; top:6px; font-size:11px; letter-spacing:.14em; color: var(--sp-red); opacity:.85;
+  }
+  /* 紅線下面那句說明(2026-09-09 補),壓在積分那行下面,灰的不搶紅線 */
+  .sp_cut .sp_lab3 {
+    position:absolute; left:0; right:0; top:26px; font-size:10.5px; letter-spacing:.06em;
+    color:#9b917f; line-height:1.8;
   }
 
   .sp_sect { font-size:11.5px; letter-spacing:.3em; color:#8b8172; margin: 26px 0 8px; }
@@ -937,21 +942,22 @@ function triggerGameOver(k){
   document.getElementById('goText').textContent = GAME_OVER_TEXT[k] || '你撐不下去了。';
   document.getElementById('gameOver').classList.add('on');
 }
-let minute = 20*60 + 14, day = 3;
+let minute = 7*60, day = 1;   // 2026-09-09 kc:「改到day1」+ 開場改成早上起床(原本 day3 / 20:14)
 const DAYS = ['日','一','二','三','四','五','六'];
-/* 日期敘事化(2026-08-21,kc:「第一天是開學第一天是9/1」)——`day` 這個
- * 計數器本身不動(現在從 3 開始,不是 1,見上面 `let minute = ..., day = 3`
- * 那行——已經有 story-bet.js/story-drink.js 好幾個節點寫死用絕對 day 值
- * 觸發,day=3 那個值一開局就會馬上命中母親線第一個節點,改成從 1 開始
- * 會把所有既有節點往後延 2 天,等於重新調過一次已經調好的步調,沒必要)。
- * 只是加一層「day 數字 → 真的日期字串」的換算,錨點訂在「game.html 一開局
- * 那個 day 值(3)= 9/1」,不是「day=1 = 9/1」——兩者最後看到的字串一樣
- * (玩家一開局就是看到 9/1),差別只在程式內部怎麼對應,不影響任何既有
- * 節點的觸發時機。這樣「註冊單」才能顯示真的繳交期限,不是抽象的
- * 「還剩幾天」。閏年/精確到哪一年這輪不用管——這遊戲沒有釘死是哪一年,
- * 月份天數表夠用就好。 */
+/* 日期敘事化(2026-08-21,kc:「第一天是開學第一天是9/1」)——加一層
+ * 「day 數字 → 真的日期字串」的換算,錨點是「開局那天 = 9/1」。這樣
+ * 「註冊單」才能顯示真的繳交期限,不是抽象的「還剩幾天」。閏年/是哪一年
+ * 這輪不用管,月份天數表夠用。
+ *
+ * ⚠ **2026-09-09 kc:「改到day1」——開局的 day 從 3 改成 1,錨點跟著改。**
+ * 上一版刻意讓 day 從 3 開始(因為 story-bet.js 第一個節點寫死 day:3,一開局
+ * 就命中),那則理由已經作廢:現在 story-bet.js 那個節點也一起改成 day:1。
+ * **其餘節點的 day 值沒有跟著平移**(drink 4/9/15/20/26、bet 6/10/14/18/22、
+ * school 5/13/21/28/36、GRANDMA_CALL_DAY 16 都照舊),所以第一幕之後的
+ * 劇情間隔比以前鬆 2 天——這是這次改動的副作用,已經跟 kc 講,他要收回去
+ * 就是把那些數字統一 −2。 */
 const MONTH_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
-const GAME_START_DAY = 3, START_MONTH = 9, START_DATE = 1;
+const GAME_START_DAY = 1, START_MONTH = 9, START_DATE = 1;   // 2026-09-09:day 1 = 9/1(原本錨在 day 3)
 function dayToDate(d){
   let n = START_DATE + (d - GAME_START_DAY), m = START_MONTH;
   while(n > MONTH_DAYS[m-1]){ n -= MONTH_DAYS[m-1]; m = m % 12 + 1; }
@@ -8144,6 +8150,11 @@ function leaveBedroom(){
     IN.px = 560; IN.py = HOME.walkS; IN.face = 'L';
     document.getElementById('where').textContent = '家';
     paintHomeBackdrop();
+    /* 2026-09-09 補:原本只有「從外面進家門」(warpIntoPlace 的 home 分支)
+       會檢查劇情節點,從房間走出來不會。開場第一幕是「房間起床→走出房門→
+       客廳接母親線」,不補這行整段接不上。seenStoryDays 本來就會擋重複,
+       多一個觸發點沒有副作用。 */
+    maybeTriggerStoryNode();
     checkGrandmaCall();
   });
 }
@@ -12747,8 +12758,12 @@ const SCHOOL_NIGHT = [
 /* 唯一選得到的那一間,排在整張表最底部(「未升學未就業」那一列是官方分類的
    附註、跟學校清單之間有分隔線,不算在學校裡)。 */
 const SCHOOL_ONLY = ['永安高中','普通科',5];
+/* 2026-09-09 kc:「學費36000刪掉 媽媽再飆一個會也刪掉」——日校原本那兩句
+   (「學費一學期三萬六。」「你媽說她再標一個會。」)整段拿掉,選完直接進
+   房間起床那一幕,不再多一頁旁白。night/none 兩條留著(night 現在選不到,
+   none 還選得到)。 */
 const SCHOOL_AFTER = {
-  day:   '學費一學期三萬六。\n你媽說她再標一個會。',
+  day:   '',
   night: '晚上六點半上課，十點下課。\n白天空著——空著的意思是可以去上班。',
   none:  '你沒有填表。\n八月一號，同學都在拍制服照。'
 };
@@ -12820,8 +12835,13 @@ function buildSchoolPick(){
     html += '<div class="sp_sch sp_no"><div class="sp_n">'+s[0]+'</div>'
           + '<div class="sp_d">'+s[1]+'</div><div class="sp_p">'+s[2]+'</div></div>';
   });
+  /* 紅線下面那句(2026-09-09,kc 要求補)——不補的話落點表自己打自己臉:
+     你 12 分,線下面 8~12 分那幾間卻也選不到。理由給「額滿」+「不在本區」
+     兩層:分數夠的那幾間名額被填滿了,剩下的在城市另一頭,通勤成本本身就是
+     一道門檻。 */
   html += '<div class="sp_cut"><div class="sp_lab">↑ 錄取機率低於 5%</div><hr>'
-        + '<div class="sp_lab2">你的積分　12</div></div>';
+        + '<div class="sp_lab2">你的積分　12</div>'
+        + '<div class="sp_lab3">下列學校本區名額已額滿，或不在本區。</div></div>';
   SCHOOL_BELOW.forEach(s => {
     html += '<div class="sp_sch sp_no"><div class="sp_n">'+s[0]+'</div>'
           + '<div class="sp_d">'+s[1]+'</div><div class="sp_p">'+s[2]+'</div></div>';
@@ -12854,6 +12874,25 @@ function showSchoolPick(){
 function finishSchoolPick(){
   spEl.classList.remove('on');
   hideTitle();                          // 開始玩(saveOff 解除、選單鈕出現)
+  openingWakeUp();
+}
+/* 開場第一幕(2026-09-09,kc:「選完後一進遊戲應該是從房間起床 你媽在門外
+   叫你 然後就接 day3 的劇情」)——原本選完直接站在街上。現在丟進房間、
+   媽媽在門外喊一聲,玩家自己走出房門到客廳才接上母親線第一個節點(那個節點
+   本來就是在客廳、開頭是她喊「欸。」+ walkTo:'mom')。
+   returnTo 要先設成家門口,不然玩家從客廳走出大門時會被送回 {0,0}(那是
+   returnTo 的初始值,在馬路中間)。 */
+function openingWakeUp(){
+  const homeDoor = city.doors.find(d => d.id === 'home');
+  if(homeDoor){ returnTo.x = homeDoor.x; returnTo.z = homeDoor.z; }
+  MODE = 'indoor'; PLACE = 'bedroom';
+  document.getElementById('city').style.display = 'none';
+  wlabelsEl.style.display = 'none';
+  document.getElementById('indoor').classList.add('on');
+  IN.px = BEDROOM_WALK_TWEAK.spawnPx; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
+  document.getElementById('where').textContent = '房間';
+  paintBedroomBackdrop();
+  say('mom', '「起來了沒——」\n門外你媽在叫你。');
 }
 window.finishSchoolPick = finishSchoolPick;
 window.showSchoolPick = showSchoolPick;

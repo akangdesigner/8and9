@@ -39,7 +39,10 @@
           (見 game.html 的 TUITION_QUEST 那段:純資料只給 amount/days,
           真的建物件、算到期日在 game.html 做)。 */
     {
-      day: 3,
+      /* 2026-09-09:遊戲開局的 day 從 3 改成 1(kc:「改到day1」),這個節點是
+         開場第一幕(房間起床→走出房門→客廳),要跟著改才會在第一天命中。
+         其餘節點的 day 值沒有平移,見 game.html dayToDate() 旁邊那則筆記。 */
+      day: 1,
       title: '兩千',
       tuitionQuest: { amount: 1000, days: 90 },   // 三個月期限,kc 定案值
       beats: [
