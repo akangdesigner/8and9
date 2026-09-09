@@ -3177,11 +3177,14 @@ function syncMiscQuestPanel(){
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'snitch', title:'贓物協尋', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
-  /* 阿霞(2026-09-01,kc:「那任務匡呢 我要來解這個任務」)——沒有獨立的
-     .active 旗標(不像上面幾個要先滿足某個門檻才「接到」),她本來就站在
-     永安公車站,任何時候都能去找她,所以「還沒解決」直接當「進行中」。 */
+  /* 阿霞(2026-09-01,kc:「那任務匡呢 我要來解這個任務」)——她本來就站在
+     永安公車站,不需要先滿足什麼門檻才「接到」。
+     ⚠ **但不是一開局就顯示**(2026-09-09,kc:「一開始不會有任務 公車任務是
+     你到那邊有觸發才會顯示」)——舊版條件只有 `!AXIA.resolved`,等於新遊戲
+     第一秒任務面板就掛著一張你還沒遇到的人的卡。加 `AXIA.met`,走到公車站
+     真的跟她講過話才算接到這個任務。 */
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'axia');
-  if(!AXIA.resolved){
+  if(AXIA.met && !AXIA.resolved){
     const hint = axiaRiding ? '載阿霞去中華路，到了按空白鍵下車'
       : ridingMoto ? '騎車經過永安公車站，載阿霞去中華路'
       : '去永安公車站找阿霞——給她計程車錢，或有機車的話載她去中華路';
@@ -3831,7 +3834,7 @@ function tweakStatuePedsPanel(){
    坐上後座(mountRide()/setRideTransform(),見 scene-city3d.js buildNPC()
    那組新函式+下面 updateCity() 的逐幀同步),下車(dismountMoto())時
    結算。兩條路都能讓 AXIA.resolved 變 true,彼此獨立、不衝突。 */
-const AXIA = { x:-31.2, z:104, resolved:false, rideAsked:false };
+const AXIA = { x:-31.2, z:104, resolved:false, rideAsked:false, met:false };   // met:2026-09-09,遇到她之後任務卡才出現,見 syncMiscQuestPanel()
 /* 阿霞下車點(2026-09-01,kc:「為何沒說要載到哪裡」補的目的地)——中華路
    (H_ROADS z:0)上一個離宏吉機車行/安康藥局那排店面(x:-12~3)有段距離
    的路段,單純挑一個乾淨的路面座標,不對應任何真的店家。 */
@@ -9773,6 +9776,7 @@ function updateCity(dt){
   if(!AXIA.resolved && !AXIA.rideAsked && ridingMoto && !dlg.on && !busy &&
      Math.hypot(pos.x-AXIA.x, pos.z-AXIA.z) < 6){
     AXIA.rideAsked = true;
+    if(!AXIA.met){ AXIA.met = true; syncMiscQuestPanel(); }   // 騎車經過被她叫住也算遇到
     say('axia', '「咦——你有機車？」她看了一眼末班車時刻表，又看看你。「載我到中華路那邊好不好？我家巷子在那附近，不會很遠。」', () => {
       openMenu('阿霞', [
         { label:'載她去中華路', cls:'', run(){ startAxiaRide(); } },
@@ -9943,6 +9947,7 @@ function dismountMoto(){
    startAxiaRide()。resolved 之後(不管走哪條路解決)固定回一句,不會
    再開選單。 */
 function talkToAxia(){
+  if(!AXIA.met){ AXIA.met = true; syncMiscQuestPanel(); }   // 真的遇到她才把任務卡掛上去
   if(AXIA.resolved){
     toast('「謝謝你那天啊。」她笑了笑，繼續等車。', 2200);
     return;
