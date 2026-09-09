@@ -4444,6 +4444,100 @@ function applyRidePose(bones){
   }
 }
 
+/* 主角的臉(2026-09-09,kc:「主角的人物3d太醜 能不能他是特化的 有眼睛的」)
+ * ——根因不是模型難看,是**臉根本沒被畫出來**:tools/fbx2glb.py 轉檔時
+ * export_materials='NONE'(2026-08-12 為了不讓檔案漲到 30MB+),Mixamo 角色的
+ * 眉毛/眼睛/嘴唇全部是畫在 diffuse 貼圖上的,貼圖剝掉之後只剩一顆素膚色的
+ * 頭;`Eyes` 那顆 mesh 還在,但被 mats.eyes(0x1a1512)整顆塗成同一色,遠看
+ * 就是兩顆黑豆。解 glb 驗證過:base-human-idle.glb 裡 materials/images/
+ * textures 三個欄位都不存在,不是程式漏接。
+ *
+ * 走「幾何五官」不走「重下帶貼圖的 FBX」:後者要 kc 自己去 Mixamo 重載一次
+ * (需要 Adobe 帳號,我這邊做不到),而且貼圖回來之後會跟既有的換裝染色系統
+ * 打架(riggedCharacter() 是整顆 material 換掉,不是疊 tint)。幾何五官純程式、
+ * 零素材、隨時可退,先讓他看到臉。
+ *
+ * **只有主角有**(buildPlayer 呼叫,buildNPC 沒有)——這就是 kc 說的「特化」;
+ * NPC 維持原本的素臉,主角是玩家唯一會一直盯著看的那一個。
+ *
+ * 座標單位是**原始 glb 單位**(角色原始身高 3.65,不是場景的 PLAYER.height=4.0)
+ * ——五官掛在 mixamorigHead 骨骼底下,attachPlayerFace() 用 localToWorld →
+ * worldToLocal 換算,不用去猜那根骨骼自己的朝向(Mixamo 的 eye/head bone
+ * 朝向不保證是 +Z,猜錯整組五官會貼到後腦杓)。初始數字是照 Eyes mesh 的
+ * bounding box(x -0.086~0.106、y 3.466~3.537、z 0.144~0.215)推的第一版,
+ * 沒有肉眼校過——kc 用 #bar「主角五官滑桿」自己拉,拉完給我數字寫死,跟
+ * 醫院站位/公車亭那批同一套慣例。 */
+export const PLAYER_FACE = {
+  on: true,
+  eyeCX: .010, eyeDX: .048, eyeY: 3.502, eyeZ: .222, irisR: .017,
+  browY: 3.556, browZ: .224, browW: .052, browH: .010, browTilt: .14,
+  mouthY: 3.408, mouthZ: .232, mouthW: .044, mouthH: .009,
+  iris: 0x231a13, brow: 0x1c1611, mouth: 0x7a4740, sclera: 0xf1ece1
+};
+
+/* 把五官掛到頭骨上。回傳 { apply } 給滑桿即時重畫;拿不到 mixamorigHead
+ * (換了骨架、或 glb 沒載到)就回 null,呼叫端當沒這回事,不會壞。 */
+function attachPlayerFace(THREE, model){
+  const head = model.getObjectByName('mixamorigHead');
+  if(!head) return null;
+  model.updateMatrixWorld(true);
+
+  /* 眼白用 Standard(吃光,跟皮膚一起明暗變化,不會在暗巷裡發亮);
+     虹膜/眉毛/嘴用 Basic 不吃光——臉在陰影裡的時候五官還讀得出來,
+     跟越式按摩那個黑洞「Basic 不吃光」同一個理由,只是方向相反。 */
+  const F = PLAYER_FACE;
+  const sclera = model.getObjectByName('Eyes');
+  if(sclera) sclera.material = new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.35 });
+
+  const mk = c => new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+                                 new THREE.MeshBasicMaterial({ color:c }));
+  const P = { irisL:mk(F.iris), irisR:mk(F.iris), browL:mk(F.brow), browR:mk(F.brow), mouth:mk(F.mouth) };
+  Object.values(P).forEach(m => { m.renderOrder = 5; head.add(m); });
+
+  const v = new THREE.Vector3(), qh = new THREE.Quaternion(), qm = new THREE.Quaternion();
+  /* ⚠ head 骨骼的 local 空間比 model 空間大 100 倍(Mixamo FBX 的 cm↔m 單位差:
+     Armature 自己帶 0.01 縮放,所以掛在骨骼底下的東西 1 個 local 單位只有
+     model 空間的 1/100)。**位置**不用管這件事——localToWorld→worldToLocal
+     來回換算會自動吃掉;**幾何尺寸**要自己乘 unitK,不然五官會小 100 倍,
+     肉眼等於沒畫(第一版就是這樣,在瀏覽器裡量 head.children 的座標才抓到)。
+     不寫死 100,現場量兩邊的世界縮放相除,換別的骨架也不會錯。 */
+  const wsc = o => { const e = o.matrixWorld.elements; return Math.hypot(e[0], e[1], e[2]); };
+  const unitK = wsc(model) / Math.max(wsc(head), 1e-9);
+  /* 位置/朝向都在「model 空間」定義再換算進 head 的 local 空間:
+     head.worldToLocal() 會連 model 的縮放一起除掉,所以上面那組數字直接
+     用原始 glb 單位寫就好,不用跟著 PLAYER.height 換算。 */
+  function place(mesh, x, y, z, w, h, rotZ){
+    v.set(x, y, z);
+    model.localToWorld(v);
+    head.worldToLocal(v);
+    mesh.position.copy(v);
+    head.getWorldQuaternion(qh).invert();
+    model.getWorldQuaternion(qm);
+    mesh.quaternion.copy(qh.multiply(qm));
+    if(rotZ) mesh.rotateZ(rotZ);
+    mesh.geometry.dispose();
+    mesh.geometry = new THREE.PlaneGeometry(w * unitK, h * unitK);
+  }
+  function apply(){
+    model.updateMatrixWorld(true);
+    Object.values(P).forEach(m => { m.visible = F.on; });
+    if(!F.on) return;
+    if(sclera) sclera.material.color.setHex(F.sclera);
+    P.irisL.material.color.setHex(F.iris); P.irisR.material.color.setHex(F.iris);
+    P.browL.material.color.setHex(F.brow); P.browR.material.color.setHex(F.brow);
+    P.mouth.material.color.setHex(F.mouth);
+    const d = F.irisR * 2;
+    place(P.irisL, F.eyeCX - F.eyeDX, F.eyeY, F.eyeZ, d, d);
+    place(P.irisR, F.eyeCX + F.eyeDX, F.eyeY, F.eyeZ, d, d);
+    /* 眉毛往中間壓一點點(外高內低那個角度),兩邊 tilt 反向才對稱 */
+    place(P.browL, F.eyeCX - F.eyeDX, F.browY, F.browZ, F.browW, F.browH, +F.browTilt);
+    place(P.browR, F.eyeCX + F.eyeDX, F.browY, F.browZ, F.browW, F.browH, -F.browTilt);
+    place(P.mouth, F.eyeCX, F.mouthY, F.mouthZ, F.mouthW, F.mouthH);
+  }
+  apply();
+  return { apply, parts:P };
+}
+
 export function buildPlayer(THREE, scene){
   const g = new THREE.Group();
   scene.add(g);
@@ -4456,6 +4550,7 @@ export function buildPlayer(THREE, scene){
   const onceActions = {};                             // name -> clipAction 快取,見 playOnce()
   let playingOnce = false;                            // true 時 animate() 的 idle/walk/run 切換整段跳過
   const RIDE_BONES = {};                              // 騎機車跨坐姿,見 applyRidePose()
+  let face = null;                                    // 主角五官(眼/眉/嘴),見 attachPlayerFace()
 
   const rig = MODELS.m;                               // 主角固定用 Remy(男性)這副骨架
   loadModel(rig.idle).then(idleGltf => {
@@ -4468,6 +4563,7 @@ export function buildPlayer(THREE, scene){
     g.remove(primitive.rig);
     g.add(model);
     mode = 'gltf';
+    face = attachPlayerFace(THREE, model);   // 主角特化的臉,見 PLAYER_FACE 那則筆記
 
     /* 騎機車跨坐姿(2026-08-17)——見 applyRidePose() 的說明,骨骼名字抓法
        跟 addTattoo() 同一套(Mixamo 'mixamorig:XXX' 被 GLTFLoader 拿掉冒號)。
@@ -4614,7 +4710,8 @@ export function buildPlayer(THREE, scene){
     if(riding) applyRidePose(RIDE_BONES);              // 套跨坐姿,見上面 RIDE_POSE 的說明
   }
   return { group:g, animate, playOnce, setTex, resetTex, eyeY:PLAYER.eyeY, height:PLAYER.height,
-            debugBones: () => RIDE_BONES };
+            debugBones: () => RIDE_BONES,
+            face: () => face };
 }
 
 /* NPC:一顆骨架、換一套材質顏色站著不動(idle 動畫)。

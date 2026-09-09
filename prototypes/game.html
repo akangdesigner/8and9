@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button><button class="tool" onclick="debugTweakHospitalScene()">醫院站位滑桿</button><button class="tool" onclick="debugGrandmaMonthly()">阿嬤月結算</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button><button class="tool" onclick="debugTweakHospitalScene()">醫院站位滑桿</button><button class="tool" onclick="debugGrandmaMonthly()">阿嬤月結算</button><button class="tool" onclick="debugTweakPlayerFace()">主角五官滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -648,7 +648,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
-import { CITY, CAM, PLAYER, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGradient } from './lib/scene-city3d.js';
+import { CITY, CAM, PLAYER, PLAYER_FACE, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGradient } from './lib/scene-city3d.js';
 
 /* ===================================================================
    共用狀態 —— 兩層都吃同一份。走進超商買東西，出來街上錢就少了。
@@ -5416,6 +5416,65 @@ function tweakHospitalScenePanel(){
   });
 }
 window.tweakHospitalScenePanel = tweakHospitalScenePanel;
+/* 主角五官滑桿(2026-09-09,kc:「主角的人物3d太醜 能不能他是特化的 有眼睛的」)
+   ——PLAYER_FACE 那組初始數字是照 Eyes mesh 的 bounding box 推的,沒有肉眼
+   校過,一定要 kc 自己拉。街上(hero)跟室內(heroIndoor)是兩具各自載入的
+   骨架但共用同一份 PLAYER_FACE,所以每次改值兩邊都要 apply() 一次,不然
+   會出現「室內調好了走到街上又跑掉」的落差。**室內看得最清楚**(鏡頭近),
+   建議進超商/家裡再開這個面板調。 */
+function applyPlayerFace(){
+  hero.face()?.apply();
+  heroIndoor.face()?.apply();
+}
+function tweakPlayerFacePanel(){
+  const old = document.getElementById('playerFaceTweakPanel');
+  if(old){ old.remove(); return; }
+  const F = PLAYER_FACE;
+  const rows = [
+    ['pf_eyeDX','眼距(左右分開)', 0, .10, .001, 'eyeDX'],
+    ['pf_eyeCX','兩眼中心 X', -.05, .05, .001, 'eyeCX'],
+    ['pf_eyeY','眼睛高度', 3.40, 3.62, .002, 'eyeY'],
+    ['pf_eyeZ','眼睛前後(越大越突出)', .14, .32, .002, 'eyeZ'],
+    ['pf_irisR','瞳孔大小', .004, .040, .001, 'irisR'],
+    ['pf_browY','眉毛高度', 3.45, 3.68, .002, 'browY'],
+    ['pf_browZ','眉毛前後', .14, .32, .002, 'browZ'],
+    ['pf_browW','眉毛長度', .015, .100, .002, 'browW'],
+    ['pf_browH','眉毛粗細', .002, .030, .001, 'browH'],
+    ['pf_browTilt','眉毛角度', -.6, .6, .02, 'browTilt'],
+    ['pf_mouthY','嘴巴高度', 3.30, 3.56, .002, 'mouthY'],
+    ['pf_mouthZ','嘴巴前後', .14, .32, .002, 'mouthZ'],
+    ['pf_mouthW','嘴巴寬度', .015, .090, .002, 'mouthW'],
+    ['pf_mouthH','嘴巴厚度', .002, .030, .001, 'mouthH']
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'playerFaceTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.5 sans-serif;width:250px;max-height:88vh;overflow-y:auto;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">主角五官滑桿</div>' +
+    '<div style="margin-bottom:8px;opacity:.75">室內鏡頭比較近,進超商/家裡調最準</div>' +
+    rows.map(([id,label,min,max,step,key]) =>
+      `<div style="margin-bottom:7px">${label}: <span id="${id}_v">${F[key].toFixed(3)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${F[key]}" style="width:100%"></div>`
+    ).join('') +
+    `<div style="margin-bottom:8px"><button id="pf_on_btn" style="width:100%;padding:6px;background:#3a4152;color:#eee;border:1px solid #5a6478;border-radius:5px;cursor:pointer">五官開/關(現在:${F.on?'開':'關'})</button></div>` +
+    '<div style="margin-top:4px;opacity:.7">關掉面板:再按一次「主角五官滑桿」按鈕<br>拉到滿意後跟我說最終數字,我寫死+拔掉滑桿</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,key]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      PLAYER_FACE[key] = +e.target.value;
+      document.getElementById(`${id}_v`).textContent = (+e.target.value).toFixed(3);
+      applyPlayerFace();
+    });
+  });
+  document.getElementById('pf_on_btn').addEventListener('click', e => {
+    PLAYER_FACE.on = !PLAYER_FACE.on;
+    e.target.textContent = `五官開/關(現在:${PLAYER_FACE.on?'開':'關'})`;
+    applyPlayerFace();
+  });
+}
+window.tweakPlayerFacePanel = tweakPlayerFacePanel;
+function debugTweakPlayerFace(){ tweakPlayerFacePanel(); }
+window.debugTweakPlayerFace = debugTweakPlayerFace;
 /* 光明巷三個女性 NPC 位置/朝向滑桿(2026-09-03,kc:「開滑桿給我」)——
    跟上面 tweakMassageScenePanel 那組不同物件:這組調的是 3D 街景裡
    workerNPC/alleyWorker2/alleyWorker3 三具骨架本身的 x/z/朝向,不是室內
