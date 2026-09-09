@@ -8497,6 +8497,10 @@ const WORKER_STORY_BEATS = [
    `tools/fbx2glb.py` 那套流程接成 `once` 動作——那要 Adobe 帳號登入,我做不到,
    kc 要的話跟我說我給他關鍵字。 */
 const HERO_GESTURE = { kind:null, t:0, dur:1500, hold:false };
+/* 抬手的角度分多少給鎖骨——見 applyHeroGesture() 裡那則「鎖骨要分攤角度」的
+   筆記。0.3 是抓的:分太少還是會破圖,分太多整個肩膀會聳起來。 */
+const SHOULDER_SHARE = .3;
+let gestureShoulder;   // undefined = 還沒找過,null = 這副骨架沒有鎖骨
 /* ⚠ **左右手的 Z/Y 要反號**——`applyRidePose()` 那邊寫得很清楚(左手
    `rotateZ(armZ)`、右手 `rotateZ(-armZ)`),第一版兩隻手用同一個正負號,結果
    手臂往後彎、看起來像在抓自己的背(kc:「你動作做錯了吧」)。這裡的 rArmZ/
@@ -8528,12 +8532,25 @@ function applyHeroGesture(dt){
   }
   const b = heroIndoor.debugBones && heroIndoor.debugBones();
   if(!b || !b.RightArm) return;
+  /* ⚠ **鎖骨要分攤角度,不然手臂會破圖**(2026-09-09,kc 截圖:「但為何手有
+     破圖」)——整個抬手的角度全壓在 Arm 這一根上,超過模型 rig 設計的範圍
+     之後,肩膀附近的頂點權重會被拉爆(畫面上是手臂從肩膀那裡撕開)。真人
+     抬手本來就是鎖骨(Shoulder)先動一點、上臂再動,把 SHOULDER_SHARE 的
+     比例分給鎖骨,兩根骨頭各自的角度就都留在合理範圍內。
+     RIDE_BONES 沒有 Shoulder(那組是騎車姿勢用的),這裡自己抓、快取起來。 */
+  if(gestureShoulder === undefined)
+    gestureShoulder = heroIndoor.group.getObjectByName('mixamorigRightShoulder') || null;
   const p = GESTURE_POSE[HERO_GESTURE.kind];
   if(!p) return;
   /* 前 25% 抬起、後 25% 放下,中間停著——不做這個包絡的話動作會「瞬間出現、
      瞬間消失」,看起來像穿幫不像動作。 */
   const k = HERO_GESTURE.hold ? 1 : Math.min(1, Math.min(HERO_GESTURE.t, HERO_GESTURE.dur - HERO_GESTURE.t) / (HERO_GESTURE.dur * .25));
-  b.RightArm.rotateX(p.rArmX * k); b.RightArm.rotateZ(p.rArmZ * k);
+  const share = gestureShoulder ? SHOULDER_SHARE : 0;
+  if(gestureShoulder){
+    gestureShoulder.rotateX(p.rArmX * share * k);
+    gestureShoulder.rotateZ(p.rArmZ * share * k);
+  }
+  b.RightArm.rotateX(p.rArmX * (1 - share) * k); b.RightArm.rotateZ(p.rArmZ * (1 - share) * k);
   if(b.RightForeArm) b.RightForeArm.rotateX(p.rForeX * k);
   if(p.lArmX && b.LeftArm){
     b.LeftArm.rotateX(p.lArmX * k); b.LeftArm.rotateZ(p.lArmZ * k);
