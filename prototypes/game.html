@@ -8372,30 +8372,62 @@ function enterMassage(w){
    完整故事(圓環雕像那條支線,見 DESIGN_NOTES)原本掛在 enterMassage()
    自動播,現在移進「聊天」選項,只在第一次「聊天」時講(w.toldStory 擋
    之後重複),之後「聊天」改抽 WORKER_TALK.after 那個閒聊池。 */
+/* 她的故事拆成一來一往的對話(2026-09-09,kc:「講話的部分要有對話 不是一直
+   一長串」)——原本整段圓環雕像那個故事塞在**一個** say() 裡,中間用 \n\n
+   斷行,玩家按一次空白鍵就整段跳完,讀起來像旁白不像在跟人講話。拆成
+   playBeats() 一句一句,中間穿插主角的反應(接不上話的地方就寫他沒有接話,
+   不硬給台詞)。 */
+const WORKER_STORY_BEATS = [
+  { who:'worker', text:'她點了根菸,難得多說了幾句。' },
+  { who:'worker', text:'「我有兩個查某囝仔。」' },
+  { who:'pc',     text:'「妳有小孩喔。」' },
+  { who:'worker', text:'「大的那個,以前被她爸打得很兇。」' },
+  { who:'worker', text:'「我沒能力帶她走。」' },
+  { who:'pc',     text:'你沒有接話。' },
+  { who:'worker', text:'「她自己長大了。」\n「說要帶一群跟她一樣沒人要的女生打棒球。」' },
+  { who:'worker', text:'「真的打起來了,還上過報。」' },
+  { who:'pc',     text:'「厲害欸。」' },
+  { who:'worker', text:'她把菸捻熄。' },
+  { who:'worker', text:'「後來出車禍,人就沒了。」' },
+  { who:'pc',     text:'你張了張嘴,沒有講出來。' },
+  { who:'worker', text:'「圓環那尊,是球隊那些人湊錢立的。」' },
+  { who:'worker', text:'「不是我立的。我沒那個資格。」' },
+  { who:'worker', text:'她看了你一眼,像是隨口感慨。' },
+  { who:'worker', text:'「若她還活著,大概也跟你差不多歲數了。」\n（情緒 +2）' }
+];
 function talkToWorkerIndoor(){
   const w = ALLEY_WORKER;
+  /* 四個選項由淺到深。**每一句都要把數值變化寫進對話框**(括號),這是 kc
+     定過的規則——之前這三個選項改了 calm/mood 卻沒在畫面上講,玩家不知道
+     發生什麼事。 */
   openMenu('她', [
     { label:'聊天', run(){
         if(!w.toldStory){
           w.toldStory = true;
           chg('mood', 2);
-          say('worker',
-            '她點了根菸,難得多說了幾句。\n\n「我有兩個查某囝仔。大的那個,以前被她爸打得很兇,我沒能力帶她走。她自己長大了,說要帶一群跟她一樣沒人要的女生打棒球——真的打起來了,還上過報。」\n\n她把菸捻熄。「後來出車禍,人就沒了。圓環那尊,是球隊那些人湊錢立的,不是我立的,我沒那個資格。」\n\n她看了你一眼,像是隨口感慨。「若她還活著,大概也跟你差不多歲數了。」',
-            leaveIndoor
-          );
+          playBeats(WORKER_STORY_BEATS, 0, leaveIndoor);
         } else {
           chg('mood', 2);
           const pool = WORKER_TALK.after;
-          say('worker', pool[Math.random()*pool.length|0], leaveIndoor);
+          say('worker', pool[Math.random()*pool.length|0] + '\n（情緒 +2）', leaveIndoor);
         }
       } },
     { label:'摸摸她', run(){
         chg('calm', 3);
-        say('worker', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。', leaveIndoor);
+        say('worker', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。\n（歸屬感 +3）', leaveIndoor);
       } },
     { label:'抱抱', run(){
         chg('calm', 6); chg('mood', 3);
-        say('worker', '你伸手抱住她。她僵了一下,像是很久沒有人這樣抱過她——過了幾秒,肩膀鬆下來,靠著你,誰都沒有先開口。', leaveIndoor);
+        say('worker', '你伸手抱住她。她僵了一下,像是很久沒有人這樣抱過她——過了幾秒,肩膀鬆下來,靠著你,誰都沒有先開口。\n（歸屬感 +6、情緒 +3）', leaveIndoor);
+      } },
+    /* 辦正事(2026-09-09,kc 要求加的,文案也是他給的:「你們進行了一場難以
+       言喻的活動」)——錢在進場前就付掉了(talkToWorker() 那顆「爽一下」),
+       這裡不再扣。數值是自己抓的:情緒給得比其他三個多(這是他付錢來買的
+       東西),歸屬感只給一點點——這條線的重點是「花錢買到的親密不會變成
+       歸屬感」,不喜歡跟我說一聲就改。 */
+    { label:'辦正事', run(){
+        chg('mood', 10); chg('calm', 2);
+        say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +10、歸屬感 +2）', leaveIndoor);
       } }
   ]);
 }
@@ -13549,7 +13581,7 @@ window.__dbg = {
   TROUPE_GAME,
   FAT, checkFatArc,
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
-  CLASSFUND, ALLEY_WORKER, talkToWorker,
+  CLASSFUND, ALLEY_WORKER, talkToWorker, talkToWorkerIndoor, WORKER_STORY_BEATS,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; if(WATCHJOB.exclaim) WATCHJOB.exclaim.visible = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
   /* 警局三條中短期任務(2026-08-31)——跟 spotWatchJob() 同一個理由,方便
