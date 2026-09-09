@@ -8379,7 +8379,9 @@ function enterMassage(w){
    這輪自己抓的小的可逆參數,不喜歡跟我說一聲就改。
    完整故事(圓環雕像那條支線,見 DESIGN_NOTES)原本掛在 enterMassage()
    自動播,現在移進「聊天」選項,只在第一次「聊天」時講(w.toldStory 擋
-   之後重複),之後「聊天」改抽 WORKER_TALK.after 那個閒聊池。 */
+   之後重複)。⚠ 舊版寫「之後『聊天』改抽 WORKER_TALK.after 那個閒聊池」,
+   2026-09-09 已經不是這樣了——故事講完之後室內選單**直接不列「純聊天」**
+   (kc:「不然很坑錢」),`WORKER_TALK.after` 現在只剩街上那條在用。 */
 /* 她的故事拆成一來一往的對話(2026-09-09,kc:「講話的部分要有對話 不是一直
    一長串」)——原本整段圓環雕像那個故事塞在**一個** say() 裡,中間用 \n\n
    斷行,玩家按一次空白鍵就整段跳完,讀起來像旁白不像在跟人講話。拆成
@@ -8405,21 +8407,19 @@ const WORKER_STORY_BEATS = [
 ];
 function talkToWorkerIndoor(){
   const w = ALLEY_WORKER;
-  /* 四個選項由淺到深。**每一句都要把數值變化寫進對話框**(括號),這是 kc
-     定過的規則——之前這三個選項改了 calm/mood 卻沒在畫面上講,玩家不知道
-     發生什麼事。 */
-  openMenu('她', [
-    { label:'純聊天', run(){
-        if(!w.toldStory){
-          w.toldStory = true;
-          chg('mood', 2);
-          playBeats(WORKER_STORY_BEATS, 0, leaveIndoor);
-        } else {
-          chg('mood', 2);
-          const pool = WORKER_TALK.after;
-          say('worker', pool[Math.random()*pool.length|0] + '\n（情緒 +2）', leaveIndoor);
-        }
-      } },
+  /* 選項由淺到深。**每一句都要把數值變化寫進對話框**(括號),這是 kc 定過的
+     規則——之前這幾個選項改了 calm/mood 卻沒在畫面上講,玩家不知道發生什麼事。
+     ⚠ **「純聊天」只在她還沒講過那個故事之前出現**(2026-09-09,kc:「故事講完
+     後 純聊天的選項就拔掉 不然很坑錢」)——付了 $WORKER_PRICE 進來只換到一句
+     隨機閒聊,那是在坑玩家的錢。故事講完之後這個選項直接不列(不是變灰),
+     跟「沒被通知的事不該出現在選單裡」那條既有慣例一致。 */
+  const opts = [];
+  if(!w.toldStory) opts.push({ label:'純聊天', run(){
+    w.toldStory = true;
+    chg('mood', 2);
+    playBeats(WORKER_STORY_BEATS, 0, leaveIndoor);
+  } });
+  opts.push(
     { label:'摸摸她', run(){
         chg('calm', 3);
         say('worker', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。\n（歸屬感 +3）', leaveIndoor);
@@ -8430,15 +8430,16 @@ function talkToWorkerIndoor(){
       } },
     /* 辦正事(2026-09-09,kc 要求加的,文案也是他給的:「你們進行了一場難以
        言喻的活動」)——錢在進場前就付掉了(talkToWorker() 那顆「爽一下」),
-       這裡不再扣。情緒給得比其他三個多(這是他付錢來買的東西),歸屬感只給
+       這裡不再扣。情緒給得比其他選項多(這是他付錢來買的東西),歸屬感只給
        一點點——這條線的重點是「花錢買到的親密不會變成歸屬感」。
        **風評 −2 是 kc 2026-09-09 指定的**:這件事在這個小鎮裡是會被看見、
-       會被講的,前面三個選項(純聊天/摸摸她/抱抱)都不扣。 */
+       會被講的,其他選項都不扣。 */
     { label:'辦正事', run(){
         chg('mood', 10); chg('calm', 2); chg('star', -2);
         say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +10、歸屬感 +2、風評 −2）', leaveIndoor);
       } }
-  ]);
+  );
+  openMenu('她', opts);
 }
 /* 客廳 ⇄ 房間:兩個都算「室內」(MODE 全程維持 'indoor'),只是 PLACE 換,
  * 不用像 enterIndoor/leaveIndoor 那樣牽動 3D 街景/`returnTo`。 */
@@ -12437,7 +12438,10 @@ const WORKER_PRICE = 500;
    在下面 openMenu() 那顆按鈕),改成單純的「怎樣?」開場,語氣更貼她
    established 的「不堆笑臉、就是在問」。 */
 const WORKER_TALK = {
-  before: ['「怎樣?」\n\n她看你一眼,沒有堆笑臉,就是在問。'],
+  /* 這幾句是「走近她按空白鍵」的開場白/閒聊,一句一格(2026-09-09 kc:
+     「對話不要都做成這麼長的很難閱讀」)——原本 before 那句用 \n\n 把兩句
+     擠在同一個框裡,拆開了。 */
+  before: ['「怎樣?」'],
   after: [
     '「又是你。」她說,語氣沒什麼起伏。',
     '她靠在牆上,看你走近,沒有多說什麼,等你先開口。',
@@ -12622,7 +12626,17 @@ function talkToWorker(w){
           /* 追加一句埋伏筆(2026-08-20)——不點名跟圓環雕像的關係,只是先讓
              玩家知道她家裡還有一個小的,完整關係要付錢跟她走才會知道。
              這個分支不進室內場景,維持原本在街上直接 say()。 */
-          say('worker', '「不是每個人站在這都是要幹嘛。」\n\n她說,眼睛沒離開巷口那頭的路燈。\n\n「有時候就是,這裡比家裡安靜。」\n\n她頓了一下,像是想到什麼。「家裡還有一個要顧,比較小的。」沒有再說下去。');
+          /* 2026-09-09 kc:「對話不要都做成這麼長的很難閱讀」——原本整段用
+             \n\n 塞在一個 say() 裡,對話框被撐成四行、一次讀完很吃力。拆成
+             playBeats() 一句一句按。 */
+          playBeats([
+            { who:'worker', text:'「不是每個人站在這都是要幹嘛。」' },
+            { who:'worker', text:'她說,眼睛沒離開巷口那頭的路燈。' },
+            { who:'worker', text:'「有時候就是,這裡比家裡安靜。」' },
+            { who:'worker', text:'她頓了一下,像是想到什麼。' },
+            { who:'worker', text:'「家裡還有一個要顧,比較小的。」' },
+            { who:'worker', text:'沒有再說下去。' }
+          ], 0, () => {});
         } },
       { label:'不說話,轉身走掉', cls:'back', run(){} }
     ]);
