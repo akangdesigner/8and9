@@ -6820,3 +6820,39 @@ NPC 都適用),三個都改成面向走道方向後修好。這輪 kc 打斷說�
 刪掉 不要」,整個隨地小便小事件(`PISS_SPOT`、nearProp 判斷、hint 文字、
 `interactProp()` 的 `'piss'` 分支)全部砍掉,不留退場動畫或替代內容——
 kc 的原話是要拿掉,不是要改內容,不要自作主張留一個閹割版。
+
+## 主角的臉:特化的五官(2026-09-09,kc:「主角的人物3d太醜 能不能他是特化的 有眼睛的」)
+
+**根因不是模型難看,是臉根本沒被畫出來。** `tools/fbx2glb.py` 轉檔時
+`export_materials='NONE'`(2026-08-12 為了不讓檔案漲到 30MB+,見
+`assets/models/README.md`),而 Mixamo 角色的眉毛/眼睛/嘴唇**全部是畫在
+diffuse 貼圖上的**,貼圖剝掉之後只剩一顆素膚色的頭;`Eyes` 那顆 mesh 還在,
+但 `riggedCharacter()` 把它整顆塗成 `mats.eyes`(`0x1a1512`)同一色,遠看就是
+兩顆黑豆。解 glb 驗證過:`base-human-idle.glb` 裡 `materials`/`images`/
+`textures` 三個欄位根本不存在,不是程式哪裡漏接。**這條線上所有角色都一樣,
+只是主角是玩家會一直盯著看的那一個。**
+
+**選了「幾何五官」不是「重下帶貼圖的 FBX」**——後者要 kc 自己去 Mixamo 重載
+一次(要 Adobe 帳號,我這邊做不到),而且貼圖回來會跟既有換裝染色系統打架
+(`riggedCharacter()` 是整顆 material 換掉,不是疊 tint,見那個函式)。幾何
+五官純程式、零素材、隨時可退,先讓他看到臉。**這條路走不通再談重下 FBX。**
+
+**只有主角有**(`buildPlayer()` 呼叫,`buildNPC()` 沒有)——這就是 kc 說的
+「特化」,NPC 維持素臉。實作是 `scene-city3d.js` 的 `PLAYER_FACE` +
+`attachPlayerFace()`:左右瞳孔/左右眉毛/嘴共五片 plane 掛在 `mixamorigHead`
+底下跟著頭轉;眼白(`Eyes` mesh)用 Standard 吃光跟皮膚一起明暗,瞳孔/眉/嘴
+用 `MeshBasicMaterial` 不吃光——臉在暗巷/夜裡也讀得出五官,跟越式按摩黑洞
+那輪「Basic 不吃光」同一個材質理由,方向相反。
+
+**踩過的坑(下次掛任何東西到骨骼上都會再遇到)**:`head` 骨骼的 local 空間
+比 model 空間**大 100 倍**(Mixamo FBX 的 cm↔m 單位差,Armature 自己帶
+0.01 縮放)。位置不受影響——`localToWorld`→`worldToLocal` 來回換算會自動
+吃掉,順便也不用去猜骨骼朝向(Mixamo 的 head/eye bone 不保證 +Z 朝前,猜錯
+整組五官會貼到後腦杓);但**幾何尺寸不會**,第一版五官小 100 倍,肉眼等於
+沒畫。現在現場量兩邊的世界縮放相除當 `unitK`,不寫死 100。
+
+**還沒定案**:初始那組數字是照 `Eyes` mesh 的 bounding box 推的第一版,遊戲
+鏡頭下頭部只有幾十個像素,截圖判斷不了比例好不好看。`#bar`「主角五官滑桿」
+14 條滑桿(眼距/眼高/眼前後/瞳孔大小/眉毛四項/嘴巴四項+開關)給 kc 自己拉,
+拉完給數字寫死+拔滑桿,跟醫院站位/公車亭那批同一套慣例。室內鏡頭比較近,
+進超商/家裡調最準。
