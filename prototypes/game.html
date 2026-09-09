@@ -5587,18 +5587,29 @@ function tweakMassageDoorPanel(){
    IN.px/IN.py/MASSAGE_WORKER_PX/HERO_TARGET_PX.massage,滑桿直接改這幾個
    全域值就會即時生效,不用另外呼叫重繪。只有站在 PLACE==='massage'
    時開這組滑桿才看得出效果(進場才會顯示 workerIndoor)。 */
+/* 按摩室滑桿按鈕(2026-09-09,kc:「給我滑感 然後轉側面」)——跟醫院站位那顆
+   同一招:直接切進場景(不用付錢、不跑對話)+ 開滑桿面板。**調完跟我說數字,
+   我寫死並把這顆按鈕拔掉**,跟醫院那批滑桿同一套慣例。 */
+function debugTweakMassageScene(){
+  __dbg.viewMassage();
+  tweakMassageScenePanel();
+}
+window.debugTweakMassageScene = debugTweakMassageScene;
 function tweakMassageScenePanel(){
   const old = document.getElementById('massageSceneTweakPanel');
   if(old){ old.remove(); return; }
   const rows = [
     ['ms_px','玩家 X(IN.px)', 0, 640, 1, () => IN.px, v => IN.px = v],
-    ['ms_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 360, 1, () => IN.py, v => IN.py = v],
-    /* 順便同步 MASSAGE.spots 裡 'worker' 那個互動判定框的 x(2026-09-03,
-       走過去才觸發對話那輪加的),不然滑桿把人挪走了,判定框沒跟著動,
-       會變成站在她面前反而摸不到互動點。 */
-    ['ms_wpx','她的 X(MASSAGE_WORKER_PX)', 0, 640, 1, () => MASSAGE_WORKER_PX,
-      v => { MASSAGE_WORKER_PX = v; MASSAGE.spots.find(s=>s.id==='worker').x = v-40; }],
-    ['ms_scale','兩人縮放(HERO_TARGET_PX.massage)', 150, 400, 1, () => HERO_TARGET_PX.massage, v => HERO_TARGET_PX.massage = v]
+    ['ms_py','玩家 Y(IN.py,越大越靠近鏡頭)', 200, 400, 1, () => IN.py, v => IN.py = v],
+    /* 上限原本 400,2026-09-09 換上「她已經在照片裡」的新圖之後玩家要放大到
+       跟她對得上(560 起跳),舊上限一拉就到頂。放寬到 900,跟醫院站位滑桿
+       那次 400→900 同一個坑。 */
+    ['ms_scale','玩家縮放(HERO_TARGET_PX.massage)', 150, 900, 1, () => HERO_TARGET_PX.massage, v => HERO_TARGET_PX.massage = v],
+    /* 她現在是畫在背景照片裡的(2026-09-09),這條**只影響互動判定框**——
+       「走到哪裡按空白鍵搭得到話」,不再是 3D 角色的站位。拉的時候畫面上
+       不會有任何東西跟著動,是正常的。 */
+    ['ms_wpx','她的判定框 X(MASSAGE_WORKER_PX)', 0, 640, 1, () => MASSAGE_WORKER_PX,
+      v => { MASSAGE_WORKER_PX = v; MASSAGE.spots.find(s=>s.id==='worker').x = v-40; }]
   ];
   const panel = document.createElement('div');
   panel.id = 'massageSceneTweakPanel';
@@ -5609,13 +5620,21 @@ function tweakMassageScenePanel(){
       `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(0)}</span><br>
        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
     ).join('') +
-    '<div style="margin-top:4px;opacity:.7">關掉:再打一次 __dbg.tweakMassageScene()<br>拉到滿意後跟我說最終數字就好</div>';
+    `<div style="margin-bottom:8px">朝向(IN.face): <span id="ms_face_v">${IN.face}</span><br>
+     <button id="ms_face_btn" style="width:100%;padding:6px;margin-top:2px;background:#3a4152;color:#eee;border:1px solid #5a6478;border-radius:5px;cursor:pointer">切換左右</button></div>` +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「按摩室滑桿」按鈕<br>拉到滿意後跟我說最終數字,我寫死+拔掉滑桿</div>';
   document.body.appendChild(panel);
   rows.forEach(([id,,,,,get,set]) => {
     document.getElementById(id).addEventListener('input', e => {
       set(+e.target.value);
       document.getElementById(`${id}_v`).textContent = (+e.target.value).toFixed(0);
     });
+  });
+  /* 朝向切左右(2026-09-09,kc:「然後轉側面」)——跟醫院站位面板那顆同一招。
+     'R' 面向畫面右邊(她坐的方向),'L' 反過來。 */
+  document.getElementById('ms_face_btn').addEventListener('click', () => {
+    IN.face = IN.face === 'R' ? 'L' : 'R';
+    document.getElementById('ms_face_v').textContent = IN.face;
   });
 }
 /* 醫院室內站位/縮放滑桿(2026-09-04,kc:「主角3d人物要放進去 但不能
@@ -6044,7 +6063,7 @@ const HERO_TARGET_PX = {
      才不會像個小孩站在旁邊(截圖比對:她坐姿在畫面上約 430 logical px,站起來
      約 600,玩家原本只有 276,差了兩倍多)。560 是照這個比例推的,還沒經過
      kc 肉眼確認——`__dbg.tweakMassageScene()` 那組滑桿可以現場拉。 */
-  massage: 560   // 2026-09-03:原本靠 `?? HERO_TARGET_PX.store` 隱性借用同一個數字,
+  massage: 565   // 2026-09-09 kc 拉滑桿定案。原本靠 `?? HERO_TARGET_PX.store` 隱性借用同一個數字,
                     // kc 要滑桿調越式按摩室內站位/縮放,開一個真的獨立 key 讓滑桿有
                     // 東西可以寫,不要再隱性共用 store 那個(調 store 不該連動這裡)
 };
@@ -6138,7 +6157,7 @@ workerIndoor.group.visible = false;
    站位**(她已經畫進背景照片裡了,見 renderIndoor3D()),只剩下「走到哪裡按
    空白鍵才搭得到話」那個判定框在用。216 是照新圖裡她的位置換算的:她的身體
    中心大約在整張圖寬的 33.8%,640 × .338 ≈ 216。 */
-let MASSAGE_WORKER_PX = 216;
+let MASSAGE_WORKER_PX = 211;   // 2026-09-09 kc 拉滑桿定案
                                 // let 不是 const(2026-09-03):tweakMassageScenePanel() 滑桿要能現場改這個值
 /* 越式按摩室內走動邊界+互動點(2026-09-03,kc:「進去畫面之後 是我們人要
    走過去找他才會觸發對話 可以選擇 聊天 摸摸他 抱抱」)——原本整段是進場
@@ -6156,6 +6175,10 @@ const MASSAGE = {
   walkN: 270, walkS: 345,
   spots: [
     { id:'door',   name:'門口',   x:90,                  w:90, y0:300, y1:345 },
+    /* ⚠ 2026-09-09 起這兩個 spot 實際上都用不到了——玩家不能走動
+       (updateIndoor() 開頭就 return),spots 判斷根本不會跑;進場直接開
+       互動選單,離場由選項自己 leaveIndoor()。資料留著是為了「哪天又改回
+       可以走動」時不用重建,不是還在用。 */
     { id:'worker', name:'她',     x:MASSAGE_WORKER_PX-40, w:80, y0:300, y1:345 }
   ]
 };
@@ -7439,13 +7462,15 @@ function coSayChain(who, lines, i, after){
 }
 
 function updateIndoor(dt){
-  /* 越式按摩室內(2026-09-03 推翻):原本整段擋掉移動(kc 明講「不用走動」),
-     這輪 kc 要求改成「走過去找她才會觸發對話」,跟下面正常的 spots
-     判斷共用同一套機制,見上面 MASSAGE 那則長筆記——不再特判擋掉。 */
-  /* 醫院(2026-09-02)——跟越式按摩不同,這是 playBeats() 鎖住輸入
-     的一次性演出,見上面「阿嬤在醫院」那則長筆記跟 scene-hospital.js
-     開頭的說明。 */
-  if(PLACE === 'hospital') return;
+  /* 越式按摩室內——**2026-09-09 又改回不能走動**(kc:「人物不能走動 但可以
+     摸摸他」)。這條前後翻過三次,記清楚免得下次又照中間某一版理解:
+     ① 2026-08-20 kc:「不用走動,只是對話場景」→ 整段擋掉移動。
+     ② 2026-09-03 kc:「是我們人要走過去找他才會觸發對話」→ 拿掉特判,
+        改成跟一般室內一樣可以走、走到她旁邊按空白鍵才觸發。
+     ③ 2026-09-09(現行)——她已經畫進背景照片裡了,玩家站在固定位置就跟
+        她面對面,沒有「走過去」的空間;改回擋掉移動,進場直接開互動選單
+        (見 enterMassage())。醫院也是同一個模式。 */
+  if(PLACE === 'massage' || PLACE === 'hospital') return;
   /* 偷玩手遊小遊戲進行中(2026-08-31)——跟下面 ARCADE_ANIM 那段同精神,
      整段搶走輸入,每幀跑 tickPhoneGame() 算警示計時+重畫。 */
   if(PHONE_GAME.active){ tickPhoneGame(dt); IN.near = null; return; }
@@ -8326,10 +8351,15 @@ function enterMassage(w){
        會觸發對話」)——原本直接站在她面前(IN.px=190 貼著 workerIndoor
        的 290),現在要走過去才有意義,退到門口/簾子那側(MASSAGE 那組
        spots 的 'door',見上面長筆記),face 用 'F' 面朝房間裡走。 */
-    IN.px = 110; IN.py = 320; IN.face = 'F';
+    /* 站位定案(2026-09-09,kc 自己拉滑桿拉到滿意的最終數字)——側身面向
+       她坐的方向。不能走動,所以這組就是他整場站的地方。 */
+    IN.px = 107; IN.py = 340; IN.face = 'R';
     document.getElementById('where').textContent = '越式按摩';
     hintEl.classList.remove('on');   // 進場前殘留的「按空白鍵搭話」提示清掉,updateIndoor() 這個 PLACE 不會再幫忙清
     paintMassageBackdrop();
+    /* 不能走動(kc:「人物不能走動 但可以摸摸他」)→ 沒有「走過去按空白鍵」
+       這一步了,進場直接開互動選單,跟醫院 visitGrandma() 同一個模式。 */
+    talkToWorkerIndoor();   // 它自己讀 ALLEY_WORKER,不用傳
   });
 }
 /* 越式按摩室內・走過去找她(2026-09-03,kc:「是我們人要走過去找他才會
@@ -13399,7 +13429,7 @@ window.__dbg = {
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 110; IN.py = 320; IN.face = 'F'; IN.near = null;
+    IN.px = 107; IN.py = 340; IN.face = 'R'; IN.near = null;
     document.getElementById('where').textContent = '越式按摩';
     paintMassageBackdrop();
     return { mode:MODE, imgComplete:massageImg.complete, w:massageImg.naturalWidth, h:massageImg.naturalHeight, src:massageImg.src };

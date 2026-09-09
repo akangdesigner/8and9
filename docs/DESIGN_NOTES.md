@@ -6834,6 +6834,24 @@ NPC 都適用),三個都改成面向走道方向後修好。這輪 kc 打斷說�
 新增 `__dbg.viewMassage()`(比照 `viewHospital()`):直接切進這個場景看背景,
 不用付錢也不跑對話,單獨檢查圖有沒有畫上去用。
 
+**站位定案 + 改回不能走動(同一天,kc 拉完滑桿:「人物不能走動 但可以摸摸他」)**
+——`IN.px=107` / `IN.py=340` / 朝向 `R`(側身面向她)/ `HERO_TARGET_PX.massage=565`
+/ `MASSAGE_WORKER_PX=211`,`#bar` 那顆「按摩室滑桿」按鈕已經拔掉。
+
+⚠ **「能不能走動」這條前後翻過三次,不要照中間任何一版理解現在的行為**:
+1. 2026-08-20 kc:「不用走動,只是對話場景」→ `updateIndoor()` 整段擋掉移動。
+2. 2026-09-03 kc:「是我們人要走過去找他才會觸發對話」→ 拿掉特判,改成可以走、
+   走到她旁邊按空白鍵才觸發。
+3. **2026-09-09(現行)**——她已經畫進背景照片裡了,玩家站在固定位置就跟她
+   面對面,沒有「走過去」的空間;改回擋掉移動(`PLACE === 'massage'` 併進
+   `updateIndoor()` 開頭那行 hospital 的 return),**進場直接開互動選單**
+   (`enterMassage()` 尾端呼叫 `talkToWorkerIndoor()`),跟醫院
+   `visitGrandma()` 同一個模式。三個選項(聊天/摸摸她/抱抱)沒動,選完
+   一樣各自 `leaveIndoor()`。
+
+`MASSAGE.spots` 那兩個判定框(door/worker)現在實際上用不到了(不能走動 →
+spots 判斷不會跑),資料留著是為了「哪天又改回可以走動」不用重建,不是還在用。
+
 **第十七輪,kc:「另外兩個妓女也要有一些像路人的對話吧 不要頭像那種」**
 ——alleyWorker2/alleyWorker3 加 `ALLEY_WORKER2`/`ALLEY_WORKER3` 兩個資料
 物件,借 nearProp `'pedestrian'` 那條共用路徑(跟圓環雕像 `statueLine`、
