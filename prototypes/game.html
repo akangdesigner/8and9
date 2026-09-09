@@ -616,7 +616,7 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button><button class="tool" onclick="debugTweakHospitalScene()">醫院站位滑桿</button></div>
+<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button><button class="tool" onclick="debugTweakHospitalScene()">醫院站位滑桿</button><button class="tool" onclick="debugGrandmaMonthly()">阿嬤月結算</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1572,6 +1572,27 @@ window.debugTweakHospitalScene = debugTweakHospitalScene;
    方便測剛接的阿嬤大頭貼。 */
 function debugTriggerGrandma(){ triggerGrandmaCall(); }
 window.debugTriggerGrandma = debugTriggerGrandma;
+/* 阿嬤月結算(2026-09-09)——DESIGN_NOTES「醫院探望+續命」那節自己標記
+   「還沒驗證過續命月結算真的跑一輪」,但要等 30 天太久(+7天 按五次還
+   要中間穿插探望/餵食)。這顆直接把 GRANDMA.nextCheckDay 拉到今天再叫
+   checkGrandmaMonthly(),當場看到「撐過」或「死訊」哪一條。還沒觸發
+   day16 電話的話順手補上 critical=true(電話那條路本身有「阿嬤那天」
+   那顆按鈕可以單獨測,這裡不重複走一次),不然 checkGrandmaMonthly()
+   第一行就 return,按了沒反應會看起來像壞掉。 */
+function debugGrandmaMonthly(){
+  if(GRANDMA.dead){ toast('阿嬤已經走了,這個月結算不會再跑。', 2600); return; }
+  if(!GRANDMA.critical){
+    GRANDMA.critical = true;
+    toast('(測試)先把阿嬤標成病危狀態,再結算。', 2400);
+  }
+  const v = GRANDMA.visits, f = GRANDMA.feeds;
+  GRANDMA.nextCheckDay = day;
+  setTimeout(() => {
+    toast(`結算前:探望 ${v}/${GRANDMA_VISITS_NEEDED}、餵食 ${f}/${GRANDMA_FEEDS_NEEDED}`, 2600);
+    setTimeout(checkGrandmaMonthly, 700);
+  }, 400);
+}
+window.debugGrandmaMonthly = debugGrandmaMonthly;
 const fmtTime = m => String((m/60|0)%24).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
 function syncHUD(){
   set('pMoney', '$' + ST.money, null);
