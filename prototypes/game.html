@@ -1291,9 +1291,13 @@ function askMeiQuestion(){
 const PHONE_BG_IMG = new Image();
 PHONE_BG_IMG.src = '../assets/bg/school-phone.png?v=1';
 const PHONE_REACT_WINDOW = 650;   // ms,警示出現後要按下的時限,反應太慢算被抓
-const PHONE_GAME = { active:false, round:0, totalRounds:3, warning:false, warnT:0, sinceLast:0, nextWarnAt:0 };
-function startPhoneGame(){
+const PHONE_GAME = { active:false, round:0, totalRounds:3, warning:false, warnT:0, sinceLast:0, nextWarnAt:0, onDone:null };
+/* onDone(2026-09-09)——手遊有三種收尾(撐過去/自己嚇到收手/被教官抓),
+   全部收斂在 endPhoneGame()。上課那條路要在「這節課真的結束」之後才放學,
+   所以把回呼存起來,由 endPhoneGame() 統一叫。 */
+function startPhoneGame(onDone){
   if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+  PHONE_GAME.onDone = onDone || null;
   chg('stamina', -5);   // advanceTime 交給 chg() 裡「扣體力換算時間」那條統一算,不在這裡重複扣
   busy = true;
   coFade('偷滑手機', async () => {
@@ -1374,6 +1378,8 @@ function endPhoneGame(success, jitterLine){
   PHONE_GAME.active = false;
   busy = false;
   paintSchoolBackdrop();
+  const done = PHONE_GAME.onDone; PHONE_GAME.onDone = null;
+  if(done) done();          // 上課那條路用來「這節課上完了 → 放學」,見 finishSchoolDay()
   if(success){
     chg('mood', 6);
     toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
@@ -6777,14 +6783,14 @@ function openIndoorSpot(id){
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           deskActionDay = day;
           chg('stamina', -10); chg('mood', -5);   // advanceTime 交給 chg() 統一算
-          askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
+          askStudyQuestion(correct => { if(correct) studyGainKnowledge(); finishSchoolDay(); });
         } },
         { label:'偷玩手遊',
           cost:'體力 −5　50 分鐘　成功 +情緒／被抓 −風評−歸屬感',
           cls:'risk', run:() => {
           if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
           deskActionDay = day;
-          startPhoneGame();
+          startPhoneGame(finishSchoolDay);   // 手遊結束(撐過去或被抓)才放學,見 startPhoneGame()
         } },
         /* 小考換成績單(2026-09-01,見上面 maybeAnnounceExam() 那則長筆記)——
            選單裡只有「老師已經宣布過、而且不是宣布的當次進教室」才會出現
@@ -7832,6 +7838,17 @@ function fade(label, mid){
  *
  * ⚠ 廟口用的是**現有場景**(廟埕、供桌那一帶),沒有為這節新做地點——舊版設在
  * 「後面的樓梯間」,遊戲裡沒有那個地方,這是 kc 打回來的原因之一。 */
+/* 「放學」怎麼定義(2026-09-09,kc:「怎麼定義放學 當用戶選擇玩遊戲或讀書
+   應該就放學了 然後會跳時間 這樣」)——**做完座位那件事就是放學**(認真上課
+   / 偷玩手遊 / 考小考,`deskActionDay === day` 那套一天一次的判斷本來就在了),
+   時間直接跳到 SCHOOL_OUT_MINUTE。原本只有 chg() 依體力換算的那 50~100 分鐘,
+   上完課還是早上,「放學後去哪」這種任務講不通。
+   已經比放學晚才做(玩家中午才到學校之類)就不倒退時間,只跳提示。 */
+const SCHOOL_OUT_MINUTE = 16*60;
+function finishSchoolDay(){
+  if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
+  toast('放學了。', 2200);
+}
 const KAI_TEMPLE = { pending:false, done:false, joined:false, missed:false };
 const KAI_TEMPLE_POS = { x:18, z:-91 };      // 校外教學那套 CLASSMATE_TEMPLE_POS.kai 的同一個位置
 const KAI_TEMPLE_RANGE = 7;                  // 走多近算「走到了」,跟其他 nearProp 判斷同量級
@@ -7846,6 +7863,9 @@ function moveKaiToTemple(){
 function checkKaiTemple(){
   if(!KAI_TEMPLE.pending || KAI_TEMPLE.done) return;
   if(MODE !== 'city' || gameOver || busy || dlg.on) return;
+  /* 阿凱說的是「**放學**過來」,所以要今天真的上完課才算數(見
+     finishSchoolDay())——不然玩家被約完直接翹課走去廟口,對不上台詞。 */
+  if(deskActionDay !== day) return;
   const p = hero.group.position;
   if(Math.hypot(p.x - KAI_TEMPLE_POS.x, p.z - KAI_TEMPLE_POS.z) > KAI_TEMPLE_RANGE) return;
   KAI_TEMPLE.done = true;
@@ -7932,7 +7952,12 @@ const DAY_TODO = {
      算「今天有事」(hasStoryToday() 不變,不會跳過渡選項),只是不主動叫玩家
      去哪。要放回來之前先跟 kc 過一輪內容跟場景。
      day18(班費失竊)留著:那條是 kc 自己起案、自己上機驗證過的。 */
-  5:  { line:'今天要上學。',                     quest:'去學校' },
+  /* 2026-09-09 kc:「不要講今天要上學 就只要說今天期中考 之類的」——早上那句
+     要是「今天學校有什麼具體的事」,不是廢話。day5 真正的事(阿凱約你)是進
+     教室才發生的,早上先講會爆雷,所以改成一句預告他、但不說內容的:
+     **不確定這是不是 kc 要的方向,他舉的例子是「今天期中考」那種明確事件,
+     這條要換成什麼跟我說一聲。** */
+  5:  { line:'昨天阿凱在群組裡問你今天會不會到。', quest:'去學校' },
   18: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }
 };
 /* 「有就更新、沒有才新增」——跟 updateGrandmaQuestHint() 同一套慣例。
