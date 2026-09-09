@@ -7823,9 +7823,14 @@ function fade(label, mid){
    本來就有事,只是還沒發生。三條線全部算,外加寫死日子的主線事件
    (day16 阿嬤病危那通電話)。 */
 function hasStoryToday(){
-  const byNode = [['bet', StoryBet], ['drink', StoryDrink], ['school', StorySchool]]
+  const home = [['bet', StoryBet], ['drink', StoryDrink]]
     .some(([key, src]) => src.NODES.some(n => n.day === day) && !seenStoryDays.has(key + '-' + day));
-  return byNode || (day === GRANDMA_CALL_DAY && !hospitalCallFired);
+  /* 學校線只算還在用的那幾天(封存的 21/28/36 不算,不然那三天會變成「有事
+     但什麼都不會發生」的空白日,連過渡選項都拿不到)。day18 走 checkFieldTrip()
+     自己那條路,要另外算進來。 */
+  const school = (SCHOOL_ACTIVE_DAYS.includes(day) || day === 18)
+    && !seenStoryDays.has('school-' + day) && !CLASSFUND.tripStarted;
+  return home || school || (day === GRANDMA_CALL_DAY && !hospitalCallFired);
 }
 /* 「今天有事」的日子,睡醒用一句話帶過 + 跳一張任務卡(2026-09-09,kc:
    「這種可以會是用一句話帶過 比如校外教學 可以是 你突然想到今天要去校外教學
@@ -8060,7 +8065,8 @@ function warpIntoPlace(door){
     paintStoreBackdrop();
     /* story-school.js day36(鮮食櫃)——這節設在超商,不是校內,見
        maybeTriggerStoryNode() 旁邊的長筆記(2026-09-01)。 */
-    maybeTriggerStoryNode([['school', schoolStorySource([36])]]);
+    /* day36(鮮食櫃)原本接在這裡(這節設在超商不是校內)。2026-09-09 封存,
+       見 SCHOOL_ACTIVE_DAYS——劇本還在 story-school.js,要放回來把這行接回去。 */
   } else if(PLACE === 'school'){
     /* 一進門站在走廊門口(SCHOOL.spots id:'door',在畫面右側,見
        scene-school.js「往右走可以走到走廊」那則筆記),照 store 的
@@ -8079,7 +8085,7 @@ function warpIntoPlace(door){
        兩階段都要靠「進教室」這個動作觸發,跟 day5/21 那套 day-based
        節點是平行的兩套機制,不要合併。撞到的話(回傳 true)就不要再檢查
        下面那批,一次進場只彈一段。 */
-    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5, 21])]], maybeAnnounceExam);
+    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);
   } else if(PLACE === 'arcade'){
     /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
        scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
@@ -8274,7 +8280,8 @@ function enterCorridor(){
        (見 talkToTeacher() 上面那則)寫這節該掛在教室門口那支,但實際接
        的時候發現「一進走廊就播」跟 home 那套「一進客廳就播」是同一招,
        不用另外攔在門的 click handler 裡,2026-09-01 定案接這裡。 */
-    maybeTriggerStoryNode([['school', schoolStorySource([28])]]);
+    /* day28(導師找你)原本接在這裡(「一進走廊就播」)。2026-09-09 封存,
+       見 SCHOOL_ACTIVE_DAYS。 */
     checkGrandmaCall();
   });
 }
@@ -8285,7 +8292,7 @@ function leaveCorridorToClassroom(){
     IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
-    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5, 21])]], maybeAnnounceExam);
+    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);
     checkGrandmaCall();
   });
 }
@@ -9029,6 +9036,13 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
  * 地點不同,這裡照呼叫點篩出「只有這幾天才輪得到這裡問」的子集,避免
  * A 地點的節點在 B 地點被誤觸發(例如玩家在 day13 那天先走進教室,不該
  * 在教室裡就播出「放學,校門口那排車」這種對不上場景的台詞)。 */
+/* story-school.js 現在還在用的節點(2026-09-09,kc:「我只要d5 跟d13 其他封存」)
+   ——day21(午休打牌)/day28(導師找你)/day36(鮮食櫃)**封存**,劇本留在
+   story-school.js 裡但不接進遊戲,理由跟 story-work/hit/gone/bf 那四條冰存的
+   家庭線一樣:寫好了但沒定案,不要讓沒確認過的內容在玩家面前跑。
+   day18(班費)不在這個清單裡是因為它走 checkFieldTrip() 自己那條路,不經過
+   schoolStorySource()。 */
+const SCHOOL_ACTIVE_DAYS = [5, 13];
 function schoolStorySource(days){
   return { NODES: StorySchool.NODES.filter(n => days.includes(n.day)) };
 }
