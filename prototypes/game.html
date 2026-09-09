@@ -5634,8 +5634,7 @@ function tweakPatPanel(){
     ['pt_px','玩家站位 X(離她多近)', 60, 210, 1, () => IN.px, v => IN.px = v, 0],
     ['pt_ax','肩膀前後(越負越往前抬)', -2.2, .6, .01, () => P.rArmX, v => P.rArmX = v, 2],
     ['pt_az','肩膀側向(收側向分量)', -1.2, 1.2, .01, () => P.rArmZ, v => P.rArmZ = v, 2],
-    ['pt_fx','手肘(越負手越往上)', -1.6, .6, .01, () => P.rForeX, v => P.rForeX = v, 2],
-    ['pt_hy','手腕翻轉(手掌變薄片時轉這條)', -2.0, 2.0, .05, () => P.rHandY, v => P.rHandY = v, 2]
+    ['pt_fx','手肘(越負手越往上)', -1.6, .6, .01, () => P.rForeX, v => P.rForeX = v, 2]
   ];
   const panel = document.createElement('div');
   panel.id = 'patTweakPanel';
@@ -8502,7 +8501,6 @@ const HERO_GESTURE = { kind:null, t:0, dur:1500, hold:false };
    筆記。0.3 是抓的:分太少還是會破圖,分太多整個肩膀會聳起來。 */
 const SHOULDER_SHARE = .3;
 let gestureShoulder;   // undefined = 還沒找過,null = 這副骨架沒有鎖骨
-let gestureHand;       // 同上,手腕(把被扭轉的手掌轉回來用)
 /* ⚠ **左右手的 Z/Y 要反號**——`applyRidePose()` 那邊寫得很清楚(左手
    `rotateZ(armZ)`、右手 `rotateZ(-armZ)`),第一版兩隻手用同一個正負號,結果
    手臂往後彎、看起來像在抓自己的背(kc:「你動作做錯了吧」)。這裡的 rArmZ/
@@ -8511,10 +8509,15 @@ let gestureHand;       // 同上,手腕(把被扭轉的手掌轉回來用)
    往外張開,兩軸一起轉才讀得成「往前伸」)。RIDE_POSE 的「往前平伸」是
    armX:-.7/armZ:.2,這裡以那組為基準加減。 */
 const GESTURE_POSE = {
-  /* rHandY(2026-09-09,kc 截圖手掌變成一片薄片)——上臂轉 Z 的時候整條手臂會
-     沿長軸扭轉,手掌跟著側過來;手本來就是扁的,側 90 度從這個鏡頭看就是一片
-     尖片,看起來像破圖。繞手腕的長軸轉回來就正常了。 */
-  pat: { rArmX:-1.41, rArmZ:-.30, rForeX:-.35, rHandY:1.4, lArmX:0, lArmZ:0, lForeX:0 }
+  /* ⚠ **手掌從這個鏡頭看是側的(薄的)**,這是骨骼硬轉的極限,不是 bug:上臂
+     的複合旋轉會讓整條手臂沿長軸帶著轉,手掌跟著側過來。
+     曾經加過 `rHandY`(繞手腕長軸轉回來)硬把掌心翻正,**2026-09-09 被 kc 打掉**
+     ——「不要亂翻轉就說會破圖」,那是拿一層補償去蓋另一層扭轉,不是修好。
+     試過的替代方案都不行:側向那條(rArmZ)拿掉手就往鏡頭外偏、手臂看起來變短;
+     站更近 + 小角度,手掌一樣是側的而且會穿過她的下巴。
+     **要乾淨只能用真的動畫檔**(Mixamo 搜 reaching / touching / caress,走
+     tools/fbx2glb.py 接成 once 動作),那要 Adobe 帳號登入,我做不到。 */
+  pat: { rArmX:-1.41, rArmZ:-.30, rForeX:-.35, lArmX:0, lArmZ:0, lForeX:0 }
   /* ⚠ 「抱抱」2026-09-09 被 kc 刪掉(連同它的 hug 姿勢)——側身視角 + 她坐著,
      骨骼硬轉做不出擁抱(手往前伸的高度剛好穿過她的臉,往兩側張開在側面又看不
      出來,試了六版)。要加回來得先有真的動畫檔。
@@ -8557,11 +8560,6 @@ function applyHeroGesture(dt){
   }
   b.RightArm.rotateX(p.rArmX * (1 - share) * k); b.RightArm.rotateZ(p.rArmZ * (1 - share) * k);
   if(b.RightForeArm) b.RightForeArm.rotateX(p.rForeX * k);
-  if(p.rHandY){
-    if(gestureHand === undefined)
-      gestureHand = heroIndoor.group.getObjectByName('mixamorigRightHand') || null;
-    if(gestureHand) gestureHand.rotateY(p.rHandY * k);
-  }
   if(p.lArmX && b.LeftArm){
     b.LeftArm.rotateX(p.lArmX * k); b.LeftArm.rotateZ(p.lArmZ * k);
     if(b.LeftForeArm) b.LeftForeArm.rotateX(p.lForeX * k);
