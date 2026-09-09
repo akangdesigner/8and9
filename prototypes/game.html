@@ -909,7 +909,15 @@ import { CITY, CAM, PLAYER, PLAYER_FACE, buildCity, buildPlayer, buildNPC, RIDE_
 /* cool 開局 8→11(2026-08-28,kc)——原本 8 已經低於「過低警示」新門檻
    (10),一開局帥潮血條就是紅框閃爍,kc 看到上一輪筆記後決定拉高一點,
    剛好跨過門檻,不是要把帥潮定位改掉。 */
-const ST = { money:2000, full:42, calm:55, cool:11, mood:60, stamina:100, star:-30 };
+/* 起始值有兩組(2026-09-09,kc:「飽足感先幫我補滿 之後正式的時候金錢起始500
+   其他數值都是30 帥潮0 風平0」)——現在用開發那組,**正式發布前把下面那行的
+   ST_START_DEV 換成 ST_START_RELEASE 就好**,不要到時候再一個一個改數字。
+   - DEV:錢多、飽足滿,開發時不用一直跑去吃東西/賺錢才能測後面的東西。
+   - RELEASE:kc 定的正式起手——$500、飽足/歸屬感/情緒/體力都 30、帥潮 0、
+     風評 0。開場就是「什麼都沒有、什麼都是別人給的標籤」那個狀態。 */
+const ST_START_DEV     = { money:2000, full:100, calm:55, cool:11, mood:60, stamina:100, star:-30 };
+const ST_START_RELEASE = { money:500,  full:30,  calm:30, cool:0,  mood:30, stamina:30,  star:0  };
+const ST = { ...ST_START_DEV };
 /* 指標上限(2026-08-27,kc:「算命攤道具甚至體力上限增加這種」)——原本
    chg() 對 full/calm/cool/mood/stamina 一律寫死封頂在 100,這是遊戲第一次
    出現「上限本身可以被墊高」的道具,所以拆出一張獨立的上限表,chg() 改
