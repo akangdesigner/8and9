@@ -4460,6 +4460,11 @@ function applyRidePose(bones){
  * **只有主角有**(buildPlayer 呼叫,buildNPC 沒有)——這就是 kc 說的「特化」;
  * NPC 維持原本的素臉,主角是玩家唯一會一直盯著看的那一個。
  *
+ * ⚠ **第一版還畫了眉毛跟嘴,2026-09-09 同一天被 kc 拿掉**(「你用回預設的
+ * 而且太多滑感很難跳 重點是眼睛」)——臉的其他部分回到預設素臉,只留眼睛,
+ * 滑桿也從 14 條砍到 4 條。要加回眉毛/嘴請先問過他,不要看到「五官」這個
+ * 詞就以為本來就該有三件。
+ *
  * 座標單位是**原始 glb 單位**(角色原始身高 3.65,不是場景的 PLAYER.height=4.0)
  * ——五官掛在 mixamorigHead 骨骼底下,attachPlayerFace() 用 localToWorld →
  * worldToLocal 換算,不用去猜那根骨骼自己的朝向(Mixamo 的 eye/head bone
@@ -4469,10 +4474,11 @@ function applyRidePose(bones){
  * 醫院站位/公車亭那批同一套慣例。 */
 export const PLAYER_FACE = {
   on: true,
+  /* eyeCX 是兩眼「整組」的左右偏移,不是滑桿——Remy 的頭本身就不對稱
+     (Eyes mesh 的 x 範圍 -0.086~0.106,中心落在 +0.01 不是 0),寫死照著
+     那個中心走就好,不用開一條滑桿讓 kc 再去對一次。 */
   eyeCX: .010, eyeDX: .048, eyeY: 3.502, eyeZ: .222, irisR: .017,
-  browY: 3.556, browZ: .224, browW: .052, browH: .010, browTilt: .14,
-  mouthY: 3.408, mouthZ: .232, mouthW: .044, mouthH: .009,
-  iris: 0x231a13, brow: 0x1c1611, mouth: 0x7a4740, sclera: 0xf1ece1
+  iris: 0x231a13, sclera: 0xf1ece1
 };
 
 /* 把五官掛到頭骨上。回傳 { apply } 給滑桿即時重畫;拿不到 mixamorigHead
@@ -4491,7 +4497,7 @@ function attachPlayerFace(THREE, model){
 
   const mk = c => new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
                                  new THREE.MeshBasicMaterial({ color:c }));
-  const P = { irisL:mk(F.iris), irisR:mk(F.iris), browL:mk(F.brow), browR:mk(F.brow), mouth:mk(F.mouth) };
+  const P = { irisL:mk(F.iris), irisR:mk(F.iris) };
   Object.values(P).forEach(m => { m.renderOrder = 5; head.add(m); });
 
   const v = new THREE.Vector3(), qh = new THREE.Quaternion(), qm = new THREE.Quaternion();
@@ -4524,15 +4530,9 @@ function attachPlayerFace(THREE, model){
     if(!F.on) return;
     if(sclera) sclera.material.color.setHex(F.sclera);
     P.irisL.material.color.setHex(F.iris); P.irisR.material.color.setHex(F.iris);
-    P.browL.material.color.setHex(F.brow); P.browR.material.color.setHex(F.brow);
-    P.mouth.material.color.setHex(F.mouth);
     const d = F.irisR * 2;
     place(P.irisL, F.eyeCX - F.eyeDX, F.eyeY, F.eyeZ, d, d);
     place(P.irisR, F.eyeCX + F.eyeDX, F.eyeY, F.eyeZ, d, d);
-    /* 眉毛往中間壓一點點(外高內低那個角度),兩邊 tilt 反向才對稱 */
-    place(P.browL, F.eyeCX - F.eyeDX, F.browY, F.browZ, F.browW, F.browH, +F.browTilt);
-    place(P.browR, F.eyeCX + F.eyeDX, F.browY, F.browZ, F.browW, F.browH, -F.browTilt);
-    place(P.mouth, F.eyeCX, F.mouthY, F.mouthZ, F.mouthW, F.mouthH);
   }
   apply();
   return { apply, parts:P };
