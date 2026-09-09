@@ -462,6 +462,173 @@
   #gameOver .goText { font-size:16px; line-height:2; color:#dfe4ea; max-width:640px; margin-bottom:28px; }
   #gameOver .tool { padding:8px 20px; }
 
+  /* 開局落點表(2026-09-09 從 prototypes/start-school.html 接進來)——原型的
+     CSS 原封不動搬過來,只做兩件事:全部 id/class/keyframes 加 sp_ 前綴(不然
+     .n/.d/.p/.g 這種短名字會跟 game.html 既有樣式互撞)、字型變數改成 --sp-*。
+     原型另外還載了 Google Fonts 的 Noto Serif TC,這裡不載——CLAUDE.md 的
+     零依賴那條,fallback 到系統的明體/楷體,公文感反而更接近。 */
+  :root { --sp-serif:"Noto Serif TC","Source Han Serif TC","PMingLiU","MingLiU",serif;
+          --sp-kai:"DFKai-SB","BiauKai","標楷體",var(--sp-serif); --sp-red:#a8281f; }
+  #schoolPick { position:fixed; inset:0; z-index:210; display:none;
+        align-items:center; justify-content:center; font-family:var(--sp-serif); color:#cfd4dc;
+        background:
+          radial-gradient(ellipse 70% 60% at 46% 38%, #3a3630 0%, #2a2a30 40%, transparent 70%),
+          radial-gradient(ellipse 90% 80% at 48% 45%, #34302a 0%, #22232a 45%, #14161b 100%); }
+  #schoolPick.on { display:flex; }
+  #schoolPick::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:3;
+        background: radial-gradient(ellipse 60% 64% at 50% 46%, transparent 38%, rgba(6,7,10,.74) 100%); }
+  #sp_noise { position:absolute; inset:0; pointer-events:none; opacity:.5; mix-blend-mode:overlay; z-index:4; }
+
+  .sp_wrap {
+    position: relative; z-index: 2; display: flex; align-items: center; gap: 54px;
+  }
+
+  /* ---------- 左：標題 ---------- */
+  #sp_side { width: 300px; text-align: right; transition: opacity .6s; }
+  .sp_step { font-size: 12px; letter-spacing: .45em; color: #7d838f; margin-bottom: 10px; }
+  .sp_ask  { font-size: 40px; font-weight: 500; letter-spacing: .28em; color: #f0ece4;
+          margin: 0 0 14px; text-shadow: 0 2px 20px rgba(0,0,0,.6); }
+  .sp_askSub { font-size: 14px; line-height: 2.1; letter-spacing: .1em; color: #838a97; }
+
+  /* ---------- 右：紙 ---------- */
+  #sp_paper {
+    position: relative; width: 580px; height: min(700px, 88vh);
+    color: #2b2620; transform: rotate(-.4deg);
+    box-shadow: 0 2px 4px rgba(0,0,0,.35), 0 18px 40px rgba(0,0,0,.55), 0 44px 90px rgba(0,0,0,.4);
+    animation: sp_land .8s cubic-bezier(.2,.9,.3,1) both;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  @keyframes sp_land { from { opacity:0; transform: rotate(-2.2deg) translateY(-24px) scale(1.03); } }
+  #sp_paper.sp_out { animation: sp_fly .7s cubic-bezier(.5,0,.8,.2) both; }
+  @keyframes sp_fly { to { opacity:0; transform: rotate(1.6deg) translateY(40px) scale(.97); } }
+
+  /* 成績單：釘在上面，你往下捲的時候它一直看著你 */
+  .sp_head { flex: 0 0 auto; padding: 26px 34px 14px; position: relative; }
+  .sp_head::after {
+    content:''; position:absolute; left:0; right:0; bottom:-14px; height:14px;
+    background: linear-gradient(rgba(60,50,35,.16), transparent); pointer-events:none;
+  }
+  .sp_ptitle { text-align:center; font-size: 19px; letter-spacing: .42em; text-indent:.42em;
+            font-weight: 500; color:#241f19; }
+  .sp_psub   { text-align:center; font-size: 10.5px; letter-spacing: .35em; text-indent:.35em;
+            color:#8b8172; margin-top: 5px; }
+  .sp_r1 { height:2px; background:#5f5748; margin:14px 0 2px; }
+  .sp_r2 { height:1px; background:#5f5748; margin:0 0 14px; }
+
+  .sp_nameRow { display:flex; font-size:13.5px; margin-bottom: 12px; color:#4e4738; }
+  .sp_nameRow .sp_k { letter-spacing:.4em; }
+  .sp_nameRow .sp_u { flex:1; border-bottom:1px solid #7a7160; margin: 0 18px 0 8px; }
+  .sp_nameRow .sp_n { letter-spacing:.1em; }
+
+  .sp_grades { display:flex; justify-content:space-between; text-align:center; }
+  .sp_g { flex:1; }
+  .sp_g .sp_s { font-size:12px; letter-spacing:.2em; color:#5c5445; }
+  .sp_g .sp_v { font-size:27px; font-family:var(--sp-kai); color:#1e1a15; margin-top:2px; letter-spacing:.06em; }
+  .sp_g.sp_hi .sp_v { color:#1e1a15; }
+  .sp_total {
+    margin-top: 12px; text-align:right; font-size:13.5px; color:#4e4738; letter-spacing:.1em;
+  }
+  .sp_total b { font-family:var(--sp-kai); font-size:22px; color:#1e1a15; font-weight:400; margin-left:6px; }
+
+  /* 落點表：捲動區 */
+  .sp_listWrap { flex:1; overflow-y: auto; padding: 6px 34px 34px; position: relative; }
+  .sp_listWrap::-webkit-scrollbar { width: 7px; }
+  .sp_listWrap::-webkit-scrollbar-track { background: rgba(120,105,80,.10); }
+  .sp_listWrap::-webkit-scrollbar-thumb { background: rgba(90,78,55,.45); border-radius: 4px; }
+
+  .sp_listCap { font-size: 11px; letter-spacing:.3em; color:#8b8172; margin: 6px 0 4px; }
+  .sp_listNote { font-size: 10.5px; letter-spacing:.06em; color:#9b917f; margin-bottom: 14px; }
+
+  .sp_sch {
+    display:flex; align-items:baseline; padding: 8px 4px 8px 14px;
+    border-bottom: 1px dotted #b3a794; position: relative;
+  }
+  .sp_sch .sp_n { flex:1; font-size:16px; letter-spacing:.1em; color:#241f19; }
+  .sp_sch .sp_d { font-size:12px; letter-spacing:.08em; color:#6d6455; margin-right:14px; }
+  .sp_sch .sp_p { font-size:13px; font-family:var(--sp-kai); color:#463f33; width: 34px; text-align:right; }
+
+  .sp_sch.sp_no { opacity:.30; cursor: default; }
+  .sp_sch.sp_ok { cursor: pointer; transition: transform .2s cubic-bezier(.2,.8,.3,1); }
+  .sp_sch.sp_ok::before {
+    content:''; position:absolute; left:0; top:50%; width:3px; height:0; background:var(--sp-red);
+    transform: translateY(-50%); transition: height .22s cubic-bezier(.2,.8,.3,1);
+    box-shadow: 0 0 10px rgba(168,40,31,.75);
+  }
+  .sp_sch.sp_ok:hover { transform: translateX(7px); }
+  .sp_sch.sp_ok:hover::before { height: 74%; }
+  .sp_sch.sp_ok:hover .sp_n { color:#000; }
+
+  /* 那條線：線以上你都不用看了 */
+  .sp_cut { position: relative; margin: 18px 0 16px; }
+  .sp_cut hr { border:0; border-top: 2px dashed var(--sp-red); opacity:.85; margin:0; }
+  .sp_cut .sp_lab {
+    position:absolute; right:0; top:-17px; font-size:11px; letter-spacing:.14em;
+    color: var(--sp-red); background: transparent; padding-left: 8px;
+  }
+  .sp_cut .sp_lab2 {
+    position:absolute; left:0; top:6px; font-size:11px; letter-spacing:.14em; color: var(--sp-red); opacity:.85;
+  }
+
+  .sp_sect { font-size:11.5px; letter-spacing:.3em; color:#8b8172; margin: 26px 0 8px; }
+  .sp_last {
+    margin-top: 26px; padding: 12px 4px 12px 14px; border-top: 1px solid #9a9080;
+    font-size: 15px; letter-spacing:.16em; color:#3b342a; cursor:pointer; position:relative;
+    transition: transform .2s cubic-bezier(.2,.8,.3,1);
+  }
+  .sp_last::before {
+    content:''; position:absolute; left:0; top:52%; width:3px; height:0; background:var(--sp-red);
+    transform:translateY(-50%); transition:height .22s; box-shadow:0 0 10px rgba(168,40,31,.75);
+  }
+  .sp_last:hover { transform: translateX(7px); }
+  .sp_last:hover::before { height: 62%; }
+  .sp_last small { display:block; font-size:11px; letter-spacing:.08em; color:#7d7365; margin-top:4px; }
+
+  /* 蓋章 */
+  #sp_stampLayer { position:absolute; inset:0; pointer-events:none; z-index:5; }
+  #sp_stampLayer img {
+    position:absolute; mix-blend-mode: multiply;
+    animation: sp_slap .42s cubic-bezier(.15,1.6,.4,1) both;
+  }
+  @keyframes sp_slap {
+    from { transform: translate(-50%,-50%) scale(2.1) rotate(var(--r)); opacity:0; filter: blur(4px); }
+    60%  { filter: blur(0); }
+    to   { transform: translate(-50%,-50%) scale(1) rotate(var(--r)); opacity:1; }
+  }
+  #sp_paper.sp_shake { animation: sp_sh .22s; }
+  @keyframes sp_sh {
+    0%,100% { transform: rotate(-.4deg); }
+    30% { transform: rotate(-.4deg) translate(1.5px,2.5px); }
+    65% { transform: rotate(-.4deg) translate(-1px,-1px); }
+  }
+
+  /* 結果 */
+  #sp_after {
+    position:absolute; left:0; right:0; bottom:8%; text-align:center; z-index:6;
+    opacity:0; transition:opacity .9s; pointer-events:none;
+  }
+  #sp_after.sp_in { opacity:1; pointer-events:auto; }
+  #sp_after .sp_line { font-size:16px; line-height:2.2; letter-spacing:.12em; color:#cfc6b4;
+                 margin-bottom:22px; white-space:pre-line; text-shadow:0 2px 14px rgba(0,0,0,.9); }
+  #sp_go {
+    background:none; border:1px solid #6f6a5e; color:#e8e2d5; font-family:var(--sp-serif);
+    font-size:15px; letter-spacing:.5em; text-indent:.5em; padding:11px 40px; cursor:pointer;
+    transition: all .25s;
+  }
+  #sp_go:hover { background:rgba(232,226,213,.1); border-color:#cdc4b2; color:#fff; }
+
+  #sp_again {
+    position:absolute; right:18px; bottom:14px; z-index:7; background:none; border:0;
+    color:#4d535d; font-family:var(--sp-serif); font-size:12px; letter-spacing:.2em; cursor:pointer;
+  }
+  #sp_again:hover { color:#99a0ac; }
+
+  #sp_tip {
+    position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:6;
+    font-size:12px; letter-spacing:.22em; color:#5c6470; animation: sp_blip 2s infinite;
+  }
+  @keyframes sp_blip { 50% { opacity:.25; } }
+  #sp_tip.sp_gone { display:none; }
+
   /* 標題畫面 / 遊戲中選單(2026-09-09,kc:「我要設計一個選單頁 讓用戶一點擊
      網址直接到這裡 可以選擇開始遊戲 讀取 儲存之類」)——不另開 menu.html,
      做成蓋在 game.html 上的一層,不然玩家要等兩次載入(3D 場景已經在這頁
@@ -645,6 +812,37 @@
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
 <button id="menuBtn" onclick="openGameMenu()">選單</button>
+<div id="schoolPick">
+  <canvas id="sp_noise"></canvas>
+  <div class="sp_wrap">
+    <div id="sp_side">
+      <div class="sp_step">開　局</div>
+      <h1 class="sp_ask">你要去哪裡</h1>
+      <div class="sp_askSub">會考成績出來了。<br>這張表上面的學校，<br>你要捲很久才會捲到自己。</div>
+    </div>
+    <div id="sp_paper">
+      <div class="sp_head">
+        <div class="sp_ptitle">國民中學教育會考</div>
+        <div class="sp_psub">成績通知單</div>
+        <div class="sp_r1"></div><div class="sp_r2"></div>
+        <div class="sp_nameRow"><span class="sp_k">姓名</span><span class="sp_u"></span><span class="sp_n">阿凱</span></div>
+        <div class="sp_grades" id="sp_grades"></div>
+        <div class="sp_total">總積分<b>12</b></div>
+      </div>
+      <div class="sp_listWrap" id="sp_listWrap">
+        <div class="sp_listCap">高級中等學校　免試入學　志願參考表</div>
+        <div class="sp_listNote">下列積分為去年錄取最低標準，僅供參考。</div>
+        <div id="sp_list"></div>
+      </div>
+      <div id="sp_stampLayer"></div>
+    </div>
+  </div>
+  <div id="sp_tip">往下捲</div>
+  <div id="sp_after">
+    <div class="sp_line" id="sp_afterTx"></div>
+    <button id="sp_go" onclick="finishSchoolPick()">開　始</button>
+  </div>
+</div>
 <div id="titleScreen">
   <h1>翻不了身</h1>
   <div class="sub">N O &nbsp; W A Y &nbsp; U P</div>
@@ -12343,6 +12541,10 @@ renderer.setAnimationLoop(now => {
  * 不存的東西(讀檔後一律回到「站在街上」):進行中的小遊戲(音遊/收銀/工地/
  * 手機遊戲)、對話框、busy 鎖、鏡頭角度、正在騎的機車、室內場景。存檔點是
  * 每 SAVE_EVERY_MS 一次的自動存,存到一半的小遊戲狀態救不回來也不該救。 */
+/* 開局選的學校(kind: 'day'|'night'|'none'),詳見下面「開局落點表」那節。
+   **宣告要放在 SAVE_OBJECTS 前面**——那張登記表是 const 初始化時就讀進去的,
+   放後面會踩 TDZ(而且 node --check 這種純語法檢查抓不到,要跑起來才炸)。 */
+const SCHOOL_CHOICE = { picked:false, kind:null, name:null, dept:null };
 const SAVE_KEY = 'nowayup.save';    // 自動存那一格,沿用最早的 key(不改名,免得 kc 手上已經有的進度白掉)
 const SAVE_SLOTS = 3;               // 手動存檔格數,自己選的數字,不夠再加
 const slotKey = n => n === 'auto' ? SAVE_KEY : SAVE_KEY + '.' + n;
@@ -12352,7 +12554,7 @@ const SAVE_EVERY_MS = 3000;
 /* ① 純資料物件:讀檔時逐鍵寫回同一個物件(**不換掉物件本身**,因為到處都有
       人持有它的參照)。 */
 const SAVE_OBJECTS = {
-  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES,
+  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE
@@ -12505,6 +12707,189 @@ addEventListener('visibilitychange', () => { if(document.hidden) saveGame(); });
  *
  * **標題畫面期間一定要 saveOff**——不擋的話背景那個 setInterval 會把「還沒
  * 開始玩的初始狀態」存進自動存那格,玩家還在看標題就被蓋掉進度了。 */
+/* ===== 開局落點表(2026-09-09,kc:「進入遊戲後應該是要先有一份成績通知單
+   讓我們選學校 我記得之前有做過這個畫面」)=================================
+ * 畫面/資料/文案原封不動從 `prototypes/start-school.html` 搬過來(那支原型
+ * 2026-08 就做好了,一直掛在 DESIGN_NOTES「還沒接進 game.html」那張表上),
+ * 只改三件事:id/class 加 sp_ 前綴、結尾不再跳去已經不存在的 store-walk.html、
+ * 選完把結果寫進 SCHOOL_CHOICE。
+ *
+ * ⚠ **紅線以上是真實的明星高中,紅線以下全部是虛構校名**——原型註解寫得很
+ * 清楚:提到真實學校在頂標沒有貶義,但把真實學校放在「你只剩這個」的位置,
+ * 對那些學校不公平。**要加校名的話跟著這條規則走。**
+ *
+ * ⚠ 選夜校/未升學之後學校線(教室、小考、清寒補助、story-school.js)要怎麼
+ * 變,**還沒問過 kc**,目前三個選擇都只記錄下來、日校照現狀跑。 */
+const SCHOOL_GRADES = [['國文','C'],['英語','C'],['數學','C'],['社會','B'],['自然','C'],['寫作','二']];
+/* 真實校名,只在紅線以上出現(不能選) */
+const SCHOOL_ABOVE = [
+  ['建國中學','普通科',36], ['北一女中','普通科',36], ['師大附中','普通科',35],
+  ['成功高中','普通科',34], ['中山女中','普通科',34], ['松山高中','普通科',33],
+  ['大同高中','普通科',31], ['中崙高中','普通科',30],
+  ['明倫高中','普通科',29], ['南港高中','普通科',28], ['育成高中','普通科',27],
+  ['和平高中','普通科',26], ['內湖高工','機械科',25], ['木柵高工','電機科',24],
+  ['大安高工','資訊科',24], ['士林高商','會計事務科',23], ['松山工農','農場經營科',22],
+  ['南港高工','電子科',21], ['泰山高中','普通科',20], ['三重高中','普通科',19],
+  ['林口高中','普通科',18], ['新莊高中','普通科',17], ['海山高中','普通科',16],
+  ['清水高中','普通科',15], ['金陵女中','普通科',14]
+];
+/* 虛構校名,玩家真的選得到的就是這幾間 */
+const SCHOOL_BELOW = [
+  ['育昌高級商工','商業經營科',12], ['明勤高級工商','汽車科',11],
+  ['光正高級中學','餐飲管理科',10], ['永新高級家商','美容科',9],
+  ['聯達高級工商','建築科',8]
+];
+const SCHOOL_NIGHT = [
+  ['市立永新高中　進修部','商業經營科',7], ['聯達高級工商　進修部','汽車科',6]
+];
+const SCHOOL_AFTER = {
+  day:   '學費一學期三萬六。\n你媽說她再標一個會。',
+  night: '晚上六點半上課，十點下課。\n白天空著——空著的意思是可以去上班。',
+  none:  '你沒有填表。\n八月一號，同學都在拍制服照。'
+};
+
+const spEl = document.getElementById('schoolPick');
+let spDone = false;                    // 這一輪已經選過,擋重複點
+
+/* 紙的髒污/纖維紋理跟印章都是現畫的 canvas,沒有外部圖檔(原型就是這樣做的,
+   照搬)。seed 固定,每次開起來紙紋一樣。 */
+let spSeed = 20250809;
+const spRnd = () => (spSeed = (spSeed*1664525 + 1013904223) >>> 0) / 4294967296;
+function spPaperTexture(w, h){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,'#efe9dc'); g.addColorStop(.5,'#e9e2d3'); g.addColorStop(1,'#e3dbc9');
+  x.fillStyle = g; x.fillRect(0,0,w,h);
+  for(let i=0;i<160;i++){
+    const cx=spRnd()*w, cy=spRnd()*h, r=60+spRnd()*180;
+    const rg = x.createRadialGradient(cx,cy,0,cx,cy,r);
+    rg.addColorStop(0,'rgba(150,130,95,'+(.012+spRnd()*.03)+')'); rg.addColorStop(1,'rgba(150,130,95,0)');
+    x.fillStyle = rg; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
+  }
+  x.strokeStyle='rgba(120,105,75,.05)'; x.lineWidth=1;
+  for(let i=0;i<900;i++){
+    const px=spRnd()*w, py=spRnd()*h, a=spRnd()*Math.PI, len=2+spRnd()*7;
+    x.beginPath(); x.moveTo(px,py); x.lineTo(px+Math.cos(a)*len, py+Math.sin(a)*len); x.stroke();
+  }
+  return c.toDataURL('image/jpeg', .92);
+}
+function spNoise(){
+  const cv = document.getElementById('sp_noise');
+  const w = cv.width = 480, h = cv.height = 270;
+  const x = cv.getContext('2d'), img = x.createImageData(w,h);
+  for(let i=0;i<img.data.length;i+=4){
+    const v = 90 + spRnd()*76;
+    img.data[i]=img.data[i+1]=img.data[i+2]=v; img.data[i+3]=16;
+  }
+  x.putImageData(img,0,0);
+}
+function spStampImage(text, size){
+  const fs = size || 25, pad = 9, n = text.length;
+  const w = n*fs + pad*2 + 8, h = fs + pad*2 + 8;
+  const c = document.createElement('canvas'); const S = 2;
+  c.width = w*S; c.height = h*S;
+  const x = c.getContext('2d'); x.scale(S,S);
+  x.strokeStyle = '#a8281f'; x.lineWidth = 3; x.strokeRect(4,4,w-8,h-8);
+  x.fillStyle = '#a8281f'; x.textAlign='center'; x.textBaseline='middle';
+  x.font = '700 '+fs+'px "DFKai-SB","BiauKai","標楷體",serif';
+  x.fillText(text, w/2, h/2 + 1);
+  const img = x.getImageData(0,0,c.width,c.height), d = img.data;
+  for(let p=0;p<d.length;p+=4){
+    if(!d[p+3]) continue;
+    const px=(p/4)%c.width, py=(p/4/c.width)|0;
+    const grain = Math.sin(px*.55)*Math.cos(py*.42) + Math.sin((px+py)*.21);
+    d[p+3] *= .62 + grain*.22 + spRnd()*.2;
+  }
+  x.putImageData(img,0,0);
+  const el = new Image(); el.src = c.toDataURL('image/png');
+  el.style.width = w+'px'; el.style.height = h+'px';
+  return el;
+}
+
+function buildSchoolPick(){
+  document.getElementById('sp_grades').innerHTML = SCHOOL_GRADES.map(g =>
+    '<div class="sp_g"><div class="sp_s">'+g[0]+'</div><div class="sp_v">'+g[1]+'</div></div>').join('');
+  let html = '';
+  SCHOOL_ABOVE.forEach(s => {
+    html += '<div class="sp_sch sp_no"><div class="sp_n">'+s[0]+'</div>'
+          + '<div class="sp_d">'+s[1]+'</div><div class="sp_p">'+s[2]+'</div></div>';
+  });
+  html += '<div class="sp_cut"><div class="sp_lab">↑ 錄取機率低於 5%</div><hr>'
+        + '<div class="sp_lab2">你的積分　12</div></div>';
+  SCHOOL_BELOW.forEach((s,i) => {
+    html += '<div class="sp_sch sp_ok" data-k="day" data-i="'+i+'"><div class="sp_n">'+s[0]+'</div>'
+          + '<div class="sp_d">'+s[1]+'</div><div class="sp_p">'+s[2]+'</div></div>';
+  });
+  html += '<div class="sp_sect">進　修　部　（　夜　間　）</div>';
+  SCHOOL_NIGHT.forEach((s,i) => {
+    html += '<div class="sp_sch sp_ok" data-k="night" data-i="'+i+'"><div class="sp_n">'+s[0]+'</div>'
+          + '<div class="sp_d">'+s[1]+'</div><div class="sp_p">'+s[2]+'</div></div>';
+  });
+  /* 官方分類的用詞。放在整張表的最後面——你要把表捲完才看得到它。 */
+  html += '<div class="sp_last" data-k="none">未升學未就業<small>本項無需填表。</small></div>';
+  document.getElementById('sp_list').innerHTML = html;
+  document.getElementById('sp_paper').style.background = 'url('+spPaperTexture(580,760)+') center/cover';
+  spNoise();
+}
+function showSchoolPick(){
+  spDone = false;
+  saveOff = true;                       // 還沒開始玩,不准自動存蓋掉東西
+  document.getElementById('sp_stampLayer').innerHTML = '';
+  document.getElementById('sp_after').classList.remove('sp_in');
+  document.getElementById('sp_paper').classList.remove('sp_out');
+  document.getElementById('sp_side').style.opacity = '1';
+  document.getElementById('sp_tip').classList.remove('sp_gone');
+  document.getElementById('sp_listWrap').scrollTop = 0;
+  buildSchoolPick();
+  spEl.classList.add('on');
+}
+function finishSchoolPick(){
+  spEl.classList.remove('on');
+  hideTitle();                          // 開始玩(saveOff 解除、選單鈕出現)
+}
+window.finishSchoolPick = finishSchoolPick;
+window.showSchoolPick = showSchoolPick;
+
+document.getElementById('sp_listWrap').addEventListener('scroll', function(){
+  if(this.scrollTop > 60) document.getElementById('sp_tip').classList.add('sp_gone');
+}, { passive:true });
+
+document.getElementById('sp_list').addEventListener('click', e => {
+  const row = e.target.closest('.sp_sch.sp_ok, .sp_last');
+  if(!row || spDone) return;
+  spDone = true;
+  const kind = row.dataset.k;
+  const src  = kind === 'day' ? SCHOOL_BELOW : kind === 'night' ? SCHOOL_NIGHT : null;
+  const rec  = src ? src[+row.dataset.i] : null;
+  SCHOOL_CHOICE.picked = true;
+  SCHOOL_CHOICE.kind = kind;
+  SCHOOL_CHOICE.name = rec ? rec[0] : null;
+  SCHOOL_CHOICE.dept = rec ? rec[1] : null;
+
+  const paper = document.getElementById('sp_paper');
+  const layer = document.getElementById('sp_stampLayer');
+  const r = row.getBoundingClientRect(), pr = paper.getBoundingClientRect();
+  const im = spStampImage(kind === 'none' ? '未升學' : '錄取', 22);
+  im.style.left = (r.right - pr.left - 62) + 'px';
+  im.style.top  = (r.top  - pr.top + r.height/2) + 'px';
+  im.style.setProperty('--r', '-6deg');
+  layer.appendChild(im);
+  paper.classList.remove('sp_shake'); void paper.offsetWidth; paper.classList.add('sp_shake');
+  document.getElementById('sp_tip').classList.add('sp_gone');
+
+  setTimeout(() => {
+    document.getElementById('sp_side').style.opacity = '0';
+    /* 先把 shake 拿掉再加 out——兩個都是掛在 #sp_paper 上的 animation,
+       .sp_shake 的規則寫在 .sp_out 後面會贏,不移除的話紙不會飛走,結果
+       文字直接疊在紙上(原型搬過來時才看出來的,遊戲裡才有這一步)。 */
+    paper.classList.remove('sp_shake');
+    paper.classList.add('sp_out');
+    document.getElementById('sp_afterTx').textContent = SCHOOL_AFTER[kind];
+    document.getElementById('sp_after').classList.add('sp_in');
+  }, 1500);
+});
+
 const titleEl = document.getElementById('titleScreen');
 const gmMenuEl  = document.getElementById('menuOverlay');
 const gmBtnEl = document.getElementById('menuBtn');
@@ -12628,7 +13013,7 @@ if(bootSlot){
   if(bootSlot !== 'auto')   // 'auto' 是 #bar「重來」帶的旗標,那是開發用的重整,不用跟玩家報告
     setTimeout(() => toast(ok ? `已讀取存檔 ${bootSlot}。` : '讀取失敗,從頭開始。', 2600), 700);
 } else if(bootFresh){
-  hideTitle();
+  showSchoolPick();          // 新遊戲第一件事是選學校,選完 finishSchoolPick() 才真的開始
 } else {
   showTitle();
 }
