@@ -462,6 +462,34 @@
   #gameOver .goText { font-size:16px; line-height:2; color:#dfe4ea; max-width:640px; margin-bottom:28px; }
   #gameOver .tool { padding:8px 20px; }
 
+  /* 標題畫面 / 遊戲中選單(2026-09-09,kc:「我要設計一個選單頁 讓用戶一點擊
+     網址直接到這裡 可以選擇開始遊戲 讀取 儲存之類」)——不另開 menu.html,
+     做成蓋在 game.html 上的一層,不然玩家要等兩次載入(3D 場景已經在這頁
+     載好了)。z-index 200 蓋過既有最高的 #invOverlay(60)。 */
+  #titleScreen, #menuOverlay { position:fixed; inset:0; z-index:200; display:none;
+        flex-direction:column; align-items:center; justify-content:center; gap:14px;
+        background:linear-gradient(180deg,#0a0d13 0%,#12161f 60%,#0a0d13 100%);
+        font-family:inherit; color:#e6ebf2; }
+  #titleScreen.on, #menuOverlay.on { display:flex; }
+  #menuOverlay { background:rgba(6,8,12,.88); }
+  /* 蓋在標題畫面上的時候要不透明——半透明的話標題那幾行字會從底下透出來,
+     跟存檔列表的字疊在一起。蓋在遊戲畫面上時維持半透明(看得到自己站在哪)。 */
+  #menuOverlay.overTitle { background:linear-gradient(180deg,#0a0d13 0%,#12161f 60%,#0a0d13 100%); }
+  #titleScreen h1 { margin:0 0 2px; font-size:40px; letter-spacing:.22em; font-weight:600; color:#f0f3f8; }
+  #titleScreen .sub { margin:0 0 22px; font-size:12px; letter-spacing:.3em; color:#7c869a; }
+  .menuBtn { width:280px; padding:12px 0; font-family:inherit; font-size:14px; letter-spacing:.14em;
+        background:rgba(24,29,39,.92); color:#dbe2ec; border:1px solid #333b4b; border-radius:4px;
+        cursor:pointer; transition:background .12s, border-color .12s; }
+  .menuBtn:hover { background:#2a3242; border-color:#4a5468; color:#fff; }
+  .menuBtn[disabled] { opacity:.35; cursor:default; }
+  .menuBtn[disabled]:hover { background:rgba(24,29,39,.92); border-color:#333b4b; color:#dbe2ec; }
+  .menuBtn .s { display:block; margin-top:4px; font-size:11px; letter-spacing:.06em; color:#8b95a6; }
+  .menuNote { margin-top:16px; font-size:11px; letter-spacing:.08em; color:#6b7686; text-align:center; line-height:1.9; }
+  .menuTitle { font-size:13px; letter-spacing:.24em; color:#9aa5b5; margin-bottom:6px; }
+  #menuBtn { position:fixed; right:14px; top:52px; z-index:7; background:rgba(12,16,23,.85);
+        color:#c8cfda; border:1px solid #313846; padding:5px 12px; font-size:12px;
+        font-family:inherit; letter-spacing:.1em; cursor:pointer; border-radius:3px; }
+  #menuBtn:hover { background:#242b36; color:#fff; }
   #bar { position:fixed; left:50%; bottom:12px; transform:translateX(-50%); z-index:6;
          display:flex; gap:7px; }
   button.tool { background:rgba(20,24,32,.9); color:#c8cfda; border:1px solid #313846;
@@ -616,6 +644,16 @@
 </div>
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
+<button id="menuBtn" onclick="openGameMenu()">選單</button>
+<div id="titleScreen">
+  <h1>翻不了身</h1>
+  <div class="sub">N O &nbsp; W A Y &nbsp; U P</div>
+  <button class="menuBtn" id="tsContinue" onclick="titleContinue()">繼續遊戲<span class="s"></span></button>
+  <button class="menuBtn" onclick="titleLoad()">讀取存檔</button>
+  <button class="menuBtn" onclick="titleNewGame()">開始新遊戲</button>
+  <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
+</div>
+<div id="menuOverlay"></div>
 <div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button><button class="tool" onclick="debugTweakHospitalScene()">醫院站位滑桿</button><button class="tool" onclick="debugGrandmaMonthly()">阿嬤月結算</button><button class="tool" onclick="debugTweakPlayerFace()">主角眼睛滑桿</button><button class="tool" onclick="debugClearSave()">清除進度</button></div>
 <div id="fps">—</div>
 
@@ -8694,6 +8732,10 @@ const keys = {};
 const TROUPE_KEY_LANE = { arrowup:'up', arrowdown:'down', arrowleft:'left', arrowright:'right', ' ':'space' };
 addEventListener('keydown', e => {
   if(gameOver) return;   // 失敗結局蓋上之後不接受任何操作,見 triggerGameOver()
+  /* 標題畫面/選單蓋著的時候不吃遊戲操作——不擋的話玩家在標題畫面按 WASD,
+     角色會在看不見的畫面底下亂走(ESC 例外,它自己有一個獨立的 handler,
+     見下面標題畫面那節)。 */
+  if(titleEl.classList.contains('on') || gmMenuEl.classList.contains('on')) return;
   /* 醫院那段真的打字輸入框(2026-09-02)——不擋掉這行的話,玩家在
      #textPromptInput 裡打字時,空白鍵/方向鍵會同時被下面這段當成移動/
      互動鍵吃掉(WASD 走位、空白鍵推進對話),打字打到一半角色會在背景
@@ -12301,7 +12343,9 @@ renderer.setAnimationLoop(now => {
  * 不存的東西(讀檔後一律回到「站在街上」):進行中的小遊戲(音遊/收銀/工地/
  * 手機遊戲)、對話框、busy 鎖、鏡頭角度、正在騎的機車、室內場景。存檔點是
  * 每 SAVE_EVERY_MS 一次的自動存,存到一半的小遊戲狀態救不回來也不該救。 */
-const SAVE_KEY = 'nowayup.save';
+const SAVE_KEY = 'nowayup.save';    // 自動存那一格,沿用最早的 key(不改名,免得 kc 手上已經有的進度白掉)
+const SAVE_SLOTS = 3;               // 手動存檔格數,自己選的數字,不夠再加
+const slotKey = n => n === 'auto' ? SAVE_KEY : SAVE_KEY + '.' + n;
 const SAVE_VER = 1;                 // 資料結構改過就 +1,舊存檔直接作廢重來(開發期不做相容轉換)
 const SAVE_EVERY_MS = 3000;
 
@@ -12362,8 +12406,12 @@ function saveClean(v){
    reload() 觸發 pagehide,那個 handler 又把當前狀態原封不動存回去,按了等於
    沒按(實測踩到:按完清除,day 還是 21)。 */
 let saveOff = false;
-function saveGame(){
-  if(saveOff) return;
+function saveGame(slot){
+  slot = slot || 'auto';
+  /* saveOff 只擋自動存那一格——玩家在標題畫面/按過「清除進度」的時候,背景
+     的 setInterval 不准把初始狀態蓋掉他的進度;但他自己按「儲存到第 N 格」
+     是明確的動作,任何時候都該成立。 */
+  if(saveOff && slot === 'auto') return;
   /* 失敗結局不存——不然玩家一開遊戲就是死的,連重來都要先按清除。gameOver
      之前的最後一次自動存還在,讀回去是死前那一刻,這是刻意的。 */
   if(gameOver) return;
@@ -12375,17 +12423,31 @@ function saveGame(){
     Object.entries(SAVE_OBJECTS).forEach(([k,o]) => { d.obj[k]  = saveClean(o); });
     Object.entries(SAVE_LISTS)  .forEach(([k,o]) => { d.list[k] = saveClean(o); });
     Object.entries(SAVE_VARS)   .forEach(([k,f]) => { d.vars[k] = saveClean(f()); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify(d));
-  } catch(e){ console.warn('[save] 存檔失敗:', e); }   // 無痕模式/配額滿都會丟例外,不能讓它把遊戲弄掛
+    localStorage.setItem(slotKey(slot), JSON.stringify(d));
+    return true;
+  } catch(e){ console.warn('[save] 存檔失敗:', e); return false; }   // 無痕模式/配額滿都會丟例外,不能讓它把遊戲弄掛
 }
-function clearSave(){ try { localStorage.removeItem(SAVE_KEY); } catch(e){} }
-function loadGame(){
+function clearSave(slot){ try { localStorage.removeItem(slotKey(slot || 'auto')); } catch(e){} }
+/* 讀某一格的存檔摘要(給選單列表用),順便當「這格有沒有東西」的判斷。
+   版本不合的格子回 null 但**不刪**——刪要等玩家真的去讀它/覆蓋它,不然
+   一開選單就把他所有舊存檔靜靜清光,太粗暴。 */
+function slotInfo(slot){
   let d = null;
-  try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch(e){ d = null; }
+  try { d = JSON.parse(localStorage.getItem(slotKey(slot)) || 'null'); } catch(e){ return null; }
+  if(!d || d.v !== SAVE_VER) return null;
+  const t = new Date(d.t || 0);
+  return { day:d.vars?.day ?? 0, date:dayToDate(d.vars?.day ?? GAME_START_DAY),
+           money:d.obj?.ST?.money ?? 0,
+           when:`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}` };
+}
+function loadGame(slot){
+  slot = slot || 'auto';
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(slotKey(slot)) || 'null'); } catch(e){ d = null; }
   if(!d) return false;
   if(d.v !== SAVE_VER){                       // 開發期改了結構,舊檔直接丟掉,不做相容轉換
     console.warn('[save] 存檔版本不合(' + d.v + '→' + SAVE_VER + '),已捨棄舊進度。');
-    clearSave(); return false;
+    clearSave(slot); return false;
   }
   try {
     Object.entries(SAVE_OBJECTS).forEach(([k,o]) => {
@@ -12410,18 +12472,14 @@ function loadGame(){
       if(MOTO_IMPOUND.motoRef?.group) MOTO_IMPOUND.motoRef.group.visible = false;
     }
     return true;
+    renderQuestPanel();
+    syncMiscQuestPanel();
+    syncHUD();
+    return true;
   } catch(e){
     console.warn('[save] 讀檔失敗,當作新遊戲:', e);
-    clearSave(); return false;
+    clearSave(slot); return false;
   }
-}
-const SAVE_LOADED = loadGame();
-if(SAVE_LOADED){
-  renderQuestPanel();
-  syncMiscQuestPanel();
-  /* 讀檔後補一則提示,不然玩家分不出「接著上次玩」跟「新遊戲」——放
-     setTimeout 是等開場那批 toast/對白先跑完,不要疊在一起。 */
-  setTimeout(() => toast('已接續上次的進度。', 2600), 900);
 }
 /* 自動存:每 SAVE_EVERY_MS 一次。不用「有變動才存」的 dirty 旗標——狀態散在
    幾十個物件裡,要在每個改動點記得標記,漏標的機率比每 3 秒多花零點幾毫秒
@@ -12437,6 +12495,143 @@ setInterval(saveGame, SAVE_EVERY_MS);
    分頁就再也沒回來」那種情況。 */
 addEventListener('pagehide', saveGame);
 addEventListener('visibilitychange', () => { if(document.hidden) saveGame(); });
+/* ===== 標題畫面 / 遊戲中選單(2026-09-09,kc:「我要設計一個選單頁 讓用戶
+   一點擊網址直接到這裡 可以選擇開始遊戲 讀取 儲存之類」) ==================
+ * **不另開 menu.html**,做成蓋在 game.html 上的一層——玩家點網址進來就是
+ * 標題畫面,按「開始」才掀開。獨立檔的話 3D 場景要載兩次,玩家等兩輪。
+ *
+ * 存檔格:自動存 1 格(關掉再開接著玩)+ 手動 SAVE_SLOTS 格。自動存那格
+ * 沿用最早的 key,kc 手上已經有的進度不會白掉。
+ *
+ * **標題畫面期間一定要 saveOff**——不擋的話背景那個 setInterval 會把「還沒
+ * 開始玩的初始狀態」存進自動存那格,玩家還在看標題就被蓋掉進度了。 */
+const titleEl = document.getElementById('titleScreen');
+const gmMenuEl  = document.getElementById('menuOverlay');
+const gmBtnEl = document.getElementById('menuBtn');
+
+function showTitle(){
+  saveOff = true;
+  const info = slotInfo('auto');
+  const btn = document.getElementById('tsContinue');
+  btn.disabled = !info;
+  btn.querySelector('.s').textContent = info
+    ? `${info.date}(第 ${info.day} 天)　$${info.money}`
+    : '沒有進行中的進度';
+  titleEl.classList.add('on');
+  gmMenuEl.classList.remove('on');   // 從存檔列表按「返回」回來時要把列表收掉,不然兩層疊著
+  gmBtnEl.style.display = 'none';
+}
+function hideTitle(){
+  titleEl.classList.remove('on');
+  gmMenuEl.classList.remove('on');
+  gmBtnEl.style.display = '';
+  saveOff = false;
+}
+function titleContinue(){
+  if(!loadGame('auto')){ toast('讀不到進度,從頭開始。', 2400); }
+  hideTitle();
+}
+/* 開新遊戲一律走 reload——玩家可能是「玩到一半→回標題→開新遊戲」,那時
+   幾十個狀態物件都已經被寫花了,沒有一個乾淨的 reset() 可以呼叫(理由同
+   存檔那節:狀態散在整支檔案裡)。reload 之後靠 sessionStorage 這面旗子
+   跳過標題畫面直接開始,不然玩家會被丟回標題再按一次。 */
+function titleNewGame(){
+  if(slotInfo('auto') && !confirm('開新遊戲會覆蓋掉「繼續遊戲」那格的進度(手動存檔不受影響)。確定嗎?'))
+    return;
+  saveOff = true;
+  clearSave('auto');
+  try { sessionStorage.setItem('nowayup.fresh', '1'); } catch(e){}
+  location.reload();
+}
+function titleLoad(){ openSlotMenu('load', showTitle); }
+
+/* 遊戲中選單(ESC 或右上角「選單」)。開著的時候 saveOff,免得自動存在玩家
+   正要讀檔的那一秒又把現況寫回自動存那格。 */
+function openGameMenu(){
+  if(gameOver || titleEl.classList.contains('on')) return;
+  saveOff = true;
+  gmMenuEl.classList.remove('overTitle');
+  gmMenuEl.innerHTML = `<div class="menuTitle">選單</div>
+    <button class="menuBtn" onclick="closeGameMenu()">繼續遊戲</button>
+    <button class="menuBtn" onclick="openSlotMenu('save', openGameMenu)">儲存進度</button>
+    <button class="menuBtn" onclick="openSlotMenu('load', openGameMenu)">讀取存檔</button>
+    <button class="menuBtn" onclick="backToTitle()">回標題畫面</button>
+    <div class="menuNote">關掉這個選單:再按一次 ESC</div>`;
+  gmMenuEl.classList.add('on');
+}
+function closeGameMenu(){ gmMenuEl.classList.remove('on'); saveOff = false; }
+function backToTitle(){
+  saveGame('auto');             // 回標題前先把現況存進自動存那格,不然等於白玩
+  gmMenuEl.classList.remove('on');
+  showTitle();
+}
+/* 存檔格列表,save/load 共用同一個畫面(差別只在按下去做什麼、以及空格能不能
+   按)。back 是「返回」要回哪裡——從標題進來就回標題,從遊戲中選單進來就回
+   遊戲中選單。 */
+function openSlotMenu(mode, back){
+  const rows = [];
+  for(let i = 1; i <= SAVE_SLOTS; i++){
+    const info = slotInfo(i);
+    const sub  = info ? `${info.date}(第 ${info.day} 天)　$${info.money}　存於 ${info.when}` : '空的';
+    const dis  = (mode === 'load' && !info) ? ' disabled' : '';
+    rows.push(`<button class="menuBtn" onclick="pickSlot('${mode}', ${i})"${dis}>存檔 ${i}<span class="s">${sub}</span></button>`);
+  }
+  gmMenuEl.innerHTML = `<div class="menuTitle">${mode === 'save' ? '儲存到哪一格' : '讀取哪一格'}</div>`
+    + rows.join('')
+    + `<button class="menuBtn" onclick="(${back.name})()">返回</button>`;
+  /* 不關掉 titleEl——從標題畫面進來的話要留著它當背景(#menuOverlay 在 HTML
+     裡排在 #titleScreen 後面,同一個 z-index 自然蓋在上面)。關掉的話背景會
+     變成底下的遊戲畫面,玩家明明還沒開始玩卻看到街景。 */
+  gmMenuEl.classList.toggle('overTitle', titleEl.classList.contains('on'));
+  gmMenuEl.classList.add('on');
+}
+function pickSlot(mode, n){
+  if(mode === 'save'){
+    if(slotInfo(n) && !confirm(`存檔 ${n} 已經有進度了,要覆蓋掉嗎?`)) return;
+    const ok = saveGame(n);
+    gmMenuEl.classList.remove('on');
+    saveOff = false;
+    toast(ok ? `已存到存檔 ${n}。` : '存檔失敗(瀏覽器不讓寫入)。', 2400);
+    return;
+  }
+  /* 讀檔一律走 reload:直接把狀態蓋回去看起來也會動,但玩家可能正站在室內
+     場景/對話中途,那些不在存檔範圍內的東西(PLACE、對話框、busy 鎖)會跟
+     讀進來的進度對不起來。reload 之後從一個乾淨的頁面套存檔最穩。 */
+  try { sessionStorage.setItem('nowayup.loadSlot', String(n)); } catch(e){}
+  location.reload();
+}
+window.titleContinue = titleContinue; window.titleNewGame = titleNewGame; window.titleLoad = titleLoad;
+window.openGameMenu = openGameMenu; window.closeGameMenu = closeGameMenu;
+window.backToTitle = backToTitle; window.openSlotMenu = openSlotMenu; window.pickSlot = pickSlot;
+window.showTitle = showTitle;
+
+addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(titleEl.classList.contains('on')) return;                 // 標題畫面沒有「關掉」這個選項
+  if(gmMenuEl.classList.contains('on')) closeGameMenu(); else openGameMenu();
+});
+
+/* 開場走哪一條:
+   - sessionStorage 有 loadSlot → 玩家剛在選單按了讀取,套那格然後直接開始
+   - sessionStorage 有 fresh    → 玩家剛按了開新遊戲,跳過標題直接開始
+   - 其他                       → 顯示標題畫面(這是一般玩家點網址進來看到的) */
+let bootSlot = null, bootFresh = false;
+try {
+  bootSlot  = sessionStorage.getItem('nowayup.loadSlot');
+  bootFresh = sessionStorage.getItem('nowayup.fresh') === '1';
+  sessionStorage.removeItem('nowayup.loadSlot');
+  sessionStorage.removeItem('nowayup.fresh');
+} catch(e){}
+if(bootSlot){
+  const ok = loadGame(+bootSlot);
+  hideTitle();
+  setTimeout(() => toast(ok ? `已讀取存檔 ${bootSlot}。` : '讀取失敗,從頭開始。', 2600), 700);
+} else if(bootFresh){
+  hideTitle();
+} else {
+  showTitle();
+}
+
 /* #bar「清除進度」——玩家要重新開始一輪用的(跟旁邊那顆純 reload 的
    「重來」不一樣:那顆現在會讀存檔接著玩,這顆是真的從頭)。 */
 function debugClearSave(){
