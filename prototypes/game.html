@@ -10141,8 +10141,14 @@ function talkToAcheng(){
         run(){
           q.done = true;
           syncLitterQuestPanel();
-          chg('money', 40); chg('calm', 8);
-          toast('「你人真好。」阿成塞給你一包滷味。（$+40，歸屬感 +8）', 2600);
+          /* 2026-09-09 kc:「滷味攤剪垃圾 是獲得多一包滷味而非金錢」——原本
+             台詞寫「塞給你一包滷味」但實際上是 chg('money', 40),文字跟給的
+             東西對不起來。改成真的進揹包一包滷味(FOOD,跟超商結帳同一份
+             資料結構),不給錢。feed 16 跟他攤子上「買一份來吃」同一個數字
+             (openStallMenu 的 full 參數),mood +2 是自己抓的小確幸。 */
+          FOOD.push({ id: ++FOOD_SEQ, name:'滷味', icon:'🍢', feed:16, mood:2 });
+          chg('calm', 8);
+          toast('「你人真好。」阿成塞給你一包滷味。（滷味 ×1，歸屬感 +8）', 2600);
         } });
     } else if(!q.active && !q.done){
       extra.push({ label:'「廟口這附近的垃圾,你順手幫忙撿一撿?」', cls:'',
