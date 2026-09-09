@@ -7842,7 +7842,10 @@ const DAY_TODO = {
   18: { line:'你突然想到，今天要去校外教學。',   quest:'到學校集合' },
   21: { line:'今天要上學。',                     quest:'去學校' },
   28: { line:'導師昨天說，今天要找你。',         quest:'去學校找導師' },
-  36: { line:'今天要上學。',                     quest:'去學校' }
+  /* ⚠ day36「鮮食櫃」那節設在**超商**不是學校(晚上八點買黃標便當,遇到
+     國中同學),觸發點在 warpIntoPlace() 的 store 分支。第一版給「去學校」
+     是錯的,會把玩家指到不會發生事情的地方。 */
+  36: { line:'今天晚餐還沒著落。',               quest:'晚上去超商買便當' }
 };
 function todayBriefing(){
   const todo = DAY_TODO[day];
