@@ -7807,6 +7807,53 @@ function fade(label, mid){
  * 客廳同一張背景裡的一扇門)。呼叫這個函式當下人已經在室內(PLACE==
  * 'bedroom'),不用再走路過去,直接淡出、回城市那層 DOM/MODE,邏輯上等於
  * 「離開室內」＋「跳一天」兩件事一起做。 */
+/* 空白日的過渡選項(2026-09-09,kc:「反正之後會接過度選項啊 就是地衣天睡覺
+   之後 這幾天剛開學沒啥事情 你決定... 去打工 去圖書館 之類的 三個選項 然後
+   都會影響數值」)——起因是開局的 day 從 3 改成 1 之後,劇情節點沒有跟著
+   平移,第一幕之後多出幾天空窗。kc 說「鬆一點」沒關係,因為空窗要用這個填。
+   **不是只給開場那幾天用**:任何一天睡醒,只要家裡兩條線今天都沒有節點,就
+   跳這個選單,之後劇情之間的空檔也都接得住。
+   ⚠ 只看 bet/drink 兩條(家裡的拉扯是主節奏)。學校線的節點是走
+   schoolStorySource() 在特定場景觸發的,不在這裡判斷——不然玩家在學校還沒
+   走到那個場景,這裡就先把那天當成「有事」跳過了。 */
+function hasStoryToday(){
+  return [['bet', StoryBet], ['drink', StoryDrink]].some(([key, src]) =>
+    src.NODES.some(n => n.day === day) && !seenStoryDays.has(key + '-' + day));
+}
+/* 三個選項的數值都是自己選的參數,不喜歡跟我說一聲就改。抓的量級:
+   - 打工給的錢($260)**刻意低於真的去上班**(超商一個班算對 5 筆是 $175,
+     工地看堆得多好可以更高),不然玩家會發現「睡醒選打工」比真的玩那兩個
+     小遊戲划算,等於把做好的機制架空。
+   - 體力扣的量會自動換成經過時間(chg() 那條規則,10 分鐘/點),所以 −35
+     就是這一天耗掉快六小時,不用另外推時鐘。
+   - 三個選項各自有代價,沒有一個是純賺:打工掉情緒、圖書館掉體力換知識、
+     在外面晃掉錢跟風評換帥潮跟情緒。 */
+const IDLE_DAY_CHOICES = [
+  { label:'去打工',
+    text:'你在店裡站了一整天，腳底發麻。\n（金錢 +260、體力 −35、情緒 −5）',
+    run(){ chg('money', 260); chg('stamina', -35); chg('mood', -5); } },
+  { label:'去圖書館',
+    text:'冷氣很強，你在最後面那排坐到閉館。\n（體力 −20）',
+    run(){ chg('stamina', -20); studyGainKnowledge(); } },   // 知識的提示由 studyGainKnowledge() 自己跳,不重複寫進括號
+  { label:'在外面晃',
+    text:'你們在騎樓下站到天黑，講了一些沒有結論的話。\n（帥潮 +3、情緒 +5、體力 −10、金錢 −100、風評 −1）',
+    run(){ chg('cool', 3); chg('mood', 5); chg('stamina', -10); chg('money', -100); chg('star', -1); } }
+];
+function maybeIdleDay(){
+  if(gameOver || hasStoryToday()) return;
+  /* 等睡醒那則 toast 讀得差不多再跳,不要疊在一起。busy 在這裡重新鎖上——
+     wake() 剛把它放掉,選單期間不該讓玩家跑去走路。 */
+  setTimeout(() => {
+    if(gameOver || busy || dlg.on) return;      // 這一秒剛好被別的演出(拖吊通知/阿源電話)接手就算了,不硬插
+    busy = true;
+    say('pc', '這幾天剛開學，還沒什麼事。\n今天要做什麼？', () => {
+      openMenu('今天', IDLE_DAY_CHOICES.map(c => ({
+        label: c.label,
+        run: () => { c.run(); say('pc', c.text, () => { busy = false; }); }
+      })));
+    });
+  }, 1400);
+}
 function sleep(){
   busy = true;
   const skippedSchool = lastSchoolDay !== day;   // 結算今天(睡覺當下的 day,還沒 ++)有沒有去學校
@@ -7923,6 +7970,7 @@ function sleep(){
         + (skippedSchool ? '\n（昨天沒去學校，風評 −3）' : '')
         + loanMsg, 3800);
       busy = false;
+      maybeIdleDay();          // 今天沒排劇情的話,給一個「這天你要幹嘛」的過渡選項
     };
     if(impoundBeats) playBeats(impoundBeats, 0, wake);
     else wake();
