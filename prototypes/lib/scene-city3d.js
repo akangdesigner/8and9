@@ -4477,7 +4477,14 @@ export const PLAYER_FACE = {
   /* eyeCX 是兩眼「整組」的左右偏移,不是滑桿——Remy 的頭本身就不對稱
      (Eyes mesh 的 x 範圍 -0.086~0.106,中心落在 +0.01 不是 0),寫死照著
      那個中心走就好,不用開一條滑桿讓 kc 再去對一次。 */
-  eyeCX: .010, eyeDX: .048, eyeY: 3.502, eyeZ: .222, irisR: .017,
+  eyeCX: .010, eyeDX: .085, eyeY: 3.502, eyeZ: .222, irisR: .017,
+  /* headR:臉的曲率半徑,**不是滑桿**(kc 2026-09-09:「太多滑感很難跳」)。
+     臉是弧面不是平面,瞳孔往外拉的時候如果 z 不動,會直接埋進臉皮裡看不見
+     ——eyeDX 從 .048 拉到 .12 大概會陷進去 .036,比眼球半徑還深,畫面上
+     就是「拉了好像沒反應」。place 眼睛時用拋物線近似球面自動把 z 往後收,
+     基準點是 eyeDX=DX0 那一刻(在那個位置 z 完全等於 eyeZ,不偏移),所以
+     之前調好的 eyeZ 數字不會因為這條補償而跑掉。 */
+  headR: .10, DX0: .048,
   iris: 0x231a13, sclera: 0xf1ece1
 };
 
@@ -4531,8 +4538,9 @@ function attachPlayerFace(THREE, model){
     if(sclera) sclera.material.color.setHex(F.sclera);
     P.irisL.material.color.setHex(F.iris); P.irisR.material.color.setHex(F.iris);
     const d = F.irisR * 2;
-    place(P.irisL, F.eyeCX - F.eyeDX, F.eyeY, F.eyeZ, d, d);
-    place(P.irisR, F.eyeCX + F.eyeDX, F.eyeY, F.eyeZ, d, d);
+    const z = F.eyeZ - (F.eyeDX*F.eyeDX - F.DX0*F.DX0) / (2*F.headR);   // 臉的弧度補償,見 PLAYER_FACE.headR
+    place(P.irisL, F.eyeCX - F.eyeDX, F.eyeY, z, d, d);
+    place(P.irisR, F.eyeCX + F.eyeDX, F.eyeY, z, d, d);
   }
   apply();
   return { apply, parts:P };

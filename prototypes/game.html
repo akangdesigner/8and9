@@ -5434,10 +5434,12 @@ function tweakPlayerFacePanel(){
      (眼四項+眉四項+嘴四項+角度+開關)砍到只剩眼睛這四條。兩眼中心 X 那條
      也拿掉了,寫死在 PLAYER_FACE.eyeCX(見那裡的說明)。 */
   const rows = [
-    ['pf_eyeDX','眼距(左右分開)', 0, .10, .001, 'eyeDX'],
+    /* 上限原本 .10,kc 拉到 .085 回報「要再分開一點」——放寬到 .20,跟醫院
+       縮放滑桿 400→900 那次同一個坑,不要又卡死一次。 */
+    ['pf_eyeDX','眼距(左右分開)', 0, .20, .001, 'eyeDX'],
     ['pf_eyeY','眼睛高度', 3.40, 3.62, .002, 'eyeY'],
     ['pf_eyeZ','眼睛前後(越大越突出)', .14, .32, .002, 'eyeZ'],
-    ['pf_irisR','瞳孔大小', .004, .040, .001, 'irisR']
+    ['pf_irisR','瞳孔大小', .004, .070, .001, 'irisR']
   ];
   const panel = document.createElement('div');
   panel.id = 'playerFaceTweakPanel';
