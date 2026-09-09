@@ -1304,7 +1304,7 @@ const PHONE_GAME = { active:false, round:0, totalRounds:3, warning:false, warnT:
    全部收斂在 endPhoneGame()。上課那條路要在「這節課真的結束」之後才放學,
    所以把回呼存起來,由 endPhoneGame() 統一叫。 */
 function startPhoneGame(onDone){
-  if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+  { const r = spendBlockedReason(5); if(r){ toast(r, 2400); return; } }
   PHONE_GAME.onDone = onDone || null;
   chg('stamina', -5);   // advanceTime 交給 chg() 裡「扣體力換算時間」那條統一算,不在這裡重複扣
   busy = true;
@@ -1902,6 +1902,19 @@ const NAMES = { money:'', full:'飽足', calm:'歸屬感', cool:'帥潮', mood:'
  * `fmtTime()` 顯示時鐘用 `%60` 沒有特別 round,留小數會讓時鐘顯示跑出
  * 「05:24.2」這種怪畫面,不能直接套 10.2)。 */
 const STAMINA_MINUTES = 10;
+/* 主動選擇的消耗擋不擋得住(2026-09-09,kc:「明明有飽足但是他說我餓死」)——
+ * 原本每個消耗體力的互動都寫 `if(ST.stamina <= 0)`,**扣完剛好歸零就直接
+ * game over**,玩家眼裡是「我還有體力啊,怎麼按一下就死了」。而且 chg() 那條
+ * 「扣體力同步扣飽足感」的連動,讓體力 −5 同時也是飽足 −5,所以**兩條都要看**
+ * ——飽足先見底的話死的是「餓死」那則文案,更難聯想到自己按了什麼。
+ *
+ * 規則:**玩家自己選的行為,永遠不該把自己按死。** 扣完會歸零就擋下來,死亡
+ * 留給時間流逝那種被動的消耗。回傳擋下來的理由字串(null = 可以做)。 */
+function spendBlockedReason(cost){
+  if(ST.stamina <= cost) return '你累到不行了，先回家睡一下。';
+  if(ST.full   <= cost) return '你餓到手腳發軟，先去吃點東西。';
+  return null;
+}
 function chg(k, d){
   if(!d) return;
   if(gameOver) return;   // 遊戲結束後所有指標凍結,不用逐一擋每個呼叫端
@@ -6625,7 +6638,7 @@ function steal(feed){
     toast('店長剛剛才盯過你一次,今天別想了。', 2400);
     return;
   }
-  if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+  { const r = spendBlockedReason(3); if(r){ toast(r, 2400); return; } }
   chg('stamina', -3);
   if(IN.clerkFace !== 'B'){
     chg('star',-1); chg('calm',-16);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
@@ -6746,7 +6759,7 @@ function openIndoorSpot(id){
     else if(id === 'desk'){
       const items = [
         { label:'讀書', cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　1小時40分', cls: ST.stamina<=0?'bad':'', run:() => {
-          if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+          { const r = spendBlockedReason(10); if(r){ toast(r, 2400); return; } }
           chg('stamina', -10);   // advanceTime 交給 chg() 統一算
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); });
         } }
@@ -6835,7 +6848,7 @@ function openIndoorSpot(id){
         { label:'認真上課',
           cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1小時40分　答對 +知識',
           cls: ST.stamina<=0 ? 'bad' : '', run:() => {
-          if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+          { const r = spendBlockedReason(10); if(r){ toast(r, 2400); return; } }
           deskActionDay = day;
           chg('stamina', -10); chg('mood', -5);   // advanceTime 交給 chg() 統一算
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); finishSchoolDay(); });
@@ -6843,7 +6856,7 @@ function openIndoorSpot(id){
         { label:'偷玩手遊',
           cost:'體力 −5　50 分鐘　成功 +情緒／被抓 −風評−歸屬感',
           cls:'risk', run:() => {
-          if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+          { const r = spendBlockedReason(10); if(r){ toast(r, 2400); return; } }
           deskActionDay = day;
           startPhoneGame(finishSchoolDay);   // 手遊結束(撐過去或被抓)才放學,見 startPhoneGame()
         } },
@@ -7037,7 +7050,7 @@ function openIndoorSpot(id){
       cls: (day !== workedDay && ST.stamina<=0) ? 'bad' : '',
       run: () => {
         if(day === workedDay){ toast('店長說今天班表滿了,明天再來。', 2400); return; }
-        if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+        { const r = spendBlockedReason(40); if(r){ toast(r, 2400); return; } }
         chg('stamina', -40);
         startCheckoutShift();
       } });
@@ -8065,6 +8078,9 @@ const IDLE_DAY_CHOICES = [
     text:'你們在騎樓下站到天黑，講了一些沒有結論的話。\n（帥潮 +3、情緒 +5、體力 −10、金錢 −100、風評 −1）',
     run(){ chg('cool', 3); chg('mood', 5); chg('stamina', -10); chg('money', -100); chg('star', -1); } }
 ];
+/* 過渡選項的體力成本(2026-09-09 補擋)——「去打工」一次 −35,連動扣飽足也
+   −35,飽足不到 35 的玩家選下去就直接餓死。跟其他互動同一套 spendBlockedReason()。 */
+const IDLE_DAY_COST = { '去打工':35, '去圖書館':20, '在外面晃':10 };
 function maybeIdleDay(){
   if(gameOver) return;
   if(hasStoryToday()){
@@ -8086,7 +8102,11 @@ function maybeIdleDay(){
     say('pc', '這幾天剛開學，還沒什麼事。\n今天要做什麼？', () => {
       openMenu('今天', IDLE_DAY_CHOICES.map(c => ({
         label: c.label,
-        run: () => { c.run(); say('pc', c.text, () => { busy = false; }); }
+        run: () => {
+          const r = spendBlockedReason(IDLE_DAY_COST[c.label] || 0);
+          if(r){ say('pc', r, () => { busy = false; }); return; }
+          c.run(); say('pc', c.text, () => { busy = false; });
+        }
       })));
     });
   }, 1400);
@@ -8491,7 +8511,7 @@ function talkToWorkerIndoor(){
      **每一句都要把數值變化寫進對話框**(括號),這是 kc 定過的規則。
      ⚠ **「純聊天」只在她還沒講過那個故事之前出現**(kc:「故事講完後 純聊天的
      選項就拔掉 不然很坑錢」)——付了錢進來只換一句隨機閒聊是在坑玩家。 */
-  const TIRED = '你累到站著都想睡,什麼都不想做了。';
+
   const opts = [];
   if(!w.toldStory) opts.push({ label:'純聊天', run(){
     w.toldStory = true;
@@ -8500,14 +8520,14 @@ function talkToWorkerIndoor(){
   } });
   opts.push(
     { label:'摸摸她', cost:'體力 −3　歸屬感 +3', run(){
-        if(ST.stamina <= 0){ toast(TIRED, 2400); return; }
+        { const r = spendBlockedReason(3); if(r){ toast(r, 2400); return; } }
         chg('stamina', -3); chg('calm', 3);
         startHeroGesture('pat');
         say('pc', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。\n（體力 −3、歸屬感 +3）',
             () => talkToWorkerIndoor());
       } },
     { label:'抱抱', cost:'體力 −5　歸屬感 +6　情緒 +3', run(){
-        if(ST.stamina <= 0){ toast(TIRED, 2400); return; }
+        { const r = spendBlockedReason(5); if(r){ toast(r, 2400); return; } }
         chg('stamina', -5); chg('calm', 6); chg('mood', 3);
         startHeroGesture('hug');
         say('pc', '你伸手抱住她。她僵了一下,像是很久沒有人這樣抱過她——過了幾秒,肩膀鬆下來,靠著你,誰都沒有先開口。\n（體力 −5、歸屬感 +6、情緒 +3）',
@@ -12768,7 +12788,7 @@ const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','
 const MOOD_TALK_MIN = 15;
 function interactProp(prop){
   if(DIALOGUE_PROP_TYPES.has(prop.type)){
-    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    { const r = spendBlockedReason(5); if(r){ toast(r, 2400); return; } }
     if(ST.mood <= MOOD_TALK_MIN){ toast('你現在沒什麼力氣講話，先去做點讓自己開心一點的事吧。', 2600); return; }
     chg('stamina', -5);
   }
@@ -12853,7 +12873,7 @@ function interactProp(prop){
     return;
   }
   if(prop.type === 'pet'){
-    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    { const r = spendBlockedReason(3); if(r){ toast(r, 2400); return; } }
     busy = true;
     /* 貓/狗共用摸的動作會摸空——貓矮,狗那份「Petting Animal」動畫伸手的
        高度對不到貓身上(kc:「貓還是完全沒摸到,貓要摸得更低」)。貓走
@@ -12887,7 +12907,7 @@ function interactProp(prop){
        不用玩家自己再走過去、再按一次空白鍵找老闆。`busy` 全程鎖著(先手動
        設 true,交給 `fade()` 自己的計時器在轉場結束時解鎖),擋掉轉場
        途中的移動/其他互動。 */
-    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    { const r = spendBlockedReason(3); if(r){ toast(r, 2400); return; } }
     busy = true;
     hero.playOnce('pet', () => {
       chg('stamina', -3);
@@ -12900,7 +12920,7 @@ function interactProp(prop){
       });
     });
   } else if(prop.type === 'play'){
-    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    { const r = spendBlockedReason(5); if(r){ toast(r, 2400); return; } }
     chg('mood', 3);
     chg('stamina', -5);
     toast(prop.ref.label + '。' + PLAY_LINES[Math.random()*PLAY_LINES.length|0], 2400);
@@ -12924,7 +12944,7 @@ function interactProp(prop){
     if(cruel) chg('mood', -4);
     toast(pool[Math.random()*pool.length|0], 2200);
   } else {
-    if(ST.stamina <= 0){ toast('你累到不行了，先回家睡一下。', 2400); return; }
+    { const r = spendBlockedReason(2); if(r){ toast(r, 2400); return; } }
     const l = prop.ref;
     busy = true;
     hero.playOnce('pickup', () => {
