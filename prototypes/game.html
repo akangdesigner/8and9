@@ -857,7 +857,7 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTweakPat()">摸摸滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -5622,6 +5622,47 @@ function debugTweakMassageScene(){
   tweakMassageScenePanel();
 }
 window.debugTweakMassageScene = debugTweakMassageScene;
+/* 摸摸的手勢滑桿(2026-09-09,kc:「摸摸的部分手讓我調整」)——面板開著時姿勢
+   會一直擺著(HERO_GESTURE.hold),不然 1.5 秒就放下來根本來不及看。
+   四條滑桿:肩膀前後/肩膀側向/手肘,加上玩家站位 X(手碰不碰得到人主要看這條)。
+   **拉到滿意跟我說數字,我寫死並把按鈕拔掉**,跟醫院站位那批同一套慣例。 */
+function tweakPatPanel(){
+  const old = document.getElementById('patTweakPanel');
+  if(old){ old.remove(); HERO_GESTURE.hold = false; HERO_GESTURE.kind = null; return; }
+  const P = GESTURE_POSE.pat;
+  const rows = [
+    ['pt_px','玩家站位 X(離她多近)', 60, 210, 1, () => IN.px, v => IN.px = v, 0],
+    ['pt_ax','肩膀前後(越負越往前抬)', -2.2, .6, .01, () => P.rArmX, v => P.rArmX = v, 2],
+    ['pt_az','肩膀側向(收側向分量)', -1.2, 1.2, .01, () => P.rArmZ, v => P.rArmZ = v, 2],
+    ['pt_fx','手肘(越負手越往上)', -1.6, .6, .01, () => P.rForeX, v => P.rForeX = v, 2]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'patTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:270px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">摸摸・手勢滑桿</div>' +
+    '<div style="margin-bottom:8px;opacity:.75">姿勢會一直擺著,拉了馬上看得到</div>' +
+    rows.map(([id,label,min,max,step,get,,dp]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(dp)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「摸摸滑桿」按鈕<br>拉到滿意後跟我說四個數字,我寫死+拔掉滑桿</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,get,set,dp]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      set(+e.target.value);
+      document.getElementById(`${id}_v`).textContent = (+e.target.value).toFixed(dp);
+    });
+  });
+  HERO_GESTURE.kind = 'pat'; HERO_GESTURE.hold = true;   // 姿勢定住,讓 kc 邊拉邊看
+}
+window.tweakPatPanel = tweakPatPanel;
+function debugTweakPat(){
+  if(document.getElementById('patTweakPanel')){ tweakPatPanel(); return; }   // 再按一次收掉
+  __dbg.viewMassage();
+  tweakPatPanel();
+}
+window.debugTweakPat = debugTweakPat;
 function tweakMassageScenePanel(){
   const old = document.getElementById('massageSceneTweakPanel');
   if(old){ old.remove(); return; }
@@ -8447,7 +8488,7 @@ const WORKER_STORY_BEATS = [
   { who:'pc',     text:'她看了你一眼,像是隨口感慨。' },
   { who:'worker', text:'「若她還活著,大概也跟你差不多歲數了。」\n（情緒 +2）' }
 ];
-/* 室內的手部動作(2026-09-09,kc:「然後要真的有動作 摸摸」)——摸摸/抱抱不能
+/* 室內的手部動作(2026-09-09,kc:「然後要真的有動作 摸摸」)——「摸摸她」不能
    只有文字,角色要真的抬手。沒有現成的動畫檔(`MODELS.m.once` 只有 pickup/pet/
    pet_low,pet 是蹲下摸動物,高度對不上摸人),所以走 `applyRidePose()` 那條老路:
    **每幀在動畫算完之後,再把手臂骨骼轉一個角度上去**(mixer 每幀會重設骨架,
@@ -8455,7 +8496,7 @@ const WORKER_STORY_BEATS = [
    ⚠ 這是暫時方案。真的要好看應該去 Mixamo 抓一支「撫摸/擁抱」的動畫走
    `tools/fbx2glb.py` 那套流程接成 `once` 動作——那要 Adobe 帳號登入,我做不到,
    kc 要的話跟我說我給他關鍵字。 */
-const HERO_GESTURE = { kind:null, t:0, dur:1500 };
+const HERO_GESTURE = { kind:null, t:0, dur:1500, hold:false };
 /* ⚠ **左右手的 Z/Y 要反號**——`applyRidePose()` 那邊寫得很清楚(左手
    `rotateZ(armZ)`、右手 `rotateZ(-armZ)`),第一版兩隻手用同一個正負號,結果
    手臂往後彎、看起來像在抓自己的背(kc:「你動作做錯了吧」)。這裡的 rArmZ/
@@ -8464,17 +8505,13 @@ const HERO_GESTURE = { kind:null, t:0, dur:1500 };
    往外張開,兩軸一起轉才讀得成「往前伸」)。RIDE_POSE 的「往前平伸」是
    armX:-.7/armZ:.2,這裡以那組為基準加減。 */
 const GESTURE_POSE = {
-  pat: { rArmX:-.85, rArmZ:-.30, rForeX:-.35, lArmX:0,    lArmZ:0,   lForeX:0    },
-  /* ⚠ **hug 做不到 kc 要的「橫向張開雙手」**,兩個物理限制擋著:
-     ① **側身視角**——角色面朝她(face 'R'),真的把手往兩側張開,畫面上是一隻
-        手朝鏡頭、一隻朝鏡頭外,看起來就是沒動(實測轉了 1.5 弧度畫面完全沒變)。
-     ② **她坐著、他站著**——手往前伸的高度剛好是她的臉,再往前就穿過她的頭
-        (實測連續穿模三次)。真要抱得先彎腰(動 Spine),不是調兩隻手臂能解決的。
-     退而求其次:**雙手搭到她肩膀上**,不穿模、讀得出是親密接觸。
-     這副骨架的軸向規律(RIDE_POSE 那則其實寫過,這輪實測確認):**只轉 X = 手往
-     側面舉起來張開;X+Z 一起轉才是往前伸;Z 單獨轉幾乎只是沿手臂長軸扭轉,畫面
-     上看不出來;前臂的 X 越負手越往上抬**(戳到臉就是這樣來的)。 */
-  hug: { rArmX:-.85, rArmZ:-.30, rForeX:-.30, lArmX:-.95, lArmZ:.30, lForeX:-.30 }
+  pat: { rArmX:-.85, rArmZ:-.30, rForeX:-.35, lArmX:0, lArmZ:0, lForeX:0 }
+  /* ⚠ 「抱抱」2026-09-09 被 kc 刪掉(連同它的 hug 姿勢)——側身視角 + 她坐著,
+     骨骼硬轉做不出擁抱(手往前伸的高度剛好穿過她的臉,往兩側張開在側面又看不
+     出來,試了六版)。要加回來得先有真的動畫檔。
+     這副骨架的軸向規律留著給下次調姿勢用:**只轉 X = 手往側面舉起來張開;
+     X+Z 一起轉才是往前伸;Z 單獨轉幾乎只是沿手臂長軸扭轉,畫面上看不出來;
+     前臂的 X 越負手越往上抬**(戳到臉就是這樣來的)。 */
 };
 function startHeroGesture(kind){
   HERO_GESTURE.kind = kind; HERO_GESTURE.t = HERO_GESTURE.dur;
@@ -8483,15 +8520,19 @@ function startHeroGesture(kind){
    內部會 mixer.update() 把骨架重設回動畫的姿勢,先轉再 animate 等於白轉。 */
 function applyHeroGesture(dt){
   if(!HERO_GESTURE.kind) return;
-  HERO_GESTURE.t -= dt;
-  if(HERO_GESTURE.t <= 0){ HERO_GESTURE.kind = null; return; }
+  /* hold(2026-09-09,kc:「摸摸的部分手讓我調整」)——滑桿面板開著的時候姿勢
+     要一直擺著,不然 1.5 秒就放下來,根本來不及拉滑桿看效果。 */
+  if(!HERO_GESTURE.hold){
+    HERO_GESTURE.t -= dt;
+    if(HERO_GESTURE.t <= 0){ HERO_GESTURE.kind = null; return; }
+  }
   const b = heroIndoor.debugBones && heroIndoor.debugBones();
   if(!b || !b.RightArm) return;
   const p = GESTURE_POSE[HERO_GESTURE.kind];
   if(!p) return;
   /* 前 25% 抬起、後 25% 放下,中間停著——不做這個包絡的話動作會「瞬間出現、
      瞬間消失」,看起來像穿幫不像動作。 */
-  const k = Math.min(1, Math.min(HERO_GESTURE.t, HERO_GESTURE.dur - HERO_GESTURE.t) / (HERO_GESTURE.dur * .25));
+  const k = HERO_GESTURE.hold ? 1 : Math.min(1, Math.min(HERO_GESTURE.t, HERO_GESTURE.dur - HERO_GESTURE.t) / (HERO_GESTURE.dur * .25));
   b.RightArm.rotateX(p.rArmX * k); b.RightArm.rotateZ(p.rArmZ * k);
   if(b.RightForeArm) b.RightForeArm.rotateX(p.rForeX * k);
   if(p.lArmX && b.LeftArm){
@@ -8504,7 +8545,8 @@ function talkToWorkerIndoor(){
   const w = ALLEY_WORKER;
   /* 選項分兩種(2026-09-09,kc:「摸摸他抱抱他只是簡單的互動 可以無限做 但會扣
      體力」):
-     - **簡單互動**(摸摸/抱抱)——做完**回到選單**可以一直做,代價是體力;
+     - **簡單互動**(摸摸她;抱抱 2026-09-09 被刪掉了)——做完**回到選單**可以
+       一直做,代價是體力;
        體力歸零就做不了(擋在 run 裡,跟讀書/上班同一套「累到不行」的擋法)。
      - **一次性**(純聊天/辦正事)——做完直接 leaveIndoor(),一次進場一次。
      另外「走了」是唯一的離場出口,不然簡單互動一直回選單會關不掉。
@@ -8524,13 +8566,6 @@ function talkToWorkerIndoor(){
         chg('stamina', -3); chg('calm', 3);
         startHeroGesture('pat');
         say('pc', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。\n（體力 −3、歸屬感 +3）',
-            () => talkToWorkerIndoor());
-      } },
-    { label:'抱抱', cost:'體力 −5　歸屬感 +6　情緒 +3', run(){
-        { const r = spendBlockedReason(5); if(r){ toast(r, 2400); return; } }
-        chg('stamina', -5); chg('calm', 6); chg('mood', 3);
-        startHeroGesture('hug');
-        say('pc', '你伸手抱住她。她僵了一下,像是很久沒有人這樣抱過她——過了幾秒,肩膀鬆下來,靠著你,誰都沒有先開口。\n（體力 −5、歸屬感 +6、情緒 +3）',
             () => talkToWorkerIndoor());
       } },
     /* 辦正事(2026-09-09,kc 要求加的,文案也是他給的)——錢在進場前就付掉了
