@@ -8378,7 +8378,7 @@ function enterMassage(w){
        spots 的 'door',見上面長筆記),face 用 'F' 面朝房間裡走。 */
     /* 站位定案(2026-09-09,kc 自己拉滑桿拉到滿意的最終數字)——側身面向
        她坐的方向。不能走動,所以這組就是他整場站的地方。 */
-    IN.px = 107; IN.py = 340; IN.face = 'R';
+    IN.px = 145; IN.py = 340; IN.face = 'R';   // px 107→145(2026-09-09 kc:「沒碰到人欸 還是我人要往前一點」),原本手伸出去離她還有一大段
     document.getElementById('where').textContent = '越式按摩';
     hintEl.classList.remove('on');   // 進場前殘留的「按空白鍵搭話」提示清掉,updateIndoor() 這個 PLACE 不會再幫忙清
     paintMassageBackdrop();
@@ -8444,10 +8444,17 @@ const HERO_GESTURE = { kind:null, t:0, dur:1500 };
    往外張開,兩軸一起轉才讀得成「往前伸」)。RIDE_POSE 的「往前平伸」是
    armX:-.7/armZ:.2,這裡以那組為基準加減。 */
 const GESTURE_POSE = {
-  pat: { rArmX:-.85, rArmZ:-.30, rForeX:-.35, lArmX:0, lArmZ:0, lForeX:0 },
-  /* hug 的肩膀比 pat **低**、手肘彎更多——第一版 rArmX 給到 -1.0,手舉得比她
-     的頭還高,看起來像在招手不是要抱人。現場改到這組才對。 */
-  hug: { rArmX:-.70, rArmZ:-.55, rForeX:-1.15, lArmX:-.70, lArmZ:.55, lForeX:-1.15 }
+  pat: { rArmX:-.85, rArmZ:-.30, rForeX:-.35, lArmX:0,    lArmZ:0,   lForeX:0    },
+  /* ⚠ **hug 做不到 kc 要的「橫向張開雙手」**,兩個物理限制擋著:
+     ① **側身視角**——角色面朝她(face 'R'),真的把手往兩側張開,畫面上是一隻
+        手朝鏡頭、一隻朝鏡頭外,看起來就是沒動(實測轉了 1.5 弧度畫面完全沒變)。
+     ② **她坐著、他站著**——手往前伸的高度剛好是她的臉,再往前就穿過她的頭
+        (實測連續穿模三次)。真要抱得先彎腰(動 Spine),不是調兩隻手臂能解決的。
+     退而求其次:**雙手搭到她肩膀上**,不穿模、讀得出是親密接觸。
+     這副骨架的軸向規律(RIDE_POSE 那則其實寫過,這輪實測確認):**只轉 X = 手往
+     側面舉起來張開;X+Z 一起轉才是往前伸;Z 單獨轉幾乎只是沿手臂長軸扭轉,畫面
+     上看不出來;前臂的 X 越負手越往上抬**(戳到臉就是這樣來的)。 */
+  hug: { rArmX:-.85, rArmZ:-.30, rForeX:-.30, lArmX:-.95, lArmZ:.30, lForeX:-.30 }
 };
 function startHeroGesture(kind){
   HERO_GESTURE.kind = kind; HERO_GESTURE.t = HERO_GESTURE.dur;
@@ -13594,7 +13601,7 @@ window.__dbg = {
     document.getElementById('city').style.display = 'none';
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
-    IN.px = 107; IN.py = 340; IN.face = 'R'; IN.near = null;
+    IN.px = 145; IN.py = 340; IN.face = 'R'; IN.near = null;
     document.getElementById('where').textContent = '越式按摩';
     paintMassageBackdrop();
     return { mode:MODE, imgComplete:massageImg.complete, w:massageImg.naturalWidth, h:massageImg.naturalHeight, src:massageImg.src };
