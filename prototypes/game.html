@@ -12733,7 +12733,9 @@ const SCHOOL_ABOVE = [
   ['林口高中','普通科',18], ['新莊高中','普通科',17], ['海山高中','普通科',16],
   ['清水高中','普通科',15], ['金陵女中','普通科',14]
 ];
-/* 虛構校名,玩家真的選得到的就是這幾間 */
+/* 虛構校名。**2026-09-09 kc:「我們能選擇的只有最底部的永安高中」**——這幾間
+   跟進修部原本都選得到,現在全部改成不可選(跟紅線以上的明星高中同一種灰),
+   整張表捲到底就只有一間亮著。 */
 const SCHOOL_BELOW = [
   ['育昌高級商工','商業經營科',12], ['明勤高級工商','汽車科',11],
   ['光正高級中學','餐飲管理科',10], ['永新高級家商','美容科',9],
@@ -12742,6 +12744,9 @@ const SCHOOL_BELOW = [
 const SCHOOL_NIGHT = [
   ['市立永新高中　進修部','商業經營科',7], ['聯達高級工商　進修部','汽車科',6]
 ];
+/* 唯一選得到的那一間,排在整張表最底部(「未升學未就業」那一列是官方分類的
+   附註、跟學校清單之間有分隔線,不算在學校裡)。 */
+const SCHOOL_ONLY = ['永安高中','普通科',5];
 const SCHOOL_AFTER = {
   day:   '學費一學期三萬六。\n你媽說她再標一個會。',
   night: '晚上六點半上課，十點下課。\n白天空著——空著的意思是可以去上班。',
@@ -12817,15 +12822,17 @@ function buildSchoolPick(){
   });
   html += '<div class="sp_cut"><div class="sp_lab">↑ 錄取機率低於 5%</div><hr>'
         + '<div class="sp_lab2">你的積分　12</div></div>';
-  SCHOOL_BELOW.forEach((s,i) => {
-    html += '<div class="sp_sch sp_ok" data-k="day" data-i="'+i+'"><div class="sp_n">'+s[0]+'</div>'
+  SCHOOL_BELOW.forEach(s => {
+    html += '<div class="sp_sch sp_no"><div class="sp_n">'+s[0]+'</div>'
           + '<div class="sp_d">'+s[1]+'</div><div class="sp_p">'+s[2]+'</div></div>';
   });
   html += '<div class="sp_sect">進　修　部　（　夜　間　）</div>';
-  SCHOOL_NIGHT.forEach((s,i) => {
-    html += '<div class="sp_sch sp_ok" data-k="night" data-i="'+i+'"><div class="sp_n">'+s[0]+'</div>'
+  SCHOOL_NIGHT.forEach(s => {
+    html += '<div class="sp_sch sp_no"><div class="sp_n">'+s[0]+'</div>'
           + '<div class="sp_d">'+s[1]+'</div><div class="sp_p">'+s[2]+'</div></div>';
   });
+  html += '<div class="sp_sch sp_ok" data-k="day" data-only="1"><div class="sp_n">'+SCHOOL_ONLY[0]+'</div>'
+        + '<div class="sp_d">'+SCHOOL_ONLY[1]+'</div><div class="sp_p">'+SCHOOL_ONLY[2]+'</div></div>';
   /* 官方分類的用詞。放在整張表的最後面——你要把表捲完才看得到它。 */
   html += '<div class="sp_last" data-k="none">未升學未就業<small>本項無需填表。</small></div>';
   document.getElementById('sp_list').innerHTML = html;
@@ -12860,8 +12867,7 @@ document.getElementById('sp_list').addEventListener('click', e => {
   if(!row || spDone) return;
   spDone = true;
   const kind = row.dataset.k;
-  const src  = kind === 'day' ? SCHOOL_BELOW : kind === 'night' ? SCHOOL_NIGHT : null;
-  const rec  = src ? src[+row.dataset.i] : null;
+  const rec  = row.dataset.only ? SCHOOL_ONLY : null;   // 目前選得到的學校只有這一間,見 SCHOOL_ONLY
   SCHOOL_CHOICE.picked = true;
   SCHOOL_CHOICE.kind = kind;
   SCHOOL_CHOICE.name = rec ? rec[0] : null;
