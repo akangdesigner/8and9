@@ -5661,6 +5661,11 @@ function debugTweakPat(){
   if(document.getElementById('patTweakPanel')){ tweakPatPanel(); return; }   // 再按一次收掉
   __dbg.viewMassage();
   tweakPatPanel();
+  /* ⚠ 一定要把互動選單也開起來(2026-09-09,kc:「而且我測試不了 沒有對話匡」)
+     ——只切進場景 + 開滑桿的話,畫面上沒有「摸摸她」可以點,等於只能看靜態
+     姿勢、測不到真正的互動。**這跟醫院站位滑桿那次 kc 說「啊我的對話框呢」
+     是同一個錯**,調姿勢的按鈕一律要連著它會用到的那個選單/對話一起開。 */
+  talkToWorkerIndoor();
 }
 window.debugTweakPat = debugTweakPat;
 function tweakMassageScenePanel(){
