@@ -4770,7 +4770,7 @@ const dadDrunkImg = new Image(); dadDrunkImg.onload = paintHomeBackdrop; dadDrun
    缺圖時退回一塊素色底,不會空白也不會壞,跟這個檔案其他背景圖同一套
    慣例。 */
 const massageImg = new Image(); massageImg.onload = () => { if(PLACE === 'massage') paintMassageBackdrop(); };
-massageImg.src = '../assets/bg/massage-wall.png?v=1';
+massageImg.src = '../assets/bg/massage-wall.png?v=2';   // v2:2026-09-09 kc 重生的版本,她已經畫在圖裡了
 function paintMassageBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(massageImg.complete && massageImg.naturalWidth){
@@ -6039,7 +6039,12 @@ const HERO_TARGET_PX = {
   corridor: 296,   // 2026-08-28:灰模走廊,同上先借同一個量級
   tattoo: 296,   // 2026-08-28:刺青店灰模,同上先借同一個量級
   hospital: 601,   // 2026-09-04:kc 拉 tweakHospitalScenePanel() 定案(原本 296 是灰模時代借用的量級,換照片背景+角色顯示之後比例對不起來,重新拉過)
-  massage: 275.6   // 2026-09-03:原本靠 `?? HERO_TARGET_PX.store` 隱性借用同一個數字,
+  /* 2026-09-09 kc 換上「她已經坐在裡面」的新背景照片之後重調——舊的 275.6
+     是配空房間+3D 的她那一版,現在她在照片裡是固定大小,玩家要跟她對得起來
+     才不會像個小孩站在旁邊(截圖比對:她坐姿在畫面上約 430 logical px,站起來
+     約 600,玩家原本只有 276,差了兩倍多)。560 是照這個比例推的,還沒經過
+     kc 肉眼確認——`__dbg.tweakMassageScene()` 那組滑桿可以現場拉。 */
+  massage: 560   // 2026-09-03:原本靠 `?? HERO_TARGET_PX.store` 隱性借用同一個數字,
                     // kc 要滑桿調越式按摩室內站位/縮放,開一個真的獨立 key 讓滑桿有
                     // 東西可以寫,不要再隱性共用 store 那個(調 store 不該連動這裡)
 };
@@ -6129,7 +6134,11 @@ const workerIndoor = buildNPC(THREE, indoorScene, {
   rig:'f3', skin:'#c9a077', hair:'#241f1c', hood:'#7a2f45', pants:'#232323', shoe:'#3a3430'
 });
 workerIndoor.group.visible = false;
-let MASSAGE_WORKER_PX = 290;   // 站在玩家(IN.px≈190)右邊,面對面,見 renderIndoor3D()
+/* 她在畫面上的 x(logical px,畫面寬 640)。2026-09-09 起**不再是 3D 角色的
+   站位**(她已經畫進背景照片裡了,見 renderIndoor3D()),只剩下「走到哪裡按
+   空白鍵才搭得到話」那個判定框在用。216 是照新圖裡她的位置換算的:她的身體
+   中心大約在整張圖寬的 33.8%,640 × .338 ≈ 216。 */
+let MASSAGE_WORKER_PX = 216;
                                 // let 不是 const(2026-09-03):tweakMassageScenePanel() 滑桿要能現場改這個值
 /* 越式按摩室內走動邊界+互動點(2026-09-03,kc:「進去畫面之後 是我們人要
    走過去找他才會觸發對話 可以選擇 聊天 摸摸他 抱抱」)——原本整段是進場
@@ -6206,8 +6215,13 @@ function renderIndoor3D(dt){
      ——站在固定的 MASSAGE_WORKER_PX,跟玩家同一條 py(同一條「地板線」),
      面朝玩家(跟 heroIndoor 的朝向鏡射,玩家面右她就面左)。只有
      PLACE==='massage' 才顯示/更新,其餘場景維持 visible=false、不佔渲染。 */
-  workerIndoor.group.visible = (PLACE === 'massage');
-  if(PLACE === 'massage'){
+  /* ⚠ 2026-09-09 kc 換上新的 massage-wall.png,**她已經畫在背景照片裡了**
+     (坐在按摩床左端),所以這具 3D 骨架要關掉——不關的話畫面上會有兩個她,
+     一個照片裡坐著、一個 3D 站著。跟醫院那邊「阿嬤在照片裡所以不放 3D」
+     同一個處理。骨架本身留著沒刪(換回空房間的圖就把 false 改回
+     PLACE === 'massage'),但它現在不顯示,也不用每幀更新。 */
+  workerIndoor.group.visible = false;
+  if(false && PLACE === 'massage'){
     workerIndoor.group.position.set(MASSAGE_WORKER_PX*SC, 720 - IN.py*SC, 0);
     workerIndoor.group.scale.setScalar((HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store) / PLAYER.height);
     workerIndoor.group.rotation.y = -heroIndoor.group.rotation.y;
@@ -13377,6 +13391,19 @@ window.__dbg = {
      GRANDMA 旗標)留著單純方便直接看背景美術/角色站位,不用真的觸發
      一輪探望互動。debugTweakHospitalScene()(#bar「醫院站位滑桿」按鈕)
      就是包這個 + tweakHospitalScenePanel()。 */
+  /* 直接看越式按摩室內(2026-09-09,kc 回報「爽一下 裡面沒換到圖嗎」)——
+     比照 viewHospital():純視覺預覽,不跑付錢/對話那串,方便單獨檢查背景圖
+     有沒有真的畫上去。 */
+  viewMassage(){
+    MODE = 'indoor'; PLACE = 'massage';
+    document.getElementById('city').style.display = 'none';
+    wlabelsEl.style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    IN.px = 110; IN.py = 320; IN.face = 'F'; IN.near = null;
+    document.getElementById('where').textContent = '越式按摩';
+    paintMassageBackdrop();
+    return { mode:MODE, imgComplete:massageImg.complete, w:massageImg.naturalWidth, h:massageImg.naturalHeight, src:massageImg.src };
+  },
   viewHospital(){
     MODE = 'indoor'; PLACE = 'hospital';
     document.getElementById('city').style.display = 'none';
