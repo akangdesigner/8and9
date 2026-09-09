@@ -654,7 +654,7 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
-<div id="bar"><button class="tool" onclick="location.reload()">重來</button><button class="tool" onclick="debugSkipDays(1)">+1天</button><button class="tool" onclick="debugSkipDays(7)">+7天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTriggerGrandma()">阿嬤那天</button><button class="tool" onclick="debugTweakHospital()">醫院滑桿</button><button class="tool" onclick="debugTweakHospitalTexture()">醫院貼圖滑桿</button><button class="tool" onclick="debugTweakHospitalProps()">醫院花圃滑桿</button><button class="tool" onclick="debugTweakHospitalScene()">醫院站位滑桿</button><button class="tool" onclick="debugGrandmaMonthly()">阿嬤月結算</button><button class="tool" onclick="debugTweakPlayerFace()">主角眼睛滑桿</button><button class="tool" onclick="debugClearSave()">清除進度</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -12623,17 +12623,29 @@ try {
   sessionStorage.removeItem('nowayup.fresh');
 } catch(e){}
 if(bootSlot){
-  const ok = loadGame(+bootSlot);
+  const ok = loadGame(bootSlot === 'auto' ? 'auto' : +bootSlot);
   hideTitle();
-  setTimeout(() => toast(ok ? `已讀取存檔 ${bootSlot}。` : '讀取失敗,從頭開始。', 2600), 700);
+  if(bootSlot !== 'auto')   // 'auto' 是 #bar「重來」帶的旗標,那是開發用的重整,不用跟玩家報告
+    setTimeout(() => toast(ok ? `已讀取存檔 ${bootSlot}。` : '讀取失敗,從頭開始。', 2600), 700);
 } else if(bootFresh){
   hideTitle();
 } else {
   showTitle();
 }
 
-/* #bar「清除進度」——玩家要重新開始一輪用的(跟旁邊那顆純 reload 的
-   「重來」不一樣:那顆現在會讀存檔接著玩,這顆是真的從頭)。 */
+/* #bar「重來」(2026-09-09 改)——原本是純 location.reload()。有了標題畫面
+   之後純重整會被標題攔一次(要再按「繼續遊戲」),對開發時反覆重整很煩。
+   改成先存一次再帶著 resume 旗標重整,直接回到剛才的狀態。玩家要真的從頭
+   請走標題畫面的「開始新遊戲」。 */
+function debugReload(){
+  saveGame('auto');
+  try { sessionStorage.setItem('nowayup.loadSlot', 'auto'); } catch(e){}
+  location.reload();
+}
+window.debugReload = debugReload;
+/* 「清除進度」的按鈕 2026-09-09 從 #bar 拿掉了(kc:「把不需要的清掉 只留
+   跳轉地點跟重來」)——功能被標題畫面的「開始新遊戲」取代。函式留著給
+   __dbg.clearSaveAndReload() 用,不是死碼。 */
 function debugClearSave(){
   saveOff = true;                 // 見 saveGame() 開頭那則筆記:不擋的話 pagehide 會把進度存回去
   clearSave();
@@ -12812,6 +12824,19 @@ window.__dbg = {
      MOTO_IMPOUND.reveal() 直接模擬 sleep() 那張拖吊通知單觸發,不用真的
      睡一覺。 */
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, syncMiscQuestPanel,
+  /* 2026-09-09 從 #bar 拿掉按鈕之後,這幾個工具的入口改掛這裡(kc:「把不需要
+     的清掉 只留跳轉地點跟重來」)。要用哪個就跟我說,我把按鈕加回 #bar——
+     kc 不打 console 指令(見自動記憶 feedback_no_console_commands_add_buttons),
+     這裡掛著是為了不讓程式變成叫不到的死碼,不是要他自己敲。 */
+  clearSaveAndReload: debugClearSave,
+  skipDays: (n) => debugSkipDays(n || 1),
+  fillFull: debugFillFull,
+  triggerGrandma: debugTriggerGrandma,
+  grandmaMonthly: debugGrandmaMonthly,
+  tweakHospitalTexture: debugTweakHospitalTexture,
+  tweakHospitalProps: debugTweakHospitalProps,
+  tweakHospitalScene: debugTweakHospitalScene,
+  tweakPlayerFace: tweakPlayerFacePanel,
   /* enterBedroom(2026-08-31)——kc 要現場測 sleep() 那張拖吊通知單,原本
      只能從客廳用方向鍵走到房間門口,室內 2D 場景這個環境的自動化工具
      每次按鍵位移量很小,走不過去。直接掛出來,__dbg.enterBedroom() 一次
