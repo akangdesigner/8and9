@@ -2749,6 +2749,7 @@ function checkFieldTrip(){
   if(day !== 18) return false;
   if(!CLASSFUND.tripStarted){
     CLASSFUND.tripStarted = true;
+    clearTodayCard();            // day18 走自己這條路,不經過 maybeTriggerStoryNode(),要自己收卡
     playBeats([
       { who:'teacher', text:'「今天校外教學，去廟口拜拜，等一下校門口集合。」' }
     ], 0, () => {
@@ -7816,9 +7817,46 @@ function fade(label, mid){
    ⚠ 只看 bet/drink 兩條(家裡的拉扯是主節奏)。學校線的節點是走
    schoolStorySource() 在特定場景觸發的,不在這裡判斷——不然玩家在學校還沒
    走到那個場景,這裡就先把那天當成「有事」跳過了。 */
+/* ⚠ 2026-09-09 第二輪,kc 糾正:「沒有 主線劇情都算有事 比如廟口校外教學
+   啊罵快死掉」——第一版只看 bet/drink 兩條,理由是「學校線要走到教室才觸發,
+   拿來判斷會誤判」。那個理由站不住:玩家還沒走到教室不代表今天沒事,今天
+   本來就有事,只是還沒發生。三條線全部算,外加寫死日子的主線事件
+   (day16 阿嬤病危那通電話)。 */
 function hasStoryToday(){
-  return [['bet', StoryBet], ['drink', StoryDrink]].some(([key, src]) =>
-    src.NODES.some(n => n.day === day) && !seenStoryDays.has(key + '-' + day));
+  const byNode = [['bet', StoryBet], ['drink', StoryDrink], ['school', StorySchool]]
+    .some(([key, src]) => src.NODES.some(n => n.day === day) && !seenStoryDays.has(key + '-' + day));
+  return byNode || (day === GRANDMA_CALL_DAY && !hospitalCallFired);
+}
+/* 「今天有事」的日子,睡醒用一句話帶過 + 跳一張任務卡(2026-09-09,kc:
+   「這種可以會是用一句話帶過 比如校外教學 可以是 你突然想到今天要去校外教學
+   然後會跳出任務」)——**只給「要玩家自己走過去才會發生」的日子**,也就是
+   學校線那幾天。
+   ⚠ **day16 阿嬤病危故意不寫在這裡**:那通電話傍晚自己會打來、人在哪都追得到,
+   先在早上提醒等於預告噩耗,把那一刻的突然性拆掉了。它只算「今天有事」
+   (不跳過渡選項),不做早上的提示。要加的話跟我說。
+   ⚠ bet/drink 兩條也不在這裡:那是回家就會發生的事,玩家本來就會回家睡覺,
+   不用叫他去。 */
+const DAY_TODO = {
+  5:  { line:'今天要上學。',                     quest:'去學校' },
+  13: { line:'今天要上學。',                     quest:'去學校' },
+  18: { line:'你突然想到，今天要去校外教學。',   quest:'到學校集合' },
+  21: { line:'今天要上學。',                     quest:'去學校' },
+  28: { line:'導師昨天說，今天要找你。',         quest:'去學校找導師' },
+  36: { line:'今天要上學。',                     quest:'去學校' }
+};
+function todayBriefing(){
+  const todo = DAY_TODO[day];
+  if(!todo) return;
+  ACTIVE_QUESTS.push({ id:'today', title:'今天', hint:todo.quest });
+  renderQuestPanel();
+  say('pc', todo.line, () => { busy = false; });
+}
+/* 事情真的發生了就把「今天」那張卡收掉——不收的話玩家做完了卡還掛在面板上。
+   兩個呼叫點:maybeTriggerStoryNode() 成功觸發任何節點時、checkFieldTrip()
+   (day18 校外教學走自己那條路,不經過 maybeTriggerStoryNode)。 */
+function clearTodayCard(){
+  const i = ACTIVE_QUESTS.findIndex(q => q.id === 'today');
+  if(i >= 0){ ACTIVE_QUESTS.splice(i, 1); renderQuestPanel(); }
 }
 /* 三個選項的數值都是自己選的參數,不喜歡跟我說一聲就改。抓的量級:
    - 打工給的錢($260)**刻意低於真的去上班**(超商一個班算對 5 筆是 $175,
@@ -7840,7 +7878,18 @@ const IDLE_DAY_CHOICES = [
     run(){ chg('cool', 3); chg('mood', 5); chg('stamina', -10); chg('money', -100); chg('star', -1); } }
 ];
 function maybeIdleDay(){
-  if(gameOver || hasStoryToday()) return;
+  if(gameOver) return;
+  if(hasStoryToday()){
+    /* 今天有主線 → 不給過渡選項,改成一句話帶過 + 任務卡(見 DAY_TODO)。
+       延遲的理由跟下面那段一樣:讓睡醒那則 toast 先讀完。 */
+    setTimeout(() => {
+      if(gameOver || busy || dlg.on) return;
+      busy = true;
+      todayBriefing();
+      if(!DAY_TODO[day]) busy = false;   // 這天有事但不需要叫玩家去哪(bet/drink/阿嬤),不留著鎖
+    }, 1400);
+    return;
+  }
   /* 等睡醒那則 toast 讀得差不多再跳,不要疊在一起。busy 在這裡重新鎖上——
      wake() 剛把它放掉,選單期間不該讓玩家跑去走路。 */
   setTimeout(() => {
@@ -8951,6 +9000,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
     const node = src.NODES.find(n => n.day === day);
     if(node && !seenStoryDays.has(key+'-'+node.day)){
       seenStoryDays.add(key+'-'+node.day);
+      clearTodayCard();          // 事情發生了,把早上那張「今天」的提醒卡收掉
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
