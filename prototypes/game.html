@@ -6248,6 +6248,7 @@ function renderIndoor3D(dt){
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
   heroIndoor.animate(dt, IN.moving, 1);
+  applyHeroGesture(dt);   // 手部動作要疊在動畫算完之後,見 applyHeroGesture()
   /* 越式按摩室內的第二個角色(2026-08-20,見 workerIndoor 宣告那段註解)
      ——站在固定的 MASSAGE_WORKER_PX,跟玩家同一條 py(同一條「地板線」),
      面朝玩家(跟 heroIndoor 的朝向鏡射,玩家面右她就面左)。只有
@@ -8426,14 +8427,64 @@ const WORKER_STORY_BEATS = [
   { who:'pc',     text:'她看了你一眼,像是隨口感慨。' },
   { who:'worker', text:'「若她還活著,大概也跟你差不多歲數了。」\n（情緒 +2）' }
 ];
+/* 室內的手部動作(2026-09-09,kc:「然後要真的有動作 摸摸」)——摸摸/抱抱不能
+   只有文字,角色要真的抬手。沒有現成的動畫檔(`MODELS.m.once` 只有 pickup/pet/
+   pet_low,pet 是蹲下摸動物,高度對不上摸人),所以走 `applyRidePose()` 那條老路:
+   **每幀在動畫算完之後,再把手臂骨骼轉一個角度上去**(mixer 每幀會重設骨架,
+   所以不能只設一次)。
+   ⚠ 這是暫時方案。真的要好看應該去 Mixamo 抓一支「撫摸/擁抱」的動畫走
+   `tools/fbx2glb.py` 那套流程接成 `once` 動作——那要 Adobe 帳號登入,我做不到,
+   kc 要的話跟我說我給他關鍵字。 */
+const HERO_GESTURE = { kind:null, t:0, dur:1500 };
+/* ⚠ **左右手的 Z/Y 要反號**——`applyRidePose()` 那邊寫得很清楚(左手
+   `rotateZ(armZ)`、右手 `rotateZ(-armZ)`),第一版兩隻手用同一個正負號,結果
+   手臂往後彎、看起來像在抓自己的背(kc:「你動作做錯了吧」)。這裡的 rArmZ/
+   lArmZ 已經是各自套好號的最終值,不是再乘 -1 一次。
+   armX 往前抬、armZ 收側向分量(理由跟 RIDE_POSE 那則筆記一樣:只轉一軸手會
+   往外張開,兩軸一起轉才讀得成「往前伸」)。RIDE_POSE 的「往前平伸」是
+   armX:-.7/armZ:.2,這裡以那組為基準加減。 */
+const GESTURE_POSE = {
+  pat: { rArmX:-.85, rArmZ:-.30, rForeX:-.35, lArmX:0, lArmZ:0, lForeX:0 },
+  /* hug 的肩膀比 pat **低**、手肘彎更多——第一版 rArmX 給到 -1.0,手舉得比她
+     的頭還高,看起來像在招手不是要抱人。現場改到這組才對。 */
+  hug: { rArmX:-.70, rArmZ:-.55, rForeX:-1.15, lArmX:-.70, lArmZ:.55, lForeX:-1.15 }
+};
+function startHeroGesture(kind){
+  HERO_GESTURE.kind = kind; HERO_GESTURE.t = HERO_GESTURE.dur;
+}
+/* 掛在 renderIndoor3D() 裡 heroIndoor.animate() 之後——順序不能反,animate()
+   內部會 mixer.update() 把骨架重設回動畫的姿勢,先轉再 animate 等於白轉。 */
+function applyHeroGesture(dt){
+  if(!HERO_GESTURE.kind) return;
+  HERO_GESTURE.t -= dt;
+  if(HERO_GESTURE.t <= 0){ HERO_GESTURE.kind = null; return; }
+  const b = heroIndoor.debugBones && heroIndoor.debugBones();
+  if(!b || !b.RightArm) return;
+  const p = GESTURE_POSE[HERO_GESTURE.kind];
+  if(!p) return;
+  /* 前 25% 抬起、後 25% 放下,中間停著——不做這個包絡的話動作會「瞬間出現、
+     瞬間消失」,看起來像穿幫不像動作。 */
+  const k = Math.min(1, Math.min(HERO_GESTURE.t, HERO_GESTURE.dur - HERO_GESTURE.t) / (HERO_GESTURE.dur * .25));
+  b.RightArm.rotateX(p.rArmX * k); b.RightArm.rotateZ(p.rArmZ * k);
+  if(b.RightForeArm) b.RightForeArm.rotateX(p.rForeX * k);
+  if(p.lArmX && b.LeftArm){
+    b.LeftArm.rotateX(p.lArmX * k); b.LeftArm.rotateZ(p.lArmZ * k);
+    if(b.LeftForeArm) b.LeftForeArm.rotateX(p.lForeX * k);
+  }
+}
+
 function talkToWorkerIndoor(){
   const w = ALLEY_WORKER;
-  /* 選項由淺到深。**每一句都要把數值變化寫進對話框**(括號),這是 kc 定過的
-     規則——之前這幾個選項改了 calm/mood 卻沒在畫面上講,玩家不知道發生什麼事。
-     ⚠ **「純聊天」只在她還沒講過那個故事之前出現**(2026-09-09,kc:「故事講完
-     後 純聊天的選項就拔掉 不然很坑錢」)——付了 $WORKER_PRICE 進來只換到一句
-     隨機閒聊,那是在坑玩家的錢。故事講完之後這個選項直接不列(不是變灰),
-     跟「沒被通知的事不該出現在選單裡」那條既有慣例一致。 */
+  /* 選項分兩種(2026-09-09,kc:「摸摸他抱抱他只是簡單的互動 可以無限做 但會扣
+     體力」):
+     - **簡單互動**(摸摸/抱抱)——做完**回到選單**可以一直做,代價是體力;
+       體力歸零就做不了(擋在 run 裡,跟讀書/上班同一套「累到不行」的擋法)。
+     - **一次性**(純聊天/辦正事)——做完直接 leaveIndoor(),一次進場一次。
+     另外「走了」是唯一的離場出口,不然簡單互動一直回選單會關不掉。
+     **每一句都要把數值變化寫進對話框**(括號),這是 kc 定過的規則。
+     ⚠ **「純聊天」只在她還沒講過那個故事之前出現**(kc:「故事講完後 純聊天的
+     選項就拔掉 不然很坑錢」)——付了錢進來只換一句隨機閒聊是在坑玩家。 */
+  const TIRED = '你累到站著都想睡,什麼都不想做了。';
   const opts = [];
   if(!w.toldStory) opts.push({ label:'純聊天', run(){
     w.toldStory = true;
@@ -8441,24 +8492,30 @@ function talkToWorkerIndoor(){
     playBeats(WORKER_STORY_BEATS, 0, leaveIndoor);
   } });
   opts.push(
-    { label:'摸摸她', run(){
-        chg('calm', 3);
-        say('pc', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。\n（歸屬感 +3）', leaveIndoor);
+    { label:'摸摸她', cost:'體力 −3　歸屬感 +3', run(){
+        if(ST.stamina <= 0){ toast(TIRED, 2400); return; }
+        chg('stamina', -3); chg('calm', 3);
+        startHeroGesture('pat');
+        say('pc', '你伸手,輕輕碰了碰她的頭髮。她愣了一下,沒有閃開,也沒有說話,就這樣讓你碰了一會兒。\n（體力 −3、歸屬感 +3）',
+            () => talkToWorkerIndoor());
       } },
-    { label:'抱抱', run(){
-        chg('calm', 6); chg('mood', 3);
-        say('pc', '你伸手抱住她。她僵了一下,像是很久沒有人這樣抱過她——過了幾秒,肩膀鬆下來,靠著你,誰都沒有先開口。\n（歸屬感 +6、情緒 +3）', leaveIndoor);
+    { label:'抱抱', cost:'體力 −5　歸屬感 +6　情緒 +3', run(){
+        if(ST.stamina <= 0){ toast(TIRED, 2400); return; }
+        chg('stamina', -5); chg('calm', 6); chg('mood', 3);
+        startHeroGesture('hug');
+        say('pc', '你伸手抱住她。她僵了一下,像是很久沒有人這樣抱過她——過了幾秒,肩膀鬆下來,靠著你,誰都沒有先開口。\n（體力 −5、歸屬感 +6、情緒 +3）',
+            () => talkToWorkerIndoor());
       } },
-    /* 辦正事(2026-09-09,kc 要求加的,文案也是他給的:「你們進行了一場難以
-       言喻的活動」)——錢在進場前就付掉了(talkToWorker() 那顆「爽一下」),
-       這裡不再扣。情緒給得比其他選項多(這是他付錢來買的東西),歸屬感只給
-       一點點——這條線的重點是「花錢買到的親密不會變成歸屬感」。
-       **風評 −2 是 kc 2026-09-09 指定的**:這件事在這個小鎮裡是會被看見、
+    /* 辦正事(2026-09-09,kc 要求加的,文案也是他給的)——錢在進場前就付掉了
+       (talkToWorker() 那顆「爽一下」),這裡不再扣。情緒給得比其他選項多(這是
+       他付錢來買的東西),歸屬感只給一點點——這條線的重點是「花錢買到的親密
+       不會變成歸屬感」。風評 −2 是 kc 指定的:這件事在這個小鎮裡是會被看見、
        會被講的,其他選項都不扣。 */
     { label:'辦正事', run(){
         chg('mood', 10); chg('calm', 2); chg('star', -2);
         say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +10、歸屬感 +2、風評 −2）', leaveIndoor);
-      } }
+      } },
+    { label:'走了', cls:'back', run: leaveIndoor }
   );
   openMenu('她', opts);
 }
@@ -13652,6 +13709,7 @@ window.__dbg = {
   FAT, checkFatArc,
   AYI, talkToAyi, ACHENG, talkToAcheng, YUAN, talkToYuan,
   CLASSFUND, ALLEY_WORKER, talkToWorker, talkToWorkerIndoor, WORKER_STORY_BEATS,
+  GESTURE_POSE, startHeroGesture, HERO_GESTURE,
   WATCHJOB, WATCHJOB_PATH, startWatchJob, resolveWatchJob,
   spotWatchJob(){ WATCHJOB.spotted = true; if(WATCHJOB.exclaim) WATCHJOB.exclaim.visible = true; return WATCHJOB; },   // 跳過「走近才算看到」那步,方便現場測回報/失敗兩條分支
   /* 警局三條中短期任務(2026-08-31)——跟 spotWatchJob() 同一個理由,方便
