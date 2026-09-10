@@ -755,7 +755,10 @@
 <button id="questToggleBtn">任務</button>
 <button id="mapBtn">地圖</button>
 <div id="mapOverlay"><div id="mapPanel">
-  <div id="mapHead"><span>地圖</span><span class="sub">■ 可以進去　□ 只能在外面　● 你在這</span></div>
+  <!-- ⚠ 不寫圖例(2026-09-10,kc:「說明好白話 感覺不用講這麼直白 他們玩久就懂了
+       用顏色區分就好」)——金色實心=進得去、灰色空心=只能在外面、藍點=你,
+       靠顏色自己講。 -->
+  <div id="mapHead"><span>地圖</span></div>
   <canvas id="mapCanvas" width="760" height="600"></canvas>
   <div id="mapTip">按 M 或點一下關閉</div>
 </div></div>
@@ -8160,8 +8163,12 @@ const MAP_SPOTS = [
   { x:-22, z:-93,  name:'廟口攤子' },
   { x:-50, z:-96,  name:'算命攤' },
   { x:10,  z:20,   name:'遊藝場側門' },
-  { x:54,  z:-84,  name:'公園' },
-  { x:45,  z:-24,  name:'校門口' }
+  /* ⚠ 公園原本寫 (54,-84) 是錯的——`park()` 蓋在 x42~66、z 約 -27~-16
+     (B_LINE=21.5),不在廟口那條路上。
+     「校門口」那個點也刪掉了(2026-09-10,kc:「校門口可以進去啊」)——校門本來
+     就是 `city.doors` 的 school,已經是金色實心的門,再標一個空心的等於說它
+     進不去,自相矛盾。 */
+  { x:54,  z:-21,  name:'公園' }
 ];
 /* 任務面板上那幾張卡,各自對到地圖上的哪個點(2026-09-10)——沒對到的就不畫圈,
    不用每個任務都硬湊一個位置。日常事件(今天那張)看它的 goto/帳單去哪繳。 */
@@ -8219,8 +8226,9 @@ function drawMap(){
   const rw = CITY.ROAD_HW * 2 * k;
   CITY.H_ROADS.forEach(r => g.fillRect(X(B.x[0]), Z(r.z) - rw/2, (B.x[1]-B.x[0])*k, rw));
   CITY.V_ROADS.forEach(r => g.fillRect(X(r.x) - rw/2, Z(B.z[0]), rw, (B.z[1]-B.z[0])*k));
-  g.font = '11px sans-serif'; g.fillStyle = '#5d6878'; g.textAlign = 'left';
-  CITY.H_ROADS.forEach(r => g.fillText(r.name, X(B.x[0]) + 6, Z(r.z) - rw/2 - 5));
+  /* 橫向街名寫在右邊(左邊那側有醫院/警局那些標籤,會疊到)。 */
+  g.font = '11px sans-serif'; g.fillStyle = '#5d6878'; g.textAlign = 'right';
+  CITY.H_ROADS.forEach(r => g.fillText(r.name, X(B.x[1]) - 6, Z(r.z) - rw/2 - 5));
   CITY.V_ROADS.forEach(r => {
     /* 直式街名寫在路的中段,不要壓到橫向那三條的名字。 */
     g.save(); g.translate(X(r.x) - rw/2 - 5, Z(0) + 70); g.rotate(-Math.PI/2);
