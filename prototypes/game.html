@@ -1652,7 +1652,7 @@ function openInventory(){
     const left = TUITION_QUEST.dueDay - day;
     const detail = `註冊單：<span class="amt">$${TUITION_QUEST.amount}</span> 還沒繳<br>` +
       `截止日：${dayToDate(TUITION_QUEST.dueDay)}<br>` +
-      (left > 0 ? `還剩 ${left} 天` : `已經過期 ${-left} 天`);
+      (left > 0 ? `還剩 ${left} 個行動天` : `已經過期 ${-left} 個行動天`);
     const el = document.createElement('div');
     el.className = 'itemCard';
     el.innerHTML = `<div class="ic">🧾</div><div class="lb">註冊單</div>`;
@@ -1682,7 +1682,7 @@ function openInventory(){
     const left = b.dueDay - day;
     const detail = `${b.name}：<span class="amt">$${b.amount}</span> 還沒繳<br>` +
       `繳費期限：${dayToDate(b.dueDay)}<br>` +
-      (left >= 0 ? `還剩 ${left} 天` : `已經過期 ${-left} 天`) +
+      (left >= 0 ? `還剩 ${left} 個行動天` : `已經過期 ${-left} 個行動天`) +
       '<br>可以拿去超商櫃台繳。';
     const el = document.createElement('div');
     el.className = 'itemCard';
@@ -3319,14 +3319,14 @@ function syncMiscQuestPanel(){
   if(ID_CARD_QUEST.active){
     const hint = ID_CARD_QUEST.requestedDay < 0
       ? '去警局跟阿正申請良民證（$200）'
-      : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等${ID_CARD_QUEST.readyDay - day}天`
+      : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等 ${ID_CARD_QUEST.readyDay - day} 個行動天`
          : (ST.star < -10 ? '良民證辦好了，但風評太差阿正不肯發（風評要到 -10 以上）' : '良民證好了，去警局跟阿正拿'));
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'id-card', title:'辦良民證', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'snitch');
   if(SNITCH_QUEST.active){
-    const hint = `一週內決定：跟阿正報、或去警告阿源（還有${Math.max(0, SNITCH_QUEST.startDay+7-day)}天，不選也沒關係）`;
+    const hint = `一週內決定：跟阿正報、或去警告阿源（還有 ${Math.max(0, SNITCH_QUEST.startDay+7-day)} 個行動天，不選也沒關係）`;
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'snitch', title:'贓物協尋', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
@@ -3350,7 +3350,7 @@ function syncMiscQuestPanel(){
     const hint = BILLS.map(b => {
       const left = b.dueDay - day;
       return b.name + ' $' + b.amount + '，' + dayToDate(b.dueDay) + '前要繳' +
-             (left >= 0 ? '（還剩 ' + left + ' 天）' : '（已經過期 ' + (-left) + ' 天）');
+             (left >= 0 ? '（還剩 ' + left + ' 個行動天）' : '（已經過期 ' + (-left) + ' 個行動天）');
     }).join('<br>') + '<br><span class="qpNote">超商櫃台</span>';
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint;
     else ACTIVE_QUESTS.push({ id:'bills', title:'還沒繳的帳單', hint });
@@ -3360,7 +3360,7 @@ function syncMiscQuestPanel(){
   if(TUITION_QUEST && !TUITION_QUEST.paid){
     const left = TUITION_QUEST.dueDay - day;
     const hint = `$${TUITION_QUEST.amount}，${dayToDate(TUITION_QUEST.dueDay)}前要繳` +
-      (left >= 0 ? `（還剩 ${left} 天）` : `（已經過期 ${-left} 天）`) +
+      (left >= 0 ? `（還剩 ${left} 個行動天）` : `（已經過期 ${-left} 個行動天）`) +
       '<br><span class="qpNote">學校走廊的繳費機</span>';
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'tuition', title:'註冊單', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
