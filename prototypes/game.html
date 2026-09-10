@@ -8650,6 +8650,24 @@ const DAILY_EVENTS = [
   { id:'moto-dead', cat:'trouble', goto:'motoboss', need:() => city.motos.some(m => m.owned),
     diary:'車發不動，牽去給旺鴻看。', via:'door',
     line:'你踩了十幾下，車就是不發動。', hint:'牽去機車行給旺鴻看（$150）' },
+  /* ── 後段(阿嬤那條線開始之後)專用 ── 2026-09-10,kc:「後段重排 阿嬤跟註冊費
+     一起壓」:最後一個月不要再輪一次「下雨/口袋破洞」,要讓錢跟時間同時被兩件事
+     拉扯。這三件都有 need(),前段不會冒出來。 */
+  { id:'hospital-bill', cat:'money', name:'看護費', bill:800, days:5, via:'phone',
+    doc:{ name:'醫院繳費單', icon:'🏥' },
+    need:() => GRANDMA.critical && !GRANDMA.dead,
+    line:'醫院打來，語氣很客氣。\n「阿嬤這個月的看護費，方便的話這幾天過來繳一下。」',
+    hint:'去超商櫃台繳看護費（$800）' },
+  { id:'kai-fast', cat:'people', goto:'kai', via:'phone',
+    need:() => KAI.talked && TUITION_QUEST && !TUITION_QUEST.paid,
+    diary:'又幫阿凱送了一趟。錢比上次多。',
+    line:'手機震了，是阿凱。\n「有個東西要送，錢比上次多。」',
+    hint:'去中華路機車行那邊找阿凱' },
+  { id:'tuition-remind', cat:'money', via:'msg',
+    need:() => TUITION_QUEST && !TUITION_QUEST.paid,
+    instant:() => {}, instantDiary:'導師傳訊息催註冊費。',
+    line:'導師傳訊息。\n「註冊費那個，你再不繳我就要往上報了。」',
+    hint:'學校走廊的繳費機' },
   { id:'co-extra', cat:'trouble', need:() => IN.hired, via:'phone',
     line:'超商店長打來。\n「今天有人請假，你來不來？算你多一點。」', hint:'今天去超商上班，工資加五成' }
 ];
@@ -8672,14 +8690,20 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
      nextActiveDay())。所以日曆走完 90 天,玩家大約只醒來 40 次:**每一個醒來的
      日子都有事,中間沒事的日期直接跳過去**。表排太滿的話就跳不動了,補事件的時候
      不要把空隙填掉。
+   ⚠ **後段(day60 之後)是刻意重排過的**(2026-09-10,kc:「後段重排 阿嬤跟註冊費
+     一起壓」)——原本後段只是把「下雨/口袋破洞」再輪一次,故事沒推進只剩磨。現在
+     day61~90 是**阿嬤的看護費 + 註冊費到期(day91)兩條線同時壓**:醫院的繳費單、
+     導師的催繳訊息、阿凱那個「六百,不要打開」的快錢,中間只留一次阿姨塞吃的當
+     喘息。最後一天(day90)是媽開口要錢——註冊費到期的前一天。
    要改哪一天就直接改這張表。 */
 const DAILY_SCHEDULE = {
   2:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 12:'co-extra',
   15:'moto-dead', 17:'rain', 20:'water', 22:'kai-hang', 23:'loan', 26:'yuan-call',
   29:'pocket', 31:'ayi-food', 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
   47:'acheng-hand', 50:'water', 51:'loan', 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
-  62:'moto-dead', 65:'loan', 67:'acheng-hand', 70:'ayi-food', 73:'rain', 75:'kai-hang',
-  78:'yuan-call', 79:'loan', 80:'water', 83:'pocket', 86:'ayi-food', 88:'mei-ask'
+  61:'hospital-bill', 62:'co-extra', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
+  74:'co-extra', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'co-extra',
+  87:'tuition-remind', 89:'kai-fast', 90:'mom-ask'
 };
 function pickDailyForDay(d){
   const first = DAILY_SCHEDULE[d] && DAILY_EVENTS.find(e => e.id === DAILY_SCHEDULE[d]);
@@ -8800,6 +8824,14 @@ function runDailyGoto(who){
     return;
   }
   const D = {
+    kaiFast: { beats:[ { who:'kai', text:'「你來啦。」' },
+                       { who:'pc',  text:'他從腳踏墊底下拎出一個袋子，這次是黑色的。' },
+                       { who:'kai', text:'「一樣，不要打開。」' },
+                       { who:'pc',  text:'「多少。」' },
+                       { who:'kai', text:'「六百。」' },
+                       { who:'pc',  text:'他報數字的時候看著你的眼睛。' } ],
+               run(){ chg('money', 600); chg('star', -3); chg('calm', 3); chg('stamina', -3);
+                      toast('六百塊。你數的時候手有點抖。\n（金錢 +600　風評 −3　歸屬感 +3）', 4400); } },
     kai:     { beats:[ { who:'kai', text:'「你來啦。」' },
                        { who:'pc',  text:'他往旁邊挪了一點，讓你靠在車上。' },
                        { who:'kai', text:'「沒事啊，就問你有沒有空。」' } ],
@@ -8837,7 +8869,7 @@ function runDailyGoto(who){
                        { who:'mei', text:'「喔——」她拉得很長。' } ],
                run(){ chg('mood', 3); chg('calm', 3);
                       toast('她抄完把講義收起來，說了一聲謝謝。\n（情緒 +3　歸屬感 +3）', 3600); } }
-  }[who];
+  }[who === 'kai' && DAILY.id === 'kai-fast' ? 'kaiFast' : who];
   if(!D){ busy = false; return; }
   dailyDone();
   /* 有 menu 的先播 beats 再開選單(阿成那種要做取捨的);沒有 menu 的照舊
