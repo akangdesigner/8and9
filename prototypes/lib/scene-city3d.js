@@ -839,9 +839,14 @@ export function buildCity(THREE, scene){
    * 巷口凹室,見 game.html BUSKER_POS 那則長筆記)——bx/bz 跟著改成
    * (10,23),R 沒有動:凹室淨空量出來大約 6 個單位寬,`blocked()` 的
    * 0.55 判定緩衝讓真正的牆面比量出來的邊界再寬一點,5.2 直徑的舞台放
-   * 正中央還留得出一截空間,先不縮小,真的太擠再調。 */
+   * 正中央還留得出一截空間,先不縮小,真的太擠再調。
+   * 2026-09-10 第三次搬家(kc:「街頭藝人要移動到永安街那邊」,接著「麥克風那些
+   * 怎沒移走」)——⚠ **這一組舞台/麥克風架是硬寫在這裡的,不吃 BUSKER_POS**,
+   * 上面那句「兩處都要一起動」就是在講這件事,我第一輪只改了 game.html 那邊,
+   * 人走了、舞台跟麥克風架留在原地。新座標 (-24,104),永安公車站前面那排人行道,
+   * 中華路那個凹室整個讓給 day5 跑腿的交貨點(見 game.html KAI_RUN_DROP)。 */
   (function buskerStage(){
-    const bx = 10, bz = 23, R = 2.6;
+    const bx = -24, bz = 104, R = 2.6;
     add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, .3, 24), M.stallTop),
         bx, .15, bz, false, true);
     add(new THREE.Mesh(new THREE.CylinderGeometry(R+.12, R+.12, .12, 24), M.curb),
