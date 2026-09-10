@@ -8534,38 +8534,48 @@ const DAY_TODO = {
  *   goto  → 走去找某個人(掛在那個人既有的對話函式最前面,跟 kaiReportDue() 同一招)
  *   instant → 早上直接發生,沒有要你做什麼(下雨、口袋破洞)
  * ⚠ 指標一律用 3/6/12、風評用 1/3/6,見 DESIGN_NOTES「數值基準表」。 */
-const DAILY = { id:null, day:-1, done:false, dueDay:-1 };
+const DAILY = { id:null, day:-1, done:false, told:false, dueDay:-1 };
 const DAILY_EVENTS = [
   /* ── 要錢的 ── */
-  { id:'power', cat:'money', name:'電費', bill:180, days:3,
+  { id:'power', cat:'money', name:'電費', bill:180, days:3, via:'home',
     line:'電費單塞在門縫裡。', hint:'三天內去超商櫃台繳電費（$180）' },
-  { id:'water', cat:'money', name:'水費', bill:120, days:3,
+  { id:'water', cat:'money', name:'水費', bill:120, days:3, via:'home',
     line:'水費單跟廣告傳單夾在一起。', hint:'三天內去超商櫃台繳水費（$120）' },
-  { id:'mom-ask', cat:'money', goto:'mom',
+  { id:'mom-ask', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
-  { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {},
+  { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {}, via:'msg',
     line:'機車行傳訊息：這期分期到了。', hint:'回家睡覺會自動扣款' },
   /* ── 要人的 ── */
   { id:'kai-hang', cat:'people', goto:'kai', diary:'跟阿凱在車行外面站了半小時。',
-    line:'阿凱：「今天有空嗎。」', hint:'去中華路機車行那邊找阿凱' },
+    via:'phone',
+    line:'手機震了，是阿凱。\n「今天有空嗎。」他沒等你回答就掛了。',
+    hint:'去中華路機車行那邊找阿凱' },
   { id:'yuan-call', cat:'people', goto:'yuan', diary:'去廟口，阿源講了半小時工地的事。',
-    line:'阿源傳訊息叫你過去廟口一趟。', hint:'去廟口找阿源' },
+    via:'msg',
+    line:'阿源傳了一則訊息。\n「晚點過來廟口一趟。」', hint:'去廟口找阿源' },
   { id:'acheng-hand', cat:'people', goto:'acheng', diary:'幫阿成端了一個半小時的麵。',
-    line:'阿成問你今天有沒有空，他一個人顧不來。', hint:'去廟口找阿成' },
+    via:'phone',
+    line:'阿成打來，背景是抽油煙機的聲音。\n「你今天有沒有空？我一個人顧不來。」',
+    hint:'去廟口找阿成' },
   { id:'ayi-food', cat:'people', goto:'ayi', diary:'阿姨塞了一包鴨頭給我。',
-    line:'阿姨傳訊息：「過來拿東西吃。」', hint:'去廟口找阿姨' },
+    via:'msg',
+    line:'阿姨傳訊息，只有五個字。\n「過來拿東西吃。」', hint:'去廟口找阿姨' },
   { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。',
-    line:'小美問你昨天那題怎麼寫的。', hint:'去學校教室找小美' },
+    via:'msg',
+    line:'小美傳訊息問你昨天那題怎麼寫的。', hint:'去學校教室找小美' },
   /* ── 意外 ── */
   { id:'rain', cat:'trouble', instant:() => chg('mood', -3), instantDiary:'早上下雨，外套濕了一路。',
-    line:'早上就下雨，你只有那件外套。', hint:'今天什麼都比較麻煩', note:'（情緒 −3）' },
+    via:'home',
+    line:'窗戶外面在下雨，聲音很大。\n你只有那件外套。', hint:'今天什麼都比較麻煩', note:'（情緒 −3）' },
   { id:'pocket', cat:'trouble', instant:() => chg('money', -100), instantDiary:'口袋破了，零錢掉在路上。',
-    line:'口袋破了一個洞，零錢不知道掉在哪一段路上。', hint:'今天要省一點', note:'（金錢 −100）' },
+    via:'door',
+    line:'走到巷口你才發現外套口袋破了一個洞。\n零錢不知道掉在哪一段路上。',
+    hint:'今天要省一點', note:'（金錢 −100）' },
   { id:'moto-dead', cat:'trouble', goto:'motoboss', need:() => city.motos.some(m => m.owned),
-    diary:'車發不動，牽去給旺鴻看。',
-    line:'機車發不動，你踩了十幾下。', hint:'牽去機車行給旺鴻看（$150）' },
-  { id:'co-extra', cat:'trouble', need:() => IN.hired,
-    line:'店長打來，今天有人請假。', hint:'今天去超商上班，工資加五成' }
+    diary:'車發不動，牽去給旺鴻看。', via:'door',
+    line:'你踩了十幾下，車就是不發動。', hint:'牽去機車行給旺鴻看（$150）' },
+  { id:'co-extra', cat:'trouble', need:() => IN.hired, via:'phone',
+    line:'超商店長打來。\n「今天有人請假，你來不來？算你多一點。」', hint:'今天去超商上班，工資加五成' }
 ];
 function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id) : null; }
 /* ⚠ **一天一天排死的行事曆**(2026-09-10,kc:「不用抽啊你排好就好」→「你直接排好
@@ -8608,9 +8618,33 @@ function drawDailyEvent(){
   if(!e) return null;
   DAILY.id = e.id; DAILY.day = day; DAILY.done = false;
   DAILY.dueDay = e.bill ? day + e.days : -1;
+  DAILY.told = false;
+  /* ⚠ **消息要有來源**(2026-09-10,kc:「提示的部分你真的很沒腦 比如問有沒有空
+     一定要是打電話啊 或是你出家門的時候遇到人 才合理」)——每件事都標了 `via`:
+       home  → 起床時就在家裡看得到(門縫的帳單、媽站在房門口、窗外在下雨)
+       phone → 手機打來(阿凱、阿成、超商店長)
+       msg   → 傳訊息(阿源、阿姨、小美、機車行)
+       door  → **走出家門才會發現**(口袋破了、車發不動)——這種早上不播,
+               留到玩家真的離開家(checkDailyDoor(),見 leaveIndoor())。
+     `instant`(下雨扣情緒、口袋破洞扣錢)跟著它的 via 走:home/phone/msg 在早上
+     結算,door 等到出門那一刻才扣,不然人還躺在床上錢就掉了。 */
+  if(e.via !== 'door'){
+    if(e.instant) e.instant();
+    if(e.instantDiary) logDay(e.instantDiary);
+    DAILY.told = true;
+  }
+  return e;
+}
+/* 走出家門那一刻才發生的事——掛在 leaveIndoor() 回到街上那一步。 */
+function checkDailyDoor(){
+  const e = dailyDef();
+  if(!e || e.via !== 'door' || DAILY.told || DAILY.day !== day) return;
+  if(busy || dlg.on || gameOver) return;
+  DAILY.told = true;
   if(e.instant) e.instant();
   if(e.instantDiary) logDay(e.instantDiary);
-  return e;
+  busy = true;
+  say('pc', e.line, () => { busy = false; });
 }
 function dailyCard(e){
   setTodayCard(e.hint + (e.note ? '<br><span class="qpNote">' + e.note + '</span>' : ''));
@@ -8619,6 +8653,9 @@ function dailyBriefing(){
   const e = drawDailyEvent();
   if(!e){ busy = false; return; }
   dailyCard(e);
+  /* door 型的早上不講(人還在家裡,還沒發生),任務卡也先不寫死內容——
+     出門遇到了才會有那張卡的提示,見 checkDailyDoor()。 */
+  if(e.via === 'door'){ busy = false; return; }
   say('pc', e.line, () => { busy = false; });
 }
 /* goto 型的完成入口——掛在各自 NPC 既有的對話函式最前面,跟 kaiReportDue() 同一招。 */
@@ -9052,6 +9089,9 @@ function leaveIndoor(){
       }
     }
     checkGrandmaCall();
+    /* 走出家門才發現的事(口袋破了、車發不動)——只在從「家」走出去那次,
+       見 checkDailyDoor()/DAILY_EVENTS 的 via:'door'。 */
+    if(wasHome) setTimeout(checkDailyDoor, 900);
   });
 }
 /* 約小美出去公園(2026-08-26,kc:「約他出去玩，直接跳轉到公園」)——跟
