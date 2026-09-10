@@ -10359,7 +10359,7 @@ function updateCity(dt){
   checkGrandmaCall();
   checkYuanEveningWatch();
   checkKaiRunDrop();
-  tickStolenRide(dt);        // 騎在別人車上每 15 秒扣一次風評,見 mountMoto()
+  tickStolenRide(dt);        // 騎在別人車上每 10 秒扣一次風評,見 mountMoto()
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -10834,7 +10834,7 @@ function mountMoto(m){
   } else {
     /* 2026-09-10,kc:「騎別人機車 的提示要改 你趁人不備其上了別人的機車
        然後會不斷地扣風評(一段時間扣一次)」——上車那一下扣一次,之後只要
-       還騎在別人的車上就每 15 秒再扣一次(見 updateCity() 的 stolenRideT)。 */
+       還騎在別人的車上就每 10 秒再扣一次(見 updateCity() 的 stolenRideT)。 */
     stolenRideT = 0;
     chg('star', -1);
     toast('你趁人不備，騎上了別人的機車。\n（風評 −1）', 2600);
@@ -10842,7 +10842,7 @@ function mountMoto(m){
 }
 /* 騎在別人車上的持續代價——每 STOLEN_RIDE_MS 扣一次風評,句子輪流換,
    讓「一直騎著不還」這件事有時間壓力,不是上車扣一次就沒事了。 */
-const STOLEN_RIDE_MS = 15000;
+const STOLEN_RIDE_MS = 10000;   // 10 秒扣 1,kc 定的(2026-09-10)
 const STOLEN_RIDE_LINES = [
   '有人在路邊往你這邊看了一眼。',
   '你經過的時候，檳榔攤那個抬起頭。',
