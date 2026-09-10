@@ -8668,6 +8668,14 @@ const DAILY_EVENTS = [
     instant:() => {}, instantDiary:'導師傳訊息催註冊費。',
     line:'導師傳訊息。\n「註冊費那個，你再不繳我就要往上報了。」',
     hint:'學校走廊的繳費機' },
+  /* ⚠ **不能假設主角有打工**(2026-09-10,kc:「超商代班 的部分有點怪 因為主角
+     不一定會去打工啊」)——超商那件要先應徵過(`IN.hired`)才成立,但玩家可能整局
+     都沒去問過。工地這條是「隨到隨做、不用被錄用」(見 talkToForeman()),所以後段
+     那幾個「錢從哪來」的日子改用它,誰都接得到。 */
+  { id:'site-work', cat:'money', goto:'foreman', via:'phone',
+    diary:'去工地扛了一天磚。',
+    line:'工地那個大哥打來，講話很大聲。\n「今天缺人，你來不來？來就六點到。」',
+    hint:'去永安街工地上工（今天工資加五成）' },
   { id:'co-extra', cat:'trouble', need:() => IN.hired, via:'phone',
     line:'超商店長打來。\n「今天有人請假，你來不來？算你多一點。」', hint:'今天去超商上班，工資加五成' }
 ];
@@ -8701,8 +8709,8 @@ const DAILY_SCHEDULE = {
   15:'moto-dead', 17:'rain', 20:'water', 22:'kai-hang', 23:'loan', 26:'yuan-call',
   29:'pocket', 31:'ayi-food', 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
   47:'acheng-hand', 50:'water', 51:'loan', 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
-  61:'hospital-bill', 62:'co-extra', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
-  74:'co-extra', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'co-extra',
+  61:'hospital-bill', 62:'site-work', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
+  74:'site-work', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'site-work',
   87:'tuition-remind', 89:'kai-fast', 90:'mom-ask'
 };
 function pickDailyForDay(d){
@@ -8864,6 +8872,10 @@ function runDailyGoto(who){
                run(){ FOOD.push({ id: ++FOOD_SEQ, name:'阿姨給的鴨頭', icon:'🍢', feed:16, mood:3 });
                       chg('calm', 3);
                       toast('一包還熱的，油紙袋燙手。\n（揹包多一份吃的　歸屬感 +3）', 4000); } },
+    foreman: { beats:[ { who:'foreman', text:'「來了喔，安全帽自己拿。」' },
+                       { who:'pc',      text:'他指了指牆邊那疊磚。' },
+                       { who:'foreman', text:'「今天缺人，算你多的。」' } ],
+               run(){ toast('今天工資加五成。開始扛磚。', 2600); startForemanShift(); } },
     mei:     { beats:[ { who:'mei', text:'「這題你昨天不是會嗎。」' },
                        { who:'pc',  text:'你把算式寫在她的講義邊邊。' },
                        { who:'mei', text:'「喔——」她拉得很長。' } ],
@@ -12862,6 +12874,8 @@ function foremanDogItem(){
   } };
 }
 function talkToForeman(){
+  /* 今天的事正好是工地缺工(見 DAILY_EVENTS site-work)——擋在最前面。 */
+  if(dailyGotoReady('foreman')){ runDailyGoto('foreman'); return; }
   /* 良民證任務開口(2026-08-31,見上面 ID_CARD_QUEST 那則長筆記)——做滿
      3 次才提,不是第一次上工就講,理由是「想長期做」這句話要先有點交情
      鋪墊才合理。一次性(active/done 任一為真就不會再講),攔在原本的
@@ -13088,9 +13102,13 @@ function endForemanShift(){
   agEl.classList.remove('on');
   busy = false;
   foremanShiftOn = false;
-  chg('money', FOREMAN_GAME.earned);
-  logDay('去工地扛磚，拿了 $' + FOREMAN_GAME.earned + '。');
-  toast(`今天疊到第 ${FOREMAN_GAME.stack.length} 層磚塌了，老闆給了你 $${FOREMAN_GAME.earned}。`, 3200);
+  /* 今天是「工地缺工」那個日常事件的話,工資加五成(見 DAILY_EVENTS site-work)。 */
+  const siteExtra = DAILY.id === 'site-work' && DAILY.day === day;
+  const paid = Math.round(FOREMAN_GAME.earned * (siteExtra ? 1.5 : 1));
+  chg('money', paid);
+  logDay(siteExtra ? '工地缺人，去扛了一天磚，$' + paid + '。'
+                   : '去工地扛磚，拿了 $' + paid + '。');
+  toast(`今天疊到第 ${FOREMAN_GAME.stack.length} 層磚塌了，老闆給了你 $${paid}。`, 3200);
 }
 /* 陣頭音遊本體(2026-08-31 第二輪,太鼓達人手感)——見上面 TROUPE_GAME 那則
    長筆記。這輪把 `prototypes/rhythm-linzitou.html`(2026-08-20 的原型,
