@@ -8659,7 +8659,9 @@ function kaiReportRun(){
   busy = true;
   playBeats(KAI_REPORT_BEATS, 0, () => {
     chg('calm', 6);
-    toast('他把你算進去了一點。\n（歸屬感 +6）', 3600);
+    /* 句子是 kc 給的(2026-09-10:「他把你算進去一點 超怪」→「可以說感覺彼此的
+       距離更拉近了一點」)——原本那句「他把你算進去了一點」太抽象。 */
+    toast('感覺彼此的距離更拉近了一點。\n（歸屬感 +6）', 3600);
     busy = false;
   });
 }
