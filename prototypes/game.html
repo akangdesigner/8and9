@@ -133,6 +133,9 @@
     background:rgba(0,0,0,.5); padding:2px 5px; border-radius:3px; }
   #itemDetail { margin-top:10px; min-height:1.6em; font-size:12.5px; line-height:1.6; color:#c7cdd6; }
   #itemDetail .amt { color:#d8b24a; font-weight:bold; }
+  /* 任務卡上的小字(2026-09-10,day5 跑腿的線索)——比 qpHint 再淡一階、小一號,
+     讀起來是「你自己記下來的一句話」,不是任務指示。 */
+  .qpNote { display:inline-block; margin-top:3px; font-size:11.5px; color:#8d96a4; opacity:.85; }
   /* 物品說明裡的動作鈕(2026-09-10,day5 那個「打開來看」)——#menu button 那組
      樣式選的是 #menu 底下的,這裡在物品欄裡面,自己抄一份最小的過來。 */
   #itemDetail button { margin-top:10px; background:rgba(12,16,23,.95); color:#dfe4ea;
@@ -8051,12 +8054,11 @@ const KAI_RUN_HANDOFF = [
   { who:'pc',  text:'「裡面是什麼。」' },
   { who:'kai', text:'「不要打開就沒事。」' },
   { who:'pc',  text:'他說得很輕鬆，像在講一件真的很小的事。' },
-  { who:'pc',  text:'「我怎麼知道是哪一個。」' },
-  /* 這兩句就是整個解謎的線索,不要改掉也不要在別的地方再講一次
-     (見下面 RUNMEN 那段)。 */
-  { who:'kai', text:'「你不要先開口。」' },
-  { who:'kai', text:'「他不會問你是誰。」' },
   { who:'kai', text:'「他會給你錢，那個是你的。」' }
+  /* ⚠ **解謎的線索不寫在對話裡**(2026-09-10,kc:「你的提示太明顯了 應該是要在
+     任務本身小提示不是對話中」)——第一版阿凱直接講「你不要先開口」「他不會問你
+     是誰」,等於把答案唸給玩家聽。改掛在任務卡的小字(KAI_RUN_NOTE),玩家要自己
+     去任務面板看。 */
 ];
 function giveKaiBag(){
   KAI_RUN.gotBag = true;
@@ -8065,7 +8067,7 @@ function giveKaiBag(){
       name:'打結的塑膠袋', icon:'🛍️', bag:true,
       detail:'阿凱給的。他說送到遊藝場側門就好，<b>不要打開</b>。<br>袋子有點重，形狀不規則。'
     });
-    setTodayCard('把袋子送到遊藝場側門');
+    setTodayCard('把袋子送到遊藝場側門' + KAI_RUN_NOTE);
     syncRunmen();                     // 三個人這時候才出現在巷口
     toast('你把袋子塞進外套裡。\n（雜物欄裡點它可以打開來看）', 3600);
   });
@@ -8157,6 +8159,9 @@ function syncRunmen(){
   runmanNPCs.forEach(n => { n.group.visible = show; });
 }
 const KAI_RUN_PAY_WRONG = 250;      // 給錯人那疊比較薄——不解釋,玩家自己察覺
+/* 線索只掛在任務卡的小字上(見上面 KAI_RUN_HANDOFF 尾巴那則筆記)——`qpHint`
+   本來就是 innerHTML 塞的,可以直接帶標籤。 */
+const KAI_RUN_NOTE = '<br><span class="qpNote">話少一點。他不會問你是誰。</span>';
 /* 走到巷口先播一次開場(告訴玩家「有三個人」),之後就交給玩家自己走去看。 */
 const KAI_DROP_INTRO = [
   { who:'pc', text:'遊藝場側門那條防火巷，鐵門開著一半。' },
@@ -8170,14 +8175,14 @@ function checkKaiRunDrop(){
   if(Math.hypot(p.x - KAI_RUN_DROP.x, p.z - KAI_RUN_DROP.z) > KAI_RUN_RANGE) return;
   KAI_RUN.arrived = true;
   busy = true;
-  setTodayCard('三個人裡面，判斷是哪一個');
+  setTodayCard('三個人。是哪一個？' + KAI_RUN_NOTE);
   playBeats(KAI_DROP_INTRO, 0, () => { busy = false; });
 }
 function talkToRunman(ref){
   if(KAI_RUN.done) return;
   busy = true;
   openMenu('', [
-    { label:'站著不說話', cost:'（阿凱說不要先開口）', run: () => runmanReact(ref, true) },
+    { label:'站著不說話', run: () => runmanReact(ref, true) },
     { label:'說是阿凱叫你來的', run: () => runmanReact(ref, false) },
     { label:'走開', cls:'back', run(){ busy = false; } }
   ]);
