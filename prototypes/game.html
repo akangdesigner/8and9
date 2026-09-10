@@ -7251,6 +7251,10 @@ function openIndoorSpot(id){
         chg('stamina', -40);
         startCheckoutShift();
       } });
+    /* 算命先生的跑腿(target:'store',2026-09-10)——櫃台這裡多一個拿東西的
+       選項,完成後回廟口找他交差,見 completeFortuneQuestAt()。 */
+    if(FORTUNE.quest && !FORTUNE.quest.done && FORTUNE.quest.target === 'store')
+      items.push({ label:'跟店員拿算命先生的東西', run(){ completeFortuneQuestAt('store'); } });
     /* 繳水電費(2026-09-10,日常事件的 bill 型)——超商櫃台是台灣繳費的日常
        入口,不另外做繳費機。 */
     if(dailyBillDue()){
@@ -11086,28 +11090,38 @@ function talkToAcheng(){
      那則筆記,座落在 scene-city3d.js 那叢北牆灌木裡。
    六項指標各配一個地點(moto/sword 交錯),量最小可行:只做兩種地點,
    不是六個指標各自蓋一個新地點。 */
+/* ⚠ **地點要夠多,桃木劍只是其中一件**(2026-09-10,kc:「超級怪的 他要給你東西
+   為何都叫你去找桃木劍 這個應該是其中一個小任務而已」)——原本只有 moto/sword
+   兩種,五個道具裡三個指向 sword,連跑三次都是同一叢草。現在四種,每個道具指到
+   不同的地方,桃木劍變成其中一件。 */
 const FORTUNE_QUEST_TEXT = {
   moto:  { ask:'「你幫我去中華路那間機車行一趟，跟老闆說一聲，他知道要給你什麼。」',
            hint:'（去中華路的機車行找老闆）',
            find:'你跟老闆說明來意，他從裡面翻出一包東西遞給你，什麼都沒多問。' },
   sword: { ask:'「就在廟埕北邊那片草叢裡，你去翻翻看，應該還在。」',
            hint:'（去廟埕北側圍牆前的草叢找找看）',
-           find:'你在草叢裡翻了一下，摸到一把桃木劍，劍身都生鏽了。' }
+           find:'你在草叢裡翻了一下，摸到一把桃木劍，劍身都生鏽了。' },
+  store: { ask:'「中華路那間超商，櫃台那個小的知道，你替我拿一下。」',
+           hint:'（去超商櫃台跟店員拿）',
+           find:'店員從櫃台底下摸出一個紙袋給你，沒有問你是誰。' },
+  altar: { ask:'「我昨天放了一包東西在供桌上，你替我拿回來，別打開。」',
+           hint:'（去廟口供桌上拿）',
+           find:'供桌角落壓著一個紅色小袋，上面積了一層香灰。' }
 };
 const FORTUNE_ITEMS = [
-  { id:'charm', name:'平安符', stat:'mood', amount:20, target:'sword',
+  { id:'charm', name:'平安符', stat:'mood', amount:20, target:'altar',
     pitch:'「我看你這幾天心裡悶，要不要帶一個平安符，戴著心裡踏實一點。」',
     buy:'「拿去，壓壓驚。」' },
   { id:'string', name:'收驚珠串', stat:'calm', amount:20, target:'moto',
     pitch:'「你這樣一個人扛太久了，要不要帶串收驚珠串，睡前握著念一念，人會安一點。」',
     buy:'「常常摸摸它。」' },
-  { id:'rice', name:'平安米', stat:'full', amount:20, target:'sword',
+  { id:'rice', name:'平安米', stat:'full', amount:20, target:'store',
     pitch:'「你這樣不行啦，帶包平安米回去，好歹墊墊肚子。」',
     buy:'「拿去，加減吃。」' },
-  { id:'bracelet', name:'開光手鍊', stat:'cool', amount:15, target:'moto',
+  { id:'bracelet', name:'開光手鍊', stat:'cool', amount:15, target:'sword',
     pitch:'「要不要來條手鍊，戴著看起來有精神一點，人家對你印象也會不一樣。」',
     buy:'「戴上，走路都有風。」' },
-  { id:'ward', name:'解厄符', stat:'star', amount:15, target:'sword',
+  { id:'ward', name:'解厄符', stat:'star', amount:15, target:'store',
     pitch:'「你最近是不是犯小人，帶張解厄符，消一消晦氣。」',
     buy:'「貼身放著，別讓人看到。」' }
 ];
@@ -11319,9 +11333,9 @@ function completeFortuneQuestAt(target){
    這裡不用抄那個暫時放行」——結果同一天 kc 自己也撞到這個限制,要求
    「現在測試階段先讓我隨便抽,正式的時候再限制」,還是加了同一種暫時
    開關,只是留一個明確的旗標方便之後關掉,不是刪掉這條規則。
-   FORTUNE_TEST_UNLIMITED_DRAWS=true 這段是暫時的,收尾前記得改回
-   false,不要留到正式版。 */
-const FORTUNE_TEST_UNLIMITED_DRAWS = true;
+   ⚠ **2026-09-10 關掉了**(kc:「而且每天只能算一次」)——測試用的無限抽已經
+   關回 false,一天就是一次。要再測的話自己把這行改 true,不要又忘了關。 */
+const FORTUNE_TEST_UNLIMITED_DRAWS = false;
 function openFortuneMenu(){
   const drawnToday = !FORTUNE_TEST_UNLIMITED_DRAWS && FORTUNE.lastDrawDay === day;
   openMenu('算命攤', [
@@ -13699,6 +13713,11 @@ function interactProp(prop){
      的抓包機制是不同精神——這裡單純是「做了會被記住」,不是「做了可能
      被抓」)。金額數字是這輪自己抓的,不喜歡跟我說一聲就改。 */
   if(prop.type === 'altar'){
+    /* 算命先生的跑腿(target:'altar',2026-09-10)——供桌上那包東西。 */
+    if(FORTUNE.quest && !FORTUNE.quest.done && FORTUNE.quest.target === 'altar'){
+      completeFortuneQuestAt('altar');
+      return;
+    }
     openMenu('功德箱', [
       { label:'丟錢進去', cost:'$50', cls: ST.money<50?'bad':'', run(){
           if(ST.money < 50){ toast('你身上不夠五十。', 2000); return; }
