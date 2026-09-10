@@ -135,22 +135,35 @@
   #itemDetail .amt { color:#d8b24a; font-weight:bold; }
   /* 任務卡上的小字(2026-09-10,day5 跑腿的線索)——比 qpHint 再淡一階、小一號,
      讀起來是「你自己記下來的一句話」,不是任務指示。 */
-  /* 睡覺的過渡頁(2026-09-10,kc:「我們來做 睡覺的過渡頁」)——一天結束的結算,
-     蓋滿整個畫面。理由跟版面見 DESIGN_NOTES「睡覺的過渡頁」。 */
-  #sleepPage { position:fixed; inset:0; z-index:60; background:#0b0e13; color:#e7ebf0;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
-    opacity:0; pointer-events:none; transition:opacity .55s ease; font-family:inherit; }
+  /* 睡覺的過渡頁 = 一頁日記(2026-09-10,kc:「睡覺頁我想做成日記的樣式 而且會
+     簡單敘述你今天做了啥」)——米黃紙、橫格線、右上角日期,內文是他自己記的
+     幾行短句,底下一條線分開當天的帳。版面理由見 DESIGN_NOTES「睡覺的過渡頁」。 */
+  #sleepPage { position:fixed; inset:0; z-index:60; background:#0b0e13cc;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .5s ease; }
   #sleepPage.on { opacity:1; pointer-events:auto; }
-  #spDayEnd { font-size:13px; letter-spacing:.35em; color:#6f7a89; }
-  #spDate { font-size:30px; letter-spacing:.18em; }
-  #spDate .to { color:#d8b24a; margin:0 12px; }
-  #spLine { margin-top:6px; font-size:15px; line-height:1.9; color:#aab3c0; text-align:center;
-    max-width:520px; white-space:pre-line; }
-  #spStats { margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(120px, auto));
-    gap:6px 34px; font-size:13.5px; color:#8d96a4; }
-  #spStats .k { color:#6f7a89; margin-right:10px; }
-  #spStats .up { color:#7fa86a; } #spStats .dn { color:#a2564c; }
-  #spTip { margin-top:22px; font-size:12px; letter-spacing:.2em; color:#55617a; }
+  /* 橫格線要對得上字:內文 line-height 30px、格線也是 30px,再用
+     background-position 把整組線往下推 24px,讓每一行字剛好坐在線上面。 */
+  #spPaper { position:relative; width:min(560px, 88vw); padding:30px 40px 26px;
+    background-position:0 24px, 0 0;
+    color:#33302a; border-radius:2px; transform:rotate(-.5deg);
+    box-shadow:0 18px 50px #000a, 0 2px 0 #00000022;
+    background:
+      repeating-linear-gradient(#0000 0 30px, #b9ad8f55 30px 31px),
+      linear-gradient(#f6efdd, #efe6d0); }
+  /* 左邊那條紅線,學生筆記本的邊界 */
+  #spPaper::before { content:''; position:absolute; left:26px; top:0; bottom:0;
+    width:1px; background:#c2726855; }
+  #spDate { text-align:right; font-size:13.5px; letter-spacing:.12em; color:#6d6353; }
+  #spDayEnd { text-align:right; font-size:11.5px; letter-spacing:.2em; color:#9a8f79; margin-top:2px; }
+  #spBody { margin-top:24px; font-size:15px; line-height:30px; }
+  #spBody div { margin:0; }
+  #spLine { margin-top:30px; font-size:15px; line-height:30px; color:#4a443a; white-space:pre-line; }
+  #spRule { margin-top:24px; border-top:1px dashed #b9ad8f; padding-top:10px; }
+  #spStats { display:flex; flex-wrap:wrap; gap:4px 20px; font-size:12.5px; color:#6d6353; }
+  #spStats .k { color:#9a8f79; margin-right:6px; }
+  #spStats .up { color:#4a7a3f; } #spStats .dn { color:#a2564c; }
+  #spTip { margin-top:16px; text-align:right; font-size:11.5px; letter-spacing:.18em; color:#a89c85; }
   .qpNote { display:inline-block; margin-top:3px; font-size:11.5px; color:#8d96a4; opacity:.85; }
   /* 物品說明裡的動作鈕(2026-09-10,day5 那個「打開來看」)——#menu button 那組
      樣式選的是 #menu 底下的,這裡在物品欄裡面,自己抄一份最小的過來。 */
@@ -883,13 +896,14 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
-<div id="sleepPage">
-  <div id="spDayEnd"></div>
+<div id="sleepPage"><div id="spPaper">
   <div id="spDate"></div>
+  <div id="spDayEnd"></div>
+  <div id="spBody"></div>
   <div id="spLine"></div>
-  <div id="spStats"></div>
-  <div id="spTip">按 空白鍵 繼續</div>
-</div>
+  <div id="spRule"><div id="spStats"></div></div>
+  <div id="spTip">按 空白鍵 闔上</div>
+</div></div>
 <div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button></div>
 <div id="fps">—</div>
 
@@ -1234,6 +1248,8 @@ function askStudyQuestion(onDone){
   const ROUNDS = 3;
   const questions = coShuffle(Quiz.BANK.slice()).slice(0, ROUNDS);
   const inSchool = PLACE === 'school';
+  /* 答對答錯都記——他真的坐下來了,那件事本身就發生過(見 dayLog)。 */
+  logDay(inSchool ? '在教室坐了一節課。' : '在書桌前坐了一下，看了幾頁。');
   busy = true;
   coFade(inSchool ? '認真上課' : '讀書', async () => {
     studyTakeover = true;
@@ -6800,6 +6816,7 @@ function checkout(){
    腺素的消耗,量級比對話輕,比撿垃圾/摸貓狗那批稍重)。跟被抓不被抓
    無關,固定扣,判定前先擋體力歸零,跟其他扣體力入口同一套做法。 */
 function steal(feed){
+  logDay('在超商把東西塞進外套。');
   if(day === stealCaughtDay){
     toast('店長剛剛才盯過你一次,今天別想了。', 2400);
     return;
@@ -7660,6 +7677,8 @@ function coEndShift(){
     busy = false;
     advanceTime(180);
     chg('money', wage);
+    logDay(extra ? '店長叫我去代班，站了一輪，領了 $' + wage + '。'
+                 : '去超商站了一輪班，領了 $' + wage + '。');
     if(gotUniform) toast('店長把備用制服丟給你：「上班要穿這件。」（衣櫃多了一件超商制服）', 3200);
     coSayChain('clerk', [...review.lines, review.tip]);
   });
@@ -8059,7 +8078,14 @@ const fadeEl = document.getElementById('fade'), fPlace = document.getElementById
  * 「今天的變化」是拿 daySnapshot(每天早上照一張 ST 的相)跟現在的 ST 相減——
  * 不是另外記帳,所以任何地方改指標都會自動被算進來,不用維護第二份紀錄。 */
 let daySnapshot = null;
-function snapDay(){ daySnapshot = { ...ST }; }
+/* 今天做了什麼(2026-09-10,kc:「而且會簡單敘述你今天做了啥」)——一天一份短句
+   清單,睡覺那頁直接印出來。呼叫點散在各個「真的做了一件事」的地方(上班下班、
+   上課、偷東西、跑腿交貨、日常事件做完、繳費…),**寫的是他自己會記的句子**,
+   不是系統紀錄:「去超商站了三個小時。」不是「完成打工 ×1」。
+   ⚠ 重複的同一句只留一次(同一天上兩次課那種),順序照發生的先後。 */
+let dayLog = [];
+function logDay(text){ if(text && !dayLog.includes(text)) dayLog.push(text); }
+function snapDay(){ daySnapshot = { ...ST }; dayLog = []; }
 const SP_ROWS = [
   ['money', '金錢', v => '$' + v], ['full', '飽足'], ['stamina', '體力'],
   ['mood', '情緒'], ['calm', '歸屬感'], ['cool', '帥潮'], ['star', '風評']
@@ -8077,10 +8103,12 @@ function sleepPageLine(){
 let sleepPageDone = null;
 function showSleepPage(onDone){
   const el = document.getElementById('sleepPage');
-  document.getElementById('spDayEnd').textContent = '第 ' + day + ' 天結束';
-  document.getElementById('spDate').innerHTML =
-    dayToDate(day) + ' 週' + DAYS[day%7] + '<span class="to">→</span>' +
-    dayToDate(day+1) + ' 週' + DAYS[(day+1)%7];
+  document.getElementById('spDate').textContent = dayToDate(day) + '（' + DAYS[day%7] + '）';
+  document.getElementById('spDayEnd').textContent = '第 ' + day + ' 天';
+  /* 今天做了什麼——沒有任何紀錄的話寫一句「今天沒有做什麼。」,不要留白。 */
+  const body = document.getElementById('spBody');
+  body.innerHTML = (dayLog.length ? dayLog : ['今天沒有做什麼。'])
+    .map(t => '<div>' + t + '</div>').join('');
   document.getElementById('spLine').textContent = sleepPageLine();
   const host = document.getElementById('spStats');
   host.innerHTML = '';
@@ -8093,7 +8121,7 @@ function showSleepPage(onDone){
         `<div><span class="k">${label}</span><span class="${d>0?'up':'dn'}">${txt}</span></div>`);
     });
   }
-  if(!host.children.length) host.innerHTML = '<div class="k">今天什麼都沒有變。</div>';
+  if(!host.children.length) host.innerHTML = '<span class="k">今天什麼都沒有變。</span>';
   el.classList.add('on');
   sleepPageDone = () => {
     if(!sleepPageDone) return;
@@ -8360,6 +8388,7 @@ const RUNMAN_TAKE_WRONG = [
   { who:'pc', text:'那疊比你想的薄。' }
 ];
 function handOverBag(ref){
+  logDay('幫阿凱送了一個袋子去遊藝場側門。');
   KAI_RUN.done = true; KAI_RUN.delivered = true;
   KAI_RUN.wrong = !ref.right;
   KAI_RUN.dropDay = day;
@@ -8391,6 +8420,7 @@ const KAI_REPORT_BEATS = [
 ];
 function kaiReportDue(){ return KAI_RUN.delivered && !KAI_RUN.reported; }
 function kaiReportRun(){
+  logDay('回去跟阿凱說送到了。');
   KAI_RUN.reported = true;
   clearTodayCard();
   busy = true;
@@ -8503,22 +8533,23 @@ const DAILY_EVENTS = [
   { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {},
     line:'機車行傳訊息：這期分期到了。', hint:'回家睡覺會自動扣款' },
   /* ── 要人的 ── */
-  { id:'kai-hang', cat:'people', goto:'kai',
+  { id:'kai-hang', cat:'people', goto:'kai', diary:'跟阿凱在車行外面站了半小時。',
     line:'阿凱：「今天有空嗎。」', hint:'去中華路機車行那邊找阿凱' },
-  { id:'yuan-call', cat:'people', goto:'yuan',
+  { id:'yuan-call', cat:'people', goto:'yuan', diary:'去廟口，阿源講了半小時工地的事。',
     line:'阿源傳訊息叫你過去廟口一趟。', hint:'去廟口找阿源' },
-  { id:'acheng-hand', cat:'people', goto:'acheng',
+  { id:'acheng-hand', cat:'people', goto:'acheng', diary:'幫阿成端了一個半小時的麵。',
     line:'阿成問你今天有沒有空，他一個人顧不來。', hint:'去廟口找阿成' },
-  { id:'ayi-food', cat:'people', goto:'ayi',
+  { id:'ayi-food', cat:'people', goto:'ayi', diary:'阿姨塞了一包鴨頭給我。',
     line:'阿姨傳訊息：「過來拿東西吃。」', hint:'去廟口找阿姨' },
-  { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met,
+  { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。',
     line:'小美問你昨天那題怎麼寫的。', hint:'去學校教室找小美' },
   /* ── 意外 ── */
-  { id:'rain', cat:'trouble', instant:() => chg('mood', -3),
+  { id:'rain', cat:'trouble', instant:() => chg('mood', -3), instantDiary:'早上下雨，外套濕了一路。',
     line:'早上就下雨，你只有那件外套。', hint:'今天什麼都比較麻煩', note:'（情緒 −3）' },
-  { id:'pocket', cat:'trouble', instant:() => chg('money', -100),
+  { id:'pocket', cat:'trouble', instant:() => chg('money', -100), instantDiary:'口袋破了，零錢掉在路上。',
     line:'口袋破了一個洞，零錢不知道掉在哪一段路上。', hint:'今天要省一點', note:'（金錢 −100）' },
   { id:'moto-dead', cat:'trouble', goto:'motoboss', need:() => city.motos.some(m => m.owned),
+    diary:'車發不動，牽去給旺鴻看。',
     line:'機車發不動，你踩了十幾下。', hint:'牽去機車行給旺鴻看（$150）' },
   { id:'co-extra', cat:'trouble', need:() => IN.hired,
     line:'店長打來，今天有人請假。', hint:'今天去超商上班，工資加五成' }
@@ -8565,6 +8596,7 @@ function drawDailyEvent(){
   DAILY.id = e.id; DAILY.day = day; DAILY.done = false;
   DAILY.dueDay = e.bill ? day + e.days : -1;
   if(e.instant) e.instant();
+  if(e.instantDiary) logDay(e.instantDiary);
   return e;
 }
 function dailyCard(e){
@@ -8581,7 +8613,11 @@ function dailyGotoReady(who){
   const e = dailyDef();
   return !!e && e.goto === who && !DAILY.done && DAILY.day === day;
 }
-function dailyDone(){ DAILY.done = true; clearTodayCard(); }
+function dailyDone(){
+  DAILY.done = true; clearTodayCard();
+  const e = dailyDef();
+  if(e && e.diary) logDay(e.diary);
+}
 function runDailyGoto(who){
   const e = dailyDef();
   busy = true;
@@ -8595,7 +8631,7 @@ function runDailyGoto(who){
       { label:'給她', cost: ST.money < 500 ? '身上不夠' : '−$500　歸屬感 +6',
         cls: ST.money < 500 ? 'bad' : '', run(){
           if(ST.money < 500){ toast('你身上不夠五百。', 2200); busy = false; return; }
-          chg('money', -500); chg('calm', 6);
+          chg('money', -500); chg('calm', 6); logDay('給了媽五百塊。');
           playBeats([
             { who:'pc',  text:'她把錢摺起來，塞進口袋，動作很快。' },
             { who:'mom', text:'「下個月還你。」' },
@@ -8603,7 +8639,7 @@ function runDailyGoto(who){
           ], 0, () => { busy = false; });
         } },
       { label:'說你沒有', cost:'歸屬感 −6　情緒 −3', run(){
-          chg('calm', -6); chg('mood', -3);
+          chg('calm', -6); chg('mood', -3); logDay('媽來要錢，我說我沒有。');
           playBeats([
             { who:'mom', text:'「喔。」' },
             { who:'pc',  text:'她把門帶上，關得很輕。' },
@@ -8670,7 +8706,7 @@ function dailyBillDue(){
 function payDailyBill(){
   const e = dailyDef();
   if(!e || ST.money < e.bill){ toast('你身上不夠。', 2200); return; }
-  chg('money', -e.bill); dailyDone();
+  chg('money', -e.bill); logDay('去超商繳了' + e.name + '，$' + e.bill + '。'); dailyDone();
   toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + e.bill + '）', 3400);
 }
 function expireDailyBill(){
@@ -9691,6 +9727,7 @@ const TRASH = [];
 const FOOD = [];
 let FOOD_SEQ = 0;
 function eatFood(id){
+  { const it = FOOD.find(f => f.id === id); if(it) logDay('吃了' + it.name + '。'); }
   const i = FOOD.findIndex(f => f.id === id);
   if(i < 0) return;
   const item = FOOD[i];
@@ -9732,6 +9769,7 @@ const GRANDMA_ASLEEP_LINES = [
       openGrandmaFoodMenu() 裡才判斷 FOOD 是否為空,是就用一句話擋、
       不是隱藏整個選項。③是目前最終版本。 */
 function visitGrandma(){
+  logDay('去醫院看阿嬤。');
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
   fade('醫院', () => {
@@ -12741,6 +12779,7 @@ function endForemanShift(){
   busy = false;
   foremanShiftOn = false;
   chg('money', FOREMAN_GAME.earned);
+  logDay('去工地扛磚，拿了 $' + FOREMAN_GAME.earned + '。');
   toast(`今天疊到第 ${FOREMAN_GAME.stack.length} 層磚塌了，老闆給了你 $${FOREMAN_GAME.earned}。`, 3200);
 }
 /* 陣頭音遊本體(2026-08-31 第二輪,太鼓達人手感)——見上面 TROUPE_GAME 那則
@@ -14471,7 +14510,8 @@ window.__dbg = {
      被阿凱約→上完課」那整串前置,直接把狀態設成「已經被約、而且已經放學」,
      人也丟到阿凱旁邊。#bar 有「day5 跑腿」按鈕直接叫這支(kc 不打 console
      指令,見自動記憶 feedback_no_console_commands_add_buttons)。 */
-  KAI_RUN, RUNMEN, syncRunmen, DAILY, DAILY_EVENTS, drawDailyEvent,
+  KAI_RUN, RUNMEN, syncRunmen, DAILY, DAILY_EVENTS, DAILY_SCHEDULE, drawDailyEvent,
+  logDay, dayLog: () => dayLog,
   kaiRunArm,
   /* 2026-09-09 從 #bar 拿掉按鈕之後,這幾個工具的入口改掛這裡(kc:「把不需要
      的清掉 只留跳轉地點跟重來」)。要用哪個就跟我說,我把按鈕加回 #bar——
