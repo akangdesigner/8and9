@@ -8028,7 +8028,7 @@ function finishSchoolDay(){
   toast('放學了。', 2200);
 }
 
-const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spoke:false, delivered:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false };
+const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spoke:false, delivered:false, reported:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false };
 /* 交貨點是**遊藝場旁邊那條凹進去的巷子**(2026-09-10,kc:「側門的話你要放到
    側邊啊 原本街頭藝人的地方」)——第一版擺在遊藝場正門口(0/13.6),但台詞
    寫的是「側門那條防火巷」,人卻站在騎樓正面,對不上。這個凹室就是原本街頭
@@ -8231,16 +8231,40 @@ function handOverBag(ref){
   KAI_RUN.done = true; KAI_RUN.delivered = true;
   KAI_RUN.wrong = !ref.right;
   KAI_RUN.dropDay = day;
-  clearTodayCard();
   const i = TRASH.findIndex(t => t.bag);
   if(i >= 0) TRASH.splice(i, 1);
   syncRunmen();
+  /* 交完不算結束,要回去跟阿凱回報(2026-09-10,kc:「給完之後會去回報任務」)
+     ——歸屬感也移到回報那一步發,錢是收貨的人給的、歸屬感是阿凱給的,兩件事
+     分開。⚠ 給錯人的時候阿凱**當下也不知道**,回報那段一樣是「謝啦」,兩天後
+     才翻出來(見 kaiWrongDue()),不要在回報就報錯。 */
+  setTodayCard('回去跟阿凱回報');
   playBeats(ref.right ? RUNMAN_TAKE_RIGHT : RUNMAN_TAKE_WRONG, 0, () => {
     const pay = ref.right ? KAI_RUN_PAY : KAI_RUN_PAY_WRONG;
-    chg('money', pay); chg('calm', ref.right ? 6 : 2); chg('star', -3);
+    chg('money', pay); chg('star', -3);
     toast(ref.right
-      ? '四百塊。比你在超商站四個小時還快。\n（金錢 +' + pay + '　歸屬感 +6　風評 −3）'
-      : '兩百五。你數了兩次。\n（金錢 +' + pay + '　歸屬感 +2　風評 −3）', 4600);
+      ? '四百塊。比你在超商站四個小時還快。\n（金錢 +' + pay + '　風評 −3）'
+      : '兩百五。你數了兩次。\n（金錢 +' + pay + '　風評 −3）', 4600);
+    busy = false;
+  });
+}
+/* 回去跟阿凱回報(kc:「給完之後會去回報任務」)——掛在 talkToKai() 裡,順序在
+   kaiWrongDue() 後面:兩天後那段一旦成立就走那條,不再走這裡。 */
+const KAI_REPORT_BEATS = [
+  { who:'pc',  text:'你走回車行那邊。' },
+  { who:'kai', text:'「送到了喔。」' },
+  { who:'pc',  text:'他沒有問你給了誰。' },
+  { who:'kai', text:'「謝啦。」' },
+  { who:'pc',  text:'他把手機收起來，往旁邊挪了一點，空出半個位子給你。' }
+];
+function kaiReportDue(){ return KAI_RUN.delivered && !KAI_RUN.reported; }
+function kaiReportRun(){
+  KAI_RUN.reported = true;
+  clearTodayCard();
+  busy = true;
+  playBeats(KAI_REPORT_BEATS, 0, () => {
+    chg('calm', 6);
+    toast('他把你算進去了一點。\n（歸屬感 +6）', 3600);
     busy = false;
   });
 }
@@ -8259,7 +8283,8 @@ function kaiWrongDue(){
   return KAI_RUN.wrong && !KAI_RUN.confronted && KAI_RUN.dropDay >= 0 && day >= KAI_RUN.dropDay + 2;
 }
 function kaiConfrontWrong(){
-  KAI_RUN.confronted = true;
+  KAI_RUN.confronted = true; KAI_RUN.reported = true;   // 這段一旦播了就不用再回報
+  clearTodayCard();
   busy = true;
   playBeats(KAI_WRONG_BEATS, 0, () => {
     chg('calm', -8);
@@ -12086,6 +12111,7 @@ function talkToKai(){
      他說的是「放學」過來,所以今天要真的上完課(deskActionDay===day,跟
      finishSchoolDay() 同一個判斷)才給袋子,不然他只會叫你放學再說。 */
   if(kaiWrongDue()){ kaiConfrontWrong(); return; }
+  if(kaiReportDue()){ kaiReportRun(); return; }
   if(kaiRunReady()){
     if(deskActionDay !== day){ say('kai', '「放學再說啦。」'); return; }
     giveKaiBag(); return;
