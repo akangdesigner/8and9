@@ -3947,7 +3947,10 @@ export const CAM = { dist:22, high:11, lookY:.78, fov:40 };
 function buildCharacterMaterials(THREE){
   const C = globalThis.Character;
   const M = {
-    skin:new THREE.MeshStandardMaterial({color:C.skin,roughness:.85}),
+    /* skin 也補 DoubleSide(2026-09-10)——摸摸那個手勢把前臂/手腕沿長軸扭轉
+       快 80°,手腕那圈皮膚網格一樣會折疊露出背面,跟下面 hood/pants 是同一
+       個病。手指是薄片,從邊緣看更容易漏。 */
+    skin:new THREE.MeshStandardMaterial({color:C.skin,roughness:.85,side:THREE.DoubleSide}),
     hair:new THREE.MeshStandardMaterial({color:C.hair,roughness:.9}),
     /* side:DoubleSide(2026-09-09,kc:「但為何手有破圖」)——主角抬手的時候
        腋下的布料網格會折疊、露出背面,預設 FrontSide 會把背面剔掉,畫面上

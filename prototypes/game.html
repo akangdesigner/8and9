@@ -5624,7 +5624,8 @@ function debugTweakMassageScene(){
 window.debugTweakMassageScene = debugTweakMassageScene;
 /* 摸摸的手勢滑桿(2026-09-09,kc:「摸摸的部分手讓我調整」)——面板開著時姿勢
    會一直擺著(HERO_GESTURE.hold),不然 1.5 秒就放下來根本來不及看。
-   四條滑桿:肩膀前後/肩膀側向/手肘,加上玩家站位 X(手碰不碰得到人主要看這條)。
+   滑桿:玩家站位 X(手碰不碰得到人主要看這條)/肩膀前後/肩膀側向/手肘,
+   加上手腕扭轉與它分給前臂的比例(手掌破圖看這兩條)。
    **拉到滿意跟我說數字,我寫死並把按鈕拔掉**,跟醫院站位那批同一套慣例。 */
 function tweakPatPanel(){
   const old = document.getElementById('patTweakPanel');
@@ -5634,7 +5635,12 @@ function tweakPatPanel(){
     ['pt_px','玩家站位 X(離她多近)', 60, 210, 1, () => IN.px, v => IN.px = v, 0],
     ['pt_ax','肩膀前後(越負越往前抬)', -2.2, .6, .01, () => P.rArmX, v => P.rArmX = v, 2],
     ['pt_az','肩膀側向(收側向分量)', -1.2, 1.2, .01, () => P.rArmZ, v => P.rArmZ = v, 2],
-    ['pt_fx','手肘(越負手越往上)', -1.6, .6, .01, () => P.rForeX, v => P.rForeX = v, 2]
+    ['pt_fx','手肘(越負手越往上)', -1.6, .6, .01, () => P.rForeX, v => P.rForeX = v, 2],
+    /* 這兩條是手掌破圖那件事的兩個旋鈕(2026-09-09→10):總扭轉角要夠大,正交
+       投影下掌心才不是一條邊;分攤比例要夠高,才不會全壓在手腕上把那圈頂點
+       拉爆。見 GESTURE_POSE.pat 的 rHandY / rHandShare。 */
+    ['pt_hy','手腕扭轉(掌心轉向鏡頭)', 0, 2.4, .05, () => P.rHandY, v => P.rHandY = v, 2],
+    ['pt_hs','扭轉分給前臂的比例', 0, 1, .05, () => P.rHandShare, v => P.rHandShare = v, 2]
   ];
   const panel = document.createElement('div');
   panel.id = 'patTweakPanel';
@@ -5646,7 +5652,7 @@ function tweakPatPanel(){
       `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(dp)}</span><br>
        <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
     ).join('') +
-    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「摸摸滑桿」按鈕<br>拉到滿意後跟我說四個數字,我寫死+拔掉滑桿</div>';
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「摸摸滑桿」按鈕<br>拉到滿意後跟我說數字,我寫死+拔掉滑桿</div>';
   document.body.appendChild(panel);
   rows.forEach(([id,,,,,get,set,dp]) => {
     document.getElementById(id).addEventListener('input', e => {
@@ -8524,7 +8530,11 @@ const GESTURE_POSE = {
      指對方向,我原本一路往「骨骼壞掉」追是錯的)。
      這是 2D/2.5D 遊戲的標準做法:角色朝鏡頭側一點,觀眾才看得到。實測 0.6
      稍微讀得出來、1.4 清楚是手掌,kc:「不管 只要不要破圖就好」→ 取 1.4。 */
-  pat: { rArmX:-1.41, rArmZ:-.30, rForeX:-.35, rHandY:1.4, lArmX:0, lArmZ:0, lForeX:0 }
+  /* rHandShare = 這個扭轉分多少給**前臂**、剩下才給手腕。跟 SHOULDER_SHARE 同一
+     條規律:單一關節扭超過 rig 設計範圍,附近頂點權重會被拉爆 → 手腕那圈破圖。
+     真人把掌心轉向自己也是前臂旋轉(pronation)為主、手腕只佔一小部分,所以
+     這個分攤同時比較像人的動作。1.4 弧度 ≈ 80°,全壓在手腕上一定破。 */
+  pat: { rArmX:-1.41, rArmZ:-.30, rForeX:-.35, rHandY:1.4, rHandShare:.55, lArmX:0, lArmZ:0, lForeX:0 }
   /* ⚠ 「抱抱」2026-09-09 被 kc 刪掉(連同它的 hug 姿勢)——側身視角 + 她坐著,
      骨骼硬轉做不出擁抱(手往前伸的高度剛好穿過她的臉,往兩側張開在側面又看不
      出來,試了六版)。要加回來得先有真的動畫檔。
@@ -8570,7 +8580,11 @@ function applyHeroGesture(dt){
   if(p.rHandY){
     if(gestureHand === undefined)
       gestureHand = heroIndoor.group.getObjectByName('mixamorigRightHand') || null;
-    if(gestureHand) gestureHand.rotateY(p.rHandY * k);   // 見 GESTURE_POSE.pat 的 rHandY 說明
+    /* 扭轉分兩段:前臂(pronation)吃大部分、手腕吃剩下——見 GESTURE_POSE.pat 的
+       rHandY / rHandShare 說明。前臂轉了手掌會跟著轉,兩段相加才是掌心的總轉角。 */
+    const hs = p.rHandShare == null ? 0 : p.rHandShare;
+    if(b.RightForeArm && hs > 0) b.RightForeArm.rotateY(p.rHandY * hs * k);
+    if(gestureHand) gestureHand.rotateY(p.rHandY * (1 - hs) * k);
   }
   if(p.lArmX && b.LeftArm){
     b.LeftArm.rotateX(p.lArmX * k); b.LeftArm.rotateZ(p.lArmZ * k);
