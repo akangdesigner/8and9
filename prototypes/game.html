@@ -54,6 +54,22 @@
     color:#dfe4ea; border:1px solid #3d4757; border-radius:4px; padding:5px 11px;
     font:12px/1.4 inherit; letter-spacing:.06em; cursor:pointer; white-space:nowrap; }
   #charCardBtn:hover { background:rgba(32,40,53,.95); border-color:#d8b24a; color:#fff; }
+  /* 地圖(2026-09-10,kc:「要有地圖的按鈕可以開關地圖 可以標示哪些可以進去」)——
+     按鈕跟角色/任務同一條左側縱軸;地圖本身是一張俯視示意圖(不是縮小的 3D),
+     資料直接讀 CITY.H_ROADS/V_ROADS + city.doors,不另外維護一份座標表。 */
+  #mapBtn { position:fixed; left:16px; top:142px; z-index:6; background:rgba(12,16,23,.85);
+    color:#dfe4ea; border:1px solid #3d4757; border-radius:4px; padding:5px 11px;
+    font:12px/1.4 inherit; letter-spacing:.06em; cursor:pointer; white-space:nowrap; }
+  #mapBtn:hover { background:rgba(32,40,53,.95); border-color:#d8b24a; color:#fff; }
+  #mapOverlay { position:fixed; inset:0; z-index:40; background:#080a0ecc;
+    display:none; align-items:center; justify-content:center; }
+  #mapOverlay.on { display:flex; }
+  #mapPanel { background:#12161d; border:1px solid #3d4757; border-radius:6px;
+    padding:14px 16px 10px; box-shadow:0 18px 50px #000a; }
+  #mapHead { display:flex; justify-content:space-between; align-items:baseline;
+    color:#dfe4ea; font-size:14px; letter-spacing:.1em; margin-bottom:8px; }
+  #mapHead .sub { font-size:11.5px; color:#8d96a4; letter-spacing:.06em; }
+  #mapTip { margin-top:8px; text-align:right; font-size:11.5px; color:#55617a; letter-spacing:.14em; }
   /* 任務小面板(2026-08-27,kc:「如果有接到任務的話能不能有個小面板顯示,
      因為會有很多任務」)——跟 pods/charCardBtn 同一條左側縱軸疊下去,
      同一套深底淺字視覺語言。沒有任務時整個不顯示(display:none 靠 .on
@@ -733,6 +749,12 @@
 </div>
 <button id="charCardBtn">角色</button>
 <button id="questToggleBtn">任務</button>
+<button id="mapBtn">地圖</button>
+<div id="mapOverlay"><div id="mapPanel">
+  <div id="mapHead"><span>地圖</span><span class="sub">■ 可以進去　□ 只能在外面　● 你在這</span></div>
+  <canvas id="mapCanvas" width="760" height="600"></canvas>
+  <div id="mapTip">按 M 或點一下關閉</div>
+</div></div>
 <div id="questPanel"></div>
 <div id="invOverlay">
   <div id="invPanel">
@@ -8117,6 +8139,104 @@ let MODE = 'city';
 const returnTo = { x:0, z:0 };
 const fadeEl = document.getElementById('fade'), fPlace = document.getElementById('fPlace');
 
+/* ===== 地圖(2026-09-10,kc:「要有地圖的按鈕可以開關地圖 可以標示哪些可以進去」)
+ * 一張俯視示意圖,不是縮小的 3D 畫面:馬路照 CITY.H_ROADS/V_ROADS 畫、可以進去的
+ * 門直接讀 `city.doors`(不另外維護一份座標表,門搬家地圖會自己跟著動),進不去
+ * 但重要的地方另外一張表標成空心方塊。玩家自己是一個點,箭頭是面向。
+ * 開著的時候 busy=true(不能一邊看地圖一邊走),M 鍵或點畫面關掉。 */
+const MAP_DOOR_NAMES = { home:'家', store:'超商', tattoo:'刺青店', arcade:'遊藝場',
+  school:'學校', hospital:'醫院', massage:'按摩店', temple:'宮廟' };
+/* 進不去、但要看得到的地標(座標抄各自的常數,見 BROTHER/FOREMAN/AXIA/YUAN…)。 */
+const MAP_SPOTS = [
+  { x:-78, z:98.5, name:'警察局' },
+  { x:20,  z:101.6, name:'工地' },
+  { x:-31, z:104,  name:'永安公車站' },
+  { x:-24, z:104,  name:'街頭藝人' },
+  { x:-1,  z:-13,  name:'機車行' },
+  { x:-22, z:-93,  name:'廟口攤子' },
+  { x:-50, z:-96,  name:'算命攤' },
+  { x:10,  z:20,   name:'遊藝場側門' },
+  { x:54,  z:-84,  name:'公園' },
+  { x:45,  z:-24,  name:'校門口' }
+];
+let mapOn = false;
+function drawMap(){
+  const cv = document.getElementById('mapCanvas'), g = cv.getContext('2d');
+  const B = CITY.bounds, PAD = 26;
+  const sx = (cv.width  - PAD*2) / (B.x[1] - B.x[0]);
+  const sz = (cv.height - PAD*2) / (B.z[1] - B.z[0]);
+  const k = Math.min(sx, sz);
+  const ox = PAD + ((cv.width  - PAD*2) - (B.x[1]-B.x[0])*k) / 2;
+  const oz = PAD + ((cv.height - PAD*2) - (B.z[1]-B.z[0])*k) / 2;
+  const X = x => ox + (x - B.x[0]) * k;
+  const Z = z => oz + (z - B.z[0]) * k;
+  g.fillStyle = '#0e1219'; g.fillRect(0,0,cv.width,cv.height);
+  /* 馬路:照真的路寬(ROAD_HW*2)畫,街名寫在路上。 */
+  g.fillStyle = '#232a35';
+  const rw = CITY.ROAD_HW * 2 * k;
+  CITY.H_ROADS.forEach(r => g.fillRect(X(B.x[0]), Z(r.z) - rw/2, (B.x[1]-B.x[0])*k, rw));
+  CITY.V_ROADS.forEach(r => g.fillRect(X(r.x) - rw/2, Z(B.z[0]), rw, (B.z[1]-B.z[0])*k));
+  g.font = '11px sans-serif'; g.fillStyle = '#5d6878'; g.textAlign = 'left';
+  CITY.H_ROADS.forEach(r => g.fillText(r.name, X(B.x[0]) + 6, Z(r.z) - rw/2 - 5));
+  CITY.V_ROADS.forEach(r => {
+    /* 直式街名寫在路的中段,不要壓到橫向那三條的名字。 */
+    g.save(); g.translate(X(r.x) - rw/2 - 5, Z(0) + 70); g.rotate(-Math.PI/2);
+    g.fillText(r.name, 0, 0); g.restore();
+  });
+  /* 標籤會擠在一起(遊藝場/側門、公車站/街頭藝人),所以統一收集起來再放:
+     一個一個往下推到不跟前面的重疊為止。 */
+  const placed = [];
+  function putLabel(px, py, text, color, bold){
+    g.font = (bold ? 'bold 12px ' : '11px ') + 'sans-serif';
+    const w = g.measureText(text).width, h = 13;
+    let y = py;
+    for(let guard = 0; guard < 12; guard++){
+      const hit = placed.some(b => Math.abs(b.x - px) < (b.w + w)/2 + 4 && Math.abs(b.y - y) < h + 2);
+      if(!hit) break;
+      y += h + 2;
+    }
+    placed.push({ x:px, y, w, h });
+    g.fillStyle = color;
+    g.fillText(text, px, y);
+  }
+  g.textAlign = 'center';
+  /* 進不去的地標:空心方塊 */
+  MAP_SPOTS.forEach(p => {
+    g.strokeStyle = '#5d6878'; g.lineWidth = 1.5;
+    g.strokeRect(X(p.x) - 4, Z(p.z) - 4, 8, 8);
+    putLabel(X(p.x), Z(p.z) - 9, p.name, '#8d96a4', false);
+  });
+  /* 可以進去的門:實心方塊 + 名字 */
+  city.doors.forEach(d => {
+    g.fillStyle = '#d8b24a';
+    g.fillRect(X(d.x) - 5, Z(d.z) - 5, 10, 10);
+    putLabel(X(d.x), Z(d.z) + 19, MAP_DOOR_NAMES[d.id] || d.id, '#e9d9a6', true);
+  });
+  /* 你在這:點 + 面向 */
+  const p = hero.group.position;
+  g.beginPath(); g.arc(X(p.x), Z(p.z), 5, 0, Math.PI*2);
+  g.fillStyle = '#7fb2e8'; g.fill();
+  const a = hero.group.rotation.y;
+  g.strokeStyle = '#7fb2e8'; g.lineWidth = 2; g.beginPath();
+  g.moveTo(X(p.x), Z(p.z));
+  g.lineTo(X(p.x) + Math.sin(a)*14, Z(p.z) + Math.cos(a)*14);
+  g.stroke();
+}
+function openMap(){
+  if(MODE !== 'city'){ toast('先走到街上再看地圖。', 2000); return; }
+  if(busy || dlg.on) return;
+  mapOn = true; busy = true;
+  document.getElementById('mapOverlay').classList.add('on');
+  drawMap();
+}
+function closeMap(){
+  mapOn = false; busy = false;
+  document.getElementById('mapOverlay').classList.remove('on');
+}
+function toggleMap(){ mapOn ? closeMap() : openMap(); }
+document.getElementById('mapBtn').onclick = toggleMap;
+document.getElementById('mapOverlay').onclick = closeMap;
+
 /* ===== 睡覺的過渡頁(2026-09-10,kc:「我們來做 睡覺的過渡頁」)=================
  * 一天結束時蓋滿畫面的結算頁:第幾天結束 → 日期翻頁 → 一句收尾旁白 → 今天的
  * 指標變化(只列有變的)。按空白鍵或點一下繼續,也會 6 秒自動過。
@@ -10373,6 +10493,10 @@ addEventListener('keydown', e => {
      行為,Enter 送出走 askFreeText() 自己掛的 keydown。 */
   if(document.activeElement === textPromptInput) return;
   const k = e.key.toLowerCase();
+  /* 地圖(2026-09-10)——M 開關。開著的時候只吃這個鍵,其餘操作全擋掉
+     (busy 已經擋住移動,這裡順手擋掉空白鍵互動)。 */
+  if(k === 'm'){ e.preventDefault(); toggleMap(); return; }
+  if(mapOn){ e.preventDefault(); return; }
   keys[k] = true;
   startBuskerAudio();          // 第一次按鍵才建立 AudioContext,見上面那段註解
   if(TROUPE_GAME.active && TROUPE_KEY_LANE[k]){
