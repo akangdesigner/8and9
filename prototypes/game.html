@@ -135,6 +135,22 @@
   #itemDetail .amt { color:#d8b24a; font-weight:bold; }
   /* 任務卡上的小字(2026-09-10,day5 跑腿的線索)——比 qpHint 再淡一階、小一號,
      讀起來是「你自己記下來的一句話」,不是任務指示。 */
+  /* 睡覺的過渡頁(2026-09-10,kc:「我們來做 睡覺的過渡頁」)——一天結束的結算,
+     蓋滿整個畫面。理由跟版面見 DESIGN_NOTES「睡覺的過渡頁」。 */
+  #sleepPage { position:fixed; inset:0; z-index:60; background:#0b0e13; color:#e7ebf0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    opacity:0; pointer-events:none; transition:opacity .55s ease; font-family:inherit; }
+  #sleepPage.on { opacity:1; pointer-events:auto; }
+  #spDayEnd { font-size:13px; letter-spacing:.35em; color:#6f7a89; }
+  #spDate { font-size:30px; letter-spacing:.18em; }
+  #spDate .to { color:#d8b24a; margin:0 12px; }
+  #spLine { margin-top:6px; font-size:15px; line-height:1.9; color:#aab3c0; text-align:center;
+    max-width:520px; white-space:pre-line; }
+  #spStats { margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(120px, auto));
+    gap:6px 34px; font-size:13.5px; color:#8d96a4; }
+  #spStats .k { color:#6f7a89; margin-right:10px; }
+  #spStats .up { color:#7fa86a; } #spStats .dn { color:#a2564c; }
+  #spTip { margin-top:22px; font-size:12px; letter-spacing:.2em; color:#55617a; }
   .qpNote { display:inline-block; margin-top:3px; font-size:11.5px; color:#8d96a4; opacity:.85; }
   /* 物品說明裡的動作鈕(2026-09-10,day5 那個「打開來看」)——#menu button 那組
      樣式選的是 #menu 底下的,這裡在物品欄裡面,自己抄一份最小的過來。 */
@@ -867,7 +883,14 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button></div>
+<div id="sleepPage">
+  <div id="spDayEnd"></div>
+  <div id="spDate"></div>
+  <div id="spLine"></div>
+  <div id="spStats"></div>
+  <div id="spTip">按 空白鍵 繼續</div>
+</div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1779,6 +1802,12 @@ function debugJumpSchool(){ debugWarpDoor('school'); }
 /* 日常事件的測試入口(2026-09-10)——直接抽一件今天的事並播出來,不用睡到隔天。
    kc 不打 console 指令(見自動記憶 feedback_no_console_commands_add_buttons),
    所以掛成 #bar 按鈕。 */
+/* 睡覺過渡頁的測試入口(2026-09-10)——只把頁面叫出來看版面,不真的過一天。 */
+function debugSleepPage(){
+  if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
+  showSleepPage(() => {});
+}
+window.debugSleepPage = debugSleepPage;
 let debugDailyIdx = 0;
 function debugDailyDraw(){
   if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
@@ -8024,6 +8053,65 @@ let MODE = 'city';
 const returnTo = { x:0, z:0 };
 const fadeEl = document.getElementById('fade'), fPlace = document.getElementById('fPlace');
 
+/* ===== 睡覺的過渡頁(2026-09-10,kc:「我們來做 睡覺的過渡頁」)=================
+ * 一天結束時蓋滿畫面的結算頁:第幾天結束 → 日期翻頁 → 一句收尾旁白 → 今天的
+ * 指標變化(只列有變的)。按空白鍵或點一下繼續,也會 6 秒自動過。
+ * 「今天的變化」是拿 daySnapshot(每天早上照一張 ST 的相)跟現在的 ST 相減——
+ * 不是另外記帳,所以任何地方改指標都會自動被算進來,不用維護第二份紀錄。 */
+let daySnapshot = null;
+function snapDay(){ daySnapshot = { ...ST }; }
+const SP_ROWS = [
+  ['money', '金錢', v => '$' + v], ['full', '飽足'], ['stamina', '體力'],
+  ['mood', '情緒'], ['calm', '歸屬感'], ['cool', '帥潮'], ['star', '風評']
+];
+/* 收尾旁白照「今天過得怎樣」挑一句——順序就是優先序,越前面越嚴重。
+   ⚠ 責任歸處境不歸角色(見 CLAUDE.md 基準線),不要寫成數落他今天很廢。 */
+function sleepPageLine(){
+  if(ST.full <= 20) return '你餓著睡。\n躺下去的時候胃是空的，那個空是有聲音的。';
+  if(ST.stamina <= 15) return '你連衣服都沒換。\n躺下去就沒有知覺了。';
+  if(ST.mood <= 20) return '你盯著天花板那塊水漬看了很久。\n它每年都大一點。';
+  if(daySnapshot && ST.money - daySnapshot.money >= 300) return '你把今天的錢摺好，塞在抽屜最裡面。\n數了兩次。';
+  if(ST.calm >= 70) return '今天有人跟你講到話。\n躺下去的時候你還在想那句。';
+  return '外面的車聲一陣一陣的。\n你睡著的時候還亮著燈。';
+}
+let sleepPageDone = null;
+function showSleepPage(onDone){
+  const el = document.getElementById('sleepPage');
+  document.getElementById('spDayEnd').textContent = '第 ' + day + ' 天結束';
+  document.getElementById('spDate').innerHTML =
+    dayToDate(day) + ' 週' + DAYS[day%7] + '<span class="to">→</span>' +
+    dayToDate(day+1) + ' 週' + DAYS[(day+1)%7];
+  document.getElementById('spLine').textContent = sleepPageLine();
+  const host = document.getElementById('spStats');
+  host.innerHTML = '';
+  if(daySnapshot){
+    SP_ROWS.forEach(([k, label, fmt]) => {
+      const d = ST[k] - daySnapshot[k];
+      if(!d) return;
+      const txt = (d > 0 ? '+' : '−') + (fmt ? fmt(Math.abs(d)) : Math.abs(d));
+      host.insertAdjacentHTML('beforeend',
+        `<div><span class="k">${label}</span><span class="${d>0?'up':'dn'}">${txt}</span></div>`);
+    });
+  }
+  if(!host.children.length) host.innerHTML = '<div class="k">今天什麼都沒有變。</div>';
+  el.classList.add('on');
+  sleepPageDone = () => {
+    if(!sleepPageDone) return;
+    sleepPageDone = null;
+    clearTimeout(spTimer);
+    el.classList.remove('on');
+    setTimeout(onDone, 420);          // 等淡出走完再接下一段,不要疊在一起
+  };
+  const spTimer = setTimeout(() => sleepPageDone && sleepPageDone(), 6000);
+  el.onclick = () => sleepPageDone && sleepPageDone();
+}
+/* 過渡頁開著的時候空白鍵只用來關它——用 capture 攔在遊戲那個全域 keydown
+   前面,不然同一次按鍵會被下面的互動邏輯也吃掉一次。 */
+addEventListener('keydown', e => {
+  if(!sleepPageDone) return;
+  if(e.code === 'Space' || e.code === 'Enter'){ e.preventDefault(); e.stopPropagation(); sleepPageDone(); }
+}, true);
+
 function fade(label, mid){
   busy = true;
   fPlace.textContent = label;
@@ -8665,6 +8753,11 @@ function maybeIdleDay(){
 function sleep(){
   busy = true;
   const skippedSchool = lastSchoolDay !== day;   // 結算今天(睡覺當下的 day,還沒 ++)有沒有去學校
+  /* 先蓋上過渡頁做今天的結算(見 showSleepPage()),關掉之後才走原本那套
+     fade→加天數→隔天早上的流程。day 還沒 ++,所以頁面上算的是「今天」。 */
+  showSleepPage(() => sleepAdvance(skippedSchool));
+}
+function sleepAdvance(skippedSchool){
   fade('回家睡了一覺', () => {
     chg('stamina', 100 - ST.stamina);
     minute = 7*60; day++;
@@ -8774,6 +8867,7 @@ function sleep(){
        (leaveBedroom()/leaveIndoor()),跟平常從房間走出去同一套,不用
        另外幫玩家做這個決定。 */
     const wake = () => {
+      snapDay();               // 新的一天照一張 ST 的相,給明天的過渡頁算差額
       toast('你回去睡了一覺，體力補滿了。'
         + (skippedSchool ? '\n（昨天沒去學校，風評 −3）' : '')
         + loanMsg, 3800);
@@ -14188,6 +14282,7 @@ syncMiscQuestPanel();
 /* 交貨那三個人的顯示狀態同理:讀檔讀進來的時候袋子可能還在身上,不同步一次
    的話他們會是隱形的(nearProp 還在,人卻看不見)。 */
 syncRunmen();
+snapDay();     // 開場/讀檔也要照一張,不然第一天的過渡頁沒有基準
 syncHUD();
 
 /* 除錯用:主控台可以直接把角色傳到某個門口，省得走一分鐘 */
