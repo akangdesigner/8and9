@@ -2681,7 +2681,13 @@ function updateWorldLabels(){
    的圓環人行道窄很多——BUSKER_POS 選 (10,23)(凹室的置中點,兩側各留
    3 個單位到牆),下面圍觀路人的偏移量也跟著等比縮小(見那三行的筆記),
    不然舊的偏移量(最大到 ±3.2/3.5)會直接疊進牆裡。 */
-const BUSKER_POS = { x: 10, z: 23 };
+/* 2026-09-10 第三次搬家(kc:「街頭藝人要移動到永安街那邊」)——中華路那個
+   凹室讓給 day5 跑腿的交貨點(那裡才像「側門」,見 KAI_RUN_DROP)。新位置在
+   永安街、永安公車站前面那排人行道(阿霞站 -31.2/104,這裡往東 7 個單位),
+   `__dbg.city.blocked()` 掃過那一帶只有 z=102 那排柱子,104 這排是空的。
+   圍觀路人的偏移量沒動——那是為了窄凹室縮小過的值,搬到開闊的地方只會顯得
+   圍得比較緊,不會穿牆。 */
+const BUSKER_POS = { x: -24, z: 104 };
 
 /* 阿姨挪去顧鴨頭攤(2026-08-20,kc:「把阿姨調整過來」)——她原本是廟埕
    一個獨立站點(x:6,z:-86),人設是「鹹酥雞攤」,但鹹酥雞那個 3D 攤位
@@ -8020,11 +8026,16 @@ function finishSchoolDay(){
 }
 
 const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spoke:false, delivered:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false };
-/* 交貨點是遊藝場門口——座標不是猜的,是拿 `__dbg.city.doors` 現場列出來的
-   'arcade' 那扇門(0, 13.6)。阿凱本人不用搬位置(他平常就站在機車行旁邊
-   KAI 6,-13),所以這條線沒有 moveKaiXxx() 那種搬人的程式碼。 */
-const KAI_RUN_DROP = { x:0, z:13.6 };
-const KAI_RUN_RANGE = 6;
+/* 交貨點是**遊藝場旁邊那條凹進去的巷子**(2026-09-10,kc:「側門的話你要放到
+   側邊啊 原本街頭藝人的地方」)——第一版擺在遊藝場正門口(0/13.6),但台詞
+   寫的是「側門那條防火巷」,人卻站在騎樓正面,對不上。這個凹室就是原本街頭
+   藝人站的地方(乾淨範圍 x:[7,13]×z:[16,29.5],`__dbg.city.blocked()` 量過),
+   街頭藝人同一輪搬去永安街(見 BUSKER_POS)。
+   判定點取凹室中段(10/20)、半徑收到 4,免得在中華路上走過去就觸發。
+   阿凱本人不用搬位置(他平常就站在機車行旁邊 KAI 6,-13),所以這條線沒有
+   moveKaiXxx() 那種搬人的程式碼。 */
+const KAI_RUN_DROP = { x:10, z:20 };
+const KAI_RUN_RANGE = 4;
 /* 跑腿費是我自己抓的:比超商一個便當貴一點、離改管那 4500 很遠——「比正經
    打工快,但也沒有快到能翻身」是這條線該有的量級。不喜歡跟我說就改。 */
 const KAI_RUN_PAY = 400;
@@ -8093,11 +8104,12 @@ function openKaiBag(){
    探你是誰** ✗)、鐵門邊那個「東西呢。」(沒問你是誰 ✓)。
    給錯人不會當場告訴你錯了:錢照拿,只是**那疊比較薄**($250 不是 $400),
    兩天後阿凱來找你才揭曉。見 DESIGN_NOTES「day5:阿凱帶你去做灰色地帶的事」。
-   座標挑在遊藝場門口(0/13.6)前面那段開闊的人行道——z>=16 整排是建築物
-   (`__dbg.city.blocked()` 現場掃出來的),三個人彼此距離都 > 4,不會兩個
-   nearProp 疊在一起。 */
+   座標在遊藝場旁邊那條凹進去的巷子裡(見 KAI_RUN_DROP 那則筆記):兩個在
+   巷口兩側(8/19、12/19)、正解那個站在最裡面靠鐵門(10/26.5)。x=10 在
+   z=22~24 是有東西的(`__dbg.city.blocked()` 量到),所以前面兩個放 x=8/12
+   兩側,不要塞中間;三個人彼此距離都 >= 4,nearProp(3.2)不會疊在一起。 */
 const RUNMEN = [
-  { id:'smoker', x:-4, z:12, right:false, seen:false,
+  { id:'smoker', x:8, z:19, right:false, seen:false,
     quiet:[
       { who:'pc',     text:'你什麼都沒說。' },
       { who:'pc',     text:'靠牆那個中年男人把菸抖了一下，先撐不住。' },
@@ -8107,7 +8119,7 @@ const RUNMEN = [
       { who:'smoker', text:'「喔。」' },
       { who:'pc',     text:'他把手伸出來。' }
     ] },
-  { id:'squat', x:4, z:12, right:false, seen:false,
+  { id:'squat', x:12, z:19, right:false, seen:false,
     quiet:[
       { who:'pc',    text:'你站在他前面，沒有說話。' },
       { who:'pc',    text:'他滑手機的手停了兩秒，抬起頭。' },
@@ -8117,7 +8129,7 @@ const RUNMEN = [
       { who:'squat', text:'「喔，拿來。」' },
       { who:'pc',    text:'他把手伸出來。' }
     ] },
-  { id:'runman', x:0, z:14, right:true, seen:false,
+  { id:'runman', x:10, z:26.5, right:true, seen:false,
     quiet:[
       { who:'pc',     text:'你站著，沒有開口。' },
       { who:'pc',     text:'他看了一眼你外套鼓起來的那一塊。' },
