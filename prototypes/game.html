@@ -12874,8 +12874,14 @@ function foremanDogItem(){
   } };
 }
 function talkToForeman(){
-  /* 今天的事正好是工地缺工(見 DAILY_EVENTS site-work)——擋在最前面。 */
-  if(dailyGotoReady('foreman')){ runDailyGoto('foreman'); return; }
+  /* 今天的事正好是工地缺工(見 DAILY_EVENTS site-work)——擋在最前面。
+     ⚠ 體力不夠先擋掉、**任務不消耗**(不叫 runDailyGoto,DAILY 還是未完成),
+     休息完再來還接得到;直接開工會變成體力 0 也能扛磚,跟上工那個選項的門檻
+     (stamina<20 擋掉)不一致。 */
+  if(dailyGotoReady('foreman')){
+    if(ST.stamina < 20){ say('foreman', '「你這樣扛不動啦，回去睡一下再來。」'); return; }
+    runDailyGoto('foreman'); return;
+  }
   /* 良民證任務開口(2026-08-31,見上面 ID_CARD_QUEST 那則長筆記)——做滿
      3 次才提,不是第一次上工就講,理由是「想長期做」這句話要先有點交情
      鋪墊才合理。一次性(active/done 任一為真就不會再講),攔在原本的
