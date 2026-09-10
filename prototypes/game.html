@@ -2877,7 +2877,7 @@ function checkFieldTrip(){
     }
     ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'老師叫你放學後去警察局做筆錄' });
     renderQuestPanel();
-    const node = StorySchool.NODES.find(n => n.day === 18);
+    const node = StorySchool.NODES.find(n => n.day === 52);
     playBeats(node.beats, 0, () => {
       openMenu(node.title, node.menu.map(item => ({
         label: item.label, cost: item.cost,
@@ -8358,7 +8358,7 @@ function hasStoryToday(){
   /* 學校線只算還在用的那幾天(封存的 21/28/36 不算,不然那三天會變成「有事
      但什麼都不會發生」的空白日,連過渡選項都拿不到)。day18 走 checkFieldTrip()
      自己那條路,要另外算進來。 */
-  const school = (SCHOOL_ACTIVE_DAYS.includes(day) || day === 18)
+  const school = (SCHOOL_ACTIVE_DAYS.includes(day) || day === 52)
     && !seenStoryDays.has('school-' + day) && !CLASSFUND.tripStarted;
   return home || school || (day === GRANDMA_CALL_DAY && !hospitalCallFired);
 }
@@ -8390,8 +8390,8 @@ const DAY_TODO = {
      ⚠ **這句就一句話,不要加感想**(kc:「你不記得範圍到哪裡。 這三小屁話 這只是
      讓你知道要去學校」)——早上這張卡的功能是**告訴玩家今天要去學校**,不是抒情
      的位置。以後補 DAY_TODO 的句子照這條寫。 */
-  5:  { line:'今天好像要期中考。', quest:'到學校考期中考' },
-  18: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }
+  13: { line:'今天好像要期中考。', quest:'到學校考期中考' },
+  52: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }
 };
 /* ===== 每天都有一件事(2026-09-10,kc:「每一天都是為了活下去而努力的日子
  * 只是每個日子都有任務或事件罷了」)==========================================
@@ -8436,29 +8436,37 @@ const DAILY_EVENTS = [
     line:'店長打來，今天有人請假。', hint:'今天去超商上班，工資加五成' }
 ];
 function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id) : null; }
-/* ⚠ **不是隨機抽,是排好的**(2026-09-10,kc:「不用抽啊你排好就好」)——第一版
-   是每天亂數抽一件,改成固定行事曆:哪一天是哪件事,重開一局也一樣。
-   兩層:
-   ① `DAILY_FIXED`——**週期性的帳單**排死在固定日子(水電費一個月一次,跟現實
-      一樣有節奏,玩家會開始記得「月初要繳電費」)。
-   ② `DAILY_ROTATION`——其餘的日子照這個順序輪,索引直接用 `day` 取模,所以
-      同一天永遠是同一件事,不用另外記狀態。順序是排過的:人的事件跟意外交錯,
-      不會連兩天都是壞事。
-   `need()` 不成立的(沒車、沒應徵過)往後順延到下一個能用的,不留空白天。 */
-const DAILY_FIXED = {
-  5:'power', 12:'water', 35:'power', 42:'water', 65:'power', 72:'water',
-  9:'loan', 36:'loan', 63:'loan'
+/* ⚠ **一天一天排死的行事曆**(2026-09-10,kc:「不用抽啊你排好就好」→「你直接排好
+   為何要抽?」)——中間試過「亂數抽」跟「用天數取模輪」,兩個都被打掉:他要的是
+   **這一天就是這件事**,寫在表上看得到,不是任何形式的程序產生。
+   下面這張 `DAILY_SCHEDULE` 就是全部:key 是第幾天,value 是事件 id。
+   - **主線有節點的日子留空**(1/10/13/25/28/34/37/40/43/46/52/58/61/64/76/82),
+     那些天走 DAY_TODO / story-*.js。
+   - 水電費排在月初/月中(5/12、35/42、65/72),機車分期兩週一次(9/23/36/50/63/77)
+     ——**月週期是刻意的**,玩家會開始記得「月初要繳電費」。
+   - 其餘天數人的事件跟意外交錯,不會連兩天都是壞事。
+   要改哪一天就直接改這張表。 */
+const DAILY_SCHEDULE = {
+  2:'kai-hang', 3:'rain', 4:'acheng-hand', 5:'power', 6:'mom-ask', 7:'ayi-food',
+  8:'co-extra', 9:'loan', 11:'yuan-call', 12:'water', 14:'pocket', 15:'mei-ask',
+  16:'moto-dead', 17:'ayi-food', 18:'kai-hang', 19:'yuan-call', 20:'co-extra', 21:'acheng-hand',
+  22:'rain', 23:'loan', 24:'mom-ask', 26:'mei-ask', 27:'kai-hang', 29:'rain',
+  30:'acheng-hand', 31:'mom-ask', 32:'ayi-food', 33:'co-extra', 35:'power', 36:'loan',
+  38:'yuan-call', 39:'pocket', 41:'mei-ask', 42:'water', 44:'moto-dead', 45:'ayi-food',
+  47:'kai-hang', 48:'yuan-call', 49:'co-extra', 50:'loan', 51:'acheng-hand', 53:'rain',
+  54:'mom-ask', 55:'mei-ask', 56:'kai-hang', 57:'rain', 59:'acheng-hand', 60:'mom-ask',
+  62:'ayi-food', 63:'loan', 65:'power', 66:'co-extra', 67:'yuan-call', 68:'pocket',
+  69:'mei-ask', 70:'moto-dead', 71:'ayi-food', 72:'water', 73:'kai-hang', 74:'yuan-call',
+  75:'co-extra', 77:'loan', 78:'acheng-hand', 79:'rain', 80:'mom-ask', 81:'mei-ask',
+  83:'kai-hang', 84:'rain', 85:'acheng-hand', 86:'mom-ask', 87:'ayi-food', 88:'co-extra',
+  89:'yuan-call', 90:'pocket'
 };
-const DAILY_ROTATION = [
-  'kai-hang', 'rain', 'acheng-hand', 'mom-ask', 'ayi-food', 'co-extra',
-  'yuan-call', 'pocket', 'mei-ask', 'moto-dead', 'kai-hang', 'ayi-food',
-  'yuan-call', 'co-extra', 'acheng-hand', 'rain', 'mom-ask', 'mei-ask'
-];
 function pickDailyForDay(d){
-  const fixed = DAILY_FIXED[d] && DAILY_EVENTS.find(e => e.id === DAILY_FIXED[d]);
-  if(fixed && (!fixed.need || fixed.need())) return fixed;
-  for(let k = 0; k < DAILY_ROTATION.length; k++){
-    const e = DAILY_EVENTS.find(x => x.id === DAILY_ROTATION[(d + k) % DAILY_ROTATION.length]);
+  const first = DAILY_SCHEDULE[d] && DAILY_EVENTS.find(e => e.id === DAILY_SCHEDULE[d]);
+  if(first && (!first.need || first.need())) return first;
+  /* 條件不成立(沒車、還沒應徵過超商)就往後找表上下一個能用的,不留空白天。 */
+  for(let k = d + 1; k <= d + 30; k++){
+    const e = DAILY_SCHEDULE[k] && DAILY_EVENTS.find(x => x.id === DAILY_SCHEDULE[k]);
     if(e && (!e.need || e.need())) return e;
   }
   return null;
@@ -8705,7 +8713,7 @@ function sleep(){
        finishWake()(見下面),那邊才是真的「離開家、回到街上」那一步,
        另外包一層 fade 銜接,不是同一幀硬切。 */
     let impoundBeats = null;
-    if(!MOTO_IMPOUND.done && !MOTO_IMPOUND.active && day >= 12 && city.motos.some(m => m.owned)){
+    if(!MOTO_IMPOUND.done && !MOTO_IMPOUND.active && day >= 34 && city.motos.some(m => m.owned)){
       MOTO_IMPOUND.active = true;
       MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned);
       if(MOTO_IMPOUND.motoRef.group) MOTO_IMPOUND.motoRef.group.visible = false;
@@ -9285,7 +9293,7 @@ let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
    續命門檻(30 天 / 探望 2 次 / 餵食 2 次)是我自己選的參數,不喜歡跟我
    說一聲就改;沒有防洗次數(同一天狂探望狂餵食也算數,不用湊到不同天),
    kc 沒特別要求節奏管控,先簡單版。 */
-const GRANDMA_CALL_DAY = 16, GRANDMA_CALL_MINUTE = 18*60;
+const GRANDMA_CALL_DAY = 46, GRANDMA_CALL_MINUTE = 18*60;
 let hospitalCallFired = false;
 let yuanMorningCallFired = false;   // sleep() 那段「阿源早上打電話來」用,見那則筆記
 const GRANDMA = { dead:false, wentToSee:false, toldYuan:false, critical:false, nextCheckDay:-1, visits:0, feeds:0 };
@@ -9943,7 +9951,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
    家庭線一樣:寫好了但沒定案,不要讓沒確認過的內容在玩家面前跑。
    day18(班費)不在這個清單裡是因為它走 checkFieldTrip() 自己那條路,不經過
    schoolStorySource()。 */
-const SCHOOL_ACTIVE_DAYS = [5, 13];
+const SCHOOL_ACTIVE_DAYS = [13, 37];
 function schoolStorySource(days){
   return { NODES: StorySchool.NODES.filter(n => days.includes(n.day)) };
 }
@@ -10206,7 +10214,7 @@ function updateCity(dt){
      一樣的條件成立就會再被拉回同一句。三個都補齊:
      `!MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active`。 */
   if(!busy && !dlg.on && !MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
-    const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0;
+    const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 52 && YUAN.visits > 0;
     if(MEI.together && !BROTHER.met) talkToBrother();
     else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) talkToBrother();
   }
@@ -12277,7 +12285,7 @@ function talkToBrother(){
       return;
     }
   }
-  if(SNITCH_QUEST.resolved === null && day >= 18 && YUAN.visits > 0){
+  if(SNITCH_QUEST.resolved === null && day >= 52 && YUAN.visits > 0){
     SNITCH_QUEST.active = true; SNITCH_QUEST.startDay = day;
     syncMiscQuestPanel();
     playBeats([

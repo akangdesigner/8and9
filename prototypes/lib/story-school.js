@@ -35,7 +35,7 @@
        game.html 的 KAI_RUN——要判斷玩家有沒有真的走過去、有沒有偷開袋子,
        資料檔做不到。完整理由見 DESIGN_NOTES「day5:阿凱帶你去做灰色地帶的事」。 */
     {
-      day: 5,
+      day: 13,
       title: '放學後',
       /* 播完把早上那張「今天」的卡換成放學的指示,見 game.html
          maybeTriggerStoryNode() 裡 node.questAfter 那段。 */
@@ -55,7 +55,7 @@
     },
 
     {
-      day: 13,
+      day: 37,
       title: '排氣管',
       beats: [
         { who:'pc',  text:'放學，校門口那排車。' },
@@ -123,7 +123,7 @@
        過手遊、混過樓梯間,這裡都當作老師的既定印象講,不去讀真的遊戲
        狀態值——標籤本來就不需要事實佐證,查證反而會削弱這一段的重點。 */
     {
-      day: 18,
+      day: 52,
       title: '班費',
       classFundQuest: true,
       beats: [
@@ -162,7 +162,7 @@
     {
       /* ⚠ 2026-09-09 封存(kc:「我只要d5 跟d13 其他封存」)——劇本留著,
          但 game.html 已經不接這節了,見 SCHOOL_ACTIVE_DAYS。 */
-      day: 21,
+      day: 61,
       title: '午休',
       beats: [
         { who:'pc',  text:'最後一排併了兩張桌子。' },
@@ -201,7 +201,7 @@
     {
       /* ⚠ 2026-09-09 封存(kc:「我只要d5 跟d13 其他封存」)——劇本留著,
          但 game.html 已經不接這節了,見 SCHOOL_ACTIVE_DAYS。 */
-      day: 28,
+      day: 82,
       title: '導師找你',
       beats: [
         { who:'pc',  text:'他把你叫到走廊。' },
@@ -241,7 +241,7 @@
     {
       /* ⚠ 2026-09-09 封存(kc:「我只要d5 跟d13 其他封存」)——劇本留著,
          但 game.html 已經不接這節了,見 SCHOOL_ACTIVE_DAYS。 */
-      day: 36,
+      day: 106,
       title: '鮮食櫃',
       beats: [
         { who:'pc',  text:'晚上八點。' },
