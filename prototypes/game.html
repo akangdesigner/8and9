@@ -867,7 +867,7 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1776,6 +1776,16 @@ function debugJumpHome(){ debugWarpDoor('home'); }
 function debugJumpSchool(){ debugWarpDoor('school'); }
 /* day5 跑腿的測試入口(2026-09-10)——把狀態設成「阿凱已經約過你、今天的課
    也上完了」,人直接丟到阿凱旁邊,按空白鍵就能拿袋子。 */
+/* 日常事件的測試入口(2026-09-10)——直接抽一件今天的事並播出來,不用睡到隔天。
+   kc 不打 console 指令(見自動記憶 feedback_no_console_commands_add_buttons),
+   所以掛成 #bar 按鈕。 */
+function debugDailyDraw(){
+  if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
+  DAILY.recent.length = 0;          // 測試時不要被「七天內不重抽」擋住
+  busy = true;
+  dailyBriefing();
+}
+window.debugDailyDraw = debugDailyDraw;
 function kaiRunArm(){
   MODE = 'city';
   document.getElementById('indoor').classList.remove('on');
@@ -6790,6 +6800,7 @@ function openIndoorSpot(id){
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
     else if(id === 'mom'){
+      if(dailyGotoReady('mom')){ runDailyGoto('mom'); return; }   // 今天的事正好是媽開口(見 DAILY_EVENTS)
       /* 遊藝場迴響(2026-08-26,kc:「觸發這句話後下次跟媽媽講話,媽媽會說
          怎麼,你最近也去遊藝場嗎?是不是很上頭啊?這樣,然後你會有回話的
          選項」)——只在 ARCADE_GAMBLE.momEchoShown(輸到 $500 那個「想起
@@ -6923,6 +6934,7 @@ function openIndoorSpot(id){
        chatWithMeiClassroom()(只挑對應階段的閒聊台詞池,不寫任何 MEI
        旗標),深度進度只留給街上那具才能真的推進,見那則筆記。 */
     else if(id === 'mei'){
+      if(dailyGotoReady('mei')){ runDailyGoto('mei'); return; }   // 今天的事正好是小美問你題目
       openMenu('小美', [
         { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '答對　歸屬感 +3',
           cls: MEI.helpedDay===day ? 'bad' : '',
@@ -7173,6 +7185,13 @@ function openIndoorSpot(id){
         chg('stamina', -40);
         startCheckoutShift();
       } });
+    /* 繳水電費(2026-09-10,日常事件的 bill 型)——超商櫃台是台灣繳費的日常
+       入口,不另外做繳費機。 */
+    if(dailyBillDue()){
+      const e = dailyDef();
+      items.push({ label:'繳' + e.name, cost: ST.money < e.bill ? '身上不夠' : '−$' + e.bill,
+        cls: ST.money < e.bill ? 'bad' : '', run: payDailyBill });
+    }
     items.push({ label:'看店員在幹嘛', cost:'', run:() =>
       toast(IN.clerkFace === 'B' ? '他背對著你在補菸。' : '他站在收銀機前面，眼睛掃過店裡。', 2400) });
     items.push({ label:'離開', cls:'back', run(){} });
@@ -7576,7 +7595,10 @@ function coEndShift(){
   cancelAnimationFrame(CO.raf);
   const correct = CO.correct, n = CO_CUSTOMERS_PER_SHIFT;
   const review = coShiftReview(n, correct);
-  const wage = correct * CO_RIGHT_WAGE + review.bonus;
+  /* 今天是「店長叫你代班」那個日常事件的話,工資加五成(見 DAILY_EVENTS co-extra)。 */
+  const extra = DAILY.id === 'co-extra' && DAILY.day === day;
+  const wage = Math.round((correct * CO_RIGHT_WAGE + review.bonus) * (extra ? 1.5 : 1));
+  if(extra) DAILY.done = true;
   coDespawnQueue();
   dlgEl.classList.remove('on'); dlg.on = false;
   document.getElementById('coTimerTrack').classList.remove('on');
@@ -8363,6 +8385,176 @@ const DAY_TODO = {
   5:  { line:'今天好像要期中考。', quest:'到學校考期中考' },
   18: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }
 };
+/* ===== 每天都有一件事(2026-09-10,kc:「每一天都是為了活下去而努力的日子
+ * 只是每個日子都有任務或事件罷了」)==========================================
+ * 主線有節點的日子照舊走 DAY_TODO/story-*.js;**沒有主線的日子從這個池子抽一件**,
+ * 早上一句字卡 + 一張「今天」的任務卡 + 一個真的能去做的點。設計理由跟事件清單
+ * 見 DESIGN_NOTES「每天都有一件事」。
+ * 三種型別:
+ *   bill  → 幾天內去超商櫃台繳,逾期有代價
+ *   goto  → 走去找某個人(掛在那個人既有的對話函式最前面,跟 kaiReportDue() 同一招)
+ *   instant → 早上直接發生,沒有要你做什麼(下雨、口袋破洞)
+ * ⚠ 指標一律用 3/6/12、風評用 1/3/6,見 DESIGN_NOTES「數值基準表」。 */
+const DAILY = { id:null, day:-1, done:false, dueDay:-1, recent:[] };
+const DAILY_EVENTS = [
+  /* ── 要錢的 ── */
+  { id:'power', cat:'money', name:'電費', bill:180, days:3,
+    line:'電費單塞在門縫裡。', hint:'三天內去超商櫃台繳電費（$180）' },
+  { id:'water', cat:'money', name:'水費', bill:120, days:3,
+    line:'水費單跟廣告傳單夾在一起。', hint:'三天內去超商櫃台繳水費（$120）' },
+  { id:'mom-ask', cat:'money', goto:'mom',
+    line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
+  { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {},
+    line:'機車行傳訊息：這期分期到了。', hint:'回家睡覺會自動扣款' },
+  /* ── 要人的 ── */
+  { id:'kai-hang', cat:'people', goto:'kai',
+    line:'阿凱：「今天有空嗎。」', hint:'去中華路機車行那邊找阿凱' },
+  { id:'yuan-call', cat:'people', goto:'yuan',
+    line:'阿源傳訊息叫你過去廟口一趟。', hint:'去廟口找阿源' },
+  { id:'acheng-hand', cat:'people', goto:'acheng',
+    line:'阿成問你今天有沒有空，他一個人顧不來。', hint:'去廟口找阿成' },
+  { id:'ayi-food', cat:'people', goto:'ayi',
+    line:'阿姨傳訊息：「過來拿東西吃。」', hint:'去廟口找阿姨' },
+  { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met,
+    line:'小美問你昨天那題怎麼寫的。', hint:'去學校教室找小美' },
+  /* ── 意外 ── */
+  { id:'rain', cat:'trouble', instant:() => chg('mood', -3),
+    line:'早上就下雨，你只有那件外套。', hint:'今天什麼都比較麻煩', note:'（情緒 −3）' },
+  { id:'pocket', cat:'trouble', instant:() => chg('money', -100),
+    line:'口袋破了一個洞，零錢不知道掉在哪一段路上。', hint:'今天要省一點', note:'（金錢 −100）' },
+  { id:'moto-dead', cat:'trouble', goto:'motoboss', need:() => city.motos.some(m => m.owned),
+    line:'機車發不動，你踩了十幾下。', hint:'牽去機車行給旺鴻看（$150）' },
+  { id:'co-extra', cat:'trouble', need:() => IN.hired,
+    line:'店長打來，今天有人請假。', hint:'今天去超商上班，工資加五成' }
+];
+function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id) : null; }
+/* 早上抽一件(沒有主線的日子)——七天內抽過的不再抽,need() 不成立的跳過。 */
+function drawDailyEvent(){
+  const pool = DAILY_EVENTS.filter(e => !DAILY.recent.includes(e.id) && (!e.need || e.need()));
+  const list = pool.length ? pool : DAILY_EVENTS.filter(e => !e.need || e.need());
+  if(!list.length) return null;
+  const e = list[Math.random() * list.length | 0];
+  DAILY.id = e.id; DAILY.day = day; DAILY.done = false;
+  DAILY.dueDay = e.bill ? day + e.days : -1;
+  DAILY.recent.push(e.id);
+  if(DAILY.recent.length > 7) DAILY.recent.shift();
+  if(e.instant) e.instant();
+  return e;
+}
+function dailyCard(e){
+  setTodayCard(e.hint + (e.note ? '<br><span class="qpNote">' + e.note + '</span>' : ''));
+}
+function dailyBriefing(){
+  const e = drawDailyEvent();
+  if(!e){ busy = false; return; }
+  dailyCard(e);
+  say('pc', e.line, () => { busy = false; });
+}
+/* goto 型的完成入口——掛在各自 NPC 既有的對話函式最前面,跟 kaiReportDue() 同一招。 */
+function dailyGotoReady(who){
+  const e = dailyDef();
+  return !!e && e.goto === who && !DAILY.done && DAILY.day === day;
+}
+function dailyDone(){ DAILY.done = true; clearTodayCard(); }
+function runDailyGoto(who){
+  const e = dailyDef();
+  busy = true;
+  if(who === 'mom'){
+    dailyDone();
+    playBeats([
+      { who:'mom', text:'「你身上還有錢嗎。」' },
+      { who:'pc',  text:'她沒有看你，看的是你桌上那個袋子。' },
+      { who:'mom', text:'「五百就好，朋友那邊周轉一下。」' }
+    ], 0, () => openMenu('', [
+      { label:'給她', cost: ST.money < 500 ? '身上不夠' : '−$500　歸屬感 +6',
+        cls: ST.money < 500 ? 'bad' : '', run(){
+          if(ST.money < 500){ toast('你身上不夠五百。', 2200); busy = false; return; }
+          chg('money', -500); chg('calm', 6);
+          playBeats([
+            { who:'pc',  text:'她把錢摺起來，塞進口袋，動作很快。' },
+            { who:'mom', text:'「下個月還你。」' },
+            { who:'pc',  text:'她每次都這樣講。' }
+          ], 0, () => { busy = false; });
+        } },
+      { label:'說你沒有', cost:'歸屬感 −6　情緒 −3', run(){
+          chg('calm', -6); chg('mood', -3);
+          playBeats([
+            { who:'mom', text:'「喔。」' },
+            { who:'pc',  text:'她把門帶上，關得很輕。' },
+            { who:'pc',  text:'輕到你整個早上都在想那個聲音。' }
+          ], 0, () => { busy = false; });
+        } }
+    ]));
+    return;
+  }
+  if(who === 'motoboss'){
+    playBeats([
+      { who:'motoboss', text:'「化油器積碳啦，這台多久沒保養了。」' },
+      { who:'pc',       text:'他手上那塊布已經黑到看不出原本的顏色。' }
+    ], 0, () => openMenu('', [
+      { label:'修', cost: ST.money < 150 ? '身上不夠' : '−$150', cls: ST.money < 150 ? 'bad' : '',
+        run(){
+          if(ST.money < 150){ toast('你身上不夠。', 2200); busy = false; return; }
+          chg('money', -150); dailyDone();
+          playBeats([{ who:'pc', text:'他弄了二十分鐘，發動的時候一次就過。' }], 0, () => { busy = false; });
+        } },
+      { label:'算了，用牽的', cost:'情緒 −3', run(){
+          chg('mood', -3); dailyDone();
+          playBeats([{ who:'pc', text:'你把車牽回去，中華路那段特別長。' }], 0, () => { busy = false; });
+        } }
+    ]));
+    return;
+  }
+  const D = {
+    kai:     { beats:[ { who:'kai', text:'「你來啦。」' },
+                       { who:'pc',  text:'他往旁邊挪了一點，讓你靠在車上。' },
+                       { who:'kai', text:'「沒事啊，就問你有沒有空。」' } ],
+               run(){ chg('calm', 3); chg('mood', 3); chg('stamina', -3);
+                      toast('你們在那邊站了半小時，沒講什麼。\n（歸屬感 +3　情緒 +3）', 3600); } },
+    yuan:    { beats:[ { who:'yuan', text:'「來，坐。」' },
+                       { who:'pc',   text:'他把菸盒往你這邊推了一下，又收回去。' },
+                       { who:'yuan', text:'「你還在讀書，不要學我。」' } ],
+               run(){ chg('calm', 6); toast('他講了半小時工地的事。\n（歸屬感 +6）', 3600); } },
+    acheng:  { beats:[ { who:'acheng', text:'「你來得剛好。」' },
+                       { who:'pc',     text:'你端了一個半小時的麵。' },
+                       { who:'acheng', text:'「拿去，別跟人說我給你這麼多。」' } ],
+               run(){ chg('money', 60); chg('calm', 3); chg('stamina', -10);
+                      toast('六十塊，還有一身油煙味。\n（金錢 +60　歸屬感 +3　體力 −10）', 4000); } },
+    ayi:     { beats:[ { who:'ayi', text:'「吃了沒。」' },
+                       { who:'pc',  text:'她沒有等你回答，就開始裝。' },
+                       { who:'ayi', text:'「拿去啦，賣不完也是丟掉。」' } ],
+               run(){ FOOD.push({ id: ++FOOD_SEQ, name:'阿姨給的鴨頭', icon:'🍢', feed:16, mood:3 });
+                      chg('calm', 3);
+                      toast('一包還熱的，油紙袋燙手。\n（揹包多一份吃的　歸屬感 +3）', 4000); } },
+    mei:     { beats:[ { who:'mei', text:'「這題你昨天不是會嗎。」' },
+                       { who:'pc',  text:'你把算式寫在她的講義邊邊。' },
+                       { who:'mei', text:'「喔——」她拉得很長。' } ],
+               run(){ chg('mood', 3); chg('calm', 3);
+                      toast('她抄完把講義收起來，說了一聲謝謝。\n（情緒 +3　歸屬感 +3）', 3600); } }
+  }[who];
+  if(!D){ busy = false; return; }
+  dailyDone();
+  playBeats(D.beats, 0, () => { D.run(); busy = false; });
+}
+/* 帳單:超商櫃台繳(見 openIndoorSpot 'counter'),逾期在 sleep() 收帳。 */
+function dailyBillDue(){
+  const e = dailyDef();
+  return !!e && !!e.bill && !DAILY.done && DAILY.dueDay >= day;
+}
+function payDailyBill(){
+  const e = dailyDef();
+  if(!e || ST.money < e.bill){ toast('你身上不夠。', 2200); return; }
+  chg('money', -e.bill); dailyDone();
+  toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + e.bill + '）', 3400);
+}
+function expireDailyBill(){
+  const e = dailyDef();
+  if(!e || !e.bill || DAILY.done || DAILY.dueDay < 0 || day <= DAILY.dueDay) return;
+  DAILY.done = true;
+  chg('star', -1); chg('mood', -3);
+  toast(e.name + '逾期了。\n（風評 −1　情緒 −3）', 3600);
+}
+
 /* 「有就更新、沒有才新增」——跟 updateGrandmaQuestHint() 同一套慣例。
    直接 push 會疊卡:前一天的「今天」如果沒被收掉(例如那天的事沒有 expire
    機制),隔天再 push 就會出現兩張 id 一樣的卡(實測踩到)。 */
@@ -8422,19 +8614,14 @@ function maybeIdleDay(){
   }
   /* 等睡醒那則 toast 讀得差不多再跳,不要疊在一起。busy 在這裡重新鎖上——
      wake() 剛把它放掉,選單期間不該讓玩家跑去走路。 */
+  /* 2026-09-10(kc:「每一天都是為了活下去而努力的日子 只是每個日子都有任務或
+     事件罷了」)——沒有主線的日子不再是「還沒什麼事,今天要做什麼?」那個過渡
+     選單,改成從日常事件池抽一件(見 DAILY_EVENTS)。IDLE_DAY_CHOICES 那組留著
+     沒刪,萬一池子全被 need() 擋掉還可以退回去。 */
   setTimeout(() => {
     if(gameOver || busy || dlg.on) return;      // 這一秒剛好被別的演出(拖吊通知/阿源電話)接手就算了,不硬插
     busy = true;
-    say('pc', '這幾天剛開學，還沒什麼事。\n今天要做什麼？', () => {
-      openMenu('今天', IDLE_DAY_CHOICES.map(c => ({
-        label: c.label,
-        run: () => {
-          const r = spendBlockedReason(IDLE_DAY_COST[c.label] || 0);
-          if(r){ say('pc', r, () => { busy = false; }); return; }
-          c.run(); say('pc', c.text, () => { busy = false; });
-        }
-      })));
-    });
+    dailyBriefing();
   }, 1400);
 }
 function sleep(){
@@ -8554,6 +8741,7 @@ function sleep(){
         + loanMsg, 3800);
       busy = false;
       expireKaiRun();          // day5 那件事當天沒做完就淡掉(睡覺 = 這天結束)
+      expireDailyBill();       // 水電費逾期(見 DAILY_EVENTS)
       /* 跨日之後常駐卡的「還剩幾天」要重算(註冊單那張最明顯,見
          syncMiscQuestPanel() 裡 'tuition' 那段)——不重算的話卡片會一直停在
          接到任務那天的天數。 */
@@ -10512,6 +10700,8 @@ function talkToStallVendor(state, data, whoKey, onBuyMenu, opts){
   }
 }
 function talkToAyi(){
+  /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
+  if(dailyGotoReady('ayi')){ runDailyGoto('ayi'); return; }
   talkToStallVendor(AYI, AYI_DATA, 'ayi', () => {
     const q = AYI.catQuest, extra = [];
     if(q.taskDone && !q.done){
@@ -10529,6 +10719,8 @@ function talkToAyi(){
   });
 }
 function talkToAcheng(){
+  /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
+  if(dailyGotoReady('acheng')){ runDailyGoto('acheng'); return; }
   talkToStallVendor(ACHENG, ACHENG_DATA, 'acheng', () => {
     const q = ACHENG.litterQuest, extra = [];
     if(q.taskDone && !q.done){
@@ -10890,6 +11082,8 @@ const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
    多一次選單點擊,換來「不夠格主動去問會被怎麼拒絕」這件事變得到得了,
    不用再靠 fall through 假裝沒發生。 */
 function talkToYuan(){
+  /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
+  if(dailyGotoReady('yuan')){ runDailyGoto('yuan'); return; }
   /* 出賣後的翻臉(2026-09-01,kc:「他會咒罵出賣他的人 你會心虛的應對
      會扣歸屬感」)——攔在最前面,比顧場子/陣頭邀約優先權都高,因為這是
      「事情爆了」的當下,不是日常互動。一次性(`YUAN.betrayedConfronted`
@@ -12128,6 +12322,7 @@ function talkToKai(){
   /* day5 跑腿(2026-09-10,見 KAI_RUN 那段)——擋在最前面,優先於閒聊。
      他說的是「放學」過來,所以今天要真的上完課(deskActionDay===day,跟
      finishSchoolDay() 同一個判斷)才給袋子,不然他只會叫你放學再說。 */
+  if(dailyGotoReady('kai')){ runDailyGoto('kai'); return; }
   if(kaiWrongDue()){ kaiConfrontWrong(); return; }
   if(kaiReportDue()){ kaiReportRun(); return; }
   if(kaiRunReady()){
@@ -12753,6 +12948,8 @@ function finishTroupeGame(){
    先跑 events[] 故事節點,沒有觸發中事件就退回 talk[] 隨機閒聊),對完話
    才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
 function talkToMotoBoss(){
+  /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
+  if(dailyGotoReady('motoboss')){ runDailyGoto('motoboss'); return; }
   /* 算命攤跑腿任務(2026-08-27)——攔在最前面,跟這裡原本的劇情/買車邏輯
      完全independent,見上面 pitchTextFor()/completeFortuneQuestAt()
      那組長筆記。只在任務目標剛好是 moto、還沒完成過的時候吃掉這次互動。 */
@@ -13412,7 +13609,7 @@ const SAVE_EVERY_MS = 3000;
 /* ① 純資料物件:讀檔時逐鍵寫回同一個物件(**不換掉物件本身**,因為到處都有
       人持有它的參照)。 */
 const SAVE_OBJECTS = {
-  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN,
+  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE
@@ -14141,7 +14338,7 @@ window.__dbg = {
      被阿凱約→上完課」那整串前置,直接把狀態設成「已經被約、而且已經放學」,
      人也丟到阿凱旁邊。#bar 有「day5 跑腿」按鈕直接叫這支(kc 不打 console
      指令,見自動記憶 feedback_no_console_commands_add_buttons)。 */
-  KAI_RUN, RUNMEN, syncRunmen,
+  KAI_RUN, RUNMEN, syncRunmen, DAILY, DAILY_EVENTS, drawDailyEvent,
   kaiRunArm,
   /* 2026-09-09 從 #bar 拿掉按鈕之後,這幾個工具的入口改掛這裡(kc:「把不需要
      的清掉 只留跳轉地點跟重來」)。要用哪個就跟我說,我把按鈕加回 #bar——
