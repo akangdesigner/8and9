@@ -1649,7 +1649,7 @@ function openInventory(){
     /* 2026-08-21 kc:「有明確繳交期限」——原本只顯示「還剩幾天」,補上真的
        日期(dayToDate()),「還剩幾天」留著當補充,不是取代——兩個一起看
        比較直覺(截止日 9/30、還剩幾天)。 */
-    const left = TUITION_QUEST.dueDay - day;
+    const left = activeDaysUntil(TUITION_QUEST.dueDay);
     const detail = `註冊單：<span class="amt">$${TUITION_QUEST.amount}</span> 還沒繳<br>` +
       `截止日：${dayToDate(TUITION_QUEST.dueDay)}<br>` +
       (left > 0 ? `還剩 ${left} 個行動天` : `已經過期 ${-left} 個行動天`);
@@ -1679,7 +1679,7 @@ function openInventory(){
      機車分期同一格式,繳掉才會從 BILLS 移除、這張卡才消失。 */
   BILLS.forEach(b => {
     anyDoc = true;
-    const left = b.dueDay - day;
+    const left = activeDaysUntil(b.dueDay);
     const detail = `${b.name}：<span class="amt">$${b.amount}</span> 還沒繳<br>` +
       `繳費期限：${dayToDate(b.dueDay)}<br>` +
       (left >= 0 ? `還剩 ${left} 個行動天` : `已經過期 ${-left} 個行動天`) +
@@ -3319,14 +3319,14 @@ function syncMiscQuestPanel(){
   if(ID_CARD_QUEST.active){
     const hint = ID_CARD_QUEST.requestedDay < 0
       ? '去警局跟阿正申請良民證（$200）'
-      : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等 ${ID_CARD_QUEST.readyDay - day} 個行動天`
+      : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等 ${activeDaysUntil(ID_CARD_QUEST.readyDay)} 個行動天`
          : (ST.star < -10 ? '良民證辦好了，但風評太差阿正不肯發（風評要到 -10 以上）' : '良民證好了，去警局跟阿正拿'));
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'id-card', title:'辦良民證', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'snitch');
   if(SNITCH_QUEST.active){
-    const hint = `7 個行動天內決定：跟阿正報、或去警告阿源（還有 ${Math.max(0, SNITCH_QUEST.startDay+7-day)} 個行動天，不選也沒關係）`;
+    const hint = `7 個行動天內決定：跟阿正報、或去警告阿源（還有 ${activeDaysUntil(SNITCH_QUEST.startDay + 7)} 個行動天，不選也沒關係）`;
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'snitch', title:'贓物協尋', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
@@ -3348,7 +3348,7 @@ function syncMiscQuestPanel(){
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'bills');
   if(BILLS.length){
     const hint = BILLS.map(b => {
-      const left = b.dueDay - day;
+      const left = activeDaysUntil(b.dueDay);
       return b.name + ' $' + b.amount + '，' + dayToDate(b.dueDay) + '前要繳' +
              (left >= 0 ? '（還剩 ' + left + ' 個行動天）' : '（已經過期 ' + (-left) + ' 個行動天）');
     }).join('<br>') + '<br><span class="qpNote">超商櫃台</span>';
@@ -3358,7 +3358,7 @@ function syncMiscQuestPanel(){
 
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'tuition');
   if(TUITION_QUEST && !TUITION_QUEST.paid){
-    const left = TUITION_QUEST.dueDay - day;
+    const left = activeDaysUntil(TUITION_QUEST.dueDay);
     const hint = `$${TUITION_QUEST.amount}，${dayToDate(TUITION_QUEST.dueDay)}前要繳` +
       (left >= 0 ? `（還剩 ${left} 個行動天）` : `（已經過期 ${-left} 個行動天）`) +
       '<br><span class="qpNote">學校走廊的繳費機</span>';
@@ -8519,15 +8519,46 @@ function expireKaiRun(){
     : '你沒有去找阿凱。隔天他沒有提這件事。\n（歸屬感 −3）', 4200);
 }
 
-function hasStoryToday(){
+function hasStoryOn(d){
   const home = [['bet', StoryBet], ['drink', StoryDrink]]
-    .some(([key, src]) => src.NODES.some(n => n.day === day) && !seenStoryDays.has(key + '-' + day));
-  /* 學校線只算還在用的那幾天(封存的 21/28/36 不算,不然那三天會變成「有事
-     但什麼都不會發生」的空白日,連過渡選項都拿不到)。day18 走 checkFieldTrip()
-     自己那條路,要另外算進來。 */
-  const school = (SCHOOL_ACTIVE_DAYS.includes(day) || day === 52)
-    && !seenStoryDays.has('school-' + day) && !CLASSFUND.tripStarted;
-  return home || school || (day === GRANDMA_CALL_DAY && !hospitalCallFired);
+    .some(([key, src]) => src.NODES.some(n => n.day === d) && !seenStoryDays.has(key + '-' + d));
+  /* 學校線只算還在用的那幾天(封存的那幾天不算,不然會變成「有事但什麼都不會
+     發生」的空白日)。校外教學那天走 checkFieldTrip() 自己那條路,要另外算。 */
+  const school = (SCHOOL_ACTIVE_DAYS.includes(d) || d === 52)
+    && !seenStoryDays.has('school-' + d) && !CLASSFUND.tripStarted;
+  return home || school || (d === GRANDMA_CALL_DAY && !hospitalCallFired);
+}
+function hasStoryToday(){ return hasStoryOn(day); }
+/* ===== 行動天(2026-09-10,kc:「3個月是虛擬90天 實際我們會跳天啊 所以才叫
+ * 行動天」)=====================================================================
+ * 日曆是三個月(90 天),但玩家**不是每一天都會醒來**——睡覺會直接跳到下一個
+ * 「有事的日子」,中間空白的日期一次跳過去。所以玩家真正經歷的單位是**行動天**
+ * (= 你醒來過幾次),期限也要用行動天去講,不能只講日曆日期。
+ * 「有事的日子」= 有主線節點 / 行事曆上排了日常事件 / 有東西那天到期
+ * (帳單、註冊單、阿嬤月結算、機車分期)。 */
+function dayHasSomething(d){
+  if(hasStoryOn(d)) return true;
+  if(DAY_TODO[d]) return true;
+  const e = DAILY_SCHEDULE[d] && DAILY_EVENTS.find(x => x.id === DAILY_SCHEDULE[d]);
+  if(e && (!e.need || e.need())) return true;
+  if(BILLS.some(b => b.dueDay === d)) return true;
+  if(TUITION_QUEST && !TUITION_QUEST.paid && TUITION_QUEST.dueDay === d) return true;
+  if(GRANDMA.nextCheckDay === d) return true;
+  if(MOTO_LOAN.active && MOTO_LOAN.nextDueDay === d) return true;
+  return false;
+}
+/* 下一個會醒來的日子——最多往前找 14 天,真的整整兩週都沒事就直接 +1
+   (不要無限往前跳,那會讓玩家一覺睡掉半個月)。 */
+function nextActiveDay(from){
+  for(let d = from + 1; d <= from + 14; d++) if(dayHasSomething(d)) return d;
+  return from + 1;
+}
+/* 從今天到 target 之間還會醒來幾次——期限用這個數字講(「還剩 2 個行動天」),
+   不是用日曆天數相減。 */
+function activeDaysUntil(target){
+  let n = 0;
+  for(let d = day + 1; d <= target; d++) if(dayHasSomething(d)) n++;
+  return n;
 }
 /* 「今天有事」的日子,睡醒用一句話帶過 + 跳一張任務卡(2026-09-09,kc:
    「這種可以會是用一句話帶過 比如校外教學 可以是 你突然想到今天要去校外教學
@@ -8636,21 +8667,19 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
      阿凱/阿源/麵攤老闆/阿姨/小美那批從第 20 天之後才開始穿插,而且每件都加了
      `need()`(要真的講過話、去過他的攤子才會打給你),沒認識就自動往後順延。
    - 其餘天數人的事件跟意外交錯,不會連兩天都是壞事。
+   ⚠ **表上是有空隙的**(2026-09-10,kc:「3個月是虛擬90天 實際我們會跳天啊 所以才叫
+     行動天」)——事件之間刻意空 1~2 個日曆天,睡覺會直接跳過那些空日子(見
+     nextActiveDay())。所以日曆走完 90 天,玩家大約只醒來 40 次:**每一個醒來的
+     日子都有事,中間沒事的日期直接跳過去**。表排太滿的話就跳不動了,補事件的時候
+     不要把空隙填掉。
    要改哪一天就直接改這張表。 */
 const DAILY_SCHEDULE = {
-  2:'rain', 3:'pocket', 4:'mom-ask', 5:'power', 6:'co-extra', 7:'moto-dead',
-  8:'rain', 9:'loan', 11:'pocket', 12:'water', 14:'mom-ask', 15:'co-extra',
-  16:'moto-dead', 17:'rain', 18:'pocket', 19:'mom-ask', 20:'kai-hang', 21:'yuan-call',
-  22:'co-extra', 23:'loan', 24:'ayi-food', 26:'mei-ask', 27:'moto-dead', 29:'yuan-call',
-  30:'acheng-hand', 31:'rain', 32:'mei-ask', 33:'kai-hang', 35:'power', 36:'loan',
-  38:'pocket', 39:'acheng-hand', 41:'ayi-food', 42:'water', 44:'mom-ask', 45:'kai-hang',
-  47:'yuan-call', 48:'co-extra', 49:'ayi-food', 50:'loan', 51:'mei-ask', 53:'moto-dead',
-  54:'yuan-call', 55:'acheng-hand', 56:'rain', 57:'mei-ask', 59:'kai-hang', 60:'pocket',
-  62:'acheng-hand', 63:'loan', 65:'power', 66:'ayi-food', 67:'mom-ask', 68:'kai-hang',
-  69:'yuan-call', 70:'co-extra', 71:'ayi-food', 72:'water', 73:'mei-ask', 74:'moto-dead',
-  75:'yuan-call', 77:'loan', 78:'acheng-hand', 79:'rain', 80:'mei-ask', 81:'kai-hang',
-  83:'pocket', 84:'acheng-hand', 85:'ayi-food', 86:'mom-ask', 87:'kai-hang', 88:'yuan-call',
-  89:'co-extra', 90:'ayi-food'
+  2:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 12:'co-extra',
+  15:'moto-dead', 17:'rain', 20:'water', 22:'kai-hang', 23:'loan', 26:'yuan-call',
+  29:'pocket', 31:'ayi-food', 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
+  47:'acheng-hand', 50:'water', 51:'loan', 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
+  62:'moto-dead', 65:'loan', 67:'acheng-hand', 70:'ayi-food', 73:'rain', 75:'kai-hang',
+  78:'yuan-call', 79:'loan', 80:'water', 83:'pocket', 86:'ayi-food', 88:'mei-ask'
 };
 function pickDailyForDay(d){
   const first = DAILY_SCHEDULE[d] && DAILY_EVENTS.find(e => e.id === DAILY_SCHEDULE[d]);
@@ -8973,21 +9002,27 @@ function sleepAdvance(skippedSchool){
      的床邊。**句子是 kc 給的原句**(2026-09-10:「黑畫面標 你悠悠地睡了一覺」)。 */
   fade('你悠悠地睡了一覺', () => {
     chg('stamina', 100 - ST.stamina);
-    minute = 7*60; day++;
+    /* 跳到下一個有事的日子(2026-09-10,kc 選的規則)——不是 day++。中間空白的
+       日期一次跳過去,玩家醒來的次數就是「行動天」,見 nextActiveDay()。 */
+    minute = 7*60; day = nextActiveDay(day);
     if(skippedSchool) chg('star', -3);
     /* 機車分期扣款(2026-08-21)——見上面 MOTO_LOAN 那則長筆記:day 每次
        sleep() 才 +1,一次最多跨一天,不會一次錯過兩個到期日,不用 while。 */
     let loanMsg = '';
-    if(MOTO_LOAN.active && day >= MOTO_LOAN.nextDueDay){
+    /* ⚠ 改成 while(2026-09-10)——原本假設「一次只跨一天,不會錯過兩個到期日」,
+       但睡覺現在會一次跳好幾天(見 nextActiveDay()),跳過兩週就要扣兩期。 */
+    let loanPaid = 0;
+    while(MOTO_LOAN.active && day >= MOTO_LOAN.nextDueDay){
       const pay = Math.min(MOTO_LOAN.weekly, MOTO_LOAN.balance);
       chg('money', -pay);
+      loanPaid += pay;
       MOTO_LOAN.balance -= pay;
       MOTO_LOAN.nextDueDay += 7;
       if(MOTO_LOAN.balance <= 0){
         MOTO_LOAN.active = false;
         loanMsg = '\n機車分期扣完最後一筆，收據可以丟了。';
       } else {
-        loanMsg = `\n機車行來收分期，扣了 $${pay}（還欠 $${MOTO_LOAN.balance}）。`;
+        loanMsg = `\n機車行來收分期，扣了 $${loanPaid}（還欠 $${MOTO_LOAN.balance}）。`;
       }
     }
     /* 註冊費逾期直接遊戲結束(2026-08-28 改,kc:「必做的任務如果失敗也會
@@ -9640,7 +9675,7 @@ function checkGrandmaMonthly(){
    留著一張再也不會更新的舊任務。 */
 function updateGrandmaQuestHint(){
   if(!GRANDMA.critical || GRANDMA.dead) return;
-  const left = Math.max(0, GRANDMA.nextCheckDay - day);   // 這個月結算是哪天,見 GRANDMA.nextCheckDay
+  const left = activeDaysUntil(GRANDMA.nextCheckDay);   // 用行動天算,見 activeDaysUntil()
   const hint = `這個月已探望 ${GRANDMA.visits}/${GRANDMA_VISITS_NEEDED} 次、餵食 ${GRANDMA.feeds}/${GRANDMA_FEEDS_NEEDED} 次` +
                `<br><span class="qpNote">這個月還剩 ${left} 個行動天</span>`;
   const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit');
@@ -10232,7 +10267,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
-          toast(`註冊單：${dayToDate(TUITION_QUEST.dueDay)} 前要湊出 $${node.tuitionQuest.amount}\n（${node.tuitionQuest.days} 個行動天）`, 4200);
+          toast(`註冊單：${dayToDate(TUITION_QUEST.dueDay)} 前要湊出 $${node.tuitionQuest.amount}\n（大約 ${activeDaysUntil(TUITION_QUEST.dueDay)} 個行動天）`, 4200);
         }
         /* node.classFundQuest 那個特例已經拿掉(2026-09-02 第九輪)——day18
            改成兩階段,不再透過這裡的 schoolStorySource() 篩選觸發,見
