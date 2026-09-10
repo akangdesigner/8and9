@@ -3246,6 +3246,20 @@ function syncMiscQuestPanel(){
      你到那邊有觸發才會顯示」)——舊版條件只有 `!AXIA.resolved`,等於新遊戲
      第一秒任務面板就掛著一張你還沒遇到的人的卡。加 `AXIA.met`,走到公車站
      真的跟她講過話才算接到這個任務。 */
+  /* 註冊單(2026-09-10,kc:「註冊單的任務是常駐的 會提示一個月後要繳註冊單」)
+     ——之前這張單子只活在物品欄的「文件」分頁,任務面板上完全看不到,等於一個
+     一個月後會炸的東西被藏起來。現在跟贖車/良民證那批同一套掛成常駐卡,hint
+     直接寫截止日跟剩幾天;繳掉(paid)就整張拿掉。逾期那天的處理不動(見
+     sleep() 裡 TUITION_QUEST 逾期那段)。 */
+  idx = ACTIVE_QUESTS.findIndex(x => x.id === 'tuition');
+  if(TUITION_QUEST && !TUITION_QUEST.paid){
+    const left = TUITION_QUEST.dueDay - day;
+    const hint = `$${TUITION_QUEST.amount}，${dayToDate(TUITION_QUEST.dueDay)}前要繳` +
+      (left >= 0 ? `（還剩 ${left} 天）` : `（已經過期 ${-left} 天）`) +
+      '<br><span class="qpNote">學校走廊的繳費機</span>';
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'tuition', title:'註冊單', hint });
+  } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'axia');
   if(AXIA.met && !AXIA.resolved){
     const hint = axiaRiding ? '載阿霞去中華路，到了按空白鍵下車'
@@ -8540,6 +8554,10 @@ function sleep(){
         + loanMsg, 3800);
       busy = false;
       expireKaiRun();          // day5 那件事當天沒做完就淡掉(睡覺 = 這天結束)
+      /* 跨日之後常駐卡的「還剩幾天」要重算(註冊單那張最明顯,見
+         syncMiscQuestPanel() 裡 'tuition' 那段)——不重算的話卡片會一直停在
+         接到任務那天的天數。 */
+      syncMiscQuestPanel();
       clearTodayCard();        // 「今天」的卡不跨日——昨天沒做完的事,隔天不該還掛在面板上
       maybeIdleDay();          // 今天沒排劇情的話,給一個「這天你要幹嘛」的過渡選項
     };
