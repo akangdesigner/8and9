@@ -857,7 +857,7 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugTweakPat()">摸摸滑桿</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -5622,7 +5622,10 @@ function debugTweakMassageScene(){
   tweakMassageScenePanel();
 }
 window.debugTweakMassageScene = debugTweakMassageScene;
-/* 摸摸的手勢滑桿(2026-09-09,kc:「摸摸的部分手讓我調整」)——面板開著時姿勢
+/* ⚠ 2026-09-10 kc 定案(「我說你這樣就夠好了」),#bar 那顆「摸摸滑桿」按鈕已拔掉,
+   函式留著(跟醫院那批滑桿同慣例,console 打 debugTweakPat() 還叫得出來)。
+   定案數字就是 GESTURE_POSE.pat 裡寫死的那組 + IN.px 129。
+   摸摸的手勢滑桿(2026-09-09,kc:「摸摸的部分手讓我調整」)——面板開著時姿勢
    會一直擺著(HERO_GESTURE.hold),不然 1.5 秒就放下來根本來不及看。
    滑桿:玩家站位 X(手碰不碰得到人主要看這條)/肩膀前後/肩膀側向/手肘,
    加上手腕扭轉與它分給前臂的比例(手掌破圖看這兩條)。
