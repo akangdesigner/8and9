@@ -364,7 +364,7 @@
     /* 第一次抓到(YUAN.hasTattoo 剛變 true 那次)。 */
     hook:'有人跟他講你手上有東西。',
     branch:[
-      { label:'把袖子拉起來', star:-12, cool:+4,
+      { label:'把袖子拉起來', star:-6, cool:+4,
         beats:[
           { who:'jiaoguan', text:'他看了三秒。' },
           { who:'jiaoguan', text:'「什麼時候弄的。」' },
@@ -372,7 +372,7 @@
           { who:'jiaoguan', text:'他在本子上寫了幾個字。' }
         ],
         quiet:'記過。那筆紀錄會跟到你畢業。' },
-      { label:'「沒有啊。」', star:-4, calm:-6,
+      { label:'「沒有啊。」', star:-3, calm:-6,
         beats:[
           { who:'jiaoguan', text:'他盯著你的袖口。' },
           { who:'pc',       text:'今天三十四度。' },
@@ -399,7 +399,7 @@
     id:'aren', name:'阿仁',
     hook:'「今天下午沒課啦，去打撞球。」',
     branch:[
-      { label:'去', calm:+6, money:-250, star:-5, leaveSchool:true,
+      { label:'去', calm:+6, money:-250, star:-6, leaveSchool:true,
         beats:[
           { who:'pc',   text:'撞球間冷氣很強。' },
           { who:'pc',   text:'你們打到五點半。' },

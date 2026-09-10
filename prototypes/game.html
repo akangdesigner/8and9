@@ -1095,10 +1095,10 @@ function askMakeupExam(){
         { who:'teacher', text:'「你只是沒時間。」' }
       ], 0, () => toast('補考過了。（風評 +6，小小知識 +2）', 3400));
     } else {
-      chg('star', -4);
+      chg('star', -3);
       playBeats([
         { who:'pc', text:'那科就這樣掛了。他沒有再提。' }
-      ], 0, () => toast('補考沒過。（風評 −4）', 3000));
+      ], 0, () => toast('補考沒過。（風評 −3）', 3000));
     }
   }
   function askRound(){
@@ -1408,7 +1408,7 @@ function endPhoneGame(success, jitterLine){
     chg('star', -1); chg('calm', -3);
     toast(jitterLine, 2200);
   } else {
-    chg('star', -4); chg('calm', -6);
+    chg('star', -3); chg('calm', -6);
     playBeats([
       { who:'jiaoguan', text:'「你在幹嘛。」' },
       { who:'pc',       text:'教官不知道什麼時候站到你後面了，手機直接被沒收。' }
@@ -1445,7 +1445,7 @@ const WEAR_ITEMS = [
      `owned` 裡,要打工下班才會拿到(見 coEndShift() 那段)。同時帶
      cool/star 兩個效果,是這批衣物裡第一件會動風評的,見下面
      toggleWear() 那則筆記。 */
-  { id:'uniform', slot:'top', name:'超商制服', cool:-10, star:10, icon:'👔', locked:true },
+  { id:'uniform', slot:'top', name:'超商制服', cool:-10, star:6, icon:'👔', locked:true },
   /* 刺青(2026-08-28,kc 糾正兩輪):第一輪「刺完是拿不下來的裝備,帥潮+10」
      ——走這套穿搭系統,不是一次性 chg('cool', cool)。第二輪 kc 再糾正
      「帥潮效果要不同啊,然後也要新增洗掉刺青的選項」——六款刺青(見
@@ -1523,7 +1523,7 @@ function renderWearTab(){
        印成「+-10」——改成正負號自己判斷,順便把風評加成也顯示出來(制服
        是第一件帶 star 的衣物)。
        2026-09-01 補:成績單只有 star、沒有 cool,原本的字串接法在 cool
-       是 undefined 時會印出「undefined／風評+10」,改成兩段各自判斷有沒有
+       是 undefined 時會印出「undefined／風評+6」,改成兩段各自判斷有沒有
        這個欄位再拼,cool-only/star-only/cool+star 三種組合都印得對。 */
     const badgeParts = [];
     if(it.cool != null) badgeParts.push((it.cool>=0?'+':'')+it.cool);
@@ -6760,7 +6760,7 @@ function steal(feed){
   { const r = spendBlockedReason(3); if(r){ toast(r, 2400); return; } }
   chg('stamina', -3);
   if(IN.clerkFace !== 'B'){
-    chg('star',-1); chg('calm', -12);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
+    chg('star', -1); chg('calm', -12);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
     playBeats([
       { who:'clerk', text:'「同學。」' },
       { who:'pc',    text:'他沒有把話講完。' },
@@ -7005,17 +7005,17 @@ function openIndoorSpot(id){
           const blocked = gotTranscript || short;
           const cost = gotTranscript ? '已經有成績單了'
             : short ? `略懂知識不夠（要 ${EXAM_KNOWLEDGE_COST}）`
-            : `略懂知識 −${EXAM_KNOWLEDGE_COST}　情緒 +3　風評 +5　獲得成績單`;
+            : `略懂知識 −${EXAM_KNOWLEDGE_COST}　情緒 +3　風評 +6　獲得成績單`;
           return { label:'考小考', cost, cls: blocked ? 'bad' : '', disabled: blocked, run(){
             if(blocked) return;
             KNOWLEDGE.rough -= EXAM_KNOWLEDGE_COST;
             lastExamDay = day;
             examAnnouncedDay = -1;
             gotTranscript = true;
-            chg('mood', 3); chg('star', 5);
-            TRASH.push({ name:'成績單', icon:'📜', star:5, active:true,
+            chg('mood', 3); chg('star', 6);
+            TRASH.push({ name:'成績單', icon:'📜', star:6, active:true,
               detail:'兩週一次的小考，你真的坐下來寫完了。<br>可以帶出來秀給別人看，也可以收起來——風評加成是自己決定要不要露的。' });
-            toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +5）', 4200);
+            toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +6）', 4200);
           } };
         })(),
         /* 補考(2026-09-01,見上面 maybeAnnounceExam()/askMakeupExam() 那組
@@ -7024,7 +7024,7 @@ function openIndoorSpot(id){
            不是花知識買考試)。 */
         (() => {
           if(makeupAnnouncedDay < 0 || day <= makeupAnnouncedDay) return null;
-          return { label:'補考', cost:'連續答對 3 題（可以錯 1 次）　過關 風評+6 小小知識+2／沒過 風評−4', run: askMakeupExam };
+          return { label:'補考', cost:'連續答對 3 題（可以錯 1 次）　過關 風評+6 小小知識+2／沒過 風評−3', run: askMakeupExam };
         })(),
         { label:'不要', cls:'back', run(){} }
       ].filter(Boolean));
@@ -7701,7 +7701,7 @@ function updateIndoor(dt){
          等於「走出去之前都算在店內」,跟 steal() 那句 toast 的說法一致。 */
       if(IN.clerkFace === 'F' && pendingTheft > 0){
         const amt = pendingTheft; pendingTheft = 0; stealCaughtDay = day;
-        chg('full', -amt); chg('star', -2); chg('calm', -12);
+        chg('full', -amt); chg('star', -3); chg('calm', -12);
         playBeats([
           { who:'clerk', text:'「等一下。」' },
           { who:'pc',    text:'他轉過身,先看你的外套,再看架上少的那格。' },
@@ -8460,7 +8460,7 @@ function sleep(){
       }
     }
     /* 註冊費逾期直接遊戲結束(2026-08-28 改,kc:「必做的任務如果失敗也會
-       結束,比如註冊單」)——上一輪本來是風評-5+滯納金那種軟性懲罰
+       結束,比如註冊單」)——上一輪本來是風評-6+滯納金那種軟性懲罰
        (見 docs/DESIGN_NOTES.md「沒誘因去做別的事」節的舊版本),這輪
        kc 明講「必做任務」失敗要直接結束,改成呼叫 triggerGameOver()。
        不用 overdueApplied 擋重複觸發了——遊戲一結束 sleep() 不會再被
@@ -8900,11 +8900,11 @@ function talkToWorkerIndoor(){
     /* 辦正事(2026-09-09,kc 要求加的,文案也是他給的)——錢在進場前就付掉了
        (talkToWorker() 那顆「爽一下」),這裡不再扣。情緒給得比其他選項多(這是
        他付錢來買的東西),歸屬感只給一點點——這條線的重點是「花錢買到的親密
-       不會變成歸屬感」。風評 −2 是 kc 指定的:這件事在這個小鎮裡是會被看見、
+       不會變成歸屬感」。風評 −3 是 kc 指定的:這件事在這個小鎮裡是會被看見、
        會被講的,其他選項都不扣。 */
     { label:'辦正事', run(){
-        chg('mood', 12); chg('calm', 3); chg('star', -2);
-        say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +12、歸屬感 +3、風評 −2）', leaveIndoor);
+        chg('mood', 12); chg('calm', 3); chg('star', -3);
+        say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +12、歸屬感 +3、風評 −3）', leaveIndoor);
       } },
     { label:'走了', cls:'back', run: leaveIndoor }
   );
@@ -9573,7 +9573,7 @@ function momCheckinLines(){
  * **✅ 2026-08-28 補上還款路徑**——kc 覺得遊戲「沒誘因去做別的事」回頭
  * 補這塊:繳費在走廊的繳費機(見下面 openTuitionKiosk())。
  * **✅ 同一天再一輪:逾期直接遊戲結束**——kc:「必做的任務如果失敗也會
- * 結束,比如註冊單」,原本這裡的軟性懲罰(風評-5+滯納金)撤掉,改成
+ * 結束,比如註冊單」,原本這裡的軟性懲罰(風評-6+滯納金)撤掉,改成
  * `sleep()` 結算時逾期就 `triggerGameOver('tuition')`,見那則筆記跟
  * `GAME_OVER_TEXT.tuition`。 */
 let TUITION_QUEST = null;
@@ -11281,7 +11281,7 @@ function talkToMei(){
     if(!MEI.kissed) items.push({ label:'在她沒注意時吻了她', cls:'risk', run(){
       MEI.kissed = true; MEI.kissedDay = day;
       playBeats(D.kissBeats, 0, () => {
-        chg('star', -5); chg('calm', -6); chg('mood', 12);
+        chg('star', -6); chg('calm', -6); chg('mood', 12);
         toast(D.kissQuiet, 3400);
       });
     } });
@@ -12041,11 +12041,11 @@ function talkToBrother(){
              ——金額退回原本的 $800,star 維持上一輪降的 +5(kc 沒提這個要
              改回去)。 */
           { label:'把你知道的告訴他', run(){
-              chg('money', 800); chg('star', 5);
+              chg('money', 800); chg('star', 6);
               SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'reported';
               YUAN.betrayed = true;
               syncMiscQuestPanel();
-              toast('（+$800／風評 +5）', 2600);
+              toast('（+$800／風評 +6）', 2600);
             } },
           { label:'還沒有', cls:'back', run(){} }
         ]);
@@ -12076,14 +12076,14 @@ function talkToBrother(){
       const good = brotherFinalGood();
       BROTHER.path = good ? 'B' : 'A';
       playBeats(good ? D.day24GoodBeats : D.day24BadBeats, 0, () => {
-        if(good){ chg('calm', 12); chg('star', 10); toast('（歸屬感 +12／風評 +10）', 2600); }
-        else    { chg('star', -15); chg('calm', -12); toast('（風評 −15／歸屬感 −12）', 2600); }
+        if(good){ chg('calm', 12); chg('star', 6); toast('（歸屬感 +12／風評 +6）', 2600); }
+        else    { chg('star', -6); chg('calm', -12); toast('（風評 −6／歸屬感 −12）', 2600); }
       });
     } else if(arcDay === 30){
       const good = BROTHER.path === 'B';
       playBeats(good ? D.day30EndingB : D.day30EndingA, 0, () => {
         if(good){ chg('money', 2000); chg('calm', 12); toast('（+$2000／歸屬感 +12）', 2600); }
-        else    { chg('star', -8); toast('（風評 −8）', 2600); }
+        else    { chg('star', -6); toast('（風評 −6）', 2600); }
       });
     }
     return;
@@ -13207,7 +13207,7 @@ function interactProp(prop){
           toast('你把零錢投進去，聽見銅板落底的聲音。', 2400);
         } },
       { label:'順手拿一把', run(){
-          chg('money', 80); chg('star', -2);
+          chg('money', 80); chg('star', -3);
           toast('你把手伸進去，摸到幾張皺皺的鈔票。', 2400);
         } },
       /* 班費失竊・找物證(2026-09-02,見上面 CLASSFUND 那則長筆記)——
