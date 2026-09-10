@@ -902,7 +902,7 @@
   <div id="spBody"></div>
   <div id="spLine"></div>
   <div id="spRule"><div id="spStats"></div></div>
-  <div id="spTip">按 空白鍵 闔上</div>
+  <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
 <div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button></div>
 <div id="fps">—</div>
@@ -8130,7 +8130,11 @@ function showSleepPage(onDone){
     el.classList.remove('on');
     setTimeout(onDone, 420);          // 等淡出走完再接下一段,不要疊在一起
   };
-  const spTimer = setTimeout(() => sleepPageDone && sleepPageDone(), 6000);
+  /* **自動起床**(2026-09-10,kc:「睡覺頁就是會跳日記 然後就會自動起床啊
+     接明天的故事」)——不用玩家按任何鍵,日記讀完自己翻頁;空白鍵只是提早跳過。
+     停留時間照內容長度算:底 3.2 秒,每一行日記多 0.7 秒,夾在 4~9 秒之間。 */
+  const hold = Math.min(9000, Math.max(4000, 3200 + (dayLog.length + 2) * 700));
+  const spTimer = setTimeout(() => sleepPageDone && sleepPageDone(), hold);
   el.onclick = () => sleepPageDone && sleepPageDone();
 }
 /* 過渡頁開著的時候空白鍵只用來關它——用 capture 攔在遊戲那個全域 keydown
@@ -8904,9 +8908,11 @@ function sleepAdvance(skippedSchool){
        另外幫玩家做這個決定。 */
     const wake = () => {
       snapDay();               // 新的一天照一張 ST 的相,給明天的過渡頁算差額
-      toast('你回去睡了一覺，體力補滿了。'
-        + (skippedSchool ? '\n（昨天沒去學校，風評 −3）' : '')
-        + loanMsg, 3800);
+      /* 日記那頁已經把「今天過了什麼」講完了,睡醒不用再來一則「你回去睡了一覺」
+         (2026-09-10,kc:「然後就會自動起床啊 接明天的故事」)——只有真的有事
+         (昨天翹課被扣、機車分期扣款)才跳,沒事就直接接明天的戲。 */
+      if(skippedSchool || loanMsg)
+        toast((skippedSchool ? '昨天沒去學校。（風評 −3）' : '') + loanMsg, 3800);
       busy = false;
       expireKaiRun();          // day5 那件事當天沒做完就淡掉(睡覺 = 這天結束)
       expireDailyBill();       // 水電費逾期(見 DAILY_EVENTS)
