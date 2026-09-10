@@ -11108,21 +11108,26 @@ const FORTUNE_QUEST_TEXT = {
            hint:'（去廟口供桌上拿）',
            find:'供桌角落壓著一個紅色小袋，上面積了一層香灰。' }
 };
+/* ⚠ **要講成一筆交易**(2026-09-10,kc:「任務很不明確 應該是說 你幫我做一件事
+   我會給你回報 類似這種」)——原本他只是「推銷」一個道具,玩家不知道自己要做什麼、
+   也不知道做完拿得到什麼。現在每一句都是同一個結構:**先講你幫我做什麼、再講我
+   給你什麼**,選單跟任務卡也把回報寫出來。
+   `amount` 統一 12(見「數值基準表」的 3/6/12,一整趟跑腿是「大」那一檔)。 */
 const FORTUNE_ITEMS = [
-  { id:'charm', name:'平安符', stat:'mood', amount:20, target:'altar',
-    pitch:'「我看你這幾天心裡悶，要不要帶一個平安符，戴著心裡踏實一點。」',
+  { id:'charm', name:'平安符', stat:'mood', amount:12, target:'altar',
+    pitch:'「你幫我做一件事，我送你一個平安符。」\n「我看你這幾天心裡悶，戴著會踏實一點。」',
     buy:'「拿去，壓壓驚。」' },
-  { id:'string', name:'收驚珠串', stat:'calm', amount:20, target:'moto',
-    pitch:'「你這樣一個人扛太久了，要不要帶串收驚珠串，睡前握著念一念，人會安一點。」',
+  { id:'string', name:'收驚珠串', stat:'calm', amount:12, target:'moto',
+    pitch:'「你幫我跑一趟，我給你一串收驚珠串。」\n「你一個人扛太久了，睡前握著念一念，人會安一點。」',
     buy:'「常常摸摸它。」' },
-  { id:'rice', name:'平安米', stat:'full', amount:20, target:'store',
-    pitch:'「你這樣不行啦，帶包平安米回去，好歹墊墊肚子。」',
+  { id:'rice', name:'平安米', stat:'full', amount:12, target:'store',
+    pitch:'「你替我拿個東西，我包一包平安米給你。」\n「你這樣不行啦，好歹墊墊肚子。」',
     buy:'「拿去，加減吃。」' },
-  { id:'bracelet', name:'開光手鍊', stat:'cool', amount:15, target:'sword',
-    pitch:'「要不要來條手鍊，戴著看起來有精神一點，人家對你印象也會不一樣。」',
+  { id:'bracelet', name:'開光手鍊', stat:'cool', amount:12, target:'sword',
+    pitch:'「幫我找一樣東西，找回來我送你一條手鍊。」\n「戴著有精神一點，人家對你印象也會不一樣。」',
     buy:'「戴上，走路都有風。」' },
-  { id:'ward', name:'解厄符', stat:'star', amount:15, target:'store',
-    pitch:'「你最近是不是犯小人，帶張解厄符，消一消晦氣。」',
+  { id:'ward', name:'解厄符', stat:'star', amount:12, target:'store',
+    pitch:'「你幫我做一件事，我給你一張解厄符。」\n「你最近是不是犯小人，消一消晦氣。」',
     buy:'「貼身放著，別讓人看到。」' }
 ];
 /* 轉運金牌:唯一會動 ST_MAX 的道具,買滿三次之後不能再買——體力上限
@@ -11277,10 +11282,10 @@ function pitchTextFor(pick){
   if(pick.k === 'stamina'){
     if(luckBuys >= LUCK_MAX_BUYS) return null;
     return {
-      text:'「你這樣硬撐不是辦法，要不要備一個轉運金牌，戴著你撐得比別人久一點。」',
+      text:'「你幫我跑一趟，我給你一個轉運金牌。」\n「你這樣硬撐不是辦法，戴著能撐得比別人久一點。」',
       open(){
-        openMenu('轉運金牌', [
-          { label:'好啊，我去跑一趟', run(){
+        openMenu('他要你幫忙', [
+          { label:'好，我去跑一趟', cost:'回報:轉運金牌（體力上限 +10）', run(){
               startFortuneQuest({ id:'luck', stat:'stamina', isLuck:true, target:'moto',
                 buy:'「戴著它，你撐得比別人久一點。」' });
             } },
@@ -11294,8 +11299,10 @@ function pitchTextFor(pick){
   return {
     text:item.pitch,
     open(){
-      openMenu(item.name, [
-        { label:'好啊，我去跑一趟', run(){ startFortuneQuest(item); } },
+      openMenu('他要你幫忙', [
+        { label:'好，我去跑一趟',
+          cost:'回報:' + item.name + '（' + NAMES[item.stat] + ' +' + item.amount + '）',
+          run(){ startFortuneQuest(item); } },
         { label:'不用了，謝謝', cls:'back', run(){} }
       ]);
     }
@@ -11310,7 +11317,14 @@ function startFortuneQuest(entry){
   FORTUNE.quest = { id:entry.id, stat:entry.stat, amount:entry.amount,
                      isLuck:!!entry.isLuck, buy:entry.buy, target:entry.target, done:false };
   const qt = FORTUNE_QUEST_TEXT[entry.target];
-  ACTIVE_QUESTS.push({ id:'fortune', title:'算命攤委託', hint:qt.hint.replace(/^[（(]|[)）]$/g, '') });
+  /* 任務卡要看得出「做什麼」跟「拿得到什麼」(2026-09-10,kc:「任務很不明確」)。 */
+  const reward = entry.isLuck ? '轉運金牌（體力上限 +10）'
+    : (FORTUNE_ITEMS.find(it => it.id === entry.id) || {}).name +
+      '（' + NAMES[entry.stat] + ' +' + entry.amount + '）';
+  ACTIVE_QUESTS.push({ id:'fortune', title:'算命先生的委託',
+    hint: qt.hint.replace(/^[（(]|[)）]$/g, '') +
+          '<br><span class="qpNote">回報:' + reward + '</span>' });
+  FORTUNE.quest.reward = reward;
   renderQuestPanel();
   say('fortune', qt.ask, () => toast(qt.hint, 3200));
 }
@@ -11322,7 +11336,10 @@ function completeFortuneQuestAt(target){
   if(!FORTUNE.quest || FORTUNE.quest.done || FORTUNE.quest.target !== target) return false;
   FORTUNE.quest.done = true;
   const q = ACTIVE_QUESTS.find(x => x.id === 'fortune');
-  if(q){ q.hint = '回去找先生交差'; renderQuestPanel(); }
+  if(q){ q.hint = '回去廟口找算命先生拿' +
+                  (FORTUNE.quest.reward || '東西').replace(/（.*$/, '') +
+                  '<br><span class="qpNote">回報:' + (FORTUNE.quest.reward || '') + '</span>';
+         renderQuestPanel(); }
   toast(FORTUNE_QUEST_TEXT[target].find, 3200);
   return true;
 }
