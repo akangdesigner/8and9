@@ -57,7 +57,11 @@
   /* 地圖(2026-09-10,kc:「要有地圖的按鈕可以開關地圖 可以標示哪些可以進去」)——
      按鈕跟角色/任務同一條左側縱軸;地圖本身是一張俯視示意圖(不是縮小的 3D),
      資料直接讀 CITY.H_ROADS/V_ROADS + city.doors,不另外維護一份座標表。 */
-  #mapBtn { position:fixed; left:16px; top:142px; z-index:6; background:rgba(12,16,23,.85);
+  /* ⚠ 放在「角色」右邊,不要插進左側那條縱軸(2026-09-10,kc:「標籤怎跟任務疊在
+     一起了」)——`#questToggleBtn`(top:150)跟 `#questPanel`(top:186)是照順序
+     排下來的,中間插一顆就會疊到;而且任務鈕沒任務時是 display:none,插在中間
+     還會留一個洞。 */
+  #mapBtn { position:fixed; left:88px; top:106px; z-index:6; background:rgba(12,16,23,.85);
     color:#dfe4ea; border:1px solid #3d4757; border-radius:4px; padding:5px 11px;
     font:12px/1.4 inherit; letter-spacing:.06em; cursor:pointer; white-space:nowrap; }
   #mapBtn:hover { background:rgba(32,40,53,.95); border-color:#d8b24a; color:#fff; }
@@ -8159,7 +8163,46 @@ const MAP_SPOTS = [
   { x:54,  z:-84,  name:'公園' },
   { x:45,  z:-24,  name:'校門口' }
 ];
+/* 任務面板上那幾張卡,各自對到地圖上的哪個點(2026-09-10)——沒對到的就不畫圈,
+   不用每個任務都硬湊一個位置。日常事件(今天那張)看它的 goto/帳單去哪繳。 */
+function questMapTargets(){
+  const door = id => city.doors.find(d => d.id === id);
+  const out = [];
+  const push = (p, name) => { if(p) out.push({ x:p.x, z:p.z, name }); };
+  ACTIVE_QUESTS.forEach(q => {
+    if(q.id === 'bills') push(door('store'), '繳帳單');
+    else if(q.id === 'tuition') push(door('school'), '繳註冊費');
+    else if(q.id === 'axia') push(AXIA, '阿霞');
+    else if(q.id === 'moto-impound' || q.id === 'id-card' || q.id === 'snitch') push(BROTHER, '警局');
+    else if(q.id === 'grandma') push(door('hospital'), '阿嬤');
+    else if(q.id === 'classmate') push(door('temple'), '同學');
+    else if(q.id === 'fortune'){
+      const t = FORTUNE.quest;
+      if(!t) return;
+      if(t.done) push(FORTUNE, '交差');
+      else if(t.target === 'moto') push(MOTOBOSS, '機車行');
+      else if(t.target === 'sword') push(BUSH_SPOT, '草叢');
+      else if(t.target === 'store') push(door('store'), '超商');
+      else if(t.target === 'altar') push(ALTAR, '供桌');
+    }
+    else if(q.id === 'today'){
+      /* day5 跑腿分三段:拿袋子 → 交貨 → 回報。 */
+      if(KAI_RUN.pending && !KAI_RUN.done){
+        push(KAI_RUN.gotBag ? KAI_RUN_DROP : KAI, KAI_RUN.gotBag ? '交貨' : '阿凱');
+        return;
+      }
+      if(KAI_RUN.delivered && !KAI_RUN.reported){ push(KAI, '回報'); return; }
+      const e = dailyDef();
+      if(!e || DAILY.done) return;
+      const G = { kai:KAI, yuan:YUAN, acheng:ACHENG, ayi:AYI, foreman:FOREMAN,
+                  motoboss:MOTOBOSS, mom:door('home'), mei:door('school') }[e.goto];
+      if(G) push(G, '今天');
+    }
+  });
+  return out;
+}
 let mapOn = false;
+let mapRaf = 0;
 function drawMap(){
   const cv = document.getElementById('mapCanvas'), g = cv.getContext('2d');
   const B = CITY.bounds, PAD = 26;
@@ -8212,6 +8255,15 @@ function drawMap(){
     g.fillRect(X(d.x) - 5, Z(d.z) - 5, 10, 10);
     putLabel(X(d.x), Z(d.z) + 19, MAP_DOOR_NAMES[d.id] || d.id, '#e9d9a6', true);
   });
+  /* 任務地點:閃爍的圈(2026-09-10,kc:「可以做成閃碩」)——圈的座標從
+     questMapTargets() 來,那邊把任務 id 對到地圖上的點。 */
+  const pulse = .5 + .5 * Math.sin(Date.now() / 320);
+  questMapTargets().forEach(t => {
+    const r = 9 + pulse * 7;
+    g.strokeStyle = 'rgba(216,178,74,' + (.85 - pulse * .45).toFixed(2) + ')';
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(X(t.x), Z(t.z), r, 0, Math.PI*2); g.stroke();
+  });
   /* 你在這:點 + 面向 */
   const p = hero.group.position;
   g.beginPath(); g.arc(X(p.x), Z(p.z), 5, 0, Math.PI*2);
@@ -8227,10 +8279,12 @@ function openMap(){
   if(busy || dlg.on) return;
   mapOn = true; busy = true;
   document.getElementById('mapOverlay').classList.add('on');
-  drawMap();
+  const loop = () => { if(!mapOn) return; drawMap(); mapRaf = requestAnimationFrame(loop); };
+  loop();                       // 每幀重畫,任務地點那圈才閃得起來
 }
 function closeMap(){
   mapOn = false; busy = false;
+  cancelAnimationFrame(mapRaf);
   document.getElementById('mapOverlay').classList.remove('on');
 }
 function toggleMap(){ mapOn ? closeMap() : openMap(); }
