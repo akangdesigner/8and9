@@ -2839,6 +2839,9 @@ function syncLitterQuestPanel(){
    兩則都是這輪新增,見下面 FORTUNE_QUEST_TEXT/pitchTextFor() 那組
    長筆記。 */
 const FORTUNE = { x:-50, z:-96 - (2.95/2 + .6), met:false, quest:null, lastDrawDay:-1 };
+/* 攤子本體的碰撞塊(現場用 `__dbg.city.blocked()` 逐格量的)——互動判定吃這個,
+   不是吃神棍站的那個點,見 updateCity() 裡 nearProp 那段。 */
+const FORTUNE_BOX = { x:-50, z:-96, hw:2.5, hd:3.5 };
 /* 桃木劍藏身處(2026-08-27,kc:「有個任務要找桃木劍,會在裡面看到」)——
    跟 scene-city3d.js 那叢北牆灌木(kc:「灌木叢改放在最北面圍牆前面」)
    同一個座標,互動範圍抓寬一點(4,不是其他小物那種 3.2)因為灌木叢本身
@@ -10612,10 +10615,18 @@ function updateCity(dt){
       nearProp = { type:'ayi', ref:AYI };
     if(!nearProp && Math.hypot(pos.x-ACHENG.x, pos.z-ACHENG.z) < 4.5)
       nearProp = { type:'acheng', ref:ACHENG };
-    /* 算命攤半徑用 4.5,跟阿姨/阿成同一個理由(站在桌子前緣的正常位置
-       量出來就是這個距離,3.2 那個窄半徑站不到)。 */
-    if(!nearProp && Math.hypot(pos.x-FORTUNE.x, pos.z-FORTUNE.z) < 4.5)
-      nearProp = { type:'fortune', ref:FORTUNE };
+    /* 算命攤改成「離攤子這個**箱體**多近」,不是「離神棍這個點多近」
+       (2026-09-10,kc:「抽籤詩 我在攤位對面沒有讓我正確觸發對話欸 是不是判定
+       不夠」)——`FORTUNE.x/z` 是神棍站的位置,在攤子後面;攤子本身的碰撞塊
+       用 `__dbg.city.blocked()` 量出來是 x −52.5~−47.5、z −99.5~−92.5。玩家從
+       **南邊(廟埕那側)**走到攤子前面時,離神棍那個點有 6 個單位,4.5 的圓形
+       半徑根本吃不到——所以他站在攤位對面按空白鍵沒反應。
+       改成算「到箱體邊緣的距離」,四個方向都是站到攤子邊就觸發。 */
+    if(!nearProp){
+      const fdx = Math.max(Math.abs(pos.x - FORTUNE_BOX.x) - FORTUNE_BOX.hw, 0);
+      const fdz = Math.max(Math.abs(pos.z - FORTUNE_BOX.z) - FORTUNE_BOX.hd, 0);
+      if(Math.hypot(fdx, fdz) < 3) nearProp = { type:'fortune', ref:FORTUNE };
+    }
     if(!nearProp && Math.hypot(pos.x-MOTOBOSS.x, pos.z-MOTOBOSS.z) < 3.2)
       nearProp = { type:'motoboss', ref:MOTOBOSS };
     if(!nearProp && Math.hypot(pos.x-YUAN.x, pos.z-YUAN.z) < 3.2)
