@@ -8019,7 +8019,7 @@ function finishSchoolDay(){
   toast('放學了。', 2200);
 }
 
-const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, delivered:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false };
+const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spoke:false, delivered:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false };
 /* 交貨點是遊藝場門口——座標不是猜的,是拿 `__dbg.city.doors` 現場列出來的
    'arcade' 那扇門(0, 13.6)。阿凱本人不用搬位置(他平常就站在機車行旁邊
    KAI 6,-13),所以這條線沒有 moveKaiXxx() 那種搬人的程式碼。 */
@@ -8043,8 +8043,8 @@ const KAI_RUN_HANDOFF = [
   { who:'pc',  text:'「我怎麼知道是哪一個。」' },
   /* 這兩句就是整個解謎的線索,不要改掉也不要在別的地方再講一次
      (見下面 RUNMEN 那段)。 */
-  { who:'kai', text:'「你不要先開口。他會先跟你講話。」' },
-  { who:'kai', text:'「而且他不會問你是誰。」' },
+  { who:'kai', text:'「你不要先開口。」' },
+  { who:'kai', text:'「他不會問你是誰。」' },
   { who:'kai', text:'「他會給你錢，那個是你的。」' }
 ];
 function giveKaiBag(){
@@ -8080,50 +8080,54 @@ function openKaiBag(){
   });
 }
 /* 交貨那一段:三個人,你要自己判斷給誰(2026-09-10,kc:「這種任務本身沒有
-   可玩性啊 要有推理解謎的要素」)——阿凱在車行那邊給了兩條線索:
-     ① **他會先跟你講話**(你不要先開口)
-     ② **他不會問你是誰**
-   巷口三個人各違反/符合這兩條:抽菸的先開口但問你哪位(違反②)、蹲著滑手機的
-   從頭到尾不開口(違反①)、鐵門邊那個先開口而且沒問你是誰(兩條都符合)。
+   可玩性啊 要有推理解謎的要素」;同一天第二輪 kc:「邏輯很怪 這樣超明顯
+   我覺得問名字很不錯 開口要調整」)。
+   ⚠ **第一版的錯誤:把「他會先跟你講話」也當成判準**——那樣三個人裡有一個
+   從頭到尾不開口,一眼就排除掉,等於沒得推理。現在兩句線索性質不同:
+     ① **「你不要先開口。」** = 給玩家的**指示**,不是判準。照做才看得到每個人
+        真正的第一句;自己先開口,三個人都只會說「拿來」+伸手,**判斷的依據
+        被你自己毀掉**,只能用猜的。
+     ② **「他不會問你是誰。」** = 唯一的判準。
+   三個人在玩家不出聲時各自的第一句:抽菸的「你找誰啊?」(問你是誰 ✗)、
+   蹲著滑手機的「阿凱叫你來的喔?」(**講出阿凱、聽起來最像正解,但他也是在
+   探你是誰** ✗)、鐵門邊那個「東西呢。」(沒問你是誰 ✓)。
    給錯人不會當場告訴你錯了:錢照拿,只是**那疊比較薄**($250 不是 $400),
    兩天後阿凱來找你才揭曉。見 DESIGN_NOTES「day5:阿凱帶你去做灰色地帶的事」。
    座標挑在遊藝場門口(0/13.6)前面那段開闊的人行道——z>=16 整排是建築物
    (`__dbg.city.blocked()` 現場掃出來的),三個人彼此距離都 > 4,不會兩個
    nearProp 疊在一起。 */
 const RUNMEN = [
-  { id:'smoker', x:-4, z:12, right:false, seen:false, beats:[
-      { who:'pc',     text:'靠牆那個中年男人把菸從嘴上拿下來。' },
-      { who:'pc',     text:'他上下看了你一眼。' },
-      { who:'smoker', text:'「欸，你哪位？」' }
+  { id:'smoker', x:-4, z:12, right:false, seen:false,
+    quiet:[
+      { who:'pc',     text:'你什麼都沒說。' },
+      { who:'pc',     text:'靠牆那個中年男人把菸抖了一下，先撐不住。' },
+      { who:'smoker', text:'「你找誰啊？」' }
+    ],
+    speak:[
+      { who:'smoker', text:'「喔。」' },
+      { who:'pc',     text:'他把手伸出來。' }
     ] },
-  { id:'squat', x:4, z:12, right:false, seen:false, beats:[
-      { who:'pc',    text:'年輕人蹲在牆角，手機螢幕亮著。' },
-      { who:'pc',    text:'你站在他前面三秒。' },
-      { who:'pc',    text:'他沒有抬頭。' }
+  { id:'squat', x:4, z:12, right:false, seen:false,
+    quiet:[
+      { who:'pc',    text:'你站在他前面，沒有說話。' },
+      { who:'pc',    text:'他滑手機的手停了兩秒，抬起頭。' },
+      { who:'squat', text:'「阿凱叫你來的喔？」' }
+    ],
+    speak:[
+      { who:'squat', text:'「喔，拿來。」' },
+      { who:'pc',    text:'他把手伸出來。' }
     ] },
-  { id:'runman', x:0, z:14, right:true, seen:false, beats:[
-      { who:'pc',     text:'鐵門旁邊那個人站得很直，沒有靠著。' },
-      { who:'pc',     text:'你才走到一半，他就往你這邊挪了半步。' },
-      { who:'runman', text:'「等你很久了。」' }
+  { id:'runman', x:0, z:14, right:true, seen:false,
+    quiet:[
+      { who:'pc',     text:'你站著，沒有開口。' },
+      { who:'pc',     text:'他看了一眼你外套鼓起來的那一塊。' },
+      { who:'runman', text:'「東西呢。」' }
+    ],
+    speak:[
+      { who:'runman', text:'「嗯。」' },
+      { who:'pc',     text:'他把手伸出來。' }
     ] }
 ];
-/* day5 跑腿交貨那三個人(2026-09-10,見 RUNMEN 那段)——**平常藏起來**
-   (group.visible=false),只有拿了袋子還沒交出去的那段時間才現身。跟
-   WATCHJOB 那套「藏起來換分身」同一個精神,但這裡沒有本尊衝突,單純開關。
-   三副骨架刻意選不一樣的(中年/年輕/普通),讓玩家一眼分得出三個人。 */
-const runmanNPCs = RUNMEN.map((r, i) => buildNPC(THREE, scene, Object.assign({
-  x:r.x, z:r.z, rotationY:Math.PI, stillFace:true
-}, [
-  { rig:'m3', skin:'#b98a63', hair:'#3a3a3a', hood:'#4a4a52', pants:'#2b2b2b', shoe:'#3a3a3a' },
-  { rig:'m5', skin:'#c9a077', hair:'#1f1c1a', hood:'#2f3a4a', pants:'#26262a', shoe:'#43413c' },
-  { rig:'m6', skin:'#b08055', hair:'#221f1c', hood:'#1f2a24', pants:'#1e1e1e', shoe:'#2e2e2e' }
-][i])));
-/* 該不該看得見:拿了袋子、走到過巷口、還沒交出去 → 現身。 */
-function syncRunmen(){
-  const show = KAI_RUN.gotBag && !KAI_RUN.done;
-  runmanNPCs.forEach(n => { n.group.visible = show; });
-}
-
 const KAI_RUN_PAY_WRONG = 250;      // 給錯人那疊比較薄——不解釋,玩家自己察覺
 /* 走到巷口先播一次開場(告訴玩家「有三個人」),之後就交給玩家自己走去看。 */
 const KAI_DROP_INTRO = [
@@ -8143,13 +8147,29 @@ function checkKaiRunDrop(){
 }
 function talkToRunman(ref){
   if(KAI_RUN.done) return;
-  ref.seen = true;
   busy = true;
-  playBeats(ref.beats, 0, () => {
-    openMenu('把袋子給他？', [
+  openMenu('', [
+    { label:'站著不說話', cost:'（阿凱說不要先開口）', run: () => runmanReact(ref, true) },
+    { label:'說是阿凱叫你來的', run: () => runmanReact(ref, false) },
+    { label:'走開', cls:'back', run(){ busy = false; } }
+  ]);
+}
+/* quiet = 照阿凱說的不出聲(看得到他真正的第一句);speak = 自己先開口(三個人
+   都只會說「拿來」,判斷依據沒了)。先開口是可以反悔的——三個人都還在,可以
+   走回去對別人閉嘴,只是這個人身上的資訊已經拿不到了。 */
+function runmanReact(ref, quiet){
+  ref.seen = true;
+  const lead = quiet ? [] : [{ who:'pc', text:'「阿凱叫我來的。」' }];
+  const first = !quiet && !KAI_RUN.spoke;
+  if(!quiet) KAI_RUN.spoke = true;
+  playBeats(lead.concat(quiet ? ref.quiet : ref.speak), 0, () => {
+    const after = () => openMenu('把袋子給他？', [
       { label:'把袋子給他', run: () => handOverBag(ref) },
       { label:'先不要', cls:'back', run(){ busy = false; } }
     ]);
+    /* 第一次先開口才提醒一次「你把依據毀掉了」,之後不再囉唆。 */
+    if(first) say('pc', '你先開口了。\n他伸手的樣子，跟另外兩個人不會有差別。', after);
+    else after();
   });
 }
 const RUNMAN_TAKE_RIGHT = [
