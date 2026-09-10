@@ -904,7 +904,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1818,6 +1818,15 @@ function debugJumpSchool(){ debugWarpDoor('school'); }
 /* 日常事件的測試入口(2026-09-10)——直接抽一件今天的事並播出來,不用睡到隔天。
    kc 不打 console 指令(見自動記憶 feedback_no_console_commands_add_buttons),
    所以掛成 #bar 按鈕。 */
+/* 直接睡一晚(2026-09-10,kc:「睡不著測不了」)——床邊那個選項有「體力要低於 30
+   才准睡」的門檻(見 openIndoorSpot 'bed'),開發時體力起始 100,等於根本睡不到,
+   測不了日記那一頁。這顆按鈕跳過門檻直接走完整的 sleep() 流程(日記 → 自動起床
+   → 明天的戲),不是只看版面。 */
+function debugSleepNight(){
+  if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
+  sleep();
+}
+window.debugSleepNight = debugSleepNight;
 /* 睡覺過渡頁的測試入口(2026-09-10)——只把頁面叫出來看版面,不真的過一天。 */
 function debugSleepPage(){
   if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
