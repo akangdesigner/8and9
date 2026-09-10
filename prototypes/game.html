@@ -133,6 +133,13 @@
     background:rgba(0,0,0,.5); padding:2px 5px; border-radius:3px; }
   #itemDetail { margin-top:10px; min-height:1.6em; font-size:12.5px; line-height:1.6; color:#c7cdd6; }
   #itemDetail .amt { color:#d8b24a; font-weight:bold; }
+  /* 物品說明裡的動作鈕(2026-09-10,day5 那個「打開來看」)——#menu button 那組
+     樣式選的是 #menu 底下的,這裡在物品欄裡面,自己抄一份最小的過來。 */
+  #itemDetail button { margin-top:10px; background:rgba(12,16,23,.95); color:#dfe4ea;
+    border:1px solid #3d4757; border-left:3px solid #55617a; padding:7px 13px;
+    font-size:14px; font-family:inherit; letter-spacing:.04em; cursor:pointer;
+    border-radius:3px; transition:all .13s; }
+  #itemDetail button:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; }
 
   .invMid { display:flex; align-items:center; justify-content:center; gap:14px; }
   .equipBadges { display:flex; flex-direction:column; gap:10px; }
@@ -857,7 +864,7 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1691,6 +1698,16 @@ function renderTrashTab(){
         return;
       }
       showItemDetail(el, tHost, t.detail);
+      /* 打結的塑膠袋(2026-09-10,day5 跑腿)——這張卡的詳細說明底下多一顆
+         「打開來看」,是這個任務唯一真的選擇(見 KAI_RUN 那段)。送到之後
+         袋子就從雜物欄拿掉了,所以這裡只要判斷「還沒打開過」。 */
+      if(t.bag && !KAI_RUN.opened){
+        const d = document.getElementById('itemDetail');
+        const btn = document.createElement('button');
+        btn.textContent = '打開來看';
+        btn.onclick = () => { closeInventory(); openKaiBag(); };
+        d.appendChild(btn);
+      }
     };
     tHost.appendChild(el);
   });
@@ -1754,6 +1771,22 @@ function debugWarpDoor(id){
 }
 function debugJumpHome(){ debugWarpDoor('home'); }
 function debugJumpSchool(){ debugWarpDoor('school'); }
+/* day5 跑腿的測試入口(2026-09-10)——把狀態設成「阿凱已經約過你、今天的課
+   也上完了」,人直接丟到阿凱旁邊,按空白鍵就能拿袋子。 */
+function kaiRunArm(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  KAI_RUN.pending = true; KAI_RUN.gotBag = false; KAI_RUN.opened = false;
+  KAI_RUN.done = false; KAI_RUN.delivered = false; KAI_RUN.missed = false;
+  deskActionDay = day;                       // 假裝今天的課已經上完(= 放學了)
+  if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
+  setTodayCard('放學去機車行那邊找阿凱');
+  hero.group.position.set(KAI.x + 2, .3, KAI.z + 2);
+  toast('阿凱就在旁邊，按空白鍵跟他拿袋子。', 3200);
+}
+window.kaiRunArm = kaiRunArm;
 function debugJumpTemple(){
   MODE = 'city';
   document.getElementById('indoor').classList.remove('on');
@@ -2071,6 +2104,10 @@ const WHO = {
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
   /* 阿凱(2026-08-24)——見上面 KAI 那則筆記,染髮跟 kaiNPC 那組 buildNPC 顏色同步。 */
   kai:      { name:'阿凱', opt:{ face:'F', skin:'#c9976e', hair:'#d4a03c', top:'#1c1c1c', topD:'#141414', pants:'#2b2b2b' } },
+  /* 遊藝場側門接東西的人(2026-09-10,day5 跑腿)——只出現這一次、沒有名字,
+     名牌就寫「那個人」。沒有 3D 本尊(整段是走到門口自動播的文字戲),所以
+     只要一組 SF.person() 的顏色當頭像。 */
+  runman:   { name:'那個人', opt:{ face:'F', skin:'#b98a63', hair:'#221f1c', top:'#2a2f36', topD:'#20242a', pants:'#1e1e1e' } },
   /* 旺鴻(機車行老闆,2026-08-25)——顏色跟街上那具 motoBoss buildNPC() 同步,
      沒有真人照片(先退回 SF.person() 像素小人),見下面 PORTRAIT_IMGS 那則
      筆記的先例(worker/bo 都是這樣先接資料再補照片)。 */
@@ -7960,16 +7997,12 @@ function fade(label, mid){
    拿來判斷會誤判」。那個理由站不住:玩家還沒走到教室不代表今天沒事,今天
    本來就有事,只是還沒發生。三條線全部算,外加寫死日子的主線事件
    (day16 阿嬤病危那通電話)。 */
-/* ===== day5「放學後」的廟口那一段(2026-09-09) ==========================
- * 教室那段(story-school.js day5)只是鋪陳:阿凱約你放學去廟口。真正的那一幕
- * 在這裡,因為它要判斷「玩家有沒有真的走過去」——資料檔做不到。
- *
- * 這就是 kc 說的「貫穿當日的任務」:早上起床知道要上學 → 進教室被約 → 任務卡
- * 換成「放學去廟口找阿凱」 → 你自己走過去 → 到了才是真正的選擇 → **當天沒去
- * 就淡掉,不會留到隔天**。
- *
- * ⚠ 廟口用的是**現有場景**(廟埕、供桌那一帶),沒有為這節新做地點——舊版設在
- * 「後面的樓梯間」,遊戲裡沒有那個地方,這是 kc 打回來的原因之一。 */
+/* ===== day5「放學後」的跑腿(2026-09-10 重寫) ============================
+ * 一句話:阿凱叫你放學幫他送一個打結的塑膠袋去遊藝場側門,**「不要打開」是
+ * 玩家真的可以違背的選擇**(袋子進雜物欄,點下去有「打開來看」)。
+ * 前一版是「約在廟口、他們空一個位子給你」,2026-09-10 kc 打掉重來(廟口
+ * 戲份太重 + 結構跟校外教學那個任務重複)——完整理由見 DESIGN_NOTES
+ * 「day5:阿凱帶你去做灰色地帶的事」。 */
 /* 「放學」怎麼定義(2026-09-09,kc:「怎麼定義放學 當用戶選擇玩遊戲或讀書
    應該就放學了 然後會跳時間 這樣」)——**做完座位那件事就是放學**(認真上課
    / 偷玩手遊 / 考小考,`deskActionDay === day` 那套一天一次的判斷本來就在了),
@@ -7981,77 +8014,111 @@ function finishSchoolDay(){
   if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
   toast('放學了。', 2200);
 }
-const KAI_TEMPLE = { pending:false, done:false, joined:false, missed:false };
-const KAI_TEMPLE_POS = { x:18, z:-91 };      // 校外教學那套 CLASSMATE_TEMPLE_POS.kai 的同一個位置
-const KAI_TEMPLE_RANGE = 7;                  // 走多近算「走到了」,跟其他 nearProp 判斷同量級
 
-function moveKaiToTemple(){
-  KAI.x = KAI_TEMPLE_POS.x; KAI.z = KAI_TEMPLE_POS.z;
-  kaiNPC.group.position.set(KAI.x, kaiNPC.group.position.y, KAI.z);
-  kaiNPC.setFacing(-Math.PI*.5);
-}
-/* 掛在 checkGrandmaCall() 那批「場景剛安頓好」的安全點上(進城市街道每幀那個
-   呼叫點負責這一條),跟 checkYuanEveningWatch() 同一個做法。 */
-function checkKaiTemple(){
-  if(!KAI_TEMPLE.pending || KAI_TEMPLE.done) return;
-  if(MODE !== 'city' || gameOver || busy || dlg.on) return;
-  /* 阿凱說的是「**放學**過來」,所以要今天真的上完課才算數(見
-     finishSchoolDay())——不然玩家被約完直接翹課走去廟口,對不上台詞。 */
-  if(deskActionDay !== day) return;
-  const p = hero.group.position;
-  if(Math.hypot(p.x - KAI_TEMPLE_POS.x, p.z - KAI_TEMPLE_POS.z) > KAI_TEMPLE_RANGE) return;
-  KAI_TEMPLE.done = true;
-  busy = true;
-  playBeats(KAI_TEMPLE_BEATS, 0, () => {
-    openMenu('他把手上的東西遞過來', [
-      { label:'接過來',   cost:'歸屬感 +8　帥潮 +2　風評 −4', run:() => kaiTempleTake(true) },
-      { label:'說你不用', cost:'歸屬感 −3',                   run:() => kaiTempleTake(false) }
-    ]);
+const KAI_RUN = { pending:false, gotBag:false, opened:false, delivered:false, done:false, missed:false };
+/* 交貨點是遊藝場門口——座標不是猜的,是拿 `__dbg.city.doors` 現場列出來的
+   'arcade' 那扇門(0, 13.6)。阿凱本人不用搬位置(他平常就站在機車行旁邊
+   KAI 6,-13),所以這條線沒有 moveKaiXxx() 那種搬人的程式碼。 */
+const KAI_RUN_DROP = { x:0, z:13.6 };
+const KAI_RUN_RANGE = 6;
+/* 跑腿費是我自己抓的:比超商一個便當貴一點、離改管那 4500 很遠——「比正經
+   打工快,但也沒有快到能翻身」是這條線該有的量級。不喜歡跟我說就改。 */
+const KAI_RUN_PAY = 400;
+
+/* 拿袋子走既有的 talkToKai()(按空白鍵),不是走近自動觸發——阿凱是有互動
+   入口的 NPC,自動觸發反而會跟他平常的閒聊打架。 */
+function kaiRunReady(){ return KAI_RUN.pending && !KAI_RUN.gotBag && !KAI_RUN.done; }
+const KAI_RUN_HANDOFF = [
+  { who:'pc',  text:'機車行外面那排車，阿凱靠在其中一台上。' },
+  { who:'kai', text:'「來了喔。」' },
+  { who:'pc',  text:'他從腳踏墊那邊拎起一個打結的塑膠袋，塞到你手上。' },
+  { who:'kai', text:'「遊藝場側門，有人在那邊等。」' },
+  { who:'pc',  text:'「裡面是什麼。」' },
+  { who:'kai', text:'「不要打開就沒事。」' },
+  { who:'pc',  text:'他說得很輕鬆，像在講一件真的很小的事。' },
+  { who:'kai', text:'「他會給你錢，那個是你的。」' }
+];
+function giveKaiBag(){
+  KAI_RUN.gotBag = true;
+  playBeats(KAI_RUN_HANDOFF, 0, () => {
+    TRASH.push({
+      name:'打結的塑膠袋', icon:'🛍️', bag:true,
+      detail:'阿凱給的。他說送到遊藝場側門就好，<b>不要打開</b>。<br>袋子有點重，形狀不規則。'
+    });
+    setTodayCard('把袋子送到遊藝場側門');
+    toast('你把袋子塞進外套裡。\n（雜物欄裡點它可以打開來看）', 3600);
   });
 }
-const KAI_TEMPLE_BEATS = [
-  { who:'pc',  text:'廟埕邊上，供桌後面那排階梯。' },
-  { who:'pc',  text:'阿凱跟另外三個人蹲在那裡。' },
-  { who:'kai', text:'「你來啦。」' },
-  { who:'pc',  text:'他們往旁邊挪了一下，\n空出一個位子。' },
-  /* 遞過來的是什麼刻意不寫、鏡頭也不給特寫——這一幕的重點不是那個東西,是
-     「他們願意空一個位子給你」。要寫明的話跟 kc 講一聲再改。 */
-  { who:'pc',  text:'阿凱把手上的東西遞過來。' }
+/* 打開來看——入口在雜物欄那張卡(renderTrashTab() 的 t.bag 分支)。這是這個
+   任務唯一真的選擇:看了就知道,不看就是不知道,**兩邊都沒有比較好**。 */
+const KAI_BAG_OPEN_BEATS = [
+  { who:'pc', text:'你把塑膠袋的結解開一半。' },
+  { who:'pc', text:'一支沒有殼的手機，螢幕還亮著。' },
+  { who:'pc', text:'底下壓著幾張提款卡，名字都不一樣。' },
+  { who:'pc', text:'你把結重新打回去，比原本那個緊。' }
 ];
-function kaiTempleTake(take){
-  clearTodayCard();
-  KAI_TEMPLE.joined = take;
-  if(take){
-    chg('calm', 8); chg('cool', 2); chg('star', -4);
-    playBeats([
-      { who:'pc',  text:'你咳了一下，他們笑了。' },
-      { who:'pc',  text:'但是沒有人叫你走。' },
-      { who:'pc',  text:'你在那個位子上坐到天黑。' },
-      { toast:'廟口那群人開始把你算成自己人了。', ms:4200 }
-    ], 0, () => { busy = false; });
-  } else {
-    chg('calm', -3);
-    playBeats([
-      { who:'kai', text:'「喔。」' },
-      { who:'pc',  text:'沒有人勉強你。' },
-      { who:'pc',  text:'他們繼續講話，\n你站在旁邊大概三十秒，然後走了。' },
-      { toast:'你沒有接。那個位子後來給了別人。', ms:4200 }
-    ], 0, () => { busy = false; });
-  }
+function openKaiBag(){
+  if(KAI_RUN.opened || !KAI_RUN.gotBag) return;
+  KAI_RUN.opened = true;
+  const t = TRASH.find(x => x.bag);
+  if(t) t.detail = '你打開看過了。<br>一支還亮著的手機，幾張名字不一樣的提款卡。<br>結是你自己重新打的。';
+  busy = true;
+  playBeats(KAI_BAG_OPEN_BEATS, 0, () => {
+    chg('mood', -3);
+    toast('你知道了。知道跟不知道，之後不一樣。\n（情緒 −3）', 4200);
+    busy = false;
+  });
 }
-/* 當天沒去就淡掉——掛在 sleep() 裡(睡覺 = 這天結束)。不留到隔天,那正是
-   「貫穿當日」的意思:錯過就是錯過了。 */
-function expireKaiTemple(){
-  if(!KAI_TEMPLE.pending || KAI_TEMPLE.done) return;
-  KAI_TEMPLE.done = true; KAI_TEMPLE.missed = true;
+const KAI_DROP_BEATS = [
+  { who:'pc',     text:'遊藝場側門那條防火巷，鐵門開著一半。' },
+  { who:'pc',     text:'有人從裡面走出來，看了你一眼。' },
+  { who:'runman', text:'「阿凱叫你來的喔。」' },
+  { who:'pc',     text:'你把袋子遞過去。' },
+  { who:'pc',     text:'他沒有打開，直接塞進外套裡。' },
+  { who:'runman', text:'「這個給你。」' },
+  { who:'pc',     text:'幾張鈔票，摺過兩次。' }
+];
+/* 打開過的人多兩句——不是另一段戲,是同一段戲裡多兩句他自己的身體反應。 */
+const KAI_DROP_BEATS_OPENED = [
+  { who:'pc',     text:'遊藝場側門那條防火巷，鐵門開著一半。' },
+  { who:'pc',     text:'有人從裡面走出來，看了你一眼。' },
+  { who:'runman', text:'「阿凱叫你來的喔。」' },
+  { who:'pc',     text:'你把袋子遞過去。手指有點僵。' },
+  { who:'pc',     text:'他沒有打開——他本來就知道裡面是什麼。' },
+  { who:'runman', text:'「這個給你。」' },
+  { who:'pc',     text:'幾張鈔票，摺過兩次。' }
+];
+/* 掛在 updateCity() 那批「場景剛安頓好」的每幀檢查上,跟 checkGrandmaCall()/
+   checkYuanEveningWatch() 同一個位置。 */
+function checkKaiRunDrop(){
+  if(!KAI_RUN.gotBag || KAI_RUN.done) return;
+  if(MODE !== 'city' || gameOver || busy || dlg.on) return;
+  const p = hero.group.position;
+  if(Math.hypot(p.x - KAI_RUN_DROP.x, p.z - KAI_RUN_DROP.z) > KAI_RUN_RANGE) return;
+  KAI_RUN.done = true; KAI_RUN.delivered = true;
+  busy = true;
   clearTodayCard();
-  moveKaiHomeFromTemple();
+  const i = TRASH.findIndex(t => t.bag);
+  if(i >= 0) TRASH.splice(i, 1);
+  playBeats(KAI_RUN.opened ? KAI_DROP_BEATS_OPENED : KAI_DROP_BEATS, 0, () => {
+    chg('money', KAI_RUN_PAY); chg('calm', 6); chg('star', -3);
+    toast('四百塊。比你在超商站四個小時還快。\n（金錢 +' + KAI_RUN_PAY + '　歸屬感 +6　風評 −3）', 4600);
+    busy = false;
+  });
+}
+/* 當天沒送到就淡掉——掛在 sleep() 裡(睡覺 = 這天結束),跟前一版廟口那條
+   同一個「錯過就是錯過」的規矩。袋子也一起從雜物欄拿掉(還在你身上比沒送到
+   更難收尾,而且隔天它就沒有任何入口了)。 */
+function expireKaiRun(){
+  if(!KAI_RUN.pending || KAI_RUN.done) return;
+  KAI_RUN.done = true; KAI_RUN.missed = true;
+  clearTodayCard();
+  const i = TRASH.findIndex(t => t.bag);
+  if(i >= 0) TRASH.splice(i, 1);
   chg('calm', -2);
-  toast('你沒有去廟口。隔天阿凱沒有提這件事。', 3600);
-}
-function moveKaiHomeFromTemple(){
-  KAI.x = CLASSMATE_HOME.kai.x; KAI.z = CLASSMATE_HOME.kai.z;
-  kaiNPC.group.position.set(KAI.x, kaiNPC.group.position.y, KAI.z);
+  toast(KAI_RUN.gotBag
+    ? '袋子還在你外套裡。隔天阿凱來拿走了，沒有多說什麼。\n（歸屬感 −2）'
+    : '你沒有去找阿凱。隔天他沒有提這件事。\n（歸屬感 −2）', 4200);
 }
 
 function hasStoryToday(){
@@ -8285,7 +8352,7 @@ function sleep(){
         + (skippedSchool ? '\n（昨天沒去學校，風評 −3）' : '')
         + loanMsg, 3800);
       busy = false;
-      expireKaiTemple();       // day5 那件事當天沒去就淡掉(睡覺 = 這天結束)
+      expireKaiRun();          // day5 那件事當天沒做完就淡掉(睡覺 = 這天結束)
       clearTodayCard();        // 「今天」的卡不跨日——昨天沒做完的事,隔天不該還掛在面板上
       maybeIdleDay();          // 今天沒排劇情的話,給一個「這天你要幹嘛」的過渡選項
     };
@@ -9424,12 +9491,12 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
            改成兩階段,不再透過這裡的 schoolStorySource() 篩選觸發,見
            checkFieldTrip() 那則長筆記,不要看到 story-school.js day18
            節點還留著 classFundQuest:true 就以為這裡也要處理它。 */
-        /* questAfter / kaiToTemple(2026-09-09,day5 重寫用)——跟上面
+        /* questAfter / kaiRun(2026-09-09 起,day5 用)——跟上面
            node.tuitionQuest 同一個「資料檔只放資料,真的動狀態在這裡做」的
            位置。questAfter 把早上那張「今天」的卡換成新的指示(不是 push
            第二張,面板上只該有一張)。 */
         if(node.questAfter) setTodayCard(node.questAfter.hint);
-        if(node.kaiToTemple){ KAI_TEMPLE.pending = true; moveKaiToTemple(); }
+        if(node.kaiRun) KAI_RUN.pending = true;   // day5 跑腿,見 KAI_RUN 那段
         /* 沒有 menu 的節點(day5 那種「只是鋪陳、真正的選擇在別的場景」)
            直接走 after,不要硬開一個空選單。 */
         if(!node.menu){ if(after) after(); return; }
@@ -9601,7 +9668,7 @@ function updateCity(dt){
      兩段小遊戲搶輸入的分支已經 return 掉了,不會跑到這裡),見那則長筆記。 */
   checkGrandmaCall();
   checkYuanEveningWatch();
-  checkKaiTemple();
+  checkKaiRunDrop();
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -11849,6 +11916,13 @@ function kaiCheckinLines(){
   return (MODE === 'indoor' ? KAI_CHECKIN_LINES_SCHOOL : KAI_CHECKIN_LINES)[s];
 }
 function talkToKai(){
+  /* day5 跑腿(2026-09-10,見 KAI_RUN 那段)——擋在最前面,優先於閒聊。
+     他說的是「放學」過來,所以今天要真的上完課(deskActionDay===day,跟
+     finishSchoolDay() 同一個判斷)才給袋子,不然他只會叫你放學再說。 */
+  if(kaiRunReady()){
+    if(deskActionDay !== day){ say('kai', '「放學再說啦。」'); return; }
+    giveKaiBag(); return;
+  }
   /* 跟同學培養感情(見 CLASSMATE_QUEST 那則長筆記)——同一招擋在最前面,
      優先於他自己那句「第一次見面」開場白(KAI.talked)。 */
   if(CLASSMATE_QUEST.active && !CLASSMATE_QUEST.talkedKai){
@@ -13126,7 +13200,7 @@ const SAVE_EVERY_MS = 3000;
 /* ① 純資料物件:讀檔時逐鍵寫回同一個物件(**不換掉物件本身**,因為到處都有
       人持有它的參照)。 */
 const SAVE_OBJECTS = {
-  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_TEMPLE,
+  ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE
@@ -13267,7 +13341,13 @@ setInterval(saveGame, SAVE_EVERY_MS);
 /* 關分頁/切走前再存一次,不然最後幾秒的進度會掉。pagehide 比 beforeunload
    可靠(手機瀏覽器常常不發 beforeunload);visibilitychange 涵蓋「切到別的
    分頁就再也沒回來」那種情況。 */
-addEventListener('pagehide', saveGame);
+/* ⚠ 一定要包一層 arrow(2026-09-10 抓到的 bug)——直接把 saveGame 當
+   handler,pagehide 會把 PageTransitionEvent 當成第一個參數 slot 傳進去,
+   slotKey() 就存到 `nowayup.save.[object PageTransitionEvent]` 那個垃圾鍵,
+   等於**這個 handler 從來沒有真的存到自動存檔槽**(它存在的意義就是補最後
+   那幾秒,結果一直在存到別的地方)。下面 visibilitychange 那行本來就是
+   包過的,沒中這個雷。 */
+addEventListener('pagehide', () => saveGame());
 addEventListener('visibilitychange', () => { if(document.hidden) saveGame(); });
 /* ===== 標題畫面 / 遊戲中選單(2026-09-09,kc:「我要設計一個選單頁 讓用戶
    一點擊網址直接到這裡 可以選擇開始遊戲 讀取 儲存之類」) ==================
@@ -13842,17 +13922,12 @@ window.__dbg = {
      MOTO_IMPOUND.reveal() 直接模擬 sleep() 那張拖吊通知單觸發,不用真的
      睡一覺。 */
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, syncMiscQuestPanel,
-  /* day5「放學後」測試用(2026-09-09)——跳過「睡到 day5 →走去學校→進教室
-     被阿凱約」那串前置,直接把狀態設成「已經被約、阿凱在廟口」,然後
-     __dbg.goto('temple') 之類走過去就會觸發。跟 spotWatchJob()/
-     MOTO_IMPOUND_reveal() 同一個「跳過前置條件」的精神。 */
-  KAI_TEMPLE,
-  kaiTempleArm(){
-    KAI_TEMPLE.pending = true; KAI_TEMPLE.done = false;
-    moveKaiToTemple();
-    setTodayCard('放學去廟口找阿凱');
-    return `阿凱已經在廟口 (${KAI_TEMPLE_POS.x}, ${KAI_TEMPLE_POS.z}),走過去就會觸發。`;
-  },
+  /* day5 跑腿測試用(2026-09-10 重寫)——跳過「睡到 day5 →走去學校→進教室
+     被阿凱約→上完課」那整串前置,直接把狀態設成「已經被約、而且已經放學」,
+     人也丟到阿凱旁邊。#bar 有「day5 跑腿」按鈕直接叫這支(kc 不打 console
+     指令,見自動記憶 feedback_no_console_commands_add_buttons)。 */
+  KAI_RUN,
+  kaiRunArm,
   /* 2026-09-09 從 #bar 拿掉按鈕之後,這幾個工具的入口改掛這裡(kc:「把不需要
      的清掉 只留跳轉地點跟重來」)。要用哪個就跟我說,我把按鈕加回 #bar——
      kc 不打 console 指令(見自動記憶 feedback_no_console_commands_add_buttons),
