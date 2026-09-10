@@ -1675,6 +1675,21 @@ function openInventory(){
     el.onclick = () => showItemDetail(el, qHost, detail);
     qHost.appendChild(el);
   }
+  /* 水電費單(2026-09-10,kc:「而且是真的道具」「繳完後才消失」)——跟註冊單/
+     機車分期同一格式,繳掉才會從 BILLS 移除、這張卡才消失。 */
+  BILLS.forEach(b => {
+    anyDoc = true;
+    const left = b.dueDay - day;
+    const detail = `${b.name}：<span class="amt">$${b.amount}</span> 還沒繳<br>` +
+      `繳費期限：${dayToDate(b.dueDay)}<br>` +
+      (left >= 0 ? `還剩 ${left} 天` : `已經過期 ${-left} 天`) +
+      '<br>可以拿去超商櫃台繳。';
+    const el = document.createElement('div');
+    el.className = 'itemCard';
+    el.innerHTML = `<div class="ic">${b.icon}</div><div class="lb">${b.name}</div>`;
+    el.onclick = () => showItemDetail(el, qHost, detail);
+    qHost.appendChild(el);
+  });
   if(!anyDoc) qHost.innerHTML = '<div class="invEmpty">沒有需要保留的文件。</div>';
   /* 知識(2026-08-19,kc:「為何沒加入物品欄」):KNOWLEDGE 三個等級只要
      count>0 就各開一格,跟標籤/文件同一套 itemCard+showItemDetail 模式。
@@ -3326,6 +3341,21 @@ function syncMiscQuestPanel(){
      一個月後會炸的東西被藏起來。現在跟贖車/良民證那批同一套掛成常駐卡,hint
      直接寫截止日跟剩幾天;繳掉(paid)就整張拿掉。逾期那天的處理不動(見
      sleep() 裡 TUITION_QUEST 逾期那段)。 */
+  /* 沒繳的帳單(2026-09-10)——跟註冊單同一套常駐卡。⚠ **期限寫真的日期**
+     (kc:「我們都是跳天的 這樣3天的定義是啥」)——一次睡覺 = 過一天,所以
+     「三天內」就是「睡三次之前」,但那樣講玩家要自己數。卡上直接寫到期那天的
+     日期 + 還剩幾天,跟註冊單一致。 */
+  idx = ACTIVE_QUESTS.findIndex(x => x.id === 'bills');
+  if(BILLS.length){
+    const hint = BILLS.map(b => {
+      const left = b.dueDay - day;
+      return b.name + ' $' + b.amount + '，' + dayToDate(b.dueDay) + '前要繳' +
+             (left >= 0 ? '（還剩 ' + left + ' 天）' : '（已經過期 ' + (-left) + ' 天）');
+    }).join('<br>') + '<br><span class="qpNote">超商櫃台</span>';
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint;
+    else ACTIVE_QUESTS.push({ id:'bills', title:'還沒繳的帳單', hint });
+  } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'tuition');
   if(TUITION_QUEST && !TUITION_QUEST.paid){
     const left = TUITION_QUEST.dueDay - day;
@@ -7257,11 +7287,10 @@ function openIndoorSpot(id){
       items.push({ label:'跟店員拿算命先生的東西', run(){ completeFortuneQuestAt('store'); } });
     /* 繳水電費(2026-09-10,日常事件的 bill 型)——超商櫃台是台灣繳費的日常
        入口,不另外做繳費機。 */
-    if(dailyBillDue()){
-      const e = dailyDef();
-      items.push({ label:'繳' + e.name, cost: ST.money < e.bill ? '身上不夠' : '−$' + e.bill,
-        cls: ST.money < e.bill ? 'bad' : '', run: payDailyBill });
-    }
+    BILLS.forEach(b => items.push({
+      label:'繳' + b.name + (b.late ? '（已經過期）' : ''),
+      cost: ST.money < b.amount ? '身上不夠' : '−$' + b.amount,
+      cls: ST.money < b.amount ? 'bad' : '', run(){ payBill(b); } }));
     items.push({ label:'看店員在幹嘛', cost:'', run:() =>
       toast(IN.clerkFace === 'B' ? '他背對著你在補菸。' : '他站在收銀機前面，眼睛掃過店裡。', 2400) });
     items.push({ label:'離開', cls:'back', run(){} });
@@ -8544,10 +8573,17 @@ const DAY_TODO = {
 const DAILY = { id:null, day:-1, done:false, told:false, dueDay:-1 };
 const DAILY_EVENTS = [
   /* ── 要錢的 ── */
-  { id:'power', cat:'money', name:'電費', bill:180, days:3, via:'home',
-    line:'電費單塞在門縫裡。', hint:'三天內去超商櫃台繳電費（$180）' },
-  { id:'water', cat:'money', name:'水費', bill:120, days:3, via:'home',
-    line:'水費單跟廣告傳單夾在一起。', hint:'三天內去超商櫃台繳水費（$120）' },
+  /* ⚠ **帳單是出門開信箱才發現的,而且要變成真的道具**(2026-09-10,kc:「電費塞在
+     門縫裡 也太爛 應該是你出門才會發現信箱裡有電費表 而且是真的道具」)——本來
+     是起床時一句「塞在門縫裡」,連東西都沒有。 */
+  { id:'power', cat:'money', name:'電費', bill:180, days:3, via:'door',
+    doc:{ name:'電費單', icon:'🧾' },
+    line:'出門的時候你順手開了信箱。\n台電的單子躺在裡面，$180，這期的。',
+    hint:'去超商櫃台繳電費（$180）' },
+  { id:'water', cat:'money', name:'水費', bill:120, days:3, via:'door',
+    doc:{ name:'水費單', icon:'🧾' },
+    line:'信箱裡有一張水費單，跟三張廣告傳單夾在一起。\n$120。',
+    hint:'去超商櫃台繳水費（$120）' },
   { id:'mom-ask', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
   { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {}, via:'msg',
@@ -8656,6 +8692,10 @@ function checkDailyDoor(){
   DAILY.told = true;
   if(e.instant) e.instant();
   if(e.instantDiary) logDay(e.instantDiary);
+  dailyCard(e);
+  /* 帳單這種要留下真的東西(kc:「而且是真的道具」)——跟拖吊通知單/良民證
+     同一套,進物品欄的「文件」分頁,繳掉或逾期才拿掉,見 renderDailyDoc()。 */
+  if(e.doc){ addBill(e); logDay('信箱裡有' + e.doc.name + '。'); }
   busy = true;
   say('pc', e.line, () => { busy = false; });
 }
@@ -8665,10 +8705,10 @@ function dailyCard(e){
 function dailyBriefing(){
   const e = drawDailyEvent();
   if(!e){ busy = false; return; }
-  dailyCard(e);
-  /* door 型的早上不講(人還在家裡,還沒發生),任務卡也先不寫死內容——
-     出門遇到了才會有那張卡的提示,見 checkDailyDoor()。 */
+  /* door 型的早上不講、卡也不掛(人還在家裡,那件事還沒發生)——出門發現了
+     才會有字卡跟任務卡,見 checkDailyDoor()。 */
   if(e.via === 'door'){ busy = false; return; }
+  dailyCard(e);
   say('pc', e.line, () => { busy = false; });
 }
 /* goto 型的完成入口——掛在各自 NPC 既有的對話函式最前面,跟 kaiReportDue() 同一招。 */
@@ -8816,23 +8856,38 @@ function achengShift(){
     });
   });
 }
-/* 帳單:超商櫃台繳(見 openIndoorSpot 'counter'),逾期在 sleep() 收帳。 */
-function dailyBillDue(){
-  const e = dailyDef();
-  return !!e && !!e.bill && !DAILY.done && DAILY.dueDay >= day;
+/* ===== 帳單(2026-09-10,kc:「繳完後才消失」)=================================
+ * ⚠ 帳單**不屬於「今天的事」**——`DAILY` 每天早上會被隔天的事件蓋掉,但沒繳的單子
+ * 要一直躺在物品欄裡直到你去繳。所以拆成獨立的 `BILLS` 清單(有進 SAVE_LISTS):
+ *   - 出門開信箱發現 → `addBill()` push 一筆(同時是「文件」分頁裡真的道具)
+ *   - 超商櫃台繳 → 從清單移除,那張單子才消失
+ *   - 過了期限 → 扣一次風評/情緒(`late` 擋重複),**單子照樣留著**,繳了才走
+ * 常駐任務卡走 syncMiscQuestPanel()(跟註冊單同一套),不佔「今天」那張卡。 */
+const BILLS = [];
+function addBill(e){
+  if(BILLS.some(b => b.id === e.id)) return;      // 同一種帳單不重複開(上一張還沒繳)
+  BILLS.push({ id:e.id, name:e.doc.name, icon:e.doc.icon, amount:e.bill,
+               dueDay: day + e.days, late:false });
+  syncMiscQuestPanel();
 }
-function payDailyBill(){
-  const e = dailyDef();
-  if(!e || ST.money < e.bill){ toast('你身上不夠。', 2200); return; }
-  chg('money', -e.bill); logDay('去超商繳了' + e.name + '，$' + e.bill + '。'); dailyDone();
-  toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + e.bill + '）', 3400);
+function payBill(b){
+  if(ST.money < b.amount){ toast('你身上不夠。', 2200); return; }
+  chg('money', -b.amount);
+  const i = BILLS.indexOf(b);
+  if(i >= 0) BILLS.splice(i, 1);
+  logDay('去超商繳了' + b.name + '，$' + b.amount + '。');
+  syncMiscQuestPanel();
+  toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + b.amount + '）', 3400);
 }
-function expireDailyBill(){
-  const e = dailyDef();
-  if(!e || !e.bill || DAILY.done || DAILY.dueDay < 0 || day <= DAILY.dueDay) return;
-  DAILY.done = true;
-  chg('star', -1); chg('mood', -3);
-  toast(e.name + '逾期了。\n（風評 −1　情緒 −3）', 3600);
+/* 逾期:睡覺時收一次帳,單子不消失(kc:「繳完後才消失」)。 */
+function tickBillsOverdue(){
+  BILLS.forEach(b => {
+    if(b.late || day <= b.dueDay) return;
+    b.late = true;
+    chg('star', -1); chg('mood', -3);
+    toast(b.name + '過期了。\n（風評 −1　情緒 −3）', 3600);
+  });
+  syncMiscQuestPanel();
 }
 
 /* 「有就更新、沒有才新增」——跟 updateGrandmaQuestHint() 同一套慣例。
@@ -9033,7 +9088,7 @@ function sleepAdvance(skippedSchool){
         toast((skippedSchool ? '昨天沒去學校。（風評 −3）' : '') + loanMsg, 3800);
       busy = false;
       expireKaiRun();          // day5 那件事當天沒做完就淡掉(睡覺 = 這天結束)
-      expireDailyBill();       // 水電費逾期(見 DAILY_EVENTS)
+      tickBillsOverdue();      // 沒繳的帳單過期收一次帳(單子照樣留著,見 BILLS)
       /* 跨日之後常駐卡的「還剩幾天」要重算(註冊單那張最明顯,見
          syncMiscQuestPanel() 裡 'tuition' 那段)——不重算的話卡片會一直停在
          接到任務那天的天數。 */
@@ -13977,7 +14032,7 @@ const SAVE_OBJECTS = {
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
-const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS };
+const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
 /* ③ 散裝的 let 變數:module scope 的 let 沒辦法用 Object.assign 寫回,一個
       變數配一個 getter/setter(不給參數是讀、給了是寫)。 */
 const SAVE_VARS = {
