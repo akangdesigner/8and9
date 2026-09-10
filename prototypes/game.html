@@ -8546,18 +8546,20 @@ const DAILY_EVENTS = [
   { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {}, via:'msg',
     line:'機車行傳訊息：這期分期到了。', hint:'回家睡覺會自動扣款' },
   /* ── 要人的 ── */
-  { id:'kai-hang', cat:'people', goto:'kai', diary:'跟阿凱在車行外面站了半小時。',
+  { id:'kai-hang', cat:'people', goto:'kai', need:() => KAI.talked, diary:'跟阿凱在車行外面站了半小時。',
     via:'phone',
     line:'手機震了，是阿凱。\n「今天有空嗎。」他沒等你回答就掛了。',
     hint:'去中華路機車行那邊找阿凱' },
-  { id:'yuan-call', cat:'people', goto:'yuan', diary:'去廟口，阿源講了半小時工地的事。',
+  { id:'yuan-call', cat:'people', goto:'yuan', need:() => YUAN.visits > 0, diary:'去廟口，阿源講了半小時工地的事。',
     via:'msg',
     line:'阿源傳了一則訊息。\n「晚點過來廟口一趟。」', hint:'去廟口找阿源' },
-  { id:'acheng-hand', cat:'people', goto:'acheng', diary:'幫阿成端了一個半小時的麵。',
+  { id:'acheng-hand', cat:'people', goto:'acheng', need:() => ACHENG.visits > 0, diary:'幫麵攤老闆端了兩小時的麵。',
     via:'phone',
-    line:'阿成打來，背景是抽油煙機的聲音。\n「你今天有沒有空？我一個人顧不來。」',
-    hint:'去廟口找阿成' },
-  { id:'ayi-food', cat:'people', goto:'ayi', diary:'阿姨塞了一包鴨頭給我。',
+    /* ⚠ 不能只寫「阿成」(2026-09-10,kc:「阿成 別人不知道是誰啊 應該要講廟口
+       面癱老闆」)——玩家記得的是那個人的樣子跟他的攤子,不是名字。 */
+    line:'廟口麵攤那個老闆打來，就是那個從來不笑的。\n背景是抽油煙機的聲音。\n「你今天有沒有空？我一個人顧不來。」',
+    hint:'去廟口找麵攤老闆' },
+  { id:'ayi-food', cat:'people', goto:'ayi', need:() => AYI.visits > 0, diary:'阿姨塞了一包鴨頭給我。',
     via:'msg',
     line:'阿姨傳訊息，只有五個字。\n「過來拿東西吃。」', hint:'去廟口找阿姨' },
   { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。',
@@ -8586,22 +8588,26 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
      那些天走 DAY_TODO / story-*.js。
    - 水電費排在月初/月中(5/12、35/42、65/72),機車分期兩週一次(9/23/36/50/63/77)
      ——**月週期是刻意的**,玩家會開始記得「月初要繳電費」。
+   - **前 20 天只排「自己/家裡的事」**(下雨、口袋破了、帳單、媽要錢、超商代班、
+     車發不動)——2026-09-10 kc:「這種配角支線往後放 因為別人可能還沒認識他」。
+     阿凱/阿源/麵攤老闆/阿姨/小美那批從第 20 天之後才開始穿插,而且每件都加了
+     `need()`(要真的講過話、去過他的攤子才會打給你),沒認識就自動往後順延。
    - 其餘天數人的事件跟意外交錯,不會連兩天都是壞事。
    要改哪一天就直接改這張表。 */
 const DAILY_SCHEDULE = {
-  2:'kai-hang', 3:'rain', 4:'acheng-hand', 5:'power', 6:'mom-ask', 7:'ayi-food',
-  8:'co-extra', 9:'loan', 11:'yuan-call', 12:'water', 14:'pocket', 15:'mei-ask',
-  16:'moto-dead', 17:'ayi-food', 18:'kai-hang', 19:'yuan-call', 20:'co-extra', 21:'acheng-hand',
-  22:'rain', 23:'loan', 24:'mom-ask', 26:'mei-ask', 27:'kai-hang', 29:'rain',
-  30:'acheng-hand', 31:'mom-ask', 32:'ayi-food', 33:'co-extra', 35:'power', 36:'loan',
-  38:'yuan-call', 39:'pocket', 41:'mei-ask', 42:'water', 44:'moto-dead', 45:'ayi-food',
-  47:'kai-hang', 48:'yuan-call', 49:'co-extra', 50:'loan', 51:'acheng-hand', 53:'rain',
-  54:'mom-ask', 55:'mei-ask', 56:'kai-hang', 57:'rain', 59:'acheng-hand', 60:'mom-ask',
-  62:'ayi-food', 63:'loan', 65:'power', 66:'co-extra', 67:'yuan-call', 68:'pocket',
-  69:'mei-ask', 70:'moto-dead', 71:'ayi-food', 72:'water', 73:'kai-hang', 74:'yuan-call',
-  75:'co-extra', 77:'loan', 78:'acheng-hand', 79:'rain', 80:'mom-ask', 81:'mei-ask',
-  83:'kai-hang', 84:'rain', 85:'acheng-hand', 86:'mom-ask', 87:'ayi-food', 88:'co-extra',
-  89:'yuan-call', 90:'pocket'
+  2:'rain', 3:'pocket', 4:'mom-ask', 5:'power', 6:'co-extra', 7:'moto-dead',
+  8:'rain', 9:'loan', 11:'pocket', 12:'water', 14:'mom-ask', 15:'co-extra',
+  16:'moto-dead', 17:'rain', 18:'pocket', 19:'mom-ask', 20:'kai-hang', 21:'yuan-call',
+  22:'co-extra', 23:'loan', 24:'ayi-food', 26:'mei-ask', 27:'moto-dead', 29:'yuan-call',
+  30:'acheng-hand', 31:'rain', 32:'mei-ask', 33:'kai-hang', 35:'power', 36:'loan',
+  38:'pocket', 39:'acheng-hand', 41:'ayi-food', 42:'water', 44:'mom-ask', 45:'kai-hang',
+  47:'yuan-call', 48:'co-extra', 49:'ayi-food', 50:'loan', 51:'mei-ask', 53:'moto-dead',
+  54:'yuan-call', 55:'acheng-hand', 56:'rain', 57:'mei-ask', 59:'kai-hang', 60:'pocket',
+  62:'acheng-hand', 63:'loan', 65:'power', 66:'ayi-food', 67:'mom-ask', 68:'kai-hang',
+  69:'yuan-call', 70:'co-extra', 71:'ayi-food', 72:'water', 73:'mei-ask', 74:'moto-dead',
+  75:'yuan-call', 77:'loan', 78:'acheng-hand', 79:'rain', 80:'mei-ask', 81:'kai-hang',
+  83:'pocket', 84:'acheng-hand', 85:'ayi-food', 86:'mom-ask', 87:'kai-hang', 88:'yuan-call',
+  89:'co-extra', 90:'ayi-food'
 };
 function pickDailyForDay(d){
   const first = DAILY_SCHEDULE[d] && DAILY_EVENTS.find(e => e.id === DAILY_SCHEDULE[d]);
@@ -8727,11 +8733,23 @@ function runDailyGoto(who){
                        { who:'pc',   text:'他把菸盒往你這邊推了一下，又收回去。' },
                        { who:'yuan', text:'「你還在讀書，不要學我。」' } ],
                run(){ chg('calm', 6); toast('他講了半小時工地的事。\n（歸屬感 +6）', 3600); } },
+    /* 端麵不是一句話帶過(2026-09-10,kc:「端面的話你要站在那邊等待時間流逝
+       而且他會問你說你今天不用上學唷? 類似這樣做取捨」)——他先問你上不上學,
+       答應了就真的站在那裡兩個小時(passTimeStanding(),時鐘會一格一格跳),
+       那兩個小時就是今天上不了學的代價。 */
     acheng:  { beats:[ { who:'acheng', text:'「你來得剛好。」' },
-                       { who:'pc',     text:'你端了一個半小時的麵。' },
-                       { who:'acheng', text:'「拿去，別跟人說我給你這麼多。」' } ],
-               run(){ chg('money', 60); chg('calm', 3); chg('stamina', -10);
-                      toast('六十塊，還有一身油煙味。\n（金錢 +60　歸屬感 +3　體力 −10）', 4000); } },
+                       { who:'pc',     text:'他把圍裙往你這邊丟。' },
+                       { who:'acheng', text:'「你今天不用上學唷？」' } ],
+               menu:[
+                 { label:'留下來幫忙', cost:'兩小時　體力 −12　$60　歸屬感 +3',
+                   run(){ achengShift(); } },
+                 { label:'「我要去上學。」', cost:'歸屬感 −3',
+                   run(){ chg('calm', -3);
+                          playBeats([
+                            { who:'acheng', text:'「喔。」' },
+                            { who:'pc',     text:'他把圍裙收回去，沒有再看你。' }
+                          ], 0, () => { busy = false; }); } }
+               ] },
     ayi:     { beats:[ { who:'ayi', text:'「吃了沒。」' },
                        { who:'pc',  text:'她沒有等你回答，就開始裝。' },
                        { who:'ayi', text:'「拿去啦，賣不完也是丟掉。」' } ],
@@ -8746,7 +8764,50 @@ function runDailyGoto(who){
   }[who];
   if(!D){ busy = false; return; }
   dailyDone();
+  /* 有 menu 的先播 beats 再開選單(阿成那種要做取捨的);沒有 menu 的照舊
+     播完直接結算。 */
+  if(D.menu){
+    playBeats(D.beats, 0, () => openMenu('', D.menu.map(it => ({
+      label: it.label, cost: it.cost, run: it.run
+    }))));
+    return;
+  }
   playBeats(D.beats, 0, () => { D.run(); busy = false; });
+}
+/* 站著讓時間過去(2026-09-10)——不是一句「你端了一個半小時的麵」帶過,而是
+   真的每隔幾百毫秒扣一次體力(chg() 會把體力換算成時間,見那條規則),
+   HUD 上的時鐘會一格一格往前跳,中間插兩句他看到的東西。
+   ⚠ 用 chg('stamina') 推時間,不要自己 advanceTime——時間跟體力的換算只有
+   一個來源,兩邊各推一次就會對不起來。 */
+function passTimeStanding(steps, staminaPerStep, lines, onDone){
+  busy = true;
+  let i = 0;
+  const tick = () => {
+    if(i >= steps){ onDone(); return; }
+    chg('stamina', -staminaPerStep);
+    if(lines[i]) toast(lines[i], 1600);
+    i++;
+    setTimeout(tick, 900);
+  };
+  tick();
+}
+function achengShift(){
+  passTimeStanding(4, 3, [
+    '你站到攤子後面，圍裙比你想的重。',
+    '中午人一下子多起來，你連抬頭的空檔都沒有。',
+    '有人問你是不是他兒子。他沒有回答。',
+    '人散了。桌上還有三碗沒收。'
+  ], () => {
+    chg('money', 60); chg('calm', 3);
+    playBeats([
+      { who:'acheng', text:'「拿去。」' },
+      { who:'pc',     text:'他數了六十塊，多的那十塊是硬塞的。' },
+      { who:'acheng', text:'「別跟人說我給你這麼多。」' }
+    ], 0, () => {
+      toast('六十塊，還有一身油煙味。\n（金錢 +60　歸屬感 +3　體力 −12　過了兩小時）', 4200);
+      busy = false;
+    });
+  });
 }
 /* 帳單:超商櫃台繳(見 openIndoorSpot 'counter'),逾期在 sleep() 收帳。 */
 function dailyBillDue(){
