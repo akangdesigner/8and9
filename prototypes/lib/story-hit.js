@@ -38,8 +38,8 @@
         },
         {
           label: '不回答',
-          cost: '歸屬感 −16',
-          calm: -16,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你直接往房間走。' },
             { who:'dad', text:'「我在跟你講話。」' },
@@ -71,8 +71,8 @@
         },
         {
           label: '走大門',
-          cost: '歸屬感 −10',
-          calm: -10,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你在門口站了十秒才開門。' },
             { who:'pc',  text:'他在看電視，沒有回頭。' },
@@ -95,8 +95,8 @@
       menu: [
         {
           label: '坐下來吃',
-          cost: '飽足 +12　歸屬感 +4',
-          full: 12, calm: +4,
+          cost: '飽足 +12　歸屬感 +3',
+          full: 12, calm: +3,
           beats: [
             { who:'pc',  text:'他叫了兩份鹹酥雞。' },
             { who:'dad', text:'「你以前不是很愛吃這個。」' },
@@ -107,8 +107,8 @@
         },
         {
           label: '「我吃過了。」',
-          cost: '歸屬感 −9',
-          calm: -9,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'dad', text:'「⋯⋯喔。」' },
             { who:'pc',  text:'他把袋子放到桌上，沒有再說話。' },
@@ -131,8 +131,8 @@
       menu: [
         {
           label: '去撿',
-          cost: '歸屬感 −11',
-          calm: -11,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你蹲下去撿碎片。' },
             { who:'dad', text:'「⋯⋯你緊張什麼。」' },
@@ -142,8 +142,8 @@
         },
         {
           label: '站在原地',
-          cost: '歸屬感 −13',
-          calm: -13,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你的手已經舉到胸口了。' },
             { who:'pc',  text:'你自己看到才放下來。' },
@@ -165,8 +165,8 @@
       menu: [
         {
           label: '去扶他',
-          cost: '歸屬感 −8',
-          calm: -8,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'他甩開你的手。' },
             { who:'dad', text:'「我又不是不能走。」' },

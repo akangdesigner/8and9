@@ -65,8 +65,8 @@
               },
               {
                 label: '「我沒有錢。」',
-                cost: '情緒 −18　歸屬感 −20',
-                mood: -18, calm: -20,
+                cost: '情緒 −12　歸屬感 −12',
+                mood: -12, calm: -12,
                 beats: [
                   { who:'dad', text:'「你騙我。」' },
                   { who:'pc',  text:'他打了你一巴掌。' },
@@ -79,8 +79,8 @@
         },
         {
           label: '不回答',
-          cost: '歸屬感 −16',
-          calm: -16,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你直接往房間走。' },
             { who:'dad', text:'「我在跟你講話。」' },
@@ -135,8 +135,8 @@
       menu: [
         {
           label: '叫醒他',
-          cost: '歸屬感 −4',
-          calm: -4,
+          cost: '歸屬感 −3',
+          calm: -3,
           beats: [
             { who:'pc',  text:'你搖了他一下。' },
             { who:'dad', text:'「⋯⋯你回來啦。」' },
@@ -146,8 +146,8 @@
         },
         {
           label: '不叫他，直接回房間',
-          cost: '歸屬感 −8',
-          calm: -8,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你輕輕走過去，回房間。' },
             { who:'pc',  text:'你躺下來以後，一直在聽\n外面有沒有聲音。' },
@@ -170,8 +170,8 @@
       menu: [
         {
           label: '「喔，好。」',
-          cost: '歸屬感 −10',
-          calm: -10,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'他很滿意，轉頭繼續看電視。' },
             { toast:'你發現你寧願他是在騙你。', ms:3600 }
@@ -179,8 +179,8 @@
         },
         {
           label: '「你沒有。」',
-          cost: '歸屬感 −14',
-          calm: -14,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'dad', text:'「我有啊。」' },
             { who:'dad', text:'「我記得很清楚。」' },
@@ -214,8 +214,8 @@
         },
         {
           label: '今天不數',
-          cost: '歸屬感 −9',
-          calm: -9,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你把包包丟到床上，躺下來。' },
             { who:'pc',  text:'你躺了三分鐘。' },

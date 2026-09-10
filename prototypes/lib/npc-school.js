@@ -55,7 +55,7 @@
         { who:'mei', text:'「聲音很好聽。」' },
         { who:'mei', text:'她講完就走了。' }
       ],
-      quiet:'帥潮低於 22 她不會注意到你。這件事不好聽，但它是真的。', calm:+7
+      quiet:'帥潮低於 22 她不會注意到你。這件事不好聽，但它是真的。', calm:+6
     },
 
     /* met=true 之後、還沒約過會之前,再找她講話的閒聊。
@@ -160,7 +160,7 @@
        沒有真的解決,不會設 cooling。 */
     homeHook:'「你家在哪？我還沒去過欸。」',
     homeBranch:[
-      { label:'帶她回去', calm:-15, cool:-3, cooling:true,
+      { label:'帶她回去', calm:-12, cool:-3, cooling:true,
         beats:[
           { who:'pc',  text:'客廳燈是亮的。爸在沙發上，電視開很大聲，旁邊倒了兩罐啤酒。' },
           { who:'mei', text:'她在門口站了一下，沒有馬上進去。' },
@@ -407,7 +407,7 @@
           { who:'pc',   text:'他講了三個月了。' }
         ],
         quiet:'他不會去。你也知道他不會去。' },
-      { label:'不去', calm:-4,
+      { label:'不去', calm:-3,
         line:'他自己去了。隔天他沒有提這件事。' }
     ],
     afterTalk:[

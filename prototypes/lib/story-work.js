@@ -59,8 +59,8 @@
       menu: [
         {
           label: '叫醒她',
-          cost: '歸屬感 −7',
-          calm: -7,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'mom', text:'「⋯⋯嗯？怎麼了。」' },
             { who:'pc',  text:'她眼睛沒有完全張開，\n但她坐起來了。' },
@@ -93,8 +93,8 @@
       menu: [
         {
           label: '「還好。」',
-          cost: '歸屬感 −5',
-          calm: -5,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'mom', text:'「那就好。」' },
             { who:'pc',  text:'她點點頭，繼續摺衣服。' },
@@ -103,8 +103,8 @@
         },
         {
           label: '說實話',
-          cost: '歸屬感 −11',
-          calm: -11,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'「我最近⋯⋯比較少去。」' },
             { who:'pc',  text:'她摺衣服的手停了一下。' },
@@ -139,8 +139,8 @@
         },
         {
           label: '什麼都沒說',
-          cost: '歸屬感 −8',
-          calm: -8,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你回房間，把門帶上。' },
             { who:'pc',  text:'你坐在床邊算了一下\n自己這個月賺了多少。' },
@@ -173,8 +173,8 @@
         },
         {
           label: '把皮包放回原位',
-          cost: '歸屬感 −7',
-          calm: -7,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你把皮包挪回原來的位置，\n角度也對好。' },
             { who:'pc',  text:'你這個月要繳的錢，\n跟她這個月少掉的體重，\n是同一件事。' },

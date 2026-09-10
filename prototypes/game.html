@@ -1254,9 +1254,9 @@ function askStudyQuestion(onDone){
   }
 }
 /* 幫小美解題目(2026-09-02,kc:「幫她解題目本身有點無聊」)——原本一按
-   就直接發歸屬感+4,沒有真的「解」,改成跟讀書/小考/補考共用同一套
+   就直接發歸屬感+3,沒有真的「解」,改成跟讀書/小考/補考共用同一套
    Quiz.BANK+coShowOptions 機制,只是量級最輕(單題,不用 coFade 換背景
-   ——她人就在教室裡,不用切場景)。答對才拿歸屬感+4,答錯沒有懲罰但也
+   ——她人就在教室裡,不用切場景)。答對才拿歸屬感+3,答錯沒有懲罰但也
    沒有獎勵(她自己劃掉重寫),helpedDay 不管答對答錯都算用掉今天這次,
    不然會變成猜到對為止的無限重試。 */
 function askMeiQuestion(){
@@ -1275,7 +1275,7 @@ function askMeiQuestion(){
       busy = false;
       const correct = oi === q.a;
       if(correct){
-        chg('calm', 4);
+        chg('calm', 3);
         say('mei', '「這題...喔，謝啦。」她把答案抄到練習本上。');
       } else {
         say('mei', '「……這什麼答案。」她自己把你寫的劃掉，重新算了一次。');
@@ -1405,7 +1405,7 @@ function endPhoneGame(success, jitterLine){
     /* 2026-09-01,kc:「扣太多了啦」——沒有真的被教官抓到,是自己疑神疑鬼
        提早收手,懲罰比真的被抓(星 −4／歸屬感 −6)輕一點,改星 −1／歸屬感
        −2,這兩個數字是我自己選的,不喜歡跟我說要改多少。 */
-    chg('star', -1); chg('calm', -2);
+    chg('star', -1); chg('calm', -3);
     toast(jitterLine, 2200);
   } else {
     chg('star', -4); chg('calm', -6);
@@ -2390,8 +2390,8 @@ function renderFortuneSlip(pick){
    drawFortuneSlip() 存的資料,關掉結果紙面板之後接 say()→toast→(依
    等級分流)三段,busy 留到整串播完才解鎖(跟其他 say()/dlg 流程同一個
    節奏,不要在角色還在講話/推銷時就放你走)。
-   歸屬感+4 的提示(2026-08-27,kc:「歸屬感＋4是講話後才會提示」)——
-   原本抽到籤當下就把「(歸屬感 +4)」寫進結果紙下方,kc 要的是「他講完
+   歸屬感+3 的提示(2026-08-27,kc:「歸屬感＋4是講話後才會提示」)——
+   原本抽到籤當下就把「(歸屬感 +3)」寫進結果紙下方,kc 要的是「他講完
    話之後」才提示,改成收尾對話播完才 toast 出來,不在結果紙上顯示。
    沒有 followUp(理論上不會發生,每個 coldReadPick() 分支都有給)才
    退回直接 toast+分流。 */
@@ -2406,13 +2406,13 @@ document.getElementById('fpClose').onclick = () => {
      選單內容,不自己開 say(),真正播出來的動作在這裡一次做完。 */
   const pitch = pick && pick.tier === 'low' ? pitchTextFor(pick) : null;
   const text = pitch ? line + pitch.text : line;
-  /* 兩則 toast(歸屬感+4、上籤額外那則)共用同一個 DOM 元素,同一刻連續呼叫
+  /* 兩則 toast(歸屬感+3、上籤額外那則)共用同一個 DOM 元素,同一刻連續呼叫
      後面那則會瞬間蓋掉前一則,玩家只會看到第二則——中間錯開一點時間
      (1.6s,跟 toast 預設顯示時長同量級),讓第一則有時間被看到。下籤
-     這條路現在只有一則 toast(歸屬感+4),不用等,對話框關掉直接開
+     這條路現在只有一則 toast(歸屬感+3),不用等,對話框關掉直接開
      推銷選單。 */
   const afterTalk = () => {
-    toast('（歸屬感 +4）', 2000);
+    toast('（歸屬感 +3）', 2000);
     if(!pick){ setTimeout(() => { busy = false; }, 300); return; }
     if(pitch) pitch.open();
     else if(pick.tier === 'high') setTimeout(() => {
@@ -3166,7 +3166,7 @@ const BROTHER  = { x:-78, z:98.5, met:false, path:null };
    以上。`__dbg.city.blocked()` 逐點核對過都乾淨——中間試過 (-84,0) 剛好
    卡在中華路口的路障/裝飾物上,撞了,往兩側各挪 40 個單位閃開,不是
    整條西園街都能走直線。 */
-const MOTO_IMPOUND = { active:false, done:false, fine:1500, motoRef:null,
+const MOTO_IMPOUND = { active:false, done:false, fine:800, motoRef:null,
   patrolActive:false, patrolVisited:0 };
 const MOTO_RETURN_SPOT = { x:-74, z:97 };
 const MOTO_PATROL_POINTS = [ [-78,90], [-84,40], [-84,-40], [-84,-84], [0,-84] ];
@@ -3625,8 +3625,8 @@ function resolveWatchJob(success){
   renderQuestPanel();
   const D = success ? NpcTemple.WATCH_JOB.success : NpcTemple.WATCH_JOB.fail;
   playBeats(D.beats, 0, () => {
-    if(success){ chg('money', 1000); chg('calm', 6); chg('mood', 8); }
-    else { chg('money', -300); chg('calm', -6); chg('mood', -8); }
+    if(success){ chg('money', 1000); chg('calm', 6); chg('mood', 6); }
+    else { chg('money', -300); chg('calm', -6); chg('mood', -6); }
     toast(D.quiet, 3200);
     /* 阿嬤那天(day16)回報後的專屬收尾(2026-09-02,kc:「應該是回報任務後
        阿源要獎勵我帶我去吃飯 突然接到電話」+「失敗他會罵你 然後阿嬤電話
@@ -6760,14 +6760,14 @@ function steal(feed){
   { const r = spendBlockedReason(3); if(r){ toast(r, 2400); return; } }
   chg('stamina', -3);
   if(IN.clerkFace !== 'B'){
-    chg('star',-1); chg('calm',-16);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
+    chg('star',-1); chg('calm', -12);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
     playBeats([
       { who:'clerk', text:'「同學。」' },
       { who:'pc',    text:'他沒有把話講完。' },
       { who:'pc',    text:'他只是看著你，等你自己把東西放回去。' }
     ], 0, () => toast('這家店的人以後看到你會多看一眼。'));
   } else {
-    chg('full', feed); chg('calm', -9);
+    chg('full', feed); chg('calm', -6);
     pendingTheft += feed;
     toast('東西在你外套裡。你走出去之前，那段路特別長。', 3200);
   }
@@ -6840,7 +6840,7 @@ function openIndoorSpot(id){
               const beats = text
                 ? [{ who:'pc', text:'「'+text+'」' }, { who:'pc', text:'香爐裡的煙很淡,飄了一下,散了。' }]
                 : [{ who:'pc', text:'你站在牌位前,最後什麼都沒說。' }];
-              playBeats(beats, 0, () => { chg('calm', 4); toast('（歸屬感 +4）', 2200); });
+              playBeats(beats, 0, () => { chg('calm', 3); toast('（歸屬感 +3）', 2200); });
             });
           } },
         { label:'插香',
@@ -6924,7 +6924,7 @@ function openIndoorSpot(id){
        旗標),深度進度只留給街上那具才能真的推進,見那則筆記。 */
     else if(id === 'mei'){
       openMenu('小美', [
-        { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '答對　歸屬感 +4',
+        { label:'幫她解題目', cost: MEI.helpedDay===day ? '今天已經幫過了' : '答對　歸屬感 +3',
           cls: MEI.helpedDay===day ? 'bad' : '',
           run:() => {
             if(MEI.helpedDay === day){ toast('今天已經幫過她了，明天再來。', 2200); return; }
@@ -6957,7 +6957,7 @@ function openIndoorSpot(id){
       if(deskActionDay === day){ say('pc', '課堂時間已經過了。'); return; }
       openMenu('座位', [
         /* 讀書扣情緒(2026-08-26,kc:「讀書工作本身會扣情緒」)——見
-           DESIGN_NOTES「情緒會影響什麼」那節,情緒 −5 跟結帳算錯同一個
+           DESIGN_NOTES「情緒會影響什麼」那節,情緒 −6 跟結帳算錯同一個
            量級,是苦差事但不到讓人不想讀書的地步。 */
         /* 2026-09-01,kc 看了選單截圖糾正:「選項都有問題,要補上能獲得的
            東西」——三個選項原本只列代價,認真上課/考小考的收穫補進 cost
@@ -6965,11 +6965,11 @@ function openIndoorSpot(id){
            成功),沒辦法保證拿到,補一句「成功/被抓」對照,不是寫死一個
            保證到手的數字。 */
         { label:'認真上課',
-          cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −5　1小時40分　答對 +知識',
+          cost: ST.stamina<=0 ? '體力不夠' : '體力 −10　情緒 −6　1小時40分　答對 +知識',
           cls: ST.stamina<=0 ? 'bad' : '', run:() => {
           { const r = spendBlockedReason(10); if(r){ toast(r, 2400); return; } }
           deskActionDay = day;
-          chg('stamina', -10); chg('mood', -5);   // advanceTime 交給 chg() 統一算
+          chg('stamina', -10); chg('mood', -6);   // advanceTime 交給 chg() 統一算
           askStudyQuestion(correct => { if(correct) studyGainKnowledge(); finishSchoolDay(); });
         } },
         { label:'偷玩手遊',
@@ -6984,7 +6984,7 @@ function openIndoorSpot(id){
            這個選項,宣布前/宣布當次都直接不列(用 filter(Boolean) 濾掉
            null,不是灰字佔位——沒被通知的事不該出現在選單裡)。
            2026-09-01 第二輪,kc 糾正兩點:①cost 要補「獲得成績單」,順便
-           加一筆情緒 +3(考完的小小成就感,跟認真上課的情緒 −5 對照,不是
+           加一筆情緒 +3(考完的小小成就感,跟認真上課的情緒 −6 對照,不是
            照抄他給的例子數字不改就用,是小的可逆參數,不喜歡跟我說一聲
            就改)。②略懂知識不夠時「無法選該選項」——原本 cls:'bad' 只是
            變色,按鈕還是能點只是點了沒反應,改成真的 `disabled:true`(見
@@ -7102,15 +7102,15 @@ function openIndoorSpot(id){
       run:() => addToBasket('即期珍食便當', 58, 45, -3, '🍱', '即期折扣的那格空了一個。') },
     { label:'排骨便當', cost:'$89　飽足 +48　情緒 +6', cls: ST.money<89?'bad':'',
       run:() => addToBasket('排骨便當', 89, 48, 6, '🍱') },
-    { label:'蔬菜便當', cost:'$75　飽足 +38　情緒 +5', cls: ST.money<75?'bad':'',
+    { label:'蔬菜便當', cost:'$75　飽足 +38　情緒 +6', cls: ST.money<75?'bad':'',
       run:() => addToBasket('蔬菜便當', 75, 38, 5, '🍱') },
-    { label:'茶葉蛋', cost:'$15　飽足 +10　情緒 +1', run:() => addToBasket('茶葉蛋', 15, 10, 1, '🥚') },
-    { label:'雞排', cost:'$65　飽足 +30　情緒 +8', cls: ST.money<65?'bad':'', run:() => addToBasket('雞排', 65, 30, 8, '🍗') },
+    { label:'茶葉蛋', cost:'$15　飽足 +10　情緒 +3', run:() => addToBasket('茶葉蛋', 15, 10, 1, '🥚') },
+    { label:'雞排', cost:'$65　飽足 +30　情緒 +6', cls: ST.money<65?'bad':'', run:() => addToBasket('雞排', 65, 30, 8, '🍗') },
     { label:'塞進外套', cost:'看店員', cls:'risk', run:() => steal(45) },
     { label:'不拿了', cls:'back', run(){} }
   ]);
   else if(id === 'shelf') openMenu('貨架', [
-    { label:'買泡麵', cost:'$25　飽足 +20　情緒 +1', run:() => addToBasket('泡麵', 25, 20, 1, '🍜') },
+    { label:'買泡麵', cost:'$25　飽足 +20　情緒 +3', run:() => addToBasket('泡麵', 25, 20, 1, '🍜') },
     { label:'買洋芋片', cost:'$40　飽足 +15　情緒 +6', run:() => addToBasket('洋芋片', 40, 15, 6, '🍟') },
     /* 小胖的傷口任務用的藥水(2026-08-31,見上面 FAT 那則長筆記)——只在
        任務開著、還沒買過的時候才出現,不會平白多一個跟食物架格格不入的
@@ -7130,8 +7130,8 @@ function openIndoorSpot(id){
   else if(id === 'fridge') openMenu('飲料櫃', [
     { label:'買礦泉水', cost:'$15　飽足 +3', run:() => addToBasket('礦泉水', 15, 3, 0, '💧') },
     { label:'買豆漿', cost:'$20　飽足 +12　情緒 +3', run:() => addToBasket('豆漿', 20, 12, 3, '🥛') },
-    { label:'買運動飲料', cost:'$30　飽足 +6　情緒 +5', run:() => addToBasket('運動飲料', 30, 6, 5, '🧃') },
-    { label:'買奶茶', cost:'$35　飽足 +8　情緒 +7', run:() => addToBasket('奶茶', 35, 8, 7, '🧋') },
+    { label:'買運動飲料', cost:'$30　飽足 +6　情緒 +6', run:() => addToBasket('運動飲料', 30, 6, 5, '🧃') },
+    { label:'買奶茶', cost:'$35　飽足 +8　情緒 +6', run:() => addToBasket('奶茶', 35, 8, 7, '🧋') },
     { label:'塞進口袋', cost:'看店員', cls:'risk', run:() => steal(8) },
     { label:'離開', cls:'back', run(){} }
   ]);
@@ -7147,7 +7147,7 @@ function openIndoorSpot(id){
         { who:'pc',    text:'他頓了一下。' },
         { who:'clerk', text:'「白天早班可以，一小時一百八十三。」' },
         { who:'clerk', text:'「你要留個電話嗎？」' }
-      ], 0, () => { IN.hired = true; chg('calm',-4); toast('早班的時間，是你上課的時間。', 3400); });
+      ], 0, () => { IN.hired = true; chg('calm', -3); toast('早班的時間，是你上課的時間。', 3400); });
     }});
     /* 上班(2026-08-19,kc 要求「早班不是死門,是翹課換錢」,見
        docs/DESIGN_NOTES.md「早班不是死門」節)——`IN.askedJob` 那段問完
@@ -7701,7 +7701,7 @@ function updateIndoor(dt){
          等於「走出去之前都算在店內」,跟 steal() 那句 toast 的說法一致。 */
       if(IN.clerkFace === 'F' && pendingTheft > 0){
         const amt = pendingTheft; pendingTheft = 0; stealCaughtDay = day;
-        chg('full', -amt); chg('star', -2); chg('calm', -20);
+        chg('full', -amt); chg('star', -2); chg('calm', -12);
         playBeats([
           { who:'clerk', text:'「等一下。」' },
           { who:'pc',    text:'他轉過身,先看你的外套,再看架上少的那格。' },
@@ -8053,8 +8053,8 @@ const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spok
    moveKaiXxx() 那種搬人的程式碼。 */
 const KAI_RUN_DROP = { x:10, z:20 };
 const KAI_RUN_RANGE = 4;
-/* 跑腿費是我自己抓的:比超商一個便當貴一點、離改管那 4500 很遠——「比正經
-   打工快,但也沒有快到能翻身」是這條線該有的量級。不喜歡跟我說就改。 */
+/* 跑腿費 $400:比一輪超商班(≈$175)多一倍多、時間只要 1/3——「灰色地帶的錢
+   又快又多」是刻意訂的比例,不是巧合,見 DESIGN_NOTES「數值基準表」。 */
 const KAI_RUN_PAY = 400;
 
 /* 拿袋子走既有的 talkToKai()(按空白鍵),不是走近自動觸發——阿凱是有互動
@@ -8301,8 +8301,8 @@ function kaiConfrontWrong(){
   clearTodayCard();
   busy = true;
   playBeats(KAI_WRONG_BEATS, 0, () => {
-    chg('calm', -8);
-    toast('「下次我自己去。」他沒有生氣，那更難受。\n（歸屬感 −8）', 4400);
+    chg('calm', -6);
+    toast('「下次我自己去。」他沒有生氣，那更難受。\n（歸屬感 −6）', 4400);
     busy = false;
   });
 }
@@ -8316,10 +8316,10 @@ function expireKaiRun(){
   const i = TRASH.findIndex(t => t.bag);
   if(i >= 0) TRASH.splice(i, 1);
   syncRunmen();
-  chg('calm', -2);
+  chg('calm', -3);
   toast(KAI_RUN.gotBag
-    ? '袋子還在你外套裡。隔天阿凱來拿走了，沒有多說什麼。\n（歸屬感 −2）'
-    : '你沒有去找阿凱。隔天他沒有提這件事。\n（歸屬感 −2）', 4200);
+    ? '袋子還在你外套裡。隔天阿凱來拿走了，沒有多說什麼。\n（歸屬感 −3）'
+    : '你沒有去找阿凱。隔天他沒有提這件事。\n（歸屬感 −3）', 4200);
 }
 
 function hasStoryToday(){
@@ -8395,14 +8395,14 @@ function clearTodayCard(){
      在外面晃掉錢跟風評換帥潮跟情緒。 */
 const IDLE_DAY_CHOICES = [
   { label:'去打工',
-    text:'你在店裡站了一整天，腳底發麻。\n（金錢 +260、體力 −35、情緒 −5）',
-    run(){ chg('money', 260); chg('stamina', -35); chg('mood', -5); } },
+    text:'你在店裡站了一整天，腳底發麻。\n（金錢 +260、體力 −35、情緒 −6）',
+    run(){ chg('money', 260); chg('stamina', -35); chg('mood', -6); } },
   { label:'去圖書館',
     text:'冷氣很強，你在最後面那排坐到閉館。\n（體力 −20）',
     run(){ chg('stamina', -20); studyGainKnowledge(); } },   // 知識的提示由 studyGainKnowledge() 自己跳,不重複寫進括號
   { label:'在外面晃',
-    text:'你們在騎樓下站到天黑，講了一些沒有結論的話。\n（帥潮 +3、情緒 +5、體力 −10、金錢 −100、風評 −1）',
-    run(){ chg('cool', 3); chg('mood', 5); chg('stamina', -10); chg('money', -100); chg('star', -1); } }
+    text:'你們在騎樓下站到天黑，講了一些沒有結論的話。\n（帥潮 +3、情緒 +6、體力 −10、金錢 −100、風評 −1）',
+    run(){ chg('cool', 3); chg('mood', 6); chg('stamina', -10); chg('money', -100); chg('star', -1); } }
 ];
 /* 過渡選項的體力成本(2026-09-09 補擋)——「去打工」一次 −35,連動扣飽足也
    −35,飽足不到 35 的玩家選下去就直接餓死。跟其他互動同一套 spendBlockedReason()。 */
@@ -8775,7 +8775,7 @@ const WORKER_STORY_BEATS = [
   { who:'worker', text:'「圓環那尊,是球隊那些人湊錢立的。」' },
   { who:'worker', text:'「不是我立的。我沒那個資格。」' },
   { who:'pc',     text:'她看了你一眼,像是隨口感慨。' },
-  { who:'worker', text:'「若她還活著,大概也跟你差不多歲數了。」\n（情緒 +2）' }
+  { who:'worker', text:'「若她還活著,大概也跟你差不多歲數了。」\n（情緒 +3）' }
 ];
 /* 室內的手部動作(2026-09-09,kc:「然後要真的有動作 摸摸」)——「摸摸她」不能
    只有文字,角色要真的抬手。沒有現成的動畫檔(`MODELS.m.once` 只有 pickup/pet/
@@ -8886,7 +8886,7 @@ function talkToWorkerIndoor(){
   const opts = [];
   if(!w.toldStory) opts.push({ label:'純聊天', run(){
     w.toldStory = true;
-    chg('mood', 2);
+    chg('mood', 3);
     playBeats(WORKER_STORY_BEATS, 0, leaveIndoor);
   } });
   opts.push(
@@ -8903,8 +8903,8 @@ function talkToWorkerIndoor(){
        不會變成歸屬感」。風評 −2 是 kc 指定的:這件事在這個小鎮裡是會被看見、
        會被講的,其他選項都不扣。 */
     { label:'辦正事', run(){
-        chg('mood', 10); chg('calm', 2); chg('star', -2);
-        say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +10、歸屬感 +2、風評 −2）', leaveIndoor);
+        chg('mood', 12); chg('calm', 3); chg('star', -2);
+        say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +12、歸屬感 +3、風評 −2）', leaveIndoor);
       } },
     { label:'走了', cls:'back', run: leaveIndoor }
   );
@@ -9131,7 +9131,7 @@ function hospitalRemindCall(){
    ✅ 2026-09-02 第四輪,kc 問「如果我五點再做別的事會怎樣」+確認要改嚴——
    原本晚到也不會怎樣,無限期等玩家有空,kc 覺得太鬆(呼應「沒有安全
    選項」的基準線)。改成到 18:00(跟 GRANDMA_CALL_MINUTE 同一個時間點)
-   都還沒開始顧場子,就直接算放鴿子:拔掉提醒卡+歸屬感 −10(自己選的
+   都還沒開始顧場子,就直接算放鴿子:拔掉提醒卡+歸屬感 −12(自己選的
    數字,比一般顧場子拒絕的 −3 重,因為這次是阿源早上特地打電話來約的,
    不喜歡跟我說一聲就改),`WATCHJOB.lastDay=day` 借用既有欄位擋掉這天
    之後不會再重複判定。另外把 `day > GRANDMA_CALL_DAY` 那段拿掉——這條
@@ -9144,7 +9144,7 @@ function checkYuanEveningWatch(){
   if(minute >= GRANDMA_CALL_MINUTE){
     WATCHJOB.lastDay = day;
     { const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-tonight'); if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1); renderQuestPanel(); }
-    chg('calm', -10);
+    chg('calm', -12);
     toast('你沒去幫阿源顧場子。', 2800);
   } else if(minute >= YUAN_WATCH_EVENING_MINUTE){
     /* 換掉早上那張提醒卡(見 sleep() 那則筆記),startWatchJob() 自己會
@@ -9181,8 +9181,8 @@ function declineHospitalCall(){
   GRANDMA.critical = true;
   GRANDMA.nextCheckDay = day + GRANDMA_MONTH_DAYS;
   playBeats(HOSPITAL_DECLINE_BEATS, 0, () => {
-    chg('calm', -20);
-    toast('（歸屬感 −20）', 2400);
+    chg('calm', -12);
+    toast('（歸屬感 −12）', 2400);
     nudgeToFindYuan();
   });
 }
@@ -9257,7 +9257,7 @@ const HOSPITAL_GO_BEATS = [
   { who:'granny',text:'她笑了一下,眼睛瞇起來。「那就好。」' },
   /* 2026-09-02 第十二輪,kc:「啊罵會塞給你五百元 叫你要好好念書之類的」
      ——塞錢+念書那句是台灣阿嬤的經典動作,錢的金額直接照 kc 給的數字,
-     實際 chg('money',500) 放在 enterHospital() 最後那個 chg('calm',10)
+     實際 chg('money',500) 放在 enterHospital() 最後那個 chg('calm', 12)
      旁邊一起結算(playBeats 陣列本身不方便中途插狀態變動,跟其他場景
      「beats 播完才在 done 裡一次算清」同一個習慣,見那則筆記)。 */
   { who:'pc',text:'她抖著手,從枕頭底下摸出一個信封。' },
@@ -9282,7 +9282,7 @@ const HOSPITAL_LAST_WORDS_SILENT = [
 const HOSPITAL_CLOSING_BEATS = [
   { who:'pc', text:'她沒有再說話,只是看著你,像在把你的臉記下來。' },
   { who:'pc', text:'你握著她的手坐著,直到護士進來,說時間到了,要你們先出去。' },
-  { who:'pc', text:'你跟媽一起走出醫院,誰都沒有先開口。（歸屬感 +10）' }
+  { who:'pc', text:'你跟媽一起走出醫院,誰都沒有先開口。（歸屬感 +12）' }
 ];
 /* goToHospital() 只管扣代價+切場景,「切場景+講故事+離場」那段拆進
    enterHospital(),跟 enterMassage() 同一個分工。 */
@@ -9341,9 +9341,9 @@ function enterHospital(){
           /* 2026-09-04,kc:「獲得五百塊 對話框要提示」——原本只有這句
              trailing toast,沒有寫進對話框本身。改成兩個提示都直接寫進
              beats 文字裡(金錢 +500 在 HOSPITAL_GO_BEATS 塞信封那句、
-             歸屬感 +10 在 HOSPITAL_CLOSING_BEATS 最後一句),這裡不用再
+             歸屬感 +12 在 HOSPITAL_CLOSING_BEATS 最後一句),這裡不用再
              另外跳 toast 重複講一次。 */
-          chg('calm', 10);
+          chg('calm', 12);
           chg('money', 500);   // 阿嬤塞的五百塊,提示已經寫進 HOSPITAL_GO_BEATS 最後一句
           leaveIndoor();
           /* 2026-09-02 第十六輪,kc:「走出醫院後 可能會說你心情很難過
@@ -10209,7 +10209,7 @@ function updateCity(dt){
       openMenu('小美', [
         { label:'載她一圈', cls:'', run(){
             playBeats(D.rideBeats, 0, () => {
-              chg('calm', 10); chg('cool', 2);
+              chg('calm', 12); chg('cool', 2);
               advanceTime(20);
               toast(D.rideQuiet, 3200);
             });
@@ -10379,8 +10379,8 @@ function dismountMoto(){
     if(nearDest){
       AXIA.resolved = true;
       AXIA_NPC.group.position.set(pos.x-1, .3, pos.z-1);
-      chg('calm', 10);
-      toast('「謝謝你載我一程，路上小心。」她朝你揮揮手，走進巷子裡。（歸屬感 +10）', 2800);
+      chg('calm', 12);
+      toast('「謝謝你載我一程，路上小心。」她朝你揮揮手，走進巷子裡。（歸屬感 +12）', 2800);
     } else {
       /* 沒送到地方就下車:把她放回公車站(不是留在半路),任務面板的
          「去永安公車站找阿霞」提示才會繼續對得上她實際站的位置。 */
@@ -10411,9 +10411,9 @@ function talkToAxia(){
           else say('axia', '「你有車再說吧。」她笑了一下，搖搖頭。');
         } },
       { label:'給她計程車錢', cls:'', cost:'-$50', disabled: ST.money < 50, run(){
-          chg('money', -50); chg('calm', 4);
+          chg('money', -50); chg('calm', 3);
           AXIA.resolved = true;
-          toast('「這樣就好，謝謝你。」她轉身走進暗處攔車。（$-50，歸屬感 +4）', 2600);
+          toast('「這樣就好，謝謝你。」她轉身走進暗處攔車。（$-50，歸屬感 +3）', 2600);
         } },
       { label:'「先走了。」', cls:'back', run(){} }
     ]);
@@ -10542,8 +10542,8 @@ function talkToAcheng(){
              資料結構),不給錢。feed 16 跟他攤子上「買一份來吃」同一個數字
              (openStallMenu 的 full 參數),mood +2 是自己抓的小確幸。 */
           FOOD.push({ id: ++FOOD_SEQ, name:'滷味', icon:'🍢', feed:16, mood:2 });
-          chg('calm', 8);
-          toast('「你人真好。」阿成塞給你一包滷味。（滷味 ×1，歸屬感 +8）', 2600);
+          chg('calm', 6);
+          toast('「你人真好。」阿成塞給你一包滷味。（滷味 ×1，歸屬感 +6）', 2600);
         } });
     } else if(!q.active && !q.done){
       extra.push({ label:'「廟口這附近的垃圾,你順手幫忙撿一撿?」', cls:'',
@@ -10744,7 +10744,7 @@ function drawFortuneSlip(){
     fpTextEl.textContent = '籤詩掉出來了…';
     setTimeout(() => {
       const pick = coldReadPick();
-      chg('calm', 4);
+      chg('calm', 3);
       fpStageEl.classList.remove('tipping');
       fpStageEl.style.display = 'none'; fpResultEl.style.display = 'block';
       renderFortuneSlip(pick);
@@ -10907,8 +10907,8 @@ function talkToYuan(){
       { who:'yuan', text:'「算了，反正這種事，遲早會知道是誰。」' },
       { who:'pc',   text:'你沒有再說話，心虛得連話都接不上。' }
     ], 0, () => {
-      chg('calm', -10);
-      toast('（歸屬感 −10）', 2600);
+      chg('calm', -12);
+      toast('（歸屬感 −12）', 2600);
     });
     return;
   }
@@ -10935,8 +10935,8 @@ function talkToYuan(){
       { who:'pc', text:'他沒說什麼安慰的話,只是坐著,陪你。' },
       { who:'pc',   text:'你們兩個誰都沒有再開口,坐了很久。' }
     ], 0, () => {
-      chg('mood', 10); chg('calm', 6);
-      toast('（情緒 +10，歸屬感 +6）', 2600);
+      chg('mood', 12); chg('calm', 6);
+      toast('（情緒 +12，歸屬感 +6）', 2600);
       /* 2026-09-04,kc:「跟阿源聊完天後 醫院會再打電話來說有空要多看看
          啊罵」——聊完不是就沒事了,提醒玩家接下來要靠平常探望續命。延遲
          一下讓上面那句 toast 先讀完,不是緊接著疊上來。 */
@@ -10960,8 +10960,8 @@ function talkToYuan(){
       { who:'yuan', text:'「隨便看啦，不要亂摸就好。」他笑了一下。' },
       { who:'pc',   text:'幾個人站在廟埕聊了一陣，你難得覺得這幾個人湊在一起也不尷尬。' }
     ], 0, () => {
-      chg('calm', 8);
-      toast('把同學帶來給阿源認識了。（歸屬感 +8）', 3400);
+      chg('calm', 6);
+      toast('把同學帶來給阿源認識了。（歸屬感 +6）', 3400);
       /* kc:「阿源聊完天之後 就要跳回學校啊」——聊完不用玩家自己走回校門,
          直接淡出+warpIntoPlace({id:'school'})傳回教室,跟 checkFieldTrip()
          warp 去廟口那次同一個「劇情自己接手轉場」的精神。warpIntoPlace()
@@ -11019,10 +11019,10 @@ function talkToYuan(){
     say('yuan', '「怎樣？」', () => {
       openMenu('阿源', [
         { label:'警察在查你那批贓物，小心點', run(){
-            chg('calm', 8); chg('star', -6);
+            chg('calm', 6); chg('star', -6);
             SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'warned';
             syncMiscQuestPanel();
-            toast('他點了點頭，眼神變了一下。（歸屬感 +8／風評 −6）', 3000);
+            toast('他點了點頭，眼神變了一下。（歸屬感 +6／風評 −6）', 3000);
           } },
         { label:'先不要', cls:'back', run(){} }
       ]);
@@ -11235,7 +11235,7 @@ function talkToMei(){
       { label:'跟她道歉', run(){
           playBeats(D.kissApologyBeats, 0, () => {
             MEI.apologized = true;
-            chg('calm', 4);
+            chg('calm', 3);
             toast(D.kissApologyQuiet, 3600);
           });
         } },
@@ -11281,7 +11281,7 @@ function talkToMei(){
     if(!MEI.kissed) items.push({ label:'在她沒注意時吻了她', cls:'risk', run(){
       MEI.kissed = true; MEI.kissedDay = day;
       playBeats(D.kissBeats, 0, () => {
-        chg('star', -5); chg('calm', -8); chg('mood', 10);
+        chg('star', -5); chg('calm', -6); chg('mood', 12);
         toast(D.kissQuiet, 3400);
       });
     } });
@@ -11301,7 +11301,7 @@ function talkToMei(){
           run(){
             if(ST.money < D.loanAmount){ toast('錢不夠,你只能說晚點再說。', 2000); return; }
             MEI.loan = D.loanAmount; MEI.loanDay = day;
-            chg('money', -D.loanAmount); chg('calm', 4);
+            chg('money', -D.loanAmount); chg('calm', 3);
             /* 選「借她」才聽得到她哥是警察那段——不借就聽不到,見
                npc-school.js loanYesBeats 那則筆記。 */
             playBeats(D.loanYesBeats, 0, () => {});
@@ -11482,7 +11482,7 @@ const TATTOO_MENU = [
    只清裝備欄好看,阿源的好朋友門檻是即時讀這個旗標,洗掉之後要重新
    刺一次才會再算數,教官/小美哥那三條已經觸發過的劇情本身是一次性
    事件,不會被這裡影響(見各自的 confronted/reacted 旗標)。 */
-const TATTOO_REMOVE_PRICE = 10000;
+const TATTOO_REMOVE_PRICE = 6000;
 /* 走失狗(2026-08-28,kc 來回改了三輪,這是目前定案的版本):
    第一輪「等候區可以看到一些雜誌新聞...然後可以接任務,會在工地內找到
    他」——做了真的「工地裡放一隻可以走過去找到的狗」機制(city.construction.
@@ -11627,7 +11627,7 @@ function talkToTattooMaster(){
       { who:'pc', text:'半小時後他抱著狗回來，衣服上全是灰。' },
       { who:'tattooMaster', text:'「謝了。」他只講這兩個字，但一直摸牠的頭。' }
     ], 0, () => {
-      chg('calm', 8); chg('mood', 10);
+      chg('calm', 6); chg('mood', 12);
       toast('師傅沒有多說什麼，但你看得出來他鬆了一口氣。', 3400);
     });
     return;
@@ -11754,8 +11754,8 @@ function talkToTeacher(){
       { who:'teacher', text:'他愣了一下，數了數，鬆了一口氣。「找到就好，我還在想要不要通報。」' },
       { who:'pc', text:'他沒有再追問是從哪裡找到的，你也沒有多說。' }
     ], 0, () => {
-      chg('calm', 10);
-      toast('班費還給老師了，這件事總算過去了。（歸屬感 +10）', 3600);
+      chg('calm', 12);
+      toast('班費還給老師了，這件事總算過去了。（歸屬感 +12）', 3600);
     });
     return;
   }
@@ -11781,8 +11781,8 @@ function talkToTeacher(){
       { who:'teacher', text:'「以後多花點心思在正經事上，少讓自己看起來像會做這種事的人。」' },
       { who:'pc',      text:'你沒有辯，錢是你自己補的，說什麼都像是在狡辯。' }
     ], 0, () => {
-      chg('calm', -5);
-      toast('錢補回去了，但老師的懷疑並沒有真的消失。（歸屬感 −5）', 3600);
+      chg('calm', -6);
+      toast('錢補回去了，但老師的懷疑並沒有真的消失。（歸屬感 −6）', 3600);
     });
     return;
   }
@@ -11954,7 +11954,7 @@ function talkToBrother(){
     beats.push(...(KNOWLEDGE.rough >= 1 ? D.knowledgeGoodBeats : D.knowledgeBadBeats));
     beats.push(...D.closeBeats);
     playBeats(beats, 0, () => {
-      if(YUAN.hasTattoo){ chg('calm', -8); chg('star', -6); }
+      if(YUAN.hasTattoo){ chg('calm', -6); chg('star', -6); }
       chg('calm', KNOWLEDGE.rough >= 1 ? 6 : -4);
       toast(D.quiet, 3200);
     });
@@ -12077,12 +12077,12 @@ function talkToBrother(){
       BROTHER.path = good ? 'B' : 'A';
       playBeats(good ? D.day24GoodBeats : D.day24BadBeats, 0, () => {
         if(good){ chg('calm', 12); chg('star', 10); toast('（歸屬感 +12／風評 +10）', 2600); }
-        else    { chg('star', -15); chg('calm', -10); toast('（風評 −15／歸屬感 −10）', 2600); }
+        else    { chg('star', -15); chg('calm', -12); toast('（風評 −15／歸屬感 −12）', 2600); }
       });
     } else if(arcDay === 30){
       const good = BROTHER.path === 'B';
       playBeats(good ? D.day30EndingB : D.day30EndingA, 0, () => {
-        if(good){ chg('money', 2000); chg('calm', 10); toast('（+$2000／歸屬感 +10）', 2600); }
+        if(good){ chg('money', 2000); chg('calm', 12); toast('（+$2000／歸屬感 +12）', 2600); }
         else    { chg('star', -8); toast('（風評 −8）', 2600); }
       });
     }
@@ -13000,7 +13000,7 @@ function talkToWorker(w){
         { label:'放過她', cost:'$−1200',
           run(){
             CLASSFUND.resolved = 'covered';
-            chg('money', -1200); chg('calm', 4);
+            chg('money', -1200); chg('calm', 3);
             const idx = ACTIVE_QUESTS.findIndex(x => x.id === 'classfund');
             if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
             /* 放過她也要回報老師(2026-09-03,kc:「如果你放過他還是要回報
@@ -13021,7 +13021,7 @@ function talkToWorker(w){
               { who:'pc', text:'她愣了一下，像是沒想到你會這樣選。' },
               { who:'worker', text:'「……謝了。」她說得很小聲，沒再多說什麼。' },
               { who:'worker', text:'她看了你一眼。「下次，算我的，你不用給錢。」' }
-            ], 0, () => toast('你自己把班費補上了。（$−1200，歸屬感 +4）記得去跟老師說一聲。', 3600));
+            ], 0, () => toast('你自己把班費補上了。（$−1200，歸屬感 +3）記得去跟老師說一聲。', 3600));
           } }
       ]);
     };
@@ -13260,7 +13260,7 @@ function interactProp(prop){
     const anim = prop.ref.label === '貓' ? 'pet_low' : 'pet';
     hero.playOnce(anim, () => {
       busy = false;
-      chg('mood', 4);
+      chg('mood', 3);
       chg('stamina', -3);
       const lines = PET_LINES[prop.ref.label] || PET_LINES['小狗'];
       toast(lines[Math.random()*lines.length|0], 2400);
@@ -13319,7 +13319,7 @@ function interactProp(prop){
        聽到最難聽那檔扣一點心情,呼應「這種話真的會傷人」,不是聽聽就算了。 */
     const cruel = ST.star <= -10, cold = !cruel && ST.star < 0;
     const pool = cruel ? PEDESTRIAN_LINES_CRUEL : cold ? PEDESTRIAN_LINES_COLD : PEDESTRIAN_LINES;
-    if(cruel) chg('mood', -4);
+    if(cruel) chg('mood', -3);
     toast(pool[Math.random()*pool.length|0], 2200);
   } else {
     { const r = spendBlockedReason(2); if(r){ toast(r, 2400); return; } }

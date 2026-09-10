@@ -24,8 +24,8 @@
       menu: [
         {
           label: '接',
-          cost: '歸屬感 −9',
-          calm: -9,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'dad', text:'「⋯⋯喂？」' },
             { who:'pc',  text:'你六年沒聽到這個聲音了。' },
@@ -36,8 +36,8 @@
         },
         {
           label: '不接',
-          cost: '歸屬感 −5',
-          calm: -5,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'響了很久才停。' },
             { who:'pc',  text:'沒有留言。' },
@@ -59,8 +59,8 @@
       menu: [
         {
           label: '留下來',
-          cost: '歸屬感 −7',
-          calm: -7,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你把它塞進衣櫃最上面那一格。' },
             { who:'pc',  text:'他記得的你，是六年前的你。' },
@@ -69,8 +69,8 @@
         },
         {
           label: '丟掉',
-          cost: '歸屬感 −10',
-          calm: -10,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你拿到樓下垃圾車。' },
             { who:'pc',  text:'車來之前你站了一下。' },
@@ -125,8 +125,8 @@
       menu: [
         {
           label: '走過去',
-          cost: '歸屬感 −18',
-          calm: -18,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'他看到你了。' },
             { who:'pc',  text:'他愣了半秒，然後笑了一下，\n那個笑是給旁邊的人看的。' },
@@ -137,8 +137,8 @@
         },
         {
           label: '轉身',
-          cost: '歸屬感 −14',
-          calm: -14,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你往回走，走了兩條街才停下來。' },
             { who:'pc',  text:'你在想那個小孩幾歲。' },
@@ -162,8 +162,8 @@
       menu: [
         {
           label: '「我看看。」',
-          cost: '歸屬感 −10',
-          calm: -10,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'dad', text:'「好啦，那你再跟我講。」' },
             { who:'pc',  text:'他掛掉了。' },
@@ -172,8 +172,8 @@
         },
         {
           label: '「你先把帳單處理掉。」',
-          cost: '歸屬感 −16',
-          calm: -16,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'那邊安靜了三秒。' },
             { who:'dad', text:'「⋯⋯那個很複雜啦。」' },

@@ -65,8 +65,8 @@
       menu: [
         {
           label: '去改管',
-          cost: '−$4500　帥潮 +18　歸屬感 +11',
-          money: -4500, cool: +18, calm: +11,
+          cost: '−$1200　帥潮 +18　歸屬感 +12',
+          money: -1200, cool: +18, calm: +12,
           beats: [
             { who:'pc',  text:'隔天你發動的時候，\n三個人同時回頭。' },
             { who:'pc',  text:'「靠，你改了喔。」' },
@@ -148,8 +148,8 @@
         },
         {
           label: '不說話',
-          cost: '歸屬感 −9',
-          calm: -9,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你沒有辯，他也沒有再逼問，那個安靜比什麼都重。' },
             { toast:'沉默有時候比辯解更像認罪。', ms:4200 }
@@ -173,8 +173,8 @@
       menu: [
         {
           label: '再玩一局',
-          cost: '歸屬感 +8',
-          calm: +8,
+          cost: '歸屬感 +6',
+          calm: +6,
           beats: [
             { who:'pc',  text:'這局你輸了三百。' },
             { who:'pc',  text:'「明天再贏回來啦。」' },
@@ -185,8 +185,8 @@
         },
         {
           label: '收手',
-          cost: '＋$200　歸屬感 −5',
-          money: +200, calm: -5,
+          cost: '＋$200　歸屬感 −6',
+          money: +200, calm: -6,
           beats: [
             { who:'pc',  text:'「欸你贏了就跑喔。」' },
             { who:'pc',  text:'是開玩笑的語氣。' },
@@ -211,8 +211,8 @@
       menu: [
         {
           label: '「那我要跟誰一起？」',
-          cost: '歸屬感 −4',
-          calm: -4,
+          cost: '歸屬感 −3',
+          calm: -3,
           beats: [
             { who:'pc',  text:'他沒有回答。' },
             { who:'pc',  text:'他張嘴又閉上，最後說\n「⋯⋯你先回去上課」。' },
@@ -223,8 +223,8 @@
         },
         {
           label: '「好。」',
-          cost: '歸屬感 −9',
-          calm: -9,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'他鬆了一口氣，拍拍你的肩膀。' },
             { who:'pc',  text:'你回教室。' },

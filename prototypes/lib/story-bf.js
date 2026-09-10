@@ -29,8 +29,8 @@
       menu: [
         {
           label: '「嗯。」',
-          cost: '歸屬感 −8',
-          calm: -8,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你走回房間。' },
             { who:'pc',  text:'他坐的位置，是你以前坐的位置。' },
@@ -39,8 +39,8 @@
         },
         {
           label: '不回話',
-          cost: '歸屬感 −11',
-          calm: -11,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你直接進房間。' },
             { who:'mom', text:'（廚房那邊）「欸，人家跟你講話。」' },
@@ -62,8 +62,8 @@
       menu: [
         {
           label: '移回去',
-          cost: '歸屬感 −7',
-          calm: -7,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'隔天它又在最下面。' },
             { who:'pc',  text:'沒有人跟你講過這件事。' },
@@ -72,8 +72,8 @@
         },
         {
           label: '就放在那裡',
-          cost: '歸屬感 −9',
-          calm: -9,
+          cost: '歸屬感 −6',
+          calm: -6,
           beats: [
             { who:'pc',  text:'你蹲下去拿毛巾。' },
             { who:'pc',  text:'以後每天都要蹲一次。' },
@@ -96,8 +96,8 @@
       menu: [
         {
           label: '收下',
-          cost: '＋$3000　歸屬感 +4',
-          money: 3000, calm: +4,
+          cost: '＋$3000　歸屬感 +3',
+          money: 3000, calm: +3,
           beats: [
             { who:'pc',  text:'你說了謝謝。' },
             { who:'pc',  text:'你需要這三千塊。\n你這個月差的就是三千塊。' },
@@ -130,8 +130,8 @@
       menu: [
         {
           label: '出去',
-          cost: '歸屬感 −15',
-          calm: -15,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'兩個人同時停下來看你。' },
             { who:'mom', text:'「⋯⋯沒事啦，你回去睡。」' },
@@ -141,8 +141,8 @@
         },
         {
           label: '待在房間',
-          cost: '歸屬感 −10',
-          calm: -10,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'你把耳機戴上，沒有放音樂。' },
             { who:'pc',  text:'過了大概二十分鐘，外面安靜了。' },
@@ -176,8 +176,8 @@
         },
         {
           label: '說實話',
-          cost: '歸屬感 −17',
-          calm: -17,
+          cost: '歸屬感 −12',
+          calm: -12,
           beats: [
             { who:'pc',  text:'「⋯⋯我覺得不太舒服。」' },
             { who:'pc',  text:'她安靜了很久。' },
