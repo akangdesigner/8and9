@@ -8128,6 +8128,22 @@ const RUNMEN = [
       { who:'pc',     text:'他把手伸出來。' }
     ] }
 ];
+/* 那三個人的 3D 本尊(2026-09-10)——**平常藏起來**(group.visible=false),
+   只有袋子在你身上、還沒交出去那段時間才現身,見 syncRunmen()。三副骨架
+   刻意選不一樣的,玩家一眼要分得出是三個不同的人。
+   ⚠ 不 push 進 NPCS(沒有人會呼叫 animate()),跟圓環那尊雕像同一招——這三個
+   本來就該站著不動。 */
+const runmanNPCs = RUNMEN.map((r, i) => buildNPC(THREE, scene, Object.assign({
+  x:r.x, z:r.z, rotationY:Math.PI, stillFace:true
+}, [
+  { rig:'m3', skin:'#b98a63', hair:'#3a3a3a', hood:'#4a4a52', pants:'#2b2b2b', shoe:'#3a3a3a' },
+  { rig:'m5', skin:'#c9a077', hair:'#1f1c1a', hood:'#2f3a4a', pants:'#26262a', shoe:'#43413c' },
+  { rig:'m6', skin:'#b08055', hair:'#221f1c', hood:'#1f2a24', pants:'#1e1e1e', shoe:'#2e2e2e' }
+][i])));
+function syncRunmen(){
+  const show = KAI_RUN.gotBag && !KAI_RUN.done;
+  runmanNPCs.forEach(n => { n.group.visible = show; });
+}
 const KAI_RUN_PAY_WRONG = 250;      // 給錯人那疊比較薄——不解釋,玩家自己察覺
 /* 走到巷口先播一次開場(告訴玩家「有三個人」),之後就交給玩家自己走去看。 */
 const KAI_DROP_INTRO = [
@@ -14054,7 +14070,7 @@ window.__dbg = {
      被阿凱約→上完課」那整串前置,直接把狀態設成「已經被約、而且已經放學」,
      人也丟到阿凱旁邊。#bar 有「day5 跑腿」按鈕直接叫這支(kc 不打 console
      指令,見自動記憶 feedback_no_console_commands_add_buttons)。 */
-  KAI_RUN,
+  KAI_RUN, RUNMEN, syncRunmen,
   kaiRunArm,
   /* 2026-09-09 從 #bar 拿掉按鈕之後,這幾個工具的入口改掛這裡(kc:「把不需要
      的清掉 只留跳轉地點跟重來」)。要用哪個就跟我說,我把按鈕加回 #bar——
