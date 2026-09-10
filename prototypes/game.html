@@ -10359,6 +10359,7 @@ function updateCity(dt){
   checkGrandmaCall();
   checkYuanEveningWatch();
   checkKaiRunDrop();
+  tickStolenRide(dt);        // 騎在別人車上每 15 秒扣一次風評,見 mountMoto()
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -10738,7 +10739,7 @@ function updateCity(dt){
   } else if(nearProp && !busy && !dlg.on){
     hintEl.innerHTML = nearProp.type === 'pet' ? nearProp.ref.label + '　按 <b>空白鍵</b> 摸摸看'
                       : nearProp.type === 'play' ? nearProp.ref.label + '　按 <b>空白鍵</b> 玩一下'
-                      : nearProp.type === 'moto' ? '按 <b>空白鍵</b> 騎上去'
+                      : nearProp.type === 'moto' ? (nearProp.ref.owned ? '按 <b>空白鍵</b> 騎上去' : '按 <b>空白鍵</b> 騎走別人的車')
                       : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'altar' ? '按 <b>空白鍵</b> 靠近功德箱'
@@ -10831,9 +10832,32 @@ function mountMoto(m){
   if(m.owned){
     toast('騎上自己的車。', 1600);
   } else {
+    /* 2026-09-10,kc:「騎別人機車 的提示要改 你趁人不備其上了別人的機車
+       然後會不斷地扣風評(一段時間扣一次)」——上車那一下扣一次,之後只要
+       還騎在別人的車上就每 15 秒再扣一次(見 updateCity() 的 stolenRideT)。 */
+    stolenRideT = 0;
     chg('star', -1);
-    toast('騎上別人的車——不是你的,先別想太多。', 2000);
+    toast('你趁人不備，騎上了別人的機車。\n（風評 −1）', 2600);
   }
+}
+/* 騎在別人車上的持續代價——每 STOLEN_RIDE_MS 扣一次風評,句子輪流換,
+   讓「一直騎著不還」這件事有時間壓力,不是上車扣一次就沒事了。 */
+const STOLEN_RIDE_MS = 15000;
+const STOLEN_RIDE_LINES = [
+  '有人在路邊往你這邊看了一眼。',
+  '你經過的時候，檳榔攤那個抬起頭。',
+  '後面有台車跟了你一小段，又轉走了。',
+  '紅燈停下來的時候，你不太敢看旁邊。'
+];
+let stolenRideT = 0;
+let stolenRideN = 0;
+function tickStolenRide(dt){
+  if(!ridingMoto || ridingMoto.owned){ stolenRideT = 0; return; }
+  stolenRideT += dt;
+  if(stolenRideT < STOLEN_RIDE_MS) return;
+  stolenRideT -= STOLEN_RIDE_MS;
+  chg('star', -1);
+  toast(STOLEN_RIDE_LINES[stolenRideN++ % STOLEN_RIDE_LINES.length] + '\n（風評 −1）', 2400);
 }
 /* 阿霞真的坐上後座(2026-09-01)——呼叫 scene-city3d.js buildNPC() 那組
    新函式讓她的骨架借同一副 rig 的 sit 動畫+疊跨坐姿,座標/朝向每幀在
