@@ -3326,7 +3326,7 @@ function syncMiscQuestPanel(){
 
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'snitch');
   if(SNITCH_QUEST.active){
-    const hint = `一週內決定：跟阿正報、或去警告阿源（還有 ${Math.max(0, SNITCH_QUEST.startDay+7-day)} 個行動天，不選也沒關係）`;
+    const hint = `7 個行動天內決定：跟阿正報、或去警告阿源（還有 ${Math.max(0, SNITCH_QUEST.startDay+7-day)} 個行動天，不選也沒關係）`;
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'snitch', title:'贓物協尋', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
@@ -9640,7 +9640,9 @@ function checkGrandmaMonthly(){
    留著一張再也不會更新的舊任務。 */
 function updateGrandmaQuestHint(){
   if(!GRANDMA.critical || GRANDMA.dead) return;
-  const hint = `這個月已探望 ${GRANDMA.visits}/${GRANDMA_VISITS_NEEDED} 次、餵食 ${GRANDMA.feeds}/${GRANDMA_FEEDS_NEEDED} 次`;
+  const left = Math.max(0, GRANDMA.nextCheckDay - day);   // 這個月結算是哪天,見 GRANDMA.nextCheckDay
+  const hint = `這個月已探望 ${GRANDMA.visits}/${GRANDMA_VISITS_NEEDED} 次、餵食 ${GRANDMA.feeds}/${GRANDMA_FEEDS_NEEDED} 次` +
+               `<br><span class="qpNote">這個月還剩 ${left} 個行動天</span>`;
   const idx = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit');
   if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint;
   else ACTIVE_QUESTS.push({ id:'grandma-visit', title:'常去看阿嬤', hint });
@@ -10230,7 +10232,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
-          toast(`註冊單:三個月內要湊出 $${node.tuitionQuest.amount}`, 3600);
+          toast(`註冊單：${dayToDate(TUITION_QUEST.dueDay)} 前要湊出 $${node.tuitionQuest.amount}\n（${node.tuitionQuest.days} 個行動天）`, 4200);
         }
         /* node.classFundQuest 那個特例已經拿掉(2026-09-02 第九輪)——day18
            改成兩階段,不再透過這裡的 schoolStorySource() 篩選觸發,見
