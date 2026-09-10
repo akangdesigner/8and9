@@ -1778,7 +1778,7 @@ function kaiRunArm(){
   document.getElementById('indoor').classList.remove('on');
   document.getElementById('city').style.display = '';
   wlabelsEl.style.display = '';
-  KAI_RUN.pending = true; KAI_RUN.gotBag = false; KAI_RUN.opened = false;
+  KAI_RUN.pending = true; KAI_RUN.gotBag = false; KAI_RUN.opened = false; KAI_RUN.arrived = false;
   KAI_RUN.done = false; KAI_RUN.delivered = false; KAI_RUN.missed = false;
   deskActionDay = day;                       // 假裝今天的課已經上完(= 放學了)
   if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
@@ -2104,6 +2104,10 @@ const WHO = {
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
   /* 阿凱(2026-08-24)——見上面 KAI 那則筆記,染髮跟 kaiNPC 那組 buildNPC 顏色同步。 */
   kai:      { name:'阿凱', opt:{ face:'F', skin:'#c9976e', hair:'#d4a03c', top:'#1c1c1c', topD:'#141414', pants:'#2b2b2b' } },
+  /* 巷口另外那兩個(2026-09-10,day5 跑腿的干擾項)——同樣沒有名字,名牌
+     寫他們的樣子,玩家要靠「誰先開口、誰問你是誰」自己判斷,不是靠名字。 */
+  smoker:   { name:'抽菸的男人',   opt:{ face:'F', skin:'#b98a63', hair:'#3a3a3a', top:'#4a4a52', topD:'#3a3a42', pants:'#2b2b2b' } },
+  squat:    { name:'蹲著的年輕人', opt:{ face:'F', skin:'#c9a077', hair:'#1f1c1a', top:'#2f3a4a', topD:'#25303e', pants:'#26262a' } },
   /* 遊藝場側門接東西的人(2026-09-10,day5 跑腿)——只出現這一次、沒有名字,
      名牌就寫「那個人」。沒有 3D 本尊(整段是走到門口自動播的文字戲),所以
      只要一組 SF.person() 的顏色當頭像。 */
@@ -8015,7 +8019,7 @@ function finishSchoolDay(){
   toast('放學了。', 2200);
 }
 
-const KAI_RUN = { pending:false, gotBag:false, opened:false, delivered:false, done:false, missed:false };
+const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, delivered:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false };
 /* 交貨點是遊藝場門口——座標不是猜的,是拿 `__dbg.city.doors` 現場列出來的
    'arcade' 那扇門(0, 13.6)。阿凱本人不用搬位置(他平常就站在機車行旁邊
    KAI 6,-13),所以這條線沒有 moveKaiXxx() 那種搬人的程式碼。 */
@@ -8036,6 +8040,11 @@ const KAI_RUN_HANDOFF = [
   { who:'pc',  text:'「裡面是什麼。」' },
   { who:'kai', text:'「不要打開就沒事。」' },
   { who:'pc',  text:'他說得很輕鬆，像在講一件真的很小的事。' },
+  { who:'pc',  text:'「我怎麼知道是哪一個。」' },
+  /* 這兩句就是整個解謎的線索,不要改掉也不要在別的地方再講一次
+     (見下面 RUNMEN 那段)。 */
+  { who:'kai', text:'「你不要先開口。他會先跟你講話。」' },
+  { who:'kai', text:'「而且他不會問你是誰。」' },
   { who:'kai', text:'「他會給你錢，那個是你的。」' }
 ];
 function giveKaiBag(){
@@ -8046,6 +8055,7 @@ function giveKaiBag(){
       detail:'阿凱給的。他說送到遊藝場側門就好，<b>不要打開</b>。<br>袋子有點重，形狀不規則。'
     });
     setTodayCard('把袋子送到遊藝場側門');
+    syncRunmen();                     // 三個人這時候才出現在巷口
     toast('你把袋子塞進外套裡。\n（雜物欄裡點它可以打開來看）', 3600);
   });
 }
@@ -8069,40 +8079,128 @@ function openKaiBag(){
     busy = false;
   });
 }
-const KAI_DROP_BEATS = [
-  { who:'pc',     text:'遊藝場側門那條防火巷，鐵門開著一半。' },
-  { who:'pc',     text:'有人從裡面走出來，看了你一眼。' },
-  { who:'runman', text:'「阿凱叫你來的喔。」' },
+/* 交貨那一段:三個人,你要自己判斷給誰(2026-09-10,kc:「這種任務本身沒有
+   可玩性啊 要有推理解謎的要素」)——阿凱在車行那邊給了兩條線索:
+     ① **他會先跟你講話**(你不要先開口)
+     ② **他不會問你是誰**
+   巷口三個人各違反/符合這兩條:抽菸的先開口但問你哪位(違反②)、蹲著滑手機的
+   從頭到尾不開口(違反①)、鐵門邊那個先開口而且沒問你是誰(兩條都符合)。
+   給錯人不會當場告訴你錯了:錢照拿,只是**那疊比較薄**($250 不是 $400),
+   兩天後阿凱來找你才揭曉。見 DESIGN_NOTES「day5:阿凱帶你去做灰色地帶的事」。
+   座標挑在遊藝場門口(0/13.6)前面那段開闊的人行道——z>=16 整排是建築物
+   (`__dbg.city.blocked()` 現場掃出來的),三個人彼此距離都 > 4,不會兩個
+   nearProp 疊在一起。 */
+const RUNMEN = [
+  { id:'smoker', x:-4, z:12, right:false, seen:false, beats:[
+      { who:'pc',     text:'靠牆那個中年男人把菸從嘴上拿下來。' },
+      { who:'pc',     text:'他上下看了你一眼。' },
+      { who:'smoker', text:'「欸，你哪位？」' }
+    ] },
+  { id:'squat', x:4, z:12, right:false, seen:false, beats:[
+      { who:'pc',    text:'年輕人蹲在牆角，手機螢幕亮著。' },
+      { who:'pc',    text:'你站在他前面三秒。' },
+      { who:'pc',    text:'他沒有抬頭。' }
+    ] },
+  { id:'runman', x:0, z:14, right:true, seen:false, beats:[
+      { who:'pc',     text:'鐵門旁邊那個人站得很直，沒有靠著。' },
+      { who:'pc',     text:'你才走到一半，他就往你這邊挪了半步。' },
+      { who:'runman', text:'「等你很久了。」' }
+    ] }
+];
+/* day5 跑腿交貨那三個人(2026-09-10,見 RUNMEN 那段)——**平常藏起來**
+   (group.visible=false),只有拿了袋子還沒交出去的那段時間才現身。跟
+   WATCHJOB 那套「藏起來換分身」同一個精神,但這裡沒有本尊衝突,單純開關。
+   三副骨架刻意選不一樣的(中年/年輕/普通),讓玩家一眼分得出三個人。 */
+const runmanNPCs = RUNMEN.map((r, i) => buildNPC(THREE, scene, Object.assign({
+  x:r.x, z:r.z, rotationY:Math.PI, stillFace:true
+}, [
+  { rig:'m3', skin:'#b98a63', hair:'#3a3a3a', hood:'#4a4a52', pants:'#2b2b2b', shoe:'#3a3a3a' },
+  { rig:'m5', skin:'#c9a077', hair:'#1f1c1a', hood:'#2f3a4a', pants:'#26262a', shoe:'#43413c' },
+  { rig:'m6', skin:'#b08055', hair:'#221f1c', hood:'#1f2a24', pants:'#1e1e1e', shoe:'#2e2e2e' }
+][i])));
+/* 該不該看得見:拿了袋子、走到過巷口、還沒交出去 → 現身。 */
+function syncRunmen(){
+  const show = KAI_RUN.gotBag && !KAI_RUN.done;
+  runmanNPCs.forEach(n => { n.group.visible = show; });
+}
+
+const KAI_RUN_PAY_WRONG = 250;      // 給錯人那疊比較薄——不解釋,玩家自己察覺
+/* 走到巷口先播一次開場(告訴玩家「有三個人」),之後就交給玩家自己走去看。 */
+const KAI_DROP_INTRO = [
+  { who:'pc', text:'遊藝場側門那條防火巷，鐵門開著一半。' },
+  { who:'pc', text:'巷口有三個人。' },
+  { who:'pc', text:'你不知道是哪一個。' }
+];
+function checkKaiRunDrop(){
+  if(!KAI_RUN.gotBag || KAI_RUN.done || KAI_RUN.arrived) return;
+  if(MODE !== 'city' || gameOver || busy || dlg.on) return;
+  const p = hero.group.position;
+  if(Math.hypot(p.x - KAI_RUN_DROP.x, p.z - KAI_RUN_DROP.z) > KAI_RUN_RANGE) return;
+  KAI_RUN.arrived = true;
+  busy = true;
+  setTodayCard('三個人裡面，判斷是哪一個');
+  playBeats(KAI_DROP_INTRO, 0, () => { busy = false; });
+}
+function talkToRunman(ref){
+  if(KAI_RUN.done) return;
+  ref.seen = true;
+  busy = true;
+  playBeats(ref.beats, 0, () => {
+    openMenu('把袋子給他？', [
+      { label:'把袋子給他', run: () => handOverBag(ref) },
+      { label:'先不要', cls:'back', run(){ busy = false; } }
+    ]);
+  });
+}
+const RUNMAN_TAKE_RIGHT = [
   { who:'pc',     text:'你把袋子遞過去。' },
   { who:'pc',     text:'他沒有打開，直接塞進外套裡。' },
   { who:'runman', text:'「這個給你。」' },
   { who:'pc',     text:'幾張鈔票，摺過兩次。' }
 ];
-/* 打開過的人多兩句——不是另一段戲,是同一段戲裡多兩句他自己的身體反應。 */
-const KAI_DROP_BEATS_OPENED = [
-  { who:'pc',     text:'遊藝場側門那條防火巷，鐵門開著一半。' },
-  { who:'pc',     text:'有人從裡面走出來，看了你一眼。' },
-  { who:'runman', text:'「阿凱叫你來的喔。」' },
-  { who:'pc',     text:'你把袋子遞過去。手指有點僵。' },
-  { who:'pc',     text:'他沒有打開——他本來就知道裡面是什麼。' },
-  { who:'runman', text:'「這個給你。」' },
-  { who:'pc',     text:'幾張鈔票，摺過兩次。' }
+const RUNMAN_TAKE_WRONG = [
+  { who:'pc', text:'你把袋子遞過去。' },
+  { who:'pc', text:'他愣了一下，然後接了。' },
+  { who:'pc', text:'他掏出幾張鈔票塞給你，看都沒看你。' },
+  { who:'pc', text:'那疊比你想的薄。' }
 ];
-/* 掛在 updateCity() 那批「場景剛安頓好」的每幀檢查上,跟 checkGrandmaCall()/
-   checkYuanEveningWatch() 同一個位置。 */
-function checkKaiRunDrop(){
-  if(!KAI_RUN.gotBag || KAI_RUN.done) return;
-  if(MODE !== 'city' || gameOver || busy || dlg.on) return;
-  const p = hero.group.position;
-  if(Math.hypot(p.x - KAI_RUN_DROP.x, p.z - KAI_RUN_DROP.z) > KAI_RUN_RANGE) return;
+function handOverBag(ref){
   KAI_RUN.done = true; KAI_RUN.delivered = true;
-  busy = true;
+  KAI_RUN.wrong = !ref.right;
+  KAI_RUN.dropDay = day;
   clearTodayCard();
   const i = TRASH.findIndex(t => t.bag);
   if(i >= 0) TRASH.splice(i, 1);
-  playBeats(KAI_RUN.opened ? KAI_DROP_BEATS_OPENED : KAI_DROP_BEATS, 0, () => {
-    chg('money', KAI_RUN_PAY); chg('calm', 6); chg('star', -3);
-    toast('四百塊。比你在超商站四個小時還快。\n（金錢 +' + KAI_RUN_PAY + '　歸屬感 +6　風評 −3）', 4600);
+  syncRunmen();
+  playBeats(ref.right ? RUNMAN_TAKE_RIGHT : RUNMAN_TAKE_WRONG, 0, () => {
+    const pay = ref.right ? KAI_RUN_PAY : KAI_RUN_PAY_WRONG;
+    chg('money', pay); chg('calm', ref.right ? 6 : 2); chg('star', -3);
+    toast(ref.right
+      ? '四百塊。比你在超商站四個小時還快。\n（金錢 +' + pay + '　歸屬感 +6　風評 −3）'
+      : '兩百五。你數了兩次。\n（金錢 +' + pay + '　歸屬感 +2　風評 −3）', 4600);
+    busy = false;
+  });
+}
+/* 給錯人兩天後阿凱來問(掛在 talkToKai() 最前面)——不是當場報錯,「你以為做完了」
+   跟「兩天後才知道」是這一幕的重點。 */
+const KAI_WRONG_BEATS = [
+  { who:'kai', text:'「欸，那天那個袋子。」' },
+  { who:'pc',  text:'他沒有像平常那樣靠在車上。' },
+  { who:'kai', text:'「你給誰了？」' },
+  { who:'pc',  text:'你講了那個人的樣子。' },
+  { who:'kai', text:'「⋯⋯那不是他。」' },
+  { who:'pc',  text:'他把安全帽的扣環扣起來，又解開。' },
+  { who:'kai', text:'「算了。下次我自己去。」' }
+];
+function kaiWrongDue(){
+  return KAI_RUN.wrong && !KAI_RUN.confronted && KAI_RUN.dropDay >= 0 && day >= KAI_RUN.dropDay + 2;
+}
+function kaiConfrontWrong(){
+  KAI_RUN.confronted = true;
+  busy = true;
+  playBeats(KAI_WRONG_BEATS, 0, () => {
+    chg('calm', -8);
+    toast('「下次我自己去。」他沒有生氣，那更難受。\n（歸屬感 −8）', 4400);
     busy = false;
   });
 }
@@ -8115,6 +8213,7 @@ function expireKaiRun(){
   clearTodayCard();
   const i = TRASH.findIndex(t => t.bag);
   if(i >= 0) TRASH.splice(i, 1);
+  syncRunmen();
   chg('calm', -2);
   toast(KAI_RUN.gotBag
     ? '袋子還在你外套裡。隔天阿凱來拿走了，沒有多說什麼。\n（歸屬感 −2）'
@@ -9956,6 +10055,10 @@ function updateCity(dt){
       nearProp = { type:'brother', ref:BROTHER };
     if(!nearProp && Math.hypot(pos.x-KAI.x, pos.z-KAI.z) < 3.2)
       nearProp = { type:'kai', ref:KAI };
+    /* 交貨那三個人(day5 跑腿)——只有他們現身的時候才有互動點,見 syncRunmen()。 */
+    if(!nearProp && KAI_RUN.gotBag && !KAI_RUN.done)
+      for(const r of RUNMEN)
+        if(Math.hypot(pos.x-r.x, pos.z-r.z) < 3.2){ nearProp = { type:'runman', ref:r }; break; }
     if(!nearProp && Math.hypot(pos.x-FOREMAN.x, pos.z-FOREMAN.z) < 3.2)
       nearProp = { type:'foreman', ref:FOREMAN };
     /* 走失狗(2026-08-28,kc:「跟狗講話可以把狗帶回去給刺青店老闆」)——
@@ -11919,6 +12022,7 @@ function talkToKai(){
   /* day5 跑腿(2026-09-10,見 KAI_RUN 那段)——擋在最前面,優先於閒聊。
      他說的是「放學」過來,所以今天要真的上完課(deskActionDay===day,跟
      finishSchoolDay() 同一個判斷)才給袋子,不然他只會叫你放學再說。 */
+  if(kaiWrongDue()){ kaiConfrontWrong(); return; }
   if(kaiRunReady()){
     if(deskActionDay !== day){ say('kai', '「放學再說啦。」'); return; }
     giveKaiBag(); return;
@@ -12978,6 +13082,7 @@ function interactProp(prop){
   if(prop.type === 'aren'){ talkToAren(); return; }
   if(prop.type === 'brother'){ talkToBrother(); return; }
   if(prop.type === 'kai'){ talkToKai(); return; }
+  if(prop.type === 'runman'){ talkToRunman(prop.ref); return; }
   if(prop.type === 'foreman'){ talkToForeman(); return; }
   if(prop.type === 'statue'){
     readNotice('（雕像底下有一塊小小的牌子)\n「致 那些沒有人要的女孩,妳們值得站上場。」\n沒有寫名字,也沒有寫年份。');
@@ -13738,6 +13843,9 @@ window.debugClearSave = debugClearSave;
    哪條路(新遊戲/讀檔/開發用的重來)都會建一次;它本來就是「有就更新、沒有
    才 push」,重複呼叫沒有副作用。 */
 syncMiscQuestPanel();
+/* 交貨那三個人的顯示狀態同理:讀檔讀進來的時候袋子可能還在身上,不同步一次
+   的話他們會是隱形的(nearProp 還在,人卻看不見)。 */
+syncRunmen();
 syncHUD();
 
 /* 除錯用:主控台可以直接把角色傳到某個門口，省得走一分鐘 */
