@@ -4595,6 +4595,16 @@ function attachPlayerFace(THREE, model){
   const P = { irisL:mk(), irisR:mk() };
   P.irisL.renderOrder = 5; boneL.add(P.irisL);
   P.irisR.renderOrder = 5; boneR.add(P.irisR);
+  /* 沒有獨立 Eyes mesh 的骨架(Remy 以外全部,眼球跟臉同一塊)補一片白色圓盤
+     當眼白(2026-09-11,kc:「其他人能給眼白嗎」)——比黑眼球大 2.6 倍、往臉內
+     退一點點,黑眼球疊在上面。用 Standard 材質跟皮膚一起吃光,不會在暗處發亮。 */
+  const mkW = () => new THREE.Mesh(new THREE.CircleGeometry(.5, 24),
+                                   new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.35 }));
+  if(!sclera){
+    P.whiteL = mkW(); P.whiteR = mkW();
+    P.whiteL.renderOrder = 4; boneL.add(P.whiteL);
+    P.whiteR.renderOrder = 4; boneR.add(P.whiteR);
+  }
 
   const wsc = o => { const e = o.matrixWorld.elements; return Math.hypot(e[0], e[1], e[2]); };
   const v = new THREE.Vector3(), fwd = new THREE.Vector3(), qh = new THREE.Quaternion(), qb = new THREE.Quaternion();
@@ -4608,16 +4618,16 @@ function attachPlayerFace(THREE, model){
      ⚠ 骨骼的 local 空間比 model 空間大 100 倍(Mixamo FBX 的 cm↔m 單位差:
      Armature 自己帶 0.01 縮放),out/irisR 這兩個以 model 空間寫的數字要換算
      過去。不寫死 100,現場量兩邊的世界縮放,換骨架也不會錯。 */
-  function place(mesh, bone){
+  function place(mesh, bone, out, r){
     head.getWorldQuaternion(qh);
     fwd.set(0, 0, 1).applyQuaternion(qh);            // 世界空間的「臉正前方」
-    bone.getWorldPosition(v).addScaledVector(fwd, F.out * wsc(model));
+    bone.getWorldPosition(v).addScaledVector(fwd, (out ?? F.out) * wsc(model));
     bone.worldToLocal(v);
     mesh.position.copy(v);
     bone.getWorldQuaternion(qb).invert();
     mesh.quaternion.copy(qb.multiply(qh));           // 黑眼球正面朝臉的正前方
     mesh.geometry.dispose();
-    mesh.geometry = new THREE.CircleGeometry(F.irisR * (wsc(model) / Math.max(wsc(bone), 1e-9)), 24);
+    mesh.geometry = new THREE.CircleGeometry((r ?? F.irisR) * (wsc(model) / Math.max(wsc(bone), 1e-9)), 24);
   }
   function apply(){
     model.updateMatrixWorld(true);
@@ -4628,6 +4638,11 @@ function attachPlayerFace(THREE, model){
     P.irisR.material.color.setHex(F.iris);
     place(P.irisL, boneL);
     place(P.irisR, boneR);
+    if(P.whiteL){
+      P.whiteL.visible = P.whiteR.visible = F.on;
+      place(P.whiteL, boneL, F.out - .004, F.irisR * 2.6);
+      place(P.whiteR, boneR, F.out - .004, F.irisR * 2.6);
+    }
   }
   apply();
   return { apply, parts:P };
