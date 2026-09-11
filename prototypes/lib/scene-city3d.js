@@ -4754,7 +4754,9 @@ export function buildPlayer(THREE, scene){
       }
     }
     mixer.update(dt/1000);                            // dt 這個檔案裡是毫秒,AnimationMixer 吃秒數
-    if(riding) applyRidePose(RIDE_BONES);              // 套跨坐姿,見上面 RIDE_POSE 的說明
+    /* riding === true 才疊跨坐(騎機車);傳 'sit'(公園長椅,2026-09-11 kc:
+       「坐下來休息要真的坐啊」)只播 sit.glb 原本的椅子坐姿,不張腿。 */
+    if(riding === true) applyRidePose(RIDE_BONES);     // 套跨坐姿,見上面 RIDE_POSE 的說明
   }
   return { group:g, animate, playOnce, setTex, resetTex, eyeY:PLAYER.eyeY, height:PLAYER.height,
             debugBones: () => RIDE_BONES,

@@ -10702,6 +10702,7 @@ addEventListener('keydown', e => {
     if(menuEl.classList.contains('on')) return;
     if(MODE === 'indoor'){ if(IN.near) openIndoorSpot(IN.near); }
     else if(ridingMoto) dismountMoto();
+    else if(benchSitting) standFromBench();
     else if(nearDoor && !busy) enterIndoor(nearDoor);
     else if(nearProp && !busy) interactProp(nearProp);
   }
@@ -10831,6 +10832,10 @@ function updateCity(dt){
     if(keys['d']||keys['arrowright']) ix += 1;
     if(keys['w']||keys['arrowup'])    iz -= 1;
     if(keys['s']||keys['arrowdown'])  iz += 1;
+    if(benchSitting){                                  // 坐著:按任何方向鍵就站起來,這一幀不移動
+      if(ix||iz) standFromBench();
+      ix = iz = 0;
+    }
     if(ix||iz){
       const speed = 0.005 * dt * (ridingMoto ? MOTO_MULT : run);
       const len = Math.hypot(ix,iz);
@@ -10844,7 +10849,7 @@ function updateCity(dt){
       moving = true;
     }
   }
-  hero.animate(dt, moving, run, !!ridingMoto);      // 第 4 參數:騎乘中蓋掉 idle/walk/run,撐坐姿(見 scene-city3d.js)
+  hero.animate(dt, moving, run, ridingMoto ? true : (benchSitting ? 'sit' : false));   // 第 4 參數:true=騎車跨坐、'sit'=長椅坐姿(見 scene-city3d.js animate)
   NPCS.forEach(n => n.animate(dt, pos));            // pos 給小步待機拿去算轉頭朝向,見 buildNPC 註解
   updateStreetRider(dt);                            // 街上那台跑的機車+騎士,見 RIDER 那則筆記
 
@@ -10988,6 +10993,8 @@ function updateCity(dt){
   if(ridingMoto){
     /* 座墊高度,數字來源見上面 MOTO_SEAT_Y 那行註解。 */
     pos.y += (MOTO_SEAT_Y - pos.y) * .3;
+  } else if(benchSitting){
+    pos.y += (BENCH_SIT_Y - pos.y) * .3;              // 跟坐著的路人同一個高度基準(SEAT_Y_PARK)
   } else {
     let onRoad = false;
     for(const r of CITY.H_ROADS) if(Math.abs(pos.z-r.z) < CITY.ROAD_HW) onRoad = true;
@@ -11180,7 +11187,10 @@ function updateCity(dt){
     });
   }
 
-  if(nearDoor && !busy && !dlg.on){
+  if(benchSitting){
+    hintEl.innerHTML = '按 <b>空白鍵</b> 或方向鍵站起來';
+    hintEl.classList.add('on');
+  } else if(nearDoor && !busy && !dlg.on){
     hintEl.innerHTML = nearDoor.name + '　按 <b>空白鍵</b> 進去';
     hintEl.classList.add('on');
   } else if(nearProp && !busy && !dlg.on){
@@ -11272,6 +11282,27 @@ const PLAY_LINES = [
    防刷,反正要花真的遊玩時間騎過去」的態度。 */
 const MOTO_JOYRIDE_MIN_DIST = 15, MOTO_JOYRIDE_MOOD = 5;
 let motoMountPos = null;
+/* 公園長椅・真的坐下(2026-09-11,kc:「坐下來休息要真的坐啊」)——原本按空白
+   鍵只飄一句字+情緒 +6,人還站著。現在:人瞬移到椅子西端(東端是坐著的
+   路人 SEATED_PARK)、面北、播 sit.glb 的椅子坐姿(hero.animate 第 4 參數傳
+   'sit',不疊騎車那組張腿),高度跟坐著的路人同一個 SEAT_Y_PARK。坐著的
+   時候方向鍵/空白鍵都是「站起來」,站起來往北(椅子前方)退一步,不會卡在
+   椅子碰撞箱裡。情緒 +6 維持坐下那一刻給,不做「坐越久加越多」。 */
+let benchSitting = false, BENCH_SIT_Y = 0;
+function sitOnBench(){
+  benchSitting = true;
+  BENCH_SIT_Y = SEAT_Y_PARK;
+  hero.group.position.set(BENCH.x - 1.1, SEAT_Y_PARK, BENCH.z + SEAT_DZ_PARK);
+  hero.group.rotation.y = 0;
+  hintEl.classList.remove('on');
+  chg('mood', 6);
+  toast('你在長椅上坐下來，看公園裡的人來來去去。\n（方向鍵站起來）', 2600);
+}
+function standFromBench(){
+  benchSitting = false;
+  hero.group.position.set(BENCH.x - 1.1, .3, BENCH.z + 1.8);
+}
+window.sitOnBench = sitOnBench;
 function mountMoto(m){
   ridingMoto = m; m.ridden = true;
   motoMountPos = { x: hero.group.position.x, z: hero.group.position.z };
@@ -14304,11 +14335,7 @@ function interactProp(prop){
   }
   /* 公園長椅・散心(2026-08-26)——見上面 BENCH 那則筆記,單一動作,跟摸貓狗
      同一個層級,不特別擋體力(坐著休息不是體力活)。 */
-  if(prop.type === 'bench'){
-    chg('mood', 6);
-    toast('你在長椅上坐了一會，看公園裡的人來來去去。', 2600);
-    return;
-  }
+  if(prop.type === 'bench'){ sitOnBench(); return; }
   if(prop.type === 'moto'){
     /* forSale 展示車拿掉了(2026-09-03,kc:「不要有展示車」)——買車完全
        走 talkToMotoBoss()(見上面 offerBuyMoto()/offerMotoPayment()/
