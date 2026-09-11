@@ -3220,7 +3220,7 @@ const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
    不會在公園啊」——阿仁搬到刺青店門口(city.doors tattoo (-12,13.6))西邊
    人行道上,面向店門;教官搬到校門口(doors school (-36,70.4))東邊人行道,
    面向馬路。上面那段「三人都在公園」的選址理由只剩小美還適用。 */
-const JIAOGUAN = { x:-32.5, z:71, confronted:false };
+const JIAOGUAN = { x:-29, z:71, confronted:false };   // 原本 -32.5 離校門(-36,70.4)3.5,跟阿仁同一個毛病(nearDoor 半徑 3.6 先搶走),再往東挪
 const AREN     = { x:-19.5, z:12,  offered:false };   // 原本 -15.5 離刺青店門(-12,13.6)太近,nearDoor 半徑 3.6 先搶走,按空白鍵變成進店,kc:「阿仁為何我無法跟他講話」
 /* 導師的清寒補助(2026-08-26,kc:「書架上有廣告可以去找老師申請清寒家庭
    補助」)——狀態放這裡,跟其他學校角色的旗標放一起,見下面 talkToTeacher()
@@ -3581,11 +3581,11 @@ const NPCS = [
     tex:{ hood:'char-mei-shirt.png', pants:'char-mei-skirt.png' }
   }),
   buildNPC(THREE, scene, {                             // 教官・巡邏(見上面 JIAOGUAN 那則筆記)
-    x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*1.1, rig:'m2',
+    x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*1.1, rig:'m2',   // 面南(朝馬路,玩家從那邊來),微偏西朝校門——2026-09-11 kc:「面對錯方向」
     skin:'#c9a077', hair:'#232323', hood:'#5c6a4a', pants:'#2c3a2c', shoe:'#1c1c1c'
   }),
   buildNPC(THREE, scene, {                             // 阿仁・蹺課常客(見上面 AREN 那則筆記)
-    x:AREN.x, z:AREN.z, rotationY:Math.PI*.5, rig:'m3',   // 面東,朝刺青店門
+    x:AREN.x, z:AREN.z, rotationY:Math.PI*.85, rig:'m3',   // 面南(朝馬路,玩家從那邊來),微偏東朝刺青店門——原本 .5 面東變成側對玩家,kc:「面對錯方向」
     skin:'#c9976e', hair:'#2c2420', hood:'#f2f0ea', pants:'#28304a', shoe:'#4a4038',
     /* 2026-08-24——跟小美同一輪「明顯一點」的要求,男生版走「制服穿得很
        隨便」:領口沒扣、露出裡面鬆垮的深藍布料,呼應「學校是學店」那條
