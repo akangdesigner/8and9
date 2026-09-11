@@ -4789,6 +4789,7 @@ let SCHOOL = SCHOOL_FALLBACK, SCHOOL_COLLIDERS = SCHOOL_COLLIDERS_FALLBACK;
 const CORRIDOR_COLLIDERS = [];
 const CORRIDOR = {
   walkN: SceneCorridor.WALK_N, walkS: SceneCorridor.WALK_S,
+  standY: SceneCorridor.WALK_S,   // 灰模時代的預設(站最靠鏡頭那條),照片載到會換成 CORRIDOR_PHOTO.standY
   spots: [
     { id:'classroom', name:'教室門', x:0, w:70, y0:SceneCorridor.WALK_N, y1:SceneCorridor.WALK_S },
     { id:'kiosk', name:'繳費機', x:SceneCorridor.KIOSK.x-14, w:SceneCorridor.KIOSK.w+28,
@@ -6446,6 +6447,10 @@ function paintCorridorBackdrop(){
    多一個 'board' 公佈欄互動點,內容見 openIndoorSpot() 那個分支。 */
 const CORRIDOR_PHOTO = {
   walkN: 250, walkS: 345,
+  /* standY(2026-09-11,kc:「人物讓我移到中間 我們不上下走了 只會面對上面互動」)
+     ——走廊本來就鎖深度,但進門是站在 walkS(最靠鏡頭那條),改成固定站在
+     走道帶中間這條線,只左右走、面朝牆互動。 */
+  standY: 298,
   spots: [
     { id:'classroom', name:'教室門', x:27,  w:99  },
     { id:'kiosk',     name:'繳費機', x:160, w:72  },
@@ -6457,7 +6462,7 @@ const CORRIDOR_PHOTO = {
 const schoolCorridorImg = new Image();
 schoolCorridorImg.onload = () => {
   if(schoolCorridorImg.naturalWidth){
-    CORRIDOR.walkN = CORRIDOR_PHOTO.walkN; CORRIDOR.walkS = CORRIDOR_PHOTO.walkS;
+    CORRIDOR.walkN = CORRIDOR_PHOTO.walkN; CORRIDOR.walkS = CORRIDOR_PHOTO.walkS; CORRIDOR.standY = CORRIDOR_PHOTO.standY;
     CORRIDOR.spots = CORRIDOR_PHOTO.spots.map(sp => ({ ...sp, y0:CORRIDOR_PHOTO.walkN, y1:CORRIDOR_PHOTO.walkS }));
   }
   if(PLACE === 'corridor') paintCorridorBackdrop();
@@ -6574,7 +6579,7 @@ const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
 /* 走廊近/遠透視(2026-09-11,kc:「只要透視跟大小 上下邊界即可」)——跟
    schoolHeroPx() 同一套,深度區間用 CORRIDOR.walkN/walkS;起始值照教室那組
    抓,還沒跟 kc 對,#bar「走廊滑桿」可以拉。 */
-const CORRIDOR_HERO_TWEAK = { nearPx: 420, farPx: 350 };
+const CORRIDOR_HERO_TWEAK = { nearPx: 400, farPx: 400 };   // 深度鎖死之後近=遠,一個數字
 function corridorHeroPx(py){
   const t = Math.max(0, Math.min(1, (py - CORRIDOR.walkN) / (CORRIDOR.walkS - CORRIDOR.walkN)));
   return CORRIDOR_HERO_TWEAK.farPx + t * (CORRIDOR_HERO_TWEAK.nearPx - CORRIDOR_HERO_TWEAK.farPx);
@@ -9978,7 +9983,7 @@ function enterCorridor(){
   busy = true;
   fade('走廊', () => {
     PLACE = 'corridor';
-    IN.px = 70; IN.py = CORRIDOR.walkS; IN.face = 'F';
+    IN.px = 70; IN.py = CORRIDOR.standY ?? CORRIDOR.walkS; IN.face = 'B';   // 站走道中線、面朝牆(見 CORRIDOR_PHOTO.standY)
     document.getElementById('where').textContent = '走廊';
     paintCorridorBackdrop();
     /* story-school.js day28(導師找你,「他把你叫到走廊」)——原本的筆記
@@ -9999,7 +10004,7 @@ function debugJumpCorridor(){
   document.getElementById('city').style.display = 'none';
   document.getElementById('indoor').classList.add('on');
   wlabelsEl.style.display = 'none';
-  IN.px = 70; IN.py = CORRIDOR.walkS; IN.face = 'F';
+  IN.px = 70; IN.py = CORRIDOR.standY ?? CORRIDOR.walkS; IN.face = 'B';
   document.getElementById('where').textContent = '走廊';
   paintCorridorBackdrop();
 }
@@ -10012,11 +10017,11 @@ function tweakCorridorPanel(){
   const old = document.getElementById('corridorTweakPanel');
   if(old){ old.remove(); return; }
   /* kc:「太多奇怪的了 只要透視跟大小 上下邊界即可」——互動點那十條拔掉。 */
+  /* 深度鎖在 standY 一條線上之後,近/遠透視只剩一個數字有意義,滑桿就給
+     「大小」(近遠一起設)跟「站的深度」兩條。 */
   const rows = [
-    ['cr_near','大小:近(靠鏡頭)', 150, 700, 1, () => CORRIDOR_HERO_TWEAK.nearPx, v => CORRIDOR_HERO_TWEAK.nearPx = v],
-    ['cr_far', '大小:遠(靠牆)',   150, 700, 1, () => CORRIDOR_HERO_TWEAK.farPx,  v => CORRIDOR_HERO_TWEAK.farPx = v],
-    ['cr_wn','上邊界 walkN(越小越往牆)', 150, 340, 1, () => CORRIDOR.walkN, v => { CORRIDOR.walkN = v; CORRIDOR.spots.forEach(sp => sp.y0 = v); }],
-    ['cr_ws','下邊界 walkS(越大越靠鏡頭)', 250, 360, 1, () => CORRIDOR.walkS, v => { CORRIDOR.walkS = v; CORRIDOR.spots.forEach(sp => sp.y1 = v); }],
+    ['cr_size','大小', 150, 700, 1, () => CORRIDOR_HERO_TWEAK.nearPx, v => { CORRIDOR_HERO_TWEAK.nearPx = v; CORRIDOR_HERO_TWEAK.farPx = v; }],
+    ['cr_y','站的深度 y(越大越靠鏡頭)', 200, 360, 1, () => CORRIDOR.standY ?? IN.py, v => { CORRIDOR.standY = v; IN.py = v; CORRIDOR.spots.forEach(sp => { sp.y0 = Math.min(sp.y0, v); sp.y1 = Math.max(sp.y1, v); }); }],
   ];
   const panel = document.createElement('div');
   panel.id = 'corridorTweakPanel';
