@@ -3673,15 +3673,18 @@ export function buildCity(THREE, scene){
   /* skinIdx:每台車停放時固定分配一種車色(見上面 MOTO_SKINS 清單),同一台
      車換位置停(下車重新停放)不會跟著換色——applyMotoSkin() 只在這裡呼叫
      一次,不是每次移動都重算。 */
-  function parkMoto(x, z, skinIdx, forSale){
+  function parkMoto(x, z, skinIdx, forSale, loose){
     const fallback = box(1.6, 3.1, 4.3, std({ color:0x555b60, roughness:.7 }));
     const holder = add(fallback, x, 1.55, z, true, false);
     /* owned/forSale(2026-08-17,kc 要求)——forSale 標記「停在機車行門口、
        可以花錢買下」的那台,owned 是買下之後的狀態。其餘沒標 forSale 的車
        永遠是「別人的」,騎了都算借用(game.html 那邊扣風評)。這兩個欄位
-       只是資料,判斷跟扣分邏輯都在 game.html 的 mountMoto()/interactProp()。 */
+       只是資料,判斷跟扣分邏輯都在 game.html 的 mountMoto()/interactProp()。
+       loose(2026-09-11):街上跑的 NPC 機車用——**不進 motos 陣列**,理由
+       兩個:玩家不該按空白鍵騎走一台正在跑的車;存檔的 motos 是按索引
+       對回來的(game.html save/load),多塞一台會把買下的那台索引擠歪。 */
     const entry = { x, z, group:holder, ridden:false, forSale:!!forSale, owned:false };
-    motos.push(entry);
+    if(!loose) motos.push(entry);
     /* return entry(2026-09-03)——現生一台車(見上面 spawnMoto 那則筆記)
        呼叫端要拿到這個 entry 才能標 owned/存起來,不是純副作用函式了。
        group 這時候還是 fallback 灰盒子(glb 還沒載完),但 x/z/owned 這些

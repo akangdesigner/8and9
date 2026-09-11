@@ -954,7 +954,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugJumpBusStop()">跳公車亭</button><button class="tool" onclick="debugJumpPark()">跳公園</button><button class="tool" onclick="tweakSeatedPanel()">坐姿滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -4169,6 +4169,66 @@ const PEDESTRIANS = [
   AXIA_NPC   // 第三隻(原本這裡是匿名 f2 路人)換成有名字/對話/任務的阿霞,見上面 AXIA 那則筆記
 ];
 NPCS.push(...PEDESTRIANS);
+
+/* 坐著的路人 + 街上騎車的(2026-09-11,kc:「現在貓狗都站著 人物也是 有沒有
+   辦法有些人坐著甚至騎車之類」→ 方案「坐 3 個、騎 1 台」他說 c2 ok)。
+   坐的 3 隻:公車亭長椅兩張(scene-city3d.js busStop() 的 bx/bz 算式:xW=-52、
+   openW=26、4 張等分 → x=-41.6/-31.2,z=backRowZ-.8=106.2,月台 platH=.3)+
+   小公園西邊那張長椅(park() 的 addProp('bench', cx-8, cz+3) → (46,-18.5))。
+   ⚠ 公園那張是照片卡片不是 3D 椅子,人只能坐在卡片前面一點點,鏡頭繞到
+   側面會穿幫——先這樣,穿幫太明顯再考慮把公園長椅換成公車亭那顆 bench.glb。
+   pose:'sit' 借各 rig 的 sit.glb(跟媽媽坐沙發、阿霞後座同一套),y 高度
+   SEAT_Y_* 那幾個 let 是猜的,#bar「坐姿滑桿」可以現場拉,拉到滿意跟我說數字。
+   騎車的 1 台:沿中華路(H_ROADS z:0,路面 ±9)順時針繞——東行走 z=-4.5、
+   西行走 z=+4.5,兩端 x=±76 掉頭。車用 city.spawnMoto(…, loose=true) 現生,
+   **不進 city.motos**(理由見 parkMoto() 那則);人借 mountRide() 那套跨坐
+   (阿霞那次做的),每幀 updateStreetRider() 塞座標給人跟車。沒做跟玩家的
+   碰撞——玩家站在路中間車會直接穿過去,原型階段先不管。 */
+let SEAT_Y_BUS = 1.25, SEAT_Y_PARK = 0.95, SEAT_DZ_PARK = 0.35;
+let RIDER_SEAT_Y = 0.95, RIDER_SPEED = 8;
+const SEATED_BUS = [
+  buildNPC(THREE, scene, { x:-41.6, z:106.2, rotationY:Math.PI, rig:'m3', pose:'sit',
+    skin:'#c2a17e', hood:'#3a3a4a', pants:'#2b2b2b', shoe:'#3a3430' }),
+  buildNPC(THREE, scene, { x:-31.2, z:106.2, rotationY:Math.PI*1.03, rig:'f', pose:'sit',
+    skin:'#c9a077', hair:'#241f1c', hood:'#6a4a3a', pants:'#333333', shoe:'#4a4038' }),
+];
+const SEATED_PARK = buildNPC(THREE, scene, { x:46, z:-18.5+SEAT_DZ_PARK, rotationY:0, rig:'m4', pose:'sit',
+  skin:'#b98a63', hair:'#3a3128', hood:'#4a5a4a', pants:'#26241f', shoe:'#3a3430' });
+function applySeatTweak(){
+  SEATED_BUS.forEach(n => { n.group.position.y = SEAT_Y_BUS; });
+  SEATED_PARK.group.position.y = SEAT_Y_PARK;
+  SEATED_PARK.group.position.z = -18.5 + SEAT_DZ_PARK;
+}
+applySeatTweak();
+PEDESTRIANS.push(...SEATED_BUS, SEATED_PARK);   // 按空白鍵一樣能搭話,共用 PEDESTRIAN_LINES
+NPCS.push(...SEATED_BUS, SEATED_PARK);
+
+const RIDER_PATH = [[-76,-4.5],[76,-4.5],[76,4.5],[-76,4.5]];
+const RIDER = {
+  npc: buildNPC(THREE, scene, { x:-76, z:-4.5, rotationY:Math.PI/2, rig:'m3',
+    skin:'#c9976e', hood:'#2e3a4a', pants:'#2b2b2b', shoe:'#3a3430' }),
+  moto: city.spawnMoto(-76, -4.5, 4, false, true),
+  idx:1, x:-76, z:-4.5, ry:Math.PI/2, mounted:false
+};
+NPCS.push(RIDER.npc);   // 只進 NPCS(要 animate 更新 mixer),不進 PEDESTRIANS——跑動中的人不給搭話
+function updateStreetRider(dt){
+  const R = RIDER;
+  if(!R.mounted && R.npc.getMixer()){ R.npc.mountRide(); R.mounted = true; }   // mixer 載好才 mountRide,不然 sit 動畫接不上
+  const [tx, tz] = RIDER_PATH[R.idx];
+  const dx = tx - R.x, dz = tz - R.z, dist = Math.hypot(dx, dz);
+  const step = RIDER_SPEED * dt / 1000;
+  if(dist <= step){ R.x = tx; R.z = tz; R.idx = (R.idx + 1) % RIDER_PATH.length; }
+  else { R.x += dx/dist*step; R.z += dz/dist*step; }
+  const want = Math.atan2(dx, dz);
+  const diff = Math.atan2(Math.sin(want - R.ry), Math.cos(want - R.ry));
+  R.ry += diff * Math.min(1, dt * .006);
+  const fx = Math.sin(R.ry), fz = Math.cos(R.ry);
+  if(R.moto.group){
+    R.moto.group.position.set(R.x + fx*MOTO_SEAT_OFFSET, 0, R.z + fz*MOTO_SEAT_OFFSET);
+    R.moto.group.rotation.y = R.ry;
+  }
+  R.npc.setRideTransform(R.x, RIDER_SEAT_Y, R.z, R.ry);
+}
 
 /* ===================================================================
    2D 室內:超商(維持平視,因為這裡的內容是臉)
@@ -10766,6 +10826,7 @@ function updateCity(dt){
   }
   hero.animate(dt, moving, run, !!ridingMoto);      // 第 4 參數:騎乘中蓋掉 idle/walk/run,撐坐姿(見 scene-city3d.js)
   NPCS.forEach(n => n.animate(dt, pos));            // pos 給小步待機拿去算轉頭朝向,見 buildNPC 註解
+  updateStreetRider(dt);                            // 街上那台跑的機車+騎士,見 RIDER 那則筆記
 
   /* 顧場子(2026-08-26)——見 WATCHJOB 那則長筆記。「看到了沒」不做視錐/
      遮蔽判斷,單純玩家有沒有靠近過走動中的小美哥(kc:「主要是如果玩家的
@@ -11309,6 +11370,54 @@ function talkToAxia(){
    效果得先真的在騎乘中(axiaRiding),所以下面另外開一個
    __dbg.axiaTestRide() 方便現場測,不用真的滿足「有機車+騎車經過她」
    這串前置條件。 */
+/* 坐姿/騎士滑桿(2026-09-11)——跟下面後座滑桿同一套寫法,調 SEAT_Y_BUS/SEAT_Y_PARK/RIDER_SEAT_Y/RIDER_SPEED
+   那幾個 let。#bar「坐姿滑桿」開關,「跳公車亭」「跳公園」把人丟到看得到的地方。 */
+function tweakSeatedPanel(){
+  const old = document.getElementById('seatedTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['st_bus','公車亭長椅:坐姿高度', 0.3, 2.5, 0.02, () => SEAT_Y_BUS, v => { SEAT_Y_BUS = v; applySeatTweak(); }],
+    ['st_park','公園長椅:坐姿高度', 0.3, 2.0, 0.02, () => SEAT_Y_PARK, v => { SEAT_Y_PARK = v; applySeatTweak(); }],
+    ['st_parkz','公園長椅:前後(離卡片多遠)', -1.5, 1.5, 0.02, () => SEAT_DZ_PARK, v => { SEAT_DZ_PARK = v; applySeatTweak(); }],
+    ['st_ry','騎士座墊高度', 0.3, 1.6, 0.02, () => RIDER_SEAT_Y, v => RIDER_SEAT_Y = v],
+    ['st_spd','機車速度', 2, 20, 0.5, () => RIDER_SPEED, v => RIDER_SPEED = v]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'seatedTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:240px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">坐姿/騎士滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get().toFixed(2)}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「坐姿滑桿」<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,, set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value;
+      set(v);
+      document.getElementById(`${id}_v`).textContent = v.toFixed(2);
+    });
+  });
+}
+window.tweakSeatedPanel = tweakSeatedPanel;
+function debugJumpBusStop(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(-38, .3, 98);
+}
+function debugJumpPark(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(52, .3, -14);
+}
+window.debugJumpBusStop = debugJumpBusStop;
+window.debugJumpPark = debugJumpPark;
 function tweakPassengerSeatPanel(){
   const old = document.getElementById('passengerSeatTweakPanel');
   if(old){ old.remove(); return; }
