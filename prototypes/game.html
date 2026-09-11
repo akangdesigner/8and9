@@ -3054,7 +3054,7 @@ function checkFieldTrip(){
    一旦人都搬回學校,阿源也不在旁邊了,沒有「之後再補做」的路徑,做失敗
    提示反而畫蛇添足。 */
 const CLASSMATE_QUEST = { active:false, talkedMei:false, talkedAren:false, talkedKai:false, allTalked:false, resolved:false };
-const CLASSMATE_HOME = { mei:{x:45,z:-26}, aren:{x:45,z:-22}, kai:{x:6,z:-13} };
+const CLASSMATE_HOME = { mei:{x:45,z:-26}, aren:{x:-15.5,z:12}, kai:{x:6,z:-13} };   // aren 2026-09-11 搬到刺青店門口,跟上面 AREN 常數同一組數字
 const CLASSMATE_TEMPLE_POS = {
   mei:  { x:10, z:-93, face:Math.PI*.7 },
   aren: { x:14, z:-96, face:Math.PI*.3 },
@@ -3203,8 +3203,12 @@ const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
                     loanAsked:false, loan:0, loanDay:null, loanUnpaid:false,
                     helpedDay:-1,   // 教室「幫她解題目」的每日一次旗標,見下面 openIndoorSpot() mei 分支
                     kissed:false, kissedDay:null, apologized:false };   // 偷親後續,見 talkToMei() 開頭那段攔截
-const JIAOGUAN = { x:43, z:-18.5, confronted:false };
-const AREN     = { x:45, z:-22,   offered:false };
+/* 2026-09-11 kc 兩個搬家:「阿仁要改在刺青店附近 他不是想當學徒嗎」「教官也
+   不會在公園啊」——阿仁搬到刺青店門口(city.doors tattoo (-12,13.6))西邊
+   人行道上,面向店門;教官搬到校門口(doors school (-36,70.4))東邊人行道,
+   面向馬路。上面那段「三人都在公園」的選址理由只剩小美還適用。 */
+const JIAOGUAN = { x:-32.5, z:71, confronted:false };
+const AREN     = { x:-15.5, z:12,  offered:false };
 /* 導師的清寒補助(2026-08-26,kc:「書架上有廣告可以去找老師申請清寒家庭
    補助」)——狀態放這裡,跟其他學校角色的旗標放一起,見下面 talkToTeacher()
    的判斷跟 lookAtBookshelf()。 */
@@ -3568,7 +3572,7 @@ const NPCS = [
     skin:'#c9a077', hair:'#232323', hood:'#5c6a4a', pants:'#2c3a2c', shoe:'#1c1c1c'
   }),
   buildNPC(THREE, scene, {                             // 阿仁・蹺課常客(見上面 AREN 那則筆記)
-    x:AREN.x, z:AREN.z, rotationY:Math.PI*.6, rig:'m3',
+    x:AREN.x, z:AREN.z, rotationY:Math.PI*.5, rig:'m3',   // 面東,朝刺青店門
     skin:'#c9976e', hair:'#2c2420', hood:'#f2f0ea', pants:'#28304a', shoe:'#4a4038',
     /* 2026-08-24——跟小美同一輪「明顯一點」的要求,男生版走「制服穿得很
        隨便」:領口沒扣、露出裡面鬆垮的深藍布料,呼應「學校是學店」那條
@@ -4175,7 +4179,7 @@ NPCS.push(...PEDESTRIANS);
    辦法有些人坐著甚至騎車之類」→ 方案「坐 3 個、騎 1 台」他說 c2 ok)。
    坐的 3 隻:公車亭長椅兩張(scene-city3d.js busStop() 的 bx/bz 算式:xW=-52、
    openW=26、4 張等分 → x=-41.6/-31.2,z=backRowZ-.8=106.2,月台 platH=.3)+
-   小公園西邊那張長椅(park() 的 addProp('bench', cx-8, cz+3) → (46,-18.5))。
+   小公園東邊那張長椅(park() 的 (x1-2.5, cz+3) → (63.5,-18.5),見 SEATED_PARK 那則)。
    公園那張原本是照片卡片,2026-09-11 kc「公園的長椅也太小」之後換成公車亭
    同一顆 bench.glb(見 scene-city3d.js park()),人是真的坐在 3D 椅子上了。
    pose:'sit' 借各 rig 的 sit.glb(跟媽媽坐沙發、阿霞後座同一套),y 高度
@@ -4201,7 +4205,11 @@ const SEATED_BUS = [
   buildNPC(THREE, scene, { x:-36.4, z:106.2, rotationY:Math.PI*1.03, rig:'f', pose:'sit',
     skin:'#c9a077', hair:'#241f1c', hood:'#6a4a3a', pants:'#333333', shoe:'#4a4038' }),
 ];
-const SEATED_PARK = buildNPC(THREE, scene, { x:46, z:-18.5+SEAT_DZ_PARK, rotationY:0, rig:'m4', pose:'sit',
+/* 2026-09-11 kc:「公園長椅左邊不要放 右邊要轉180度坐人」——西邊那張拆了,只剩
+   東邊 (63.5,-18.5) 那張,轉成面北;人坐椅子東端(x+1.1),中間留給玩家「散心」
+   那個互動(BENCH 常數同一張椅子,兩個互動半徑會疊,PEDESTRIANS 那圈 2.6
+   比 bench 的 3.2 小,站得夠近才會變成跟他搭話)。 */
+const SEATED_PARK = buildNPC(THREE, scene, { x:64.6, z:-18.5+SEAT_DZ_PARK, rotationY:0, rig:'m4', pose:'sit',
   skin:'#b98a63', hair:'#3a3128', hood:'#4a5a4a', pants:'#26241f', shoe:'#3a3430' });
 function applySeatTweak(){
   SEATED_BUS.forEach(n => { n.group.position.y = SEAT_Y_BUS; n.group.position.z = 106.2 + SEAT_DZ_BUS; });
@@ -11427,7 +11435,7 @@ function debugJumpPark(){
   document.getElementById('indoor').classList.remove('on');
   document.getElementById('city').style.display = '';
   wlabelsEl.style.display = '';
-  hero.group.position.set(52, .3, -14);
+  hero.group.position.set(60, .3, -14);
 }
 window.debugJumpBusStop = debugJumpBusStop;
 window.debugJumpPark = debugJumpPark;
