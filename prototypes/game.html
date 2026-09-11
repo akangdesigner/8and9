@@ -1204,11 +1204,13 @@ function askMakeupExam(){
         { who:'teacher', text:'「你會啊。」' },
         { who:'teacher', text:'「你只是沒時間。」' }
       ], 0, () => toast('補考過了。（風評 +6，小小知識 +2）', 3400));
+      logDay('補考過了。');
     } else {
       chg('star', -3);
       playBeats([
         { who:'pc', text:'那科就這樣掛了。他沒有再提。' }
       ], 0, () => toast('補考沒過。（風評 −3）', 3000));
+      logDay('補考沒過，那科掛了。');
     }
   }
   function askRound(){
@@ -1512,8 +1514,10 @@ function endPhoneGame(success, jitterLine){
   if(done) done();          // 上課那條路用來「這節課上完了 → 放學」,見 finishSchoolDay()
   if(success){
     chg('mood', 6);
+    logDay('上課偷玩了一節課手機，沒被抓。');
     toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
   } else if(jitterLine){
+    logDay('上課玩手機玩到一半自己收起來了。');
     /* 2026-09-01,kc:「扣太多了啦」——沒有真的被教官抓到,是自己疑神疑鬼
        提早收手,懲罰比真的被抓(星 −4／歸屬感 −6)輕一點,改星 −1／歸屬感
        −2,這兩個數字是我自己選的,不喜歡跟我說要改多少。 */
@@ -1522,6 +1526,7 @@ function endPhoneGame(success, jitterLine){
   } else {
     chg('star', -3); chg('calm', -6);
     addWarning('phone');   // 記警告,手機在他桌上,放學去走廊拿(見 DISCIPLINE)
+    logDay('上課玩手機被教官抓到，手機被沒收。');
     playBeats([
       { who:'jiaoguan', text:'「你在幹嘛。」' },
       { who:'pc',       text:'教官不知道什麼時候站到你後面了，手機直接被沒收。' },
@@ -3230,6 +3235,7 @@ function checkFatArc(){
    `FAT.gone` 之後(消失)完全不回應,靠近也沒有互動提示,見下面 nearProp
    那段判斷。 */
 function talkToFat(){
+  logTalk('小胖');
   if(checkFatArc()) return;
   const line = FAT_DATA.talk[Math.random()*FAT_DATA.talk.length|0];
   say('fat', line);
@@ -3388,6 +3394,7 @@ const MOTO_PATROL_POINTS = [ [-78,90], [-84,40], [-84,-40], [-84,-84], [0,-84] ]
    位置)一起改,不然騎乘互動判定跟畫面對不上(dismountMoto() 那組
    m.x=pos.x 的同一個坑)。 */
 function finishMotoImpound(msg){
+  logDay(MOTO_IMPOUND.patrolActive ? '幫阿正巡了一段街，車拿回來了。' : '去警局繳罰款把車贖回來。');
   MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
   MOTO_IMPOUND.patrolActive = false;
   const m = MOTO_IMPOUND.motoRef;
@@ -3843,6 +3850,7 @@ function startWatchJob(){
 function resolveWatchJob(success){
   if(WATCHJOB.resolved) return;
   WATCHJOB.resolved = true; WATCHJOB.active = false; WATCHJOB.lastDay = day;
+  logDay(success ? '晚上幫阿源顧場子，有看到小美哥。' : '晚上幫阿源顧場子，小美哥走進去了才講。');
   scene.remove(WATCHJOB.walker.group);
   const idx = NPCS.indexOf(WATCHJOB.walker);
   if(idx >= 0) NPCS.splice(idx, 1);
@@ -6840,6 +6848,7 @@ const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false, momEchoPending: false, 
 function gambleResolve(cost, resolveFn){
   if(ST.money < cost){ toast('你身上不夠。', 2000); return null; }
   chg('money', -cost);
+  logDay('去遊藝場玩了幾把。');
   const r = resolveFn();
   if(r.payout) chg('money', r.payout);
   chg('mood', r.mood);
@@ -7223,6 +7232,7 @@ function openIndoorSpot(id){
             if(altarIncenseDay === day){ toast('今天已經上過香了。', 2200); return; }
             altarIncenseDay = day;
             chg('mood', 6);
+            logDay('去廟口上了一炷香。');
             toast('你點了一炷香,插進香爐裡。（情緒 +6）', 2600);
           } },
         { label:'先不要', cls:'back', run(){} }
@@ -7390,6 +7400,7 @@ function openIndoorSpot(id){
             TRASH.push({ name:'成績單', icon:'📜', star:6, active:true,
               detail:'兩週一次的小考，你真的坐下來寫完了。<br>可以帶出來秀給別人看，也可以收起來——風評加成是自己決定要不要露的。' });
             toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +6）', 4200);
+            logDay('考了小考，成績單拿到了。');
           } };
         })(),
         /* 補考(2026-09-01,見上面 maybeAnnounceExam()/askMakeupExam() 那組
@@ -8555,7 +8566,12 @@ let daySnapshot = null;
    ⚠ 重複的同一句只留一次(同一天上兩次課那種),順序照發生的先後。 */
 let dayLog = [];
 function logDay(text){ if(text && !dayLog.includes(text)) dayLog.push(text); }
-function snapDay(){ daySnapshot = { ...ST }; dayLog = []; }
+/* 跟誰講過話——每個 talkToXxx() 開頭一行,同一天同一個人只留一句(logDay 本來
+   就去重)。曠課那句要寫在「新的一天」的日記裡,wake 那時 dayLog 已經清掉,
+   先寄在 dayLogPending,snapDay() 之後補進去。 */
+function logTalk(name){ logDay('跟' + name + '講了幾句。'); }
+let dayLogPending = '';
+function snapDay(){ daySnapshot = { ...ST }; dayLog = []; if(dayLogPending){ dayLog.push(dayLogPending); dayLogPending = ''; } }
 const SP_ROWS = [
   ['money', '金錢', v => '$' + v], ['full', '飽足'], ['stamina', '體力'],
   ['mood', '情緒'], ['calm', '歸屬感'], ['cool', '帥潮'], ['star', '風評']
@@ -8662,6 +8678,7 @@ const SCHOOL_OUT_MINUTE = 16*60;
    分三句),進教室本身不卡這個時間,遲到照樣能上課。 */
 const SCHOOL_IN_MINUTE = 8*60;
 function finishSchoolDay(){
+  logDay('放學了。');
   if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
   toast('放學了。', 2200);
 }
@@ -9595,7 +9612,7 @@ function sleepAdvance(skippedSchool){
       /* 日記那頁已經把「今天過了什麼」講完了,睡醒不用再來一則「你回去睡了一覺」
          (2026-09-10,kc:「然後就會自動起床啊 接明天的故事」)——只有真的有事
          (昨天翹課被扣、機車分期扣款)才跳,沒事就直接接明天的戲。 */
-      if(skippedSchool) addWarning('absent', skippedDay);   // 曠課記警告,隔天校門口教官會講(見 DISCIPLINE)
+      if(skippedSchool){ addWarning('absent', skippedDay); dayLogPending = '昨天沒去學校。'; }   // 曠課記警告,隔天校門口教官會講(見 DISCIPLINE);日記那句留給新的一天
       if(skippedSchool || loanMsg)
         toast((skippedSchool ? '昨天沒去學校。（風評 −3）' : '') + loanMsg, 3800);
       busy = false;
@@ -9954,6 +9971,7 @@ function talkToWorkerIndoor(){
        會被講的,其他選項都不扣。 */
     { label:'辦正事', run(){
         chg('mood', 12); chg('calm', 3); chg('star', -3);
+        logDay('去了巷子裡那間。');
         say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +12、歸屬感 +3、風評 −3）', leaveIndoor);
       } },
     { label:'走了', cls:'back', run: leaveIndoor }
@@ -10784,6 +10802,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
     const node = src.NODES.find(n => n.day === day);
     if(node && !seenStoryDays.has(key+'-'+node.day)){
       seenStoryDays.add(key+'-'+node.day);
+      if(key === 'bet' || key === 'drink') logDay((key === 'bet' ? '媽' : '爸') + '的事：' + node.title + '。');
       /* 事情發生了就收掉早上那張提醒卡——**除非這個節點自己要換掉卡的內容**
          (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
          要留到那件事真的做完。 */
@@ -11474,6 +11493,7 @@ const REST_MS = 8000, REST_MINUTES = 30, REST_GAIN = { stamina:5, mood:1, full:-
 const restBarEl = document.getElementById('restBar'), restFillEl = document.getElementById('restFill'), restClockEl = document.getElementById('restClock');
 function sitOnBench(){
   benchSitting = true; restT = 0;
+  logDay('在公園長椅坐了一會。');
   BENCH_SIT_Y = SEAT_Y_PARK;
   hero.group.position.set(BENCH.x - 1.1, SEAT_Y_PARK, BENCH.z + SEAT_DZ_PARK);
   hero.group.rotation.y = 0;
@@ -11505,8 +11525,10 @@ function mountMoto(m){
   motoMountPos = { x: hero.group.position.x, z: hero.group.position.z };
   hintEl.classList.remove('on');
   if(m.owned){
+    logDay('騎車繞了一下。');
     toast('騎上自己的車。', 1600);
   } else {
+    logDay('騎了別人的車。');
     /* 2026-09-10,kc:「騎別人機車 的提示要改 你趁人不備其上了別人的機車
        然後會不斷地扣風評(一段時間扣一次)」——上車那一下扣一次,之後只要
        還騎在別人的車上就每 10 秒再扣一次(見 updateCity() 的 stolenRideT)。 */
@@ -11591,6 +11613,7 @@ function dismountMoto(){
    startAxiaRide()。resolved 之後(不管走哪條路解決)固定回一句,不會
    再開選單。 */
 function talkToAxia(){
+  logTalk('阿霞');
   if(!AXIA.met){ AXIA.met = true; syncMiscQuestPanel(); }   // 真的遇到她才把任務卡掛上去
   if(AXIA.resolved){
     toast('「謝謝你那天啊。」她笑了笑，繼續等車。', 2200);
@@ -11758,6 +11781,7 @@ function talkToStallVendor(state, data, whoKey, onBuyMenu, opts){
   }
 }
 function talkToAyi(){
+  logTalk('阿姨');
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('ayi')){ runDailyGoto('ayi'); return; }
   talkToStallVendor(AYI, AYI_DATA, 'ayi', () => {
@@ -11777,6 +11801,7 @@ function talkToAyi(){
   });
 }
 function talkToAcheng(){
+  logTalk('阿成');
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('acheng')){ runDailyGoto('acheng'); return; }
   talkToStallVendor(ACHENG, ACHENG_DATA, 'acheng', () => {
@@ -12118,6 +12143,7 @@ function openFortuneMenu(){
   ]);
 }
 function talkToFortune(){
+  logTalk('算命的');
   /* 任務進行中優先攔在最前面:做完了(quest.done)先讓他交貨、指標真的
      加值,還沒做完就提醒你東西還沒拿到——兩種情況都不進正常的算命
      選單(那天多半也已經抽過籤了,選單本來就沒什麼好點的)。 */
@@ -12167,6 +12193,7 @@ const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
    多一次選單點擊,換來「不夠格主動去問會被怎麼拒絕」這件事變得到得了,
    不用再靠 fall through 假裝沒發生。 */
 function talkToYuan(){
+  logTalk('阿源');
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('yuan')){ runDailyGoto('yuan'); return; }
   /* 出賣後的翻臉(2026-09-01,kc:「他會咒罵出賣他的人 你會心虛的應對
@@ -12487,6 +12514,7 @@ function yuanCasualTalk(){
    一樣,因為三條任務本身門檻的形狀不一樣(帥潮門檻/一次性旗標/一次性
    branch),沒有硬套同一個共用函式。 */
 function talkToMei(){
+  logTalk('小美');
   /* 跟同學培養感情(見 checkFieldTrip() 附近 CLASSMATE_QUEST 那則長筆記)
      ——擋在最前面,校外教學這趟第一次找她講話只播這句、不進平常 met/
      dated 那套判斷,避免這次的溫馨閒聊被帥潮門檻擋掉或誤觸發約會流程。 */
@@ -12722,6 +12750,7 @@ function maybeCounsel(after){
   return true;
 }
 function talkToJiaoguan(){
+  logTalk('教官');
   const D = NpcSchool.JIAOGUAN;
   if(!YUAN.hasTattoo || JIAOGUAN.confronted){
     /* 校門口的教官認得上下課時間(2026-09-11,kc 定案,見 SCHOOL_IN_MINUTE):
@@ -12734,6 +12763,7 @@ function talkToJiaoguan(){
     if(ab){
       ab.announced = true;
       const n = DISCIPLINE.warnings.length;
+      logDay('校門口被教官記曠課，警告第 ' + n + ' 次。');
       say('jiaoguan', `「${dayToDate(ab.day)}沒來。記警告，目前 ${n} 次。」`, () => {
         openMenu('教官', [
           { label:'「生病。」', cls:'', run(){ say('jiaoguan', '「有假單嗎。」你沒有。他已經寫好了。'); } },
@@ -12782,6 +12812,7 @@ function talkToJiaoguanCorridor(){
   if(DISCIPLINE.phoneHeld){
     DISCIPLINE.phoneHeld = false;
     const n = DISCIPLINE.warnings.length;
+    logDay('去走廊跟教官拿回手機，警告第 ' + n + ' 次。');
     playBeats([
       { who:'jiaoguan', text:'他從抽屜拿出來，放在桌上，手沒有放開。' },
       { who:'jiaoguan', text:n >= 3 ? `「第 ${n} 次了，要送輔導室。」` : `「警告第 ${n} 次。」` },
@@ -12954,6 +12985,7 @@ function lookAtBench(){
    talkToMotoBoss() 的 newsConfronted 攔法同一個位置邏輯,結算完之後才
    放行到下面正常的刺青選單。 */
 function talkToTattooMaster(){
+  logTalk('刺青師傅');
   /* 班費失竊・師傅看過收據才鬆口(2026-09-02,見上面 CLASSFUND 那則長
      筆記)——要先被小胖指過來(toldByFat)才問得到東西,呼應「線索是
      一步步解鎖的,不是玩家隨時能問」那條設計慣例(廟口那趟同一個道理)。
@@ -13024,6 +13056,7 @@ function getTattoo(id, price){
   advanceTime(90);
   say('tattooMaster', '「刺完了，包著保鮮膜，回去別馬上洗。」', () => {
     toast('刺青加進裝備欄了——拿不下來，除非去洗掉。', 3800);
+    logDay('去刺青店刺了一個。');
   });
 }
 function removeTattoo(){
@@ -13038,11 +13071,13 @@ function removeTattoo(){
   renderWearTab(); syncPanelStats();
   say('tattooMaster', '「洗完了，會分好幾次退色，這次只是開始。」', () => {
     toast('刺青洗掉了，裝備欄那格空了。', 3200);
+    logDay('把刺青洗掉了。');
   });
 }
 /* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
    只剩閒聊),跟阿姨貓咪任務同一個簡化幅度,見 npc-school.js 開頭筆記。 */
 function talkToAren(){
+  logTalk('阿仁');
   /* 跟同學培養感情(見 CLASSMATE_QUEST 那則長筆記)——同一招擋在最前面。 */
   if(CLASSMATE_QUEST.active && !CLASSMATE_QUEST.talkedAren){
     CLASSMATE_QUEST.talkedAren = true;
@@ -13093,6 +13128,7 @@ function talkToAren(){
  * 走廊」,自然掛點是這間教室的門(kc 說的「走廊」出口),不是找他講話就會
  * 演,之後要做的話是在 id==='door' 那支插一個 day===28 攔截,不是這裡。 */
 function talkToTeacher(){
+  logTalk('老師');
   const D = NpcSchool.TEACHER;
   /* 班費・還給老師(2026-09-02,見 talkToWorker() CLASSFUND 那則長筆記
      第④點)——攔在最前面,比清寒補助優先權更高(玩家手上正拿著要還的
@@ -13290,6 +13326,7 @@ function syncBrotherArcPanel(){
   }
 }
 function talkToBrother(){
+  logTalk('小美哥');
   const D = NpcSchool.BROTHER;
   /* 班費失竊(2026-09-02)——攔在最前面,跳過下面 MEI.together 那道門檻。
      阿正原本的登場邏輯綁在跟小美交往之後(見 BROTHER 那則舊筆記,「他
@@ -13382,6 +13419,7 @@ function talkToBrother(){
     syncMiscQuestPanel();
     say('brother', '「好了，這給你。」');
     toast('拿到良民證了。（歸屬感 +6）', 2600);
+    logDay('去警局拿到良民證。');
     return;
   }
 
@@ -13484,6 +13522,7 @@ function kaiCheckinLines(){
   return (MODE === 'indoor' ? KAI_CHECKIN_LINES_SCHOOL : KAI_CHECKIN_LINES)[s];
 }
 function talkToKai(){
+  logTalk('阿凱');
   /* day5 跑腿(2026-09-10,見 KAI_RUN 那段)——擋在最前面,優先於閒聊。
      他說的是「放學」過來,所以今天要真的上完課(deskActionDay===day,跟
      finishSchoolDay() 同一個判斷)才給袋子,不然他只會叫你放學再說。 */
@@ -13547,6 +13586,7 @@ function foremanDogItem(){
   } };
 }
 function talkToForeman(){
+  logTalk('工地老闆');
   /* 今天的事正好是工地缺工(見 DAILY_EVENTS site-work)——擋在最前面。
      ⚠ 體力不夠先擋掉、**任務不消耗**(不叫 runDailyGoto,DAILY 還是未完成),
      休息完再來還接得到;直接開工會變成體力 0 也能扛磚,跟上工那個選項的門檻
@@ -14118,6 +14158,7 @@ function finishTroupeGame(){
   const rate = total ? hitCount/total : 0;
   const onDone = TROUPE_GAME.onDone;
   TROUPE_GAME.onDone = null;
+  logDay(rate >= .55 ? '去廟口練陣頭，跟得上。' : '去廟口練陣頭，跟不太上。');
   if(onDone) onDone(rate >= .55, rate);
 }
 /* 旺鴻(機車行老闆,2026-08-25 kc 要求)——買車現在要先跟他對話,不是走到
@@ -14126,6 +14167,7 @@ function finishTroupeGame(){
    先跑 events[] 故事節點,沒有觸發中事件就退回 talk[] 隨機閒聊),對完話
    才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
 function talkToMotoBoss(){
+  logTalk('旺鴻');
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('motoboss')){ runDailyGoto('motoboss'); return; }
   /* 算命攤跑腿任務(2026-08-27)——攔在最前面,跟這裡原本的劇情/買車邏輯
@@ -14275,6 +14317,7 @@ function offerMotoPayment(){
         MOTO_LOAN.weekly = weekly;
         MOTO_LOAN.nextDueDay = day + 7;
         toast('訂金付了——尾款收據收好,以後每週回家睡覺會自動扣一次。', 2800);
+        logDay('跟旺鴻分期買了一台車。');
         say('motoboss', MOTOBOSS_COLOR_LINES[Math.random()*MOTOBOSS_COLOR_LINES.length|0], () => offerMotoColor());
       } },
     { label:'算了', cls:'back', run(){} }
@@ -14294,6 +14337,7 @@ function offerMotoColor(){
       m.owned = true;
       shopMoto = m;
       toast('老闆幫你烤上了' + name + '色的漆——這台現在真的是你的了。', 2600);
+      logDay('車是' + name + '色的，我自己的。');
       mountMoto(m);
     }
   })));
