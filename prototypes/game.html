@@ -9982,6 +9982,20 @@ function enterCorridor(){
     checkGrandmaCall();
   });
 }
+/* 直接傳送到走廊(2026-09-11,給我自己在瀏覽器裡把畫面切給 kc 看用,不掛
+   #bar 按鈕——他要的話再加)。 */
+function debugJumpCorridor(){
+  const d = city.doors.find(x => x.id === 'school');
+  if(d){ returnTo.x = d.x; returnTo.z = d.z + 3.5; }
+  MODE = 'indoor'; PLACE = 'corridor';
+  document.getElementById('city').style.display = 'none';
+  document.getElementById('indoor').classList.add('on');
+  wlabelsEl.style.display = 'none';
+  IN.px = 70; IN.py = CORRIDOR.walkS; IN.face = 'F';
+  document.getElementById('where').textContent = '走廊';
+  paintCorridorBackdrop();
+}
+window.debugJumpCorridor = debugJumpCorridor;
 function leaveCorridorToClassroom(){
   busy = true;
   fade('教室', () => {
