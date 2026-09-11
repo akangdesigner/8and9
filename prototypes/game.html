@@ -11538,10 +11538,9 @@ function debugJumpPark(){
 }
 window.debugJumpBusStop = debugJumpBusStop;
 window.debugJumpPark = debugJumpPark;
-/* 補飽足(2026-09-11,kc:「先清掉多餘的按鈕補上補飽食度」)——測試用,一鍵補滿。
-   跳公車亭/跳公園/坐姿滑桿/看騎士那四顆同一天拔掉(函式留著,要再開跟我說)。 */
-function debugFillFull(){ chg('full', 100 - ST.full); }
-window.debugFillFull = debugFillFull;
+/* 「補飽足」按鈕 2026-09-11 掛回 #bar(kc:「先清掉多餘的按鈕補上補飽食度」),
+   函式是上面早就有的 debugFillFull()。跳公車亭/跳公園/坐姿滑桿/看騎士那四顆
+   同一天拔掉(函式留著,要再開跟我說)。 */
 function tweakPassengerSeatPanel(){
   const old = document.getElementById('passengerSeatTweakPanel');
   if(old){ old.remove(); return; }
