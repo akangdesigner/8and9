@@ -4185,7 +4185,7 @@ NPCS.push(...PEDESTRIANS);
    **不進 city.motos**(理由見 parkMoto() 那則);人借 mountRide() 那套跨坐
    (阿霞那次做的),每幀 updateStreetRider() 塞座標給人跟車。沒做跟玩家的
    碰撞——玩家站在路中間車會直接穿過去,原型階段先不管。 */
-let SEAT_Y_BUS = 1.25, SEAT_DZ_BUS = 0, SEAT_Y_PARK = 0.95, SEAT_DZ_PARK = 0.35;
+let SEAT_Y_BUS = 0.30, SEAT_DZ_BUS = -0.30, SEAT_Y_PARK = 0.95, SEAT_DZ_PARK = 0.35;   // 公車亭兩個數字 2026-09-11 kc 拉滑桿定案(截圖);公園那兩個還沒對
 /* 公車亭這五個人平均分佈(2026-09-11,kc:「你的人分布可以平均點嗎」)——四張
    長椅 x=-46.8/-41.6/-36.4/-31.2,坐第 1、第 3 張;站的三隻插在中間跟東端:
    -41.6(第 2 張前面)、-31.2(阿霞,任務 NPC 座標不動)、-26(雨遮東端空地)。
