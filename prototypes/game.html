@@ -1210,7 +1210,7 @@ function askMakeupExam(){
       playBeats([
         { who:'pc', text:'那科就這樣掛了。他沒有再提。' }
       ], 0, () => toast('補考沒過。（風評 −3）', 3000));
-      logDay('補考沒過，那科掛了。');
+      logDay('補考沒過，那科就這樣掛了。老師也沒再說什麼。');
     }
   }
   function askRound(){
@@ -1526,7 +1526,7 @@ function endPhoneGame(success, jitterLine){
   } else {
     chg('star', -3); chg('calm', -6);
     addWarning('phone');   // 記警告,手機在他桌上,放學去走廊拿(見 DISCIPLINE)
-    logDay('上課玩手機被教官抓到，手機被沒收。');
+    logDay('上課玩手機被教官抓到，手機被沒收了。放學還要去走廊跟他拿，煩。');
     playBeats([
       { who:'jiaoguan', text:'「你在幹嘛。」' },
       { who:'pc',       text:'教官不知道什麼時候站到你後面了，手機直接被沒收。' },
@@ -6848,7 +6848,7 @@ const ARCADE_GAMBLE = { netLoss: 0, momEchoShown: false, momEchoPending: false, 
 function gambleResolve(cost, resolveFn){
   if(ST.money < cost){ toast('你身上不夠。', 2000); return null; }
   chg('money', -cost);
-  logDay('去遊藝場玩了幾把。');
+  logDay('去遊藝場玩了幾把。媽也是這樣開始的吧。');
   const r = resolveFn();
   if(r.payout) chg('money', r.payout);
   chg('mood', r.mood);
@@ -7232,7 +7232,7 @@ function openIndoorSpot(id){
             if(altarIncenseDay === day){ toast('今天已經上過香了。', 2200); return; }
             altarIncenseDay = day;
             chg('mood', 6);
-            logDay('去廟口上了一炷香。');
+            logDay('去廟口上了一炷香。不知道在求什麼。');
             toast('你點了一炷香,插進香爐裡。（情緒 +6）', 2600);
           } },
         { label:'先不要', cls:'back', run(){} }
@@ -9612,7 +9612,7 @@ function sleepAdvance(skippedSchool){
       /* 日記那頁已經把「今天過了什麼」講完了,睡醒不用再來一則「你回去睡了一覺」
          (2026-09-10,kc:「然後就會自動起床啊 接明天的故事」)——只有真的有事
          (昨天翹課被扣、機車分期扣款)才跳,沒事就直接接明天的戲。 */
-      if(skippedSchool){ addWarning('absent', skippedDay); dayLogPending = '昨天沒去學校。'; }   // 曠課記警告,隔天校門口教官會講(見 DISCIPLINE);日記那句留給新的一天
+      if(skippedSchool){ addWarning('absent', skippedDay); dayLogPending = '昨天沒去學校。教官那本應該又多一筆。'; }   // 曠課記警告,隔天校門口教官會講(見 DISCIPLINE);日記那句留給新的一天
       if(skippedSchool || loanMsg)
         toast((skippedSchool ? '昨天沒去學校。（風評 −3）' : '') + loanMsg, 3800);
       busy = false;
@@ -9971,7 +9971,7 @@ function talkToWorkerIndoor(){
        會被講的,其他選項都不扣。 */
     { label:'辦正事', run(){
         chg('mood', 12); chg('calm', 3); chg('star', -3);
-        logDay('去了巷子裡那間。');
+        logDay('去了巷子裡那間。不要寫。');
         say('pc', '你們進行了一場難以言喻的活動。\n（情緒 +12、歸屬感 +3、風評 −3）', leaveIndoor);
       } },
     { label:'走了', cls:'back', run: leaveIndoor }
@@ -10801,17 +10801,17 @@ function applyStoryChoice(item){
    這樣寫日記啊」,而且節點標題有時候是事後才知道的事)。一節一句,只寫**當天
    他自己知道的**,兩個選項都講得通;沒列的節點就不寫。key 是 story key + day。 */
 const STORY_DIARY = {
-  'bet-1':    '媽拿走兩千，說月底還。註冊單放在我桌上。',
-  'bet-16':   '媽說阿嬤的藥健保沒付，一千二。',
-  'bet-28':   '媽說車要修，跟我拿錢。早上我看車是好的。',
-  'bet-40':   '媽又來拿錢，這次連理由都沒有。',
-  'bet-52':   '客廳沒人。媽房間的燈亮著。',
-  'bet-64':   '看到媽包包裡那幾張紙，上面是我的名字。',
-  'drink-10': '鉛筆盒裡的兩百塊不見了。爸跟我要錢。',
-  'drink-25': '爸在後面叫我，我沒回頭。',
-  'drink-43': '回家爸醉倒在椅子上。',
-  'drink-58': '爸說那兩百塊他放回去了。他沒有。',
-  'drink-76': '回家第一件事又是數錢。一千三百二。'
+  'bet-1':    '媽拿走兩千說要投資，月底還。她哪次月底還過。註冊單一千塊要我自己想辦法。',
+  'bet-16':   '媽又來要錢，說是阿嬤的藥，健保沒付。不知道真的假的。',
+  'bet-28':   '媽說機車壞了要修，不然明天不能上班。我早上經過那台車明明好好的。',
+  'bet-40':   '媽今天來要錢連理由都懶得編了。我不知道哪一種比較難受。',
+  'bet-52':   '回家客廳沒人，電視也關著。她房間燈亮著，我沒敲。',
+  'bet-64':   '媽包包裡那幾張紙，上面是我的名字，我十五歲那年就有了。我摺回去了，當作沒看到。',
+  'drink-10': '鉛筆盒裡的兩百塊不見了，我明明數過。爸跟我要錢的時候我什麼都沒說。',
+  'drink-25': '爸在後面叫我，我沒回頭。那兩百塊我還是沒問。',
+  'drink-43': '回家爸醉倒在椅子上，酒都流到地上乾了。我先看他還有沒有在喘。',
+  'drink-58': '爸說那兩百塊他放回去了。他是真的以為他放了。這樣我更不知道要怎麼跟他講。',
+  'drink-76': '回家第一件事又是數錢，一千三百二，跟早上一樣。我什麼時候變成這樣的人。'
 };
 function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrink]], after){
   for(const [key, src] of sources){
@@ -11509,7 +11509,7 @@ const REST_MS = 8000, REST_MINUTES = 30, REST_GAIN = { stamina:5, mood:1, full:-
 const restBarEl = document.getElementById('restBar'), restFillEl = document.getElementById('restFill'), restClockEl = document.getElementById('restClock');
 function sitOnBench(){
   benchSitting = true; restT = 0;
-  logDay('在公園長椅坐了一會。');
+  logDay('在公園長椅坐了一會，什麼都沒想。');
   BENCH_SIT_Y = SEAT_Y_PARK;
   hero.group.position.set(BENCH.x - 1.1, SEAT_Y_PARK, BENCH.z + SEAT_DZ_PARK);
   hero.group.rotation.y = 0;
@@ -11544,7 +11544,7 @@ function mountMoto(m){
     logDay('騎車繞了一下。');
     toast('騎上自己的車。', 1600);
   } else {
-    logDay('騎了別人的車。');
+    logDay('騎了別人的車。路上有人在看，不知道是不是看我。');
     /* 2026-09-10,kc:「騎別人機車 的提示要改 你趁人不備其上了別人的機車
        然後會不斷地扣風評(一段時間扣一次)」——上車那一下扣一次,之後只要
        還騎在別人的車上就每 10 秒再扣一次(見 updateCity() 的 stolenRideT)。 */
@@ -12779,7 +12779,7 @@ function talkToJiaoguan(){
     if(ab){
       ab.announced = true;
       const n = DISCIPLINE.warnings.length;
-      logDay('校門口被教官記曠課，警告第 ' + n + ' 次。');
+      logDay('校門口被教官攔下來問昨天去哪。警告第 ' + n + ' 次。');
       say('jiaoguan', `「${dayToDate(ab.day)}沒來。記警告，目前 ${n} 次。」`, () => {
         openMenu('教官', [
           { label:'「生病。」', cls:'', run(){ say('jiaoguan', '「有假單嗎。」你沒有。他已經寫好了。'); } },
@@ -12828,7 +12828,7 @@ function talkToJiaoguanCorridor(){
   if(DISCIPLINE.phoneHeld){
     DISCIPLINE.phoneHeld = false;
     const n = DISCIPLINE.warnings.length;
-    logDay('去走廊跟教官拿回手機，警告第 ' + n + ' 次。');
+    logDay('去走廊跟教官拿手機。他說警告第 ' + n + ' 次，明天公佈欄會有我的名字。');
     playBeats([
       { who:'jiaoguan', text:'他從抽屜拿出來，放在桌上，手沒有放開。' },
       { who:'jiaoguan', text:n >= 3 ? `「第 ${n} 次了，要送輔導室。」` : `「警告第 ${n} 次。」` },
