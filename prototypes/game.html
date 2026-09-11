@@ -3602,7 +3602,7 @@ const NPCS = [
     tex:{ hood:'char-mei-shirt.png', pants:'char-mei-skirt.png' }
   }),
   buildNPC(THREE, scene, {                             // 教官・巡邏(見上面 JIAOGUAN 那則筆記)
-    x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*1.1, rig:'m2',   // 面南(朝馬路,玩家從那邊來),微偏西朝校門——2026-09-11 kc:「面對錯方向」
+    x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*.1, rig:'m2',   // 2026-09-11 kc 第二次:「教官轉180度」——原本 Math.PI*1.1 是背對馬路,轉成 .1(面北朝校門那側才是他看得到玩家的方向,這裡的 rotationY 慣例跟我想的相反)
     skin:'#c9a077', hair:'#232323', hood:'#5c6a4a', pants:'#2c3a2c', shoe:'#1c1c1c'
   }),
   buildNPC(THREE, scene, {                             // 阿仁・蹺課常客(見上面 AREN 那則筆記)
