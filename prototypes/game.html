@@ -6571,6 +6571,14 @@ const INDOOR_HERO_SCALE = INDOOR_HERO_TARGET_PX / PLAYER.height;
    **farPx(2026-08-26)**:kc 說「遠景人稍微調大一點點,給我滑感」——太小
    走到最遠處會整個人縮太扁,近/遠對比不夠明顯反而看不出走位有變化,
    320→350(+9%,跟房間那次「稍微調大」的調法同一個量級)。 */
+/* 走廊近/遠透視(2026-09-11,kc:「只要透視跟大小 上下邊界即可」)——跟
+   schoolHeroPx() 同一套,深度區間用 CORRIDOR.walkN/walkS;起始值照教室那組
+   抓,還沒跟 kc 對,#bar「走廊滑桿」可以拉。 */
+const CORRIDOR_HERO_TWEAK = { nearPx: 420, farPx: 350 };
+function corridorHeroPx(py){
+  const t = Math.max(0, Math.min(1, (py - CORRIDOR.walkN) / (CORRIDOR.walkS - CORRIDOR.walkN)));
+  return CORRIDOR_HERO_TWEAK.farPx + t * (CORRIDOR_HERO_TWEAK.nearPx - CORRIDOR_HERO_TWEAK.farPx);
+}
 const SCHOOL_HERO_TWEAK = { nearPx: 420, farPx: 350 };
 function schoolHeroPx(py){
   const t = Math.max(0, Math.min(1, (py - SCHOOL.walkN) / (SCHOOL.walkS - SCHOOL.walkN)));
@@ -6721,7 +6729,7 @@ function renderIndoor3D(dt){
      滿足「不能走路」但人要看得到。 */
   heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active);
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
-  heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : PLACE === 'store' ? storeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
+  heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'corridor' ? corridorHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : PLACE === 'store' ? storeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
     IN.face === 'F' ? 0 : IN.face === 'B' ? Math.PI :
     IN.face === 'L' ? -Math.PI/2 : Math.PI/2;
@@ -9997,21 +10005,19 @@ function debugJumpCorridor(){
 }
 window.debugJumpCorridor = debugJumpCorridor;
 /* 走廊滑桿(2026-09-11,kc:「開滑桿」)——照片版接上後主角比照片裡的教官矮
-   一截,開三組:主角縮放(HERO_TARGET_PX.corridor)、走道帶 walkN/walkS、五個
-   互動點的 x/w(直接改 CORRIDOR.spots 那幾個物件,IN.near 每幀讀)。
+   一截,開兩組:近/遠透視大小(CORRIDOR_HERO_TWEAK,corridorHeroPx() 每幀讀)、
+   走道帶 walkN/walkS。
    #bar「走廊滑桿」開關,拉到滿意跟我說數字,我寫死進 CORRIDOR_PHOTO。 */
 function tweakCorridorPanel(){
   const old = document.getElementById('corridorTweakPanel');
   if(old){ old.remove(); return; }
+  /* kc:「太多奇怪的了 只要透視跟大小 上下邊界即可」——互動點那十條拔掉。 */
   const rows = [
-    ['cr_scale','主角縮放(HERO_TARGET_PX.corridor)', 150, 700, 1, () => HERO_TARGET_PX.corridor, v => HERO_TARGET_PX.corridor = v],
-    ['cr_wn','走道上邊界 walkN(越小越往牆)', 150, 340, 1, () => CORRIDOR.walkN, v => { CORRIDOR.walkN = v; CORRIDOR.spots.forEach(sp => sp.y0 = v); }],
-    ['cr_ws','走道下邊界 walkS(越大越靠鏡頭)', 250, 360, 1, () => CORRIDOR.walkS, v => { CORRIDOR.walkS = v; CORRIDOR.spots.forEach(sp => sp.y1 = v); }],
+    ['cr_near','大小:近(靠鏡頭)', 150, 700, 1, () => CORRIDOR_HERO_TWEAK.nearPx, v => CORRIDOR_HERO_TWEAK.nearPx = v],
+    ['cr_far', '大小:遠(靠牆)',   150, 700, 1, () => CORRIDOR_HERO_TWEAK.farPx,  v => CORRIDOR_HERO_TWEAK.farPx = v],
+    ['cr_wn','上邊界 walkN(越小越往牆)', 150, 340, 1, () => CORRIDOR.walkN, v => { CORRIDOR.walkN = v; CORRIDOR.spots.forEach(sp => sp.y0 = v); }],
+    ['cr_ws','下邊界 walkS(越大越靠鏡頭)', 250, 360, 1, () => CORRIDOR.walkS, v => { CORRIDOR.walkS = v; CORRIDOR.spots.forEach(sp => sp.y1 = v); }],
   ];
-  CORRIDOR.spots.forEach(sp => {
-    rows.push([`cr_${sp.id}_x`, `${sp.name}:左緣 x`, 0, 640, 1, () => sp.x, v => sp.x = v]);
-    rows.push([`cr_${sp.id}_w`, `${sp.name}:寬 w`, 10, 300, 1, () => sp.w, v => sp.w = v]);
-  });
   const panel = document.createElement('div');
   panel.id = 'corridorTweakPanel';
   panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:250px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
