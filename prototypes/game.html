@@ -967,7 +967,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="tweakCorridorPanel()">走廊滑桿</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -9996,6 +9996,41 @@ function debugJumpCorridor(){
   paintCorridorBackdrop();
 }
 window.debugJumpCorridor = debugJumpCorridor;
+/* 走廊滑桿(2026-09-11,kc:「開滑桿」)——照片版接上後主角比照片裡的教官矮
+   一截,開三組:主角縮放(HERO_TARGET_PX.corridor)、走道帶 walkN/walkS、五個
+   互動點的 x/w(直接改 CORRIDOR.spots 那幾個物件,IN.near 每幀讀)。
+   #bar「走廊滑桿」開關,拉到滿意跟我說數字,我寫死進 CORRIDOR_PHOTO。 */
+function tweakCorridorPanel(){
+  const old = document.getElementById('corridorTweakPanel');
+  if(old){ old.remove(); return; }
+  const rows = [
+    ['cr_scale','主角縮放(HERO_TARGET_PX.corridor)', 150, 700, 1, () => HERO_TARGET_PX.corridor, v => HERO_TARGET_PX.corridor = v],
+    ['cr_wn','走道上邊界 walkN(越小越往牆)', 150, 340, 1, () => CORRIDOR.walkN, v => { CORRIDOR.walkN = v; CORRIDOR.spots.forEach(sp => sp.y0 = v); }],
+    ['cr_ws','走道下邊界 walkS(越大越靠鏡頭)', 250, 360, 1, () => CORRIDOR.walkS, v => { CORRIDOR.walkS = v; CORRIDOR.spots.forEach(sp => sp.y1 = v); }],
+  ];
+  CORRIDOR.spots.forEach(sp => {
+    rows.push([`cr_${sp.id}_x`, `${sp.name}:左緣 x`, 0, 640, 1, () => sp.x, v => sp.x = v]);
+    rows.push([`cr_${sp.id}_w`, `${sp.name}:寬 w`, 10, 300, 1, () => sp.w, v => sp.w = v]);
+  });
+  const panel = document.createElement('div');
+  panel.id = 'corridorTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:250px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #000a';
+  panel.innerHTML =
+    '<div style="font-weight:bold;margin-bottom:6px">走廊滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get()}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`
+    ).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「走廊滑桿」<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,, set]) => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value; set(v);
+      document.getElementById(`${id}_v`).textContent = v;
+    });
+  });
+}
+window.tweakCorridorPanel = tweakCorridorPanel;
 function leaveCorridorToClassroom(){
   busy = true;
   fade('教室', () => {
