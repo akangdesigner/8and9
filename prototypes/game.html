@@ -2682,8 +2682,10 @@ keyLight.shadow.bias = -0.0013;
    ——推測是 shadow acne:騎車時手臂平伸、手掌跟前臂的面幾乎平行於光線,
    陰影貼圖的鋸齒剛好落在那些面上,加上 keyLight 每幀跟著玩家走,貼圖格子
    一直在動就變成閃。normalBias 沿法線方向把取樣點往外推,專治這種
-   平行面的 acne,不像 bias 加大會讓影子跟腳分開(peter-panning)。數字先
-   抓 0.05,#bar「坐姿滑桿」裡有兩條陰影滑桿可以現場拉,拉到不閃再寫死。 */
+   平行面的 acne,不像 bias 加大會讓影子跟腳分開(peter-panning)。
+   ⚠ 結果猜錯:kc 再看是「手腳跳一下」,是 sit 動畫繞圈時頭尾兩格不接
+   (見 scene-city3d.js holdPose()),不是陰影。normalBias 0.05 留著(對
+   acne 本來就有幫助,沒副作用),滑桿也留著。 */
 keyLight.shadow.normalBias = 0.05;
 scene.add(keyLight, keyLight.target);
 

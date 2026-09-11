@@ -4439,6 +4439,13 @@ const ONCE_SPEED = { pickup: 2.8, pet: 1.6, pet_low: 1.6 };
    打結(踝關節左右順序整個反過來,看起來像側坐/坐反了)。.4 左右是安全
    上限,量出來兩腳間距約 9cm,分得不算開但至少沒有交叉——kc 的重點現在是
    手臂,腿先求穩定不出包。 */
+/* 靜態姿勢(sit/lie)共用:播一次就停在最後一格。Mixamo 這幾顆姿勢的頭尾兩格
+   不接,LoopRepeat 每繞一圈會彈一下(2026-09-11 kc 抓到的「手腳跳一下」)。 */
+function holdPose(THREE, action){
+  action.setLoop(THREE.LoopOnce, 1);
+  action.clampWhenFinished = true;
+  return action;
+}
 export const RIDE_POSE = {
   thighSplay:.35,
   armX:-.7, armZ:.2, armY:.05    // 肩膀三軸合起來轉,手才會平伸,見下面說明——
@@ -4640,10 +4647,13 @@ export function buildPlayer(THREE, scene){
        都說不像騎車,改成真的坐姿。Mixamo 抓來的是「坐椅子」那種動作(膝蓋
        90 度、雙腳併攏),不是專門的騎車姿勢,兩腿沒有跨開——這個遊戲的視角
        離得夠遠、風格夠簡化,先頂著用,kc 覺得穿模明顯再考慮找專門的騎車
-       動畫或抓 IK 分開兩腿。LoopRepeat(預設)撐著,不用 LoopOnce——riding
-       可能持續很久,不是放一次就要停的手勢。 */
+       動畫或抓 IK 分開兩腿。
+       2026-09-11 改成 LoopOnce + clampWhenFinished(kc:「騎車手腳都會跳一下」)
+       ——原本 LoopRepeat,這顆 Mixamo 坐姿的頭尾兩格不接,每繞一圈手腳就
+       彈一下;先前以為「閃幀」是陰影,加 normalBias 沒用。播完一次停在最後
+       一格,姿勢一樣撐著不會回 idle,騎多久都不會跳。 */
     if(rig.sit) loadModel(rig.sit).then(sitGltf => {
-      if(sitGltf.animations[0]) sitAction = mixer.clipAction(sitGltf.animations[0]);
+      if(sitGltf.animations[0]) sitAction = holdPose(THREE, mixer.clipAction(sitGltf.animations[0]));
     }).catch(() => {});
   }).catch(() => {});
 
@@ -4952,7 +4962,7 @@ export function buildNPC(THREE, scene, opts){
     }
     if(poseFile){
       loadModel(poseFile).then(poseGltf => {
-        if(poseGltf.animations[0]) mixer.clipAction(poseGltf.animations[0]).play();
+        if(poseGltf.animations[0]) holdPose(THREE, mixer.clipAction(poseGltf.animations[0])).play();   // sit/lie 都是靜態姿勢,播一次停住,不繞圈跳(見 buildPlayer 的 sit 那則)
         else if(idleAction) idleAction.play();
       }).catch(() => { if(idleAction) idleAction.play(); });
     } else if(idleAction) idleAction.play();
@@ -5023,7 +5033,7 @@ export function buildNPC(THREE, scene, opts){
     }
     loadModel(poseFile).then(sitGltf => {
       if(!sitGltf.animations[0]) return;
-      sitAction = mixer.clipAction(sitGltf.animations[0]);
+      sitAction = holdPose(THREE, mixer.clipAction(sitGltf.animations[0]));   // 同 buildPlayer 的 sit:播一次停最後一格,不繞圈跳
       if(riding){ activeAction.fadeOut(.2); sitAction.reset().fadeIn(.2).play(); activeAction = sitAction; }
     }).catch(() => {});
   }
