@@ -142,6 +142,15 @@
      的補記,不要看到這行就以為要再重新設計一次。 */
   .invHead { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; }
   .invHead h2 { margin:0; font-size:16px; letter-spacing:.16em; color:#e6eaf0; }
+  .invGoal { display:flex; align-items:baseline; gap:12px; margin:-6px 0 14px; padding:8px 12px;
+        border:1px solid rgba(216,178,74,.35); border-radius:4px; background:rgba(216,178,74,.06); }
+  .invGoal .lb { font-size:10px; letter-spacing:.2em; color:#b39a4e; }
+  .invGoal .tx { font-size:15px; letter-spacing:.12em; color:#f2e6c4; }
+  .invGoal .nm { margin-left:auto; font-size:12px; letter-spacing:.08em; color:#8b95a6; }
+  /* 任務面板分主線/支線(2026-09-11,kc:「任務感覺要分主線支線」)——小標題兩行,
+     主線=活不下去/畢不了業的事,其餘支線;見 QUEST_MAIN_IDS。 */
+  #questPanel .qpSect { font-size:10px; letter-spacing:.24em; color:#7c8593; margin:10px 0 2px; }
+  #questPanel .qpSect.main { color:#d8b24a; }
   .invHead .invMoney { color:#f2d888; font-size:16px; font-variant-numeric:tabular-nums; }
   .invGrid { display:grid; grid-template-columns:1fr 400px 220px; gap:24px; }
   .invTabs { display:flex; gap:6px; margin-bottom:12px; }
@@ -848,6 +857,8 @@
 <div id="invOverlay">
   <div id="invPanel">
     <div class="invHead"><h2>角色</h2><div class="invMoney" id="pMoneyP">$63</div></div>
+    <!-- 核心目標(2026-09-11,kc:「核心目標不會列在任務上 會在角色說明卡上 只要固定的話就好」)——寫死一行 -->
+    <div class="invGoal"><span class="lb">核心目標</span><span class="tx">活下來，畢業。</span><span class="nm" id="invGoalName"></span></div>
     <div class="invGrid">
       <div class="invCol invLeft">
         <div class="invTabs">
@@ -1779,6 +1790,7 @@ function showItemDetail(el, host, html){
   document.getElementById('itemDetail').innerHTML = html;
 }
 function openInventory(){
+  { const g = document.getElementById('invGoalName'); if(g) g.textContent = (PLAYER_NAME ? PLAYER_NAME + '　' : '') + '一年三班　第 ' + day + ' 天'; }
   busy = true;
   const fHost = document.getElementById('invFood');
   fHost.innerHTML = '';
@@ -2641,10 +2653,16 @@ function renderQuestPanel(){
   }
   questToggleBtn.classList.add('on');
   questPanelEl.classList.toggle('on', !questPanelCollapsed);
-  questPanelEl.innerHTML = ACTIVE_QUESTS.map(q =>
-    `<div class="qpItem"><div class="qpTitle">${q.title}</div><div class="qpHint">${q.hint}</div></div>`
-  ).join('');
+  const item = q => `<div class="qpItem"><div class="qpTitle">${q.title}</div><div class="qpHint">${q.hint}</div></div>`;
+  const main = ACTIVE_QUESTS.filter(q => QUEST_MAIN_IDS.has(q.id)), side = ACTIVE_QUESTS.filter(q => !QUEST_MAIN_IDS.has(q.id));
+  questPanelEl.innerHTML =
+    (main.length ? '<div class="qpSect main">主線</div>' + main.map(item).join('') : '') +
+    (side.length ? '<div class="qpSect">支線</div>' + side.map(item).join('') : '');
 }
+/* 主線 = 會讓你活不下去或畢不了業的事(kc 2026-09-11 點頭的名單):今天的卡、
+   註冊單、帳單、常去看阿嬤、班費;之後期中考也進來。其餘(別人的事、自己惹的
+   事,贖車也算)都是支線。警告不做成任務。 */
+const QUEST_MAIN_IDS = new Set(['today', 'tuition', 'bills', 'grandma-visit', 'classfund', 'classfund-return']);
 const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
 const fpTextEl = document.getElementById('fpText'), fpResultEl = document.getElementById('fpResult');
 const fpGradeEl = document.getElementById('fpGrade'), fpHeadNoEl = document.getElementById('fpHeadNo');
