@@ -3379,7 +3379,7 @@ kc 要求「給我一個俯視圖,我們來完善這個小鎮」——用除錯�
 | `prototypes/lib/scene-home.js` | 家(客廳)的繪圖模組,程序畫法——**現在只在照片載入失敗時當 fallback**,同時也是 `WHO.mom`/`WHO.dad` 大頭貼調色盤來源,不能刪 | 2026-08-17 接進 game.html,同一天稍後改成主要走 `assets/bg/home-living.png` |
 | `prototypes/lib/scene-bedroom.js` | 主角房間的繪圖模組,跟 `scene-home.js` 同規格,同樣降級成 fallback | 2026-08-17 新增,同一天稍後改成主要走 `assets/bg/home-bedroom.png` |
 | `prototypes/lib/scene-school.js` | 教室的繪圖模組,跟 `scene-bedroom.js` 同規格(灰模,圖片載入失敗時的 fallback) | 2026-08-21 新增,**已接進 game.html**(校門在後火車站,見「第七條:體力」節「學校也要建2d場景」小節) |
-| `prototypes/lib/scene-corridor.js` | 學校走廊的繪圖模組,跟 `scene-bedroom.js` 同規格(灰模,鎖深度水平走,沒有照片版本) | 2026-08-28 新增,**已接進 game.html**,插在教室跟街上中間(繳費機/教官),見「第七條:體力」節「要讓主角背上更多的負面」小節 |
+| `prototypes/lib/scene-corridor.js` | 學校走廊的繪圖模組,跟 `scene-bedroom.js` 同規格(灰模,鎖深度水平走);**2026-09-11 起有照片版** `assets/bg/school-corridor.png`(1672×941,教官烤在圖裡,多一面「本學期獎懲公告」公佈欄),灰模退成 fallback | 2026-08-28 新增,**已接進 game.html**,插在教室跟街上中間(繳費機/教官/公佈欄),見「第七條:體力」節「要讓主角背上更多的負面」小節;照片版互動點座標在 `CORRIDOR_PHOTO` |
 | `assets/bg/home-living.png` | 客廳照片背景(kc 用 GPT 生的,一次過) | 2026-08-17 新增,見「客廳/房間改成照片級背景」節 |
 | `assets/bg/home-bedroom.png` | 房間照片背景 | 2026-08-17 新增,同上 |
 | `assets/bg/school-classroom.png` | 教室照片背景(1672×941,跟 home-living.png 同規格)v2——只剩橘髮男生/光頭男生兩張桌子+講台,女生那組桌椅、原本的空桌椅都拿掉,改用下面兩張獨立疊圖補回來 | 2026-08-25 新增,v2 同一天換圖,接進 `SCHOOL_PHOTO`/`SCHOOL_COLLIDERS_PHOTO` |

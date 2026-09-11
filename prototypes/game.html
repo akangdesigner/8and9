@@ -6429,10 +6429,40 @@ function paintSchoolBackdrop(){
    像其他場景那樣先判斷圖有沒有載入。 */
 function paintCorridorBackdrop(){
   gbg.clearRect(0,0,1280,720);
+  if(schoolCorridorImg.complete && schoolCorridorImg.naturalWidth){
+    gbg.imageSmoothingEnabled = true;
+    gbg.drawImage(schoolCorridorImg, 0,0,1280,720);
+    return;
+  }
   gbg.save(); gbg.scale(SC,SC);
   SceneCorridor.renderBackground(gbg, { vignette:true });
   gbg.restore();
 }
+/* 走廊照片(2026-09-11,kc 用 GPT 生的 school-corridor.png,1672×941,跟教室
+   同規格)——教官烤在圖裡(跟教室老師同一個先例)。載到就把 CORRIDOR 的
+   走道帶跟四個互動點改成照片上的位置(CORRIDOR 是 const,直接改欄位,
+   不換物件;數字是照片像素 ×640/1672 量出來的):門 70~330、繳費機 445~580、
+   教官+桌 705~940、公佈欄 890~1275、樓梯口 1320~1672;地板從 y=640/941 開始。
+   多一個 'board' 公佈欄互動點,內容見 openIndoorSpot() 那個分支。 */
+const CORRIDOR_PHOTO = {
+  walkN: 250, walkS: 345,
+  spots: [
+    { id:'classroom', name:'教室門', x:27,  w:99  },
+    { id:'kiosk',     name:'繳費機', x:160, w:72  },
+    { id:'jiaoguan',  name:'教官',   x:270, w:90  },
+    { id:'board',     name:'公佈欄', x:362, w:126 },
+    { id:'outside',   name:'走出去', x:505, w:135 }
+  ]
+};
+const schoolCorridorImg = new Image();
+schoolCorridorImg.onload = () => {
+  if(schoolCorridorImg.naturalWidth){
+    CORRIDOR.walkN = CORRIDOR_PHOTO.walkN; CORRIDOR.walkS = CORRIDOR_PHOTO.walkS;
+    CORRIDOR.spots = CORRIDOR_PHOTO.spots.map(sp => ({ ...sp, y0:CORRIDOR_PHOTO.walkN, y1:CORRIDOR_PHOTO.walkS }));
+  }
+  if(PLACE === 'corridor') paintCorridorBackdrop();
+};
+schoolCorridorImg.src = '../assets/bg/school-corridor.png?v=1';
 /* 刺青店(2026-08-28)——只有灰模,還沒有照片版,直接畫 SceneTattoo。
    `chairFront:true` 把刺青椅/滾輪椅一起烤進靜態背景(跟 bedroom 的
    床/書桌同一招),不像 tattoo-room.html 那個獨立預覽page 逐幀跟玩家
@@ -7363,6 +7393,13 @@ function openIndoorSpot(id){
     else if(id === 'outside'){ maybeTriggerStoryNode([['school', schoolStorySource([13])]], leaveIndoor); return; }
     else if(id === 'kiosk'){ openTuitionKiosk(); return; }
     else if(id === 'jiaoguan'){ talkToJiaoguanCorridor(); return; }
+    /* 公佈欄(2026-09-11)——先只掛「別人的」獎懲名單(虛構名字,層級拉開),
+       主角那一行要等警告系統做出來(跟 kc 討論定案:直接寫次數;手機/曠課
+       兩種先記,期中考那條等考試機制),主角名字他還沒給。 */
+    else if(id === 'board'){
+      readNotice('【本學期獎懲公告】\n\n二年一班　陳○宏　曠課累計　記大過乙次\n三年二班　林○翔　校外鬥毆　記大過兩次\n三年五班　黃○安　　　　　　退學\n二年三班　阿仁　　上課使用手機　警告乙次\n\n你在名單上找了一下自己的名字。還沒有。');
+      return;
+    }
     return;
   }
   /* 遊藝場(2026-08-26,kc:「裡面有 2d 場景 可以去跟機台對話玩遊戲 吃角子
