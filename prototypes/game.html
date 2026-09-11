@@ -967,7 +967,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugJumpBusStop()">跳公車亭</button><button class="tool" onclick="debugJumpPark()">跳公園</button><button class="tool" onclick="tweakSeatedPanel()">坐姿滑桿</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugJumpBusStop()">跳公車亭</button><button class="tool" onclick="debugJumpPark()">跳公園</button><button class="tool" onclick="tweakSeatedPanel()">坐姿滑桿</button><button class="tool" onclick="debugJumpRider()">看騎士</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -3067,7 +3067,7 @@ function checkFieldTrip(){
    一旦人都搬回學校,阿源也不在旁邊了,沒有「之後再補做」的路徑,做失敗
    提示反而畫蛇添足。 */
 const CLASSMATE_QUEST = { active:false, talkedMei:false, talkedAren:false, talkedKai:false, allTalked:false, resolved:false };
-const CLASSMATE_HOME = { mei:{x:45,z:-26}, aren:{x:-15.5,z:12}, kai:{x:6,z:-13} };   // aren 2026-09-11 搬到刺青店門口,跟上面 AREN 常數同一組數字
+const CLASSMATE_HOME = { mei:{x:45,z:-26}, aren:{x:-19.5,z:12}, kai:{x:6,z:-13} };   // aren 2026-09-11 搬到刺青店門口,跟上面 AREN 常數同一組數字
 const CLASSMATE_TEMPLE_POS = {
   mei:  { x:10, z:-93, face:Math.PI*.7 },
   aren: { x:14, z:-96, face:Math.PI*.3 },
@@ -3221,7 +3221,7 @@ const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
    人行道上,面向店門;教官搬到校門口(doors school (-36,70.4))東邊人行道,
    面向馬路。上面那段「三人都在公園」的選址理由只剩小美還適用。 */
 const JIAOGUAN = { x:-32.5, z:71, confronted:false };
-const AREN     = { x:-15.5, z:12,  offered:false };
+const AREN     = { x:-19.5, z:12,  offered:false };   // 原本 -15.5 離刺青店門(-12,13.6)太近,nearDoor 半徑 3.6 先搶走,按空白鍵變成進店,kc:「阿仁為何我無法跟他講話」
 /* 導師的清寒補助(2026-08-26,kc:「書架上有廣告可以去找老師申請清寒家庭
    補助」)——狀態放這裡,跟其他學校角色的旗標放一起,見下面 talkToTeacher()
    的判斷跟 lookAtBookshelf()。 */
@@ -4138,13 +4138,10 @@ const PEDESTRIANS = [
   // 東西向擠滿道具跟人,量過沒有乾淨的直線可以再插一條長路線
   buildNPC(THREE, scene, { x:-9, z:-90, path:[[-9,-90,2500],[9,-90,2500]], rig:'m3',
     skin:'#b98a63', hood:'#2e4a3a', pants:'#2b2b2b', shoe:'#4a4038' }),
-  // 站定不動 3 隻中華路、2 隻廟埕,跟上面走動的錯開座標,不會撞在一起
-  buildNPC(THREE, scene, { x:-30, z:-11, rotationY:Math.PI*.3, rig:'f',
-    skin:'#c2a17e', hair:'#2c2420', hood:'#4a3a5c', pants:'#26241f', shoe:'#3a3430' }),
+  // 站定不動的原本 3 隻中華路(x:-30/45/69)、2 隻廟埕——2026-09-11 kc:「純站著
+  // 的少一點」,中華路只留 x:45 這隻,-30 跟 69 那兩隻拿掉(騎車的補了 3 台)
   buildNPC(THREE, scene, { x:45, z:-11, rotationY:-Math.PI*.4, rig:'m',
     skin:'#c9976e', hair:'#3a2e26', hood:'#3a4a3a', pants:'#2b2b2b', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:69, z:-11, rotationY:Math.PI*.6, rig:'m2',
-    skin:'#b98a63', hair:'#241f1c', hood:'#5c3a3a', pants:'#26241f', shoe:'#3a3430' }),
   /* 兩攤老闆(2026-08-20,kc:「兩個站著路人要去當老闆」+ 同時刪掉第三攤
      鹹酥雞空殼)——原本是廟埕站定不動的兩隻純背景路人,改成站進攤子後面
      顧攤。兩個位置後來都被有劇本的角色取代掉了(鴨頭攤是阿姨、乾麵攤是
@@ -4233,35 +4230,59 @@ applySeatTweak();
 PEDESTRIANS.push(...SEATED_BUS, SEATED_PARK);   // 按空白鍵一樣能搭話,共用 PEDESTRIAN_LINES
 NPCS.push(...SEATED_BUS, SEATED_PARK);
 
-const RIDER_PATH = [[-76,-4.5],[76,-4.5],[76,4.5],[-76,4.5]];
-const RIDER = {
-  /* rig:'m'(2026-09-11,kc:「騎機車的人他的骨架要跟我的一樣啊」)——跟主角
-     同一副 Remy 骨架,RIDE_POSE 那組跨坐角度本來就是照這副骨架調的,換 m3
-     那副比例不同,套上去腿的張開角度會不一樣。 */
-  npc: buildNPC(THREE, scene, { x:-76, z:-4.5, rotationY:Math.PI/2, rig:'m',
-    skin:'#c9976e', hair:'#2c2622', hood:'#2e3a4a', pants:'#2b2b2b', shoe:'#3a3430' }),
-  moto: city.spawnMoto(-76, -4.5, 4, false, true),
-  idx:1, x:-76, z:-4.5, ry:Math.PI/2, mounted:false
-};
-NPCS.push(RIDER.npc);   // 只進 NPCS(要 animate 更新 mixer),不進 PEDESTRIANS——跑動中的人不給搭話
-function updateStreetRider(dt){
-  const R = RIDER;
-  if(!R.mounted && R.npc.getMixer()){ R.npc.mountRide(); R.mounted = true; }   // mixer 載好才 mountRide,不然 sit 動畫接不上
-  const [tx, tz] = RIDER_PATH[R.idx];
-  const dx = tx - R.x, dz = tz - R.z, dist = Math.hypot(dx, dz);
-  const step = RIDER_SPEED * dt / 1000;
-  if(dist <= step){ R.x = tx; R.z = tz; R.idx = (R.idx + 1) % RIDER_PATH.length; }
-  else { R.x += dx/dist*step; R.z += dz/dist*step; }
-  const want = Math.atan2(dx, dz);
-  const diff = Math.atan2(Math.sin(want - R.ry), Math.cos(want - R.ry));
-  R.ry += diff * Math.min(1, dt * .006);
-  const fx = Math.sin(R.ry), fz = Math.cos(R.ry);
-  if(R.moto.group){
-    R.moto.group.position.set(R.x + fx*MOTO_SEAT_OFFSET, 0, R.z + fz*MOTO_SEAT_OFFSET);
-    R.moto.group.rotation.y = R.ry;
-  }
-  R.npc.setRideTransform(R.x, RIDER_SEAT_Y, R.z, R.ry);
+/* 2026-09-11 kc:「我看不到騎車的人欸你多放幾個」——1 台變 3 台:兩台繞中華路
+   (同一圈,一台從西端出發、一台從東端出發,速度不同不會黏在一起),一台繞
+   西園街(V_ROADS x:-84,南北向,從廟口路口到後火車站口)。rig 全部用 'm'
+   (kc:「騎機車的人他的骨架要跟我的一樣啊」——跟主角同一副 Remy,RIDE_POSE
+   那組跨坐角度是照這副調的)。#bar「看騎士」把玩家丟到第一台旁邊。 */
+const RIDER_LOOP_CHUNGHWA = [[-76,-4.5],[76,-4.5],[76,4.5],[-76,4.5]];
+const RIDER_LOOP_XIYUAN   = [[-79.5,-76],[-79.5,92],[-88.5,92],[-88.5,-76]];
+function makeRider(path, startIdx, skinIdx, speedMult, colors){
+  const [sx, sz] = path[startIdx];
+  const [nx, nz] = path[(startIdx+1) % path.length];
+  const ry = Math.atan2(nx-sx, nz-sz);
+  const r = {
+    path, idx:(startIdx+1) % path.length, x:sx, z:sz, ry, speedMult, mounted:false,
+    npc: buildNPC(THREE, scene, { x:sx, z:sz, rotationY:ry, rig:'m', ...colors }),
+    moto: city.spawnMoto(sx, sz, skinIdx, false, true)
+  };
+  NPCS.push(r.npc);   // 只進 NPCS(要 animate 更新 mixer),不進 PEDESTRIANS——跑動中的人不給搭話
+  return r;
 }
+const RIDERS = [
+  makeRider(RIDER_LOOP_CHUNGHWA, 0, 4, 1.0,  { skin:'#c9976e', hair:'#2c2622', hood:'#2e3a4a', pants:'#2b2b2b', shoe:'#3a3430' }),
+  makeRider(RIDER_LOOP_CHUNGHWA, 2, 7, 0.8,  { skin:'#b98a63', hair:'#241f1c', hood:'#5c3a3a', pants:'#26241f', shoe:'#3a3430' }),
+  makeRider(RIDER_LOOP_XIYUAN,   0, 9, 0.9,  { skin:'#c2a17e', hair:'#3a3128', hood:'#4a4a3a', pants:'#2b2b2b', shoe:'#4a4038' }),
+];
+function updateStreetRider(dt){
+  for(const R of RIDERS){
+    if(!R.mounted && R.npc.getMixer()){ R.npc.mountRide(); R.mounted = true; }   // mixer 載好才 mountRide,不然 sit 動畫接不上
+    const [tx, tz] = R.path[R.idx];
+    const dx = tx - R.x, dz = tz - R.z, dist = Math.hypot(dx, dz);
+    const step = RIDER_SPEED * R.speedMult * dt / 1000;
+    if(dist <= step){ R.x = tx; R.z = tz; R.idx = (R.idx + 1) % R.path.length; }
+    else { R.x += dx/dist*step; R.z += dz/dist*step; }
+    const want = Math.atan2(dx, dz);
+    const diff = Math.atan2(Math.sin(want - R.ry), Math.cos(want - R.ry));
+    R.ry += diff * Math.min(1, dt * .006);
+    const fx = Math.sin(R.ry), fz = Math.cos(R.ry);
+    if(R.moto.group){
+      R.moto.group.position.set(R.x + fx*MOTO_SEAT_OFFSET, 0, R.z + fz*MOTO_SEAT_OFFSET);
+      R.moto.group.rotation.y = R.ry;
+    }
+    R.npc.setRideTransform(R.x, RIDER_SEAT_Y, R.z, R.ry);
+  }
+}
+function debugJumpRider(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  const R = RIDERS[0];
+  hero.group.position.set(R.x, .3, R.z + 6);
+}
+window.debugJumpRider = debugJumpRider;
+window.__dbgRiders = RIDERS;
 
 /* ===================================================================
    2D 室內:超商(維持平視,因為這裡的內容是臉)
