@@ -1057,7 +1057,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="tweakNpcFacePanel()">路人眼睛</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -1089,7 +1089,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
-import { CITY, CAM, PLAYER, PLAYER_FACE, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGradient } from './lib/scene-city3d.js';
+import { CITY, CAM, PLAYER, PLAYER_FACE, NPC_FACE, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGradient } from './lib/scene-city3d.js';
 
 /* ===================================================================
    共用狀態 —— 兩層都吃同一份。走進超商買東西，出來街上錢就少了。
@@ -10214,6 +10214,32 @@ function tweakCorridorPanel(){
   });
 }
 window.tweakCorridorPanel = tweakCorridorPanel;
+/* 路人眼睛滑桿(2026-09-11,kc 截圖 Sophie 沒眼白——眼球埋在眼皮後面,out 要推
+   更出來)。三條:推出距離、黑眼球大小、眼白倍數;拉一下全部 NPC 立刻重套。
+   拉到滿意跟我說數字,寫死進 NPC_FACE。 */
+function tweakNpcFacePanel(){
+  const old = document.getElementById('npcFacePanel');
+  if(old){ old.remove(); return; }
+  const refresh = () => NPCS.forEach(n => n.refreshFace && n.refreshFace());
+  const rows = [
+    ['nf_out','推出距離 out(太小被眼皮蓋住)', 0.02, 0.10, 0.001, () => NPC_FACE.out, v => { NPC_FACE.out = v; refresh(); }],
+    ['nf_r','黑眼球半徑', 0.004, 0.02, 0.0005, () => NPC_FACE.irisR, v => { NPC_FACE.irisR = v; refresh(); }],
+    ['nf_w','眼白倍數(相對黑眼球)', 1.2, 5, 0.1, () => NPC_FACE.whiteR, v => { NPC_FACE.whiteR = v; refresh(); }],
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'npcFacePanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:250px;box-shadow:0 4px 20px #000a';
+  panel.innerHTML = '<div style="font-weight:bold;margin-bottom:6px">路人眼睛滑桿</div>' +
+    rows.map(([id,label,min,max,step,get]) =>
+      `<div style="margin-bottom:8px">${label}: <span id="${id}_v">${get()}</span><br>
+       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${get()}" style="width:100%"></div>`).join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「路人眼睛」<br>拉到滿意後跟我說最終數字就好</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([id,,,,,, set]) => {
+    document.getElementById(id).addEventListener('input', e => { const v = +e.target.value; set(v); document.getElementById(`${id}_v`).textContent = v; });
+  });
+}
+window.tweakNpcFacePanel = tweakNpcFacePanel;
 function leaveCorridorToClassroom(){
   busy = true;
   fade('教室', () => {

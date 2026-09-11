@@ -4573,14 +4573,18 @@ export const PLAYER_FACE = {
  * 渲染時眼球被眼骨帶到 y≈3.67,**差了 0.17**——頭高總共才 0.5,等於整組
  * 五官掉到鼻子的位置。SkinnedMesh 的頂點實際在哪一律要看骨頭,不能看
  * geometry 的 min/max(這條對之後任何「往角色身上貼東西」的需求都適用)。 */
-function attachPlayerFace(THREE, model){
+/* NPC 用的參數(2026-09-11)——跟主角分開一組:主角的 Remy 有獨立 Eyes mesh,
+   其他骨架眼球埋在臉的 mesh 裡、眼皮比較厚,同樣的 out 會被眼皮蓋住(kc 截圖:
+   Sophie 只露一條白縫),要推得更出來。數字還沒對過,game.html 有滑桿。 */
+export const NPC_FACE = { on:true, out:.05, irisR:.010, whiteR:2.6, iris:0x231a13, sclera:0xf1ece1 };
+function attachPlayerFace(THREE, model, FACE){
   const boneL = model.getObjectByName('mixamorigLeftEye');
   const boneR = model.getObjectByName('mixamorigRightEye');
   const head  = model.getObjectByName('mixamorigHead');
   if(!boneL || !boneR || !head) return null;
   model.updateMatrixWorld(true);
 
-  const F = PLAYER_FACE;
+  const F = FACE || PLAYER_FACE;
   /* 眼白用 Standard(吃光,跟皮膚一起明暗,不會在暗巷裡發亮);黑眼球用
      Basic 不吃光——臉在陰影裡的時候眼睛還讀得出來,跟越式按摩那個黑洞
      「Basic 不吃光」同一個材質理由,只是方向相反。 */
@@ -4640,8 +4644,8 @@ function attachPlayerFace(THREE, model){
     place(P.irisR, boneR);
     if(P.whiteL){
       P.whiteL.visible = P.whiteR.visible = F.on;
-      place(P.whiteL, boneL, F.out - .004, F.irisR * 2.6);
-      place(P.whiteR, boneR, F.out - .004, F.irisR * 2.6);
+      place(P.whiteL, boneL, F.out - .004, F.irisR * (F.whiteR || 2.6));
+      place(P.whiteR, boneR, F.out - .004, F.irisR * (F.whiteR || 2.6));
     }
   }
   apply();
@@ -4944,7 +4948,7 @@ export function buildNPC(THREE, scene, opts){
      animate() 提早 return,座標/朝向完全交給呼叫端的 setRideTransform(),
      跟騎乘中的機車本身「呼叫端算好座標,這裡只負責套用」同一個分工。 */
   const RIDE_BONES = {};
-  let riding = false, sitAction = null;
+  let riding = false, sitAction = null, npcFace = null;
 
   let mixer = null;
   loadModel(rig.idle).then(idleGltf => {
@@ -4960,7 +4964,7 @@ export function buildNPC(THREE, scene, opts){
        Mixamo 骨架都有那兩根。眼白只有 Remy(rig m)有獨立的 Eyes mesh 會被
        塗白,其他骨架眼球是跟身體同一塊 mesh,只多兩顆黑眼球,已經夠不恐怖。
        PLAYER_FACE 那則筆記說「只有主角有」從這天起不成立。 */
-    attachPlayerFace(THREE, model);
+    npcFace = attachPlayerFace(THREE, model, NPC_FACE);
 
     /* 安全帽(2026-08-28,kc:「工地老闆可以帶個安全帽嗎」)——opts.helmet
        給顏色字串(或 true 用預設黃色)。掛在 model 底下當子物件,不是掛在
@@ -5195,5 +5199,5 @@ export function buildNPC(THREE, scene, opts){
    * animate() 實際在用的那個值。 */
   function setFacing(angle){ baseRotationY = angle; }
   return { group:g, animate, setFacing, getMixer: () => mixer, setHelmet: (frac, scaleMult, dx, dz) => setHelmet(frac, scaleMult, dx, dz),
-    mountRide, dismountRide, setRideTransform };
+    mountRide, dismountRide, setRideTransform, refreshFace: () => { if(npcFace) npcFace.apply(); } };
 }
