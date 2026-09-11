@@ -4439,11 +4439,20 @@ const ONCE_SPEED = { pickup: 2.8, pet: 1.6, pet_low: 1.6 };
    打結(踝關節左右順序整個反過來,看起來像側坐/坐反了)。.4 左右是安全
    上限,量出來兩腳間距約 9cm,分得不算開但至少沒有交叉——kc 的重點現在是
    手臂,腿先求穩定不出包。 */
-/* 靜態姿勢(sit/lie)共用:播一次就停在最後一格。Mixamo 這幾顆姿勢的頭尾兩格
-   不接,LoopRepeat 每繞一圈會彈一下(2026-09-11 kc 抓到的「手腳跳一下」)。 */
+/* 靜態姿勢(sit/lie)共用:凍在動畫正中間那一格,不播。Mixamo 這幾顆姿勢的
+   頭尾兩格不接,LoopRepeat 每繞一圈會彈一下(2026-09-11 kc:「手腳跳一下」);
+   第一版改 LoopOnce+clampWhenFinished 停在最後一格,結果最後一格本身就是
+   一個過渡姿勢(手舉起來、腿張開,kc 截圖:「群魔亂舞」),所以改凍在中段——
+   繞圈時中段每一格看起來都是對的。做法是 timeScale=0 + time 釘在 duration/2,
+   mixer 每幀還是會把這一格寫回骨頭(跟 LoopOnce 停掉不同),騎車那組
+   applyRidePose() 的 rotateY 疊加才不會一幀一幀累積上去。reset() 會把 time
+   歸零(第 0 格也是過渡姿勢),所以包一層讓 reset 之後也回到中段。 */
 function holdPose(THREE, action){
-  action.setLoop(THREE.LoopOnce, 1);
-  action.clampWhenFinished = true;
+  const mid = action.getClip().duration * .5;
+  const origReset = action.reset.bind(action);
+  action.reset = () => { origReset(); action.time = mid; return action; };
+  action.timeScale = 0;
+  action.time = mid;
   return action;
 }
 export const RIDE_POSE = {
