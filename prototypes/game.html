@@ -12589,7 +12589,9 @@ function talkToJiaoguan(){
       say('jiaoguan', '「現在幾點了？還在外面晃。」');
       return;
     }
-    say('jiaoguan', D.idleTalk[Math.random()*D.idleTalk.length|0]);
+    /* 放學後/今天上過了:用 gateTalk(校門口專用),不用 idleTalk——那組有
+       「上課鐘響了」,放學講很怪(2026-09-11 kc 抓到)。 */
+    say('jiaoguan', D.gateTalk[Math.random()*D.gateTalk.length|0]);
     return;
   }
   say('jiaoguan', D.hook, () => {
