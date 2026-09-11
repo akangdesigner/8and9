@@ -4161,10 +4161,11 @@ const PEDESTRIANS = [
      跟後排 backRowZ 之間,見 scene-city3d.js busStop() 那組座標),面向
      馬路(rotationY 接近 Math.PI,跟 AYI/ACHENG 那批攤販面向客人同一個
      朝向慣例——rotationY:0 面北/rotationY:Math.PI 面南,這裡馬路在南
-     側)。x 挑跟長椅同一組間距但錯開柱子位置,不會疊模型。 */
-  buildNPC(THREE, scene, { x:-46.8, z:104, rotationY:Math.PI*.92, rig:'f',
+     側)。x 挑跟長椅同一組間距但錯開柱子位置,不會疊模型。
+     2026-09-11 加了坐著的兩隻之後重排成等距,見下面 SEATED_BUS 那則。 */
+  buildNPC(THREE, scene, { x:-41.6, z:104, rotationY:Math.PI*.92, rig:'f',
     skin:'#c9a077', hair:'#241f1c', hood:'#4a3a5c', pants:'#333333', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:-36.4, z:104, rotationY:Math.PI*1.05, rig:'m2',
+  buildNPC(THREE, scene, { x:-26, z:104, rotationY:Math.PI*1.05, rig:'m2',
     skin:'#b98a63', hair:'#3a3128', hood:'#3a4a5c', pants:'#26241f', shoe:'#3a3430' }),
   AXIA_NPC   // 第三隻(原本這裡是匿名 f2 路人)換成有名字/對話/任務的阿霞,見上面 AXIA 那則筆記
 ];
@@ -4184,18 +4185,22 @@ NPCS.push(...PEDESTRIANS);
    **不進 city.motos**(理由見 parkMoto() 那則);人借 mountRide() 那套跨坐
    (阿霞那次做的),每幀 updateStreetRider() 塞座標給人跟車。沒做跟玩家的
    碰撞——玩家站在路中間車會直接穿過去,原型階段先不管。 */
-let SEAT_Y_BUS = 1.25, SEAT_Y_PARK = 0.95, SEAT_DZ_PARK = 0.35;
+let SEAT_Y_BUS = 1.25, SEAT_DZ_BUS = 0, SEAT_Y_PARK = 0.95, SEAT_DZ_PARK = 0.35;
+/* 公車亭這五個人平均分佈(2026-09-11,kc:「你的人分布可以平均點嗎」)——四張
+   長椅 x=-46.8/-41.6/-36.4/-31.2,坐第 1、第 3 張;站的三隻插在中間跟東端:
+   -41.6(第 2 張前面)、-31.2(阿霞,任務 NPC 座標不動)、-26(雨遮東端空地)。
+   等距 5.2,不再擠在西半邊。 */
 let RIDER_SEAT_Y = 0.95, RIDER_SPEED = 8;
 const SEATED_BUS = [
-  buildNPC(THREE, scene, { x:-41.6, z:106.2, rotationY:Math.PI, rig:'m3', pose:'sit',
+  buildNPC(THREE, scene, { x:-46.8, z:106.2, rotationY:Math.PI, rig:'m3', pose:'sit',
     skin:'#c2a17e', hood:'#3a3a4a', pants:'#2b2b2b', shoe:'#3a3430' }),
-  buildNPC(THREE, scene, { x:-31.2, z:106.2, rotationY:Math.PI*1.03, rig:'f', pose:'sit',
+  buildNPC(THREE, scene, { x:-36.4, z:106.2, rotationY:Math.PI*1.03, rig:'f', pose:'sit',
     skin:'#c9a077', hair:'#241f1c', hood:'#6a4a3a', pants:'#333333', shoe:'#4a4038' }),
 ];
 const SEATED_PARK = buildNPC(THREE, scene, { x:46, z:-18.5+SEAT_DZ_PARK, rotationY:0, rig:'m4', pose:'sit',
   skin:'#b98a63', hair:'#3a3128', hood:'#4a5a4a', pants:'#26241f', shoe:'#3a3430' });
 function applySeatTweak(){
-  SEATED_BUS.forEach(n => { n.group.position.y = SEAT_Y_BUS; });
+  SEATED_BUS.forEach(n => { n.group.position.y = SEAT_Y_BUS; n.group.position.z = 106.2 + SEAT_DZ_BUS; });
   SEATED_PARK.group.position.y = SEAT_Y_PARK;
   SEATED_PARK.group.position.z = -18.5 + SEAT_DZ_PARK;
 }
@@ -11377,6 +11382,7 @@ function tweakSeatedPanel(){
   if(old){ old.remove(); return; }
   const rows = [
     ['st_bus','公車亭長椅:坐姿高度', 0.3, 2.5, 0.02, () => SEAT_Y_BUS, v => { SEAT_Y_BUS = v; applySeatTweak(); }],
+    ['st_busz','公車亭長椅:前後(+往牆、−往馬路)', -2, 2, 0.02, () => SEAT_DZ_BUS, v => { SEAT_DZ_BUS = v; applySeatTweak(); }],
     ['st_park','公園長椅:坐姿高度', 0.3, 2.0, 0.02, () => SEAT_Y_PARK, v => { SEAT_Y_PARK = v; applySeatTweak(); }],
     ['st_parkz','公園長椅:前後(離卡片多遠)', -1.5, 1.5, 0.02, () => SEAT_DZ_PARK, v => { SEAT_DZ_PARK = v; applySeatTweak(); }],
     ['st_ry','騎士座墊高度', 0.3, 1.6, 0.02, () => RIDER_SEAT_Y, v => RIDER_SEAT_Y = v],
