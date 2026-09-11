@@ -10797,12 +10797,28 @@ function applyStoryChoice(item){
  * after:節點播完(或這輪沒有節點可播)之後要接著做的事——只有校門口那個
  * 節點(day13)用到,因為那個節點本身就是「放學」的場景,播完才能真的
  * leaveIndoor() 離開學校,見下面 corridor 'outside' 那支的呼叫。 */
+/* 家裡劇情節點的日記句(2026-09-11,kc 抓到第一版「媽的事：阿嬤的藥」——「誰會
+   這樣寫日記啊」,而且節點標題有時候是事後才知道的事)。一節一句,只寫**當天
+   他自己知道的**,兩個選項都講得通;沒列的節點就不寫。key 是 story key + day。 */
+const STORY_DIARY = {
+  'bet-1':    '媽拿走兩千，說月底還。註冊單放在我桌上。',
+  'bet-16':   '媽說阿嬤的藥健保沒付，一千二。',
+  'bet-28':   '媽說車要修，跟我拿錢。早上我看車是好的。',
+  'bet-40':   '媽又來拿錢，這次連理由都沒有。',
+  'bet-52':   '客廳沒人。媽房間的燈亮著。',
+  'bet-64':   '看到媽包包裡那幾張紙，上面是我的名字。',
+  'drink-10': '鉛筆盒裡的兩百塊不見了。爸跟我要錢。',
+  'drink-25': '爸在後面叫我，我沒回頭。',
+  'drink-43': '回家爸醉倒在椅子上。',
+  'drink-58': '爸說那兩百塊他放回去了。他沒有。',
+  'drink-76': '回家第一件事又是數錢。一千三百二。'
+};
 function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrink]], after){
   for(const [key, src] of sources){
     const node = src.NODES.find(n => n.day === day);
     if(node && !seenStoryDays.has(key+'-'+node.day)){
       seenStoryDays.add(key+'-'+node.day);
-      if(key === 'bet' || key === 'drink') logDay((key === 'bet' ? '媽' : '爸') + '的事：' + node.title + '。');
+      logDay(STORY_DIARY[key + '-' + node.day]);   // 沒寫的節點就不寫(logDay 吃到 undefined 會略過)
       /* 事情發生了就收掉早上那張提醒卡——**除非這個節點自己要換掉卡的內容**
          (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
          要留到那件事真的做完。 */
