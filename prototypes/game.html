@@ -1204,7 +1204,7 @@ function askMakeupExam(){
         { who:'teacher', text:'「你會啊。」' },
         { who:'teacher', text:'「你只是沒時間。」' }
       ], 0, () => toast('補考過了。（風評 +6，小小知識 +2）', 3400));
-      logDay('補考過了。');
+      logDay('補考過了。老師說我只是沒時間。他是第一個這樣講的。');
     } else {
       chg('star', -3);
       playBeats([
@@ -1324,7 +1324,7 @@ function askStudyQuestion(onDone){
   const questions = coShuffle(Quiz.BANK.slice()).slice(0, ROUNDS);
   const inSchool = PLACE === 'school';
   /* 答對答錯都記——他真的坐下來了,那件事本身就發生過(見 dayLog)。 */
-  logDay(inSchool ? '在教室坐了一節課。' : '在書桌前坐了一下，看了幾頁。');
+  logDay(inSchool ? '在教室坐了一節課，有聽進去一點。' : '在書桌前看了幾頁，看得懂的比想像中多。');
   busy = true;
   coFade(inSchool ? '認真上課' : '讀書', async () => {
     studyTakeover = true;
@@ -1514,10 +1514,10 @@ function endPhoneGame(success, jitterLine){
   if(done) done();          // 上課那條路用來「這節課上完了 → 放學」,見 finishSchoolDay()
   if(success){
     chg('mood', 6);
-    logDay('上課偷玩了一節課手機，沒被抓。');
+    logDay('上課偷玩了一節課手機，沒被抓。整節課什麼都沒聽。');
     toast('這節課你打了三場排位，一句都沒聽進去。', 2600);
   } else if(jitterLine){
-    logDay('上課玩手機玩到一半自己收起來了。');
+    logDay('上課玩手機玩到一半自己收起來了，一直覺得教官在後面。');
     /* 2026-09-01,kc:「扣太多了啦」——沒有真的被教官抓到,是自己疑神疑鬼
        提早收手,懲罰比真的被抓(星 −4／歸屬感 −6)輕一點,改星 −1／歸屬感
        −2,這兩個數字是我自己選的,不喜歡跟我說要改多少。 */
@@ -3394,7 +3394,7 @@ const MOTO_PATROL_POINTS = [ [-78,90], [-84,40], [-84,-40], [-84,-84], [0,-84] ]
    位置)一起改,不然騎乘互動判定跟畫面對不上(dismountMoto() 那組
    m.x=pos.x 的同一個坑)。 */
 function finishMotoImpound(msg){
-  logDay(MOTO_IMPOUND.patrolActive ? '幫阿正巡了一段街，車拿回來了。' : '去警局繳罰款把車贖回來。');
+  logDay(MOTO_IMPOUND.patrolActive ? '幫阿正巡了一段街抵罰款，車拿回來了。走路比繳錢便宜。' : '去警局繳罰款把車贖回來。那筆錢我站了好幾天的班。');
   MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
   MOTO_IMPOUND.patrolActive = false;
   const m = MOTO_IMPOUND.motoRef;
@@ -3850,7 +3850,7 @@ function startWatchJob(){
 function resolveWatchJob(success){
   if(WATCHJOB.resolved) return;
   WATCHJOB.resolved = true; WATCHJOB.active = false; WATCHJOB.lastDay = day;
-  logDay(success ? '晚上幫阿源顧場子，有看到小美哥。' : '晚上幫阿源顧場子，小美哥走進去了才講。');
+  logDay(success ? '晚上幫阿源顧場子，小美哥一出現我就跑回去講了。阿源說幹得好。' : '晚上幫阿源顧場子，小美哥都走進去了我才講。阿源罵我死人。');
   scene.remove(WATCHJOB.walker.group);
   const idx = NPCS.indexOf(WATCHJOB.walker);
   if(idx >= 0) NPCS.splice(idx, 1);
@@ -7133,7 +7133,7 @@ function checkout(){
    腺素的消耗,量級比對話輕,比撿垃圾/摸貓狗那批稍重)。跟被抓不被抓
    無關,固定扣,判定前先擋體力歸零,跟其他扣體力入口同一套做法。 */
 function steal(feed){
-  logDay('在超商把東西塞進外套。');
+  logDay('在超商把東西塞進外套。走出去那幾步腳很重。');
   if(day === stealCaughtDay){
     toast('店長剛剛才盯過你一次,今天別想了。', 2400);
     return;
@@ -7400,7 +7400,7 @@ function openIndoorSpot(id){
             TRASH.push({ name:'成績單', icon:'📜', star:6, active:true,
               detail:'兩週一次的小考，你真的坐下來寫完了。<br>可以帶出來秀給別人看，也可以收起來——風評加成是自己決定要不要露的。' });
             toast('小考考完了，成績單發下來了。\n（略懂書本內容 −' + EXAM_KNOWLEDGE_COST + '，情緒 +3，風評 +6）', 4200);
-            logDay('考了小考，成績單拿到了。');
+            logDay('考了小考，居然過了。成績單先收著。');
           } };
         })(),
         /* 補考(2026-09-01,見上面 maybeAnnounceExam()/askMakeupExam() 那組
@@ -8003,7 +8003,7 @@ function coEndShift(){
     busy = false;
     advanceTime(180);
     chg('money', wage);
-    logDay(extra ? '店長叫我去代班，站了一輪，領了 $' + wage + '。'
+    logDay(extra ? '店長臨時叫我去代班，站了一輪，領了 $' + wage + '。腳很痠但錢是真的。'
                  : '去超商站了一輪班，領了 $' + wage + '。');
     if(gotUniform) toast('店長把備用制服丟給你：「上班要穿這件。」（衣櫃多了一件超商制服）', 3200);
     coSayChain('clerk', [...review.lines, review.tip]);
@@ -8569,7 +8569,7 @@ function logDay(text){ if(text && !dayLog.includes(text)) dayLog.push(text); }
 /* 跟誰講過話——每個 talkToXxx() 開頭一行,同一天同一個人只留一句(logDay 本來
    就去重)。曠課那句要寫在「新的一天」的日記裡,wake 那時 dayLog 已經清掉,
    先寄在 dayLogPending,snapDay() 之後補進去。 */
-function logTalk(name){ logDay('跟' + name + '講了幾句。'); }
+function logTalk(name){ logDay('跟' + name + '聊了一下。'); }
 let dayLogPending = '';
 function snapDay(){ daySnapshot = { ...ST }; dayLog = []; if(dayLogPending){ dayLog.push(dayLogPending); dayLogPending = ''; } }
 const SP_ROWS = [
@@ -8678,7 +8678,7 @@ const SCHOOL_OUT_MINUTE = 16*60;
    分三句),進教室本身不卡這個時間,遲到照樣能上課。 */
 const SCHOOL_IN_MINUTE = 8*60;
 function finishSchoolDay(){
-  logDay('放學了。');
+  logDay('放學。');
   if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
   toast('放學了。', 2200);
 }
@@ -8883,7 +8883,7 @@ const RUNMAN_TAKE_WRONG = [
   { who:'pc', text:'那疊比你想的薄。' }
 ];
 function handOverBag(ref){
-  logDay('幫阿凱送了一個袋子去遊藝場側門。');
+  logDay('幫阿凱送了一個袋子去遊藝場側門。他說五分鐘的事。');
   KAI_RUN.done = true; KAI_RUN.delivered = true;
   KAI_RUN.wrong = !ref.right;
   KAI_RUN.dropDay = day;
@@ -8915,7 +8915,7 @@ const KAI_REPORT_BEATS = [
 ];
 function kaiReportDue(){ return KAI_RUN.delivered && !KAI_RUN.reported; }
 function kaiReportRun(){
-  logDay('回去跟阿凱說送到了。');
+  logDay('回去跟阿凱說送到了。他挪了半個位子給我。');
   KAI_RUN.reported = true;
   clearTodayCard();
   busy = true;
@@ -9068,35 +9068,35 @@ const DAILY_EVENTS = [
   { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {}, via:'msg',
     line:'機車行傳訊息：這期分期到了。', hint:'回家睡覺會自動扣款' },
   /* ── 要人的 ── */
-  { id:'kai-hang', cat:'people', goto:'kai', need:() => KAI.talked, diary:'跟阿凱在車行外面站了半小時。',
+  { id:'kai-hang', cat:'people', goto:'kai', need:() => KAI.talked, diary:'跟阿凱在車行外面站了半小時，沒講什麼。',
     via:'phone',
     line:'手機震了，是阿凱。\n「今天有空嗎。」他沒等你回答就掛了。',
     hint:'去中華路機車行那邊找阿凱' },
-  { id:'yuan-call', cat:'people', goto:'yuan', need:() => YUAN.visits > 0, diary:'去廟口，阿源講了半小時工地的事。',
+  { id:'yuan-call', cat:'people', goto:'yuan', need:() => YUAN.visits > 0, diary:'去廟口，阿源講了半小時工地的事。他說我還在讀書不要學他。',
     via:'msg',
     line:'阿源傳了一則訊息。\n「晚點過來廟口一趟。」', hint:'去廟口找阿源' },
-  { id:'acheng-hand', cat:'people', goto:'acheng', need:() => ACHENG.visits > 0, diary:'幫麵攤老闆端了兩小時的麵。',
+  { id:'acheng-hand', cat:'people', goto:'acheng', need:() => ACHENG.visits > 0, diary:'幫麵攤老闆端了兩小時的麵。有人問我是不是他兒子。',
     via:'phone',
     /* ⚠ 不能只寫「阿成」(2026-09-10,kc:「阿成 別人不知道是誰啊 應該要講廟口
        面癱老闆」)——玩家記得的是那個人的樣子跟他的攤子,不是名字。 */
     line:'廟口麵攤那個老闆打來，就是那個從來不笑的。\n背景是抽油煙機的聲音。\n「你今天有沒有空？我一個人顧不來。」',
     hint:'去廟口找麵攤老闆' },
-  { id:'ayi-food', cat:'people', goto:'ayi', need:() => AYI.visits > 0, diary:'阿姨塞了一包鴨頭給我。',
+  { id:'ayi-food', cat:'people', goto:'ayi', need:() => AYI.visits > 0, diary:'阿姨塞了一包鴨頭給我，說賣不完也是丟掉。才不是。',
     via:'msg',
     line:'阿姨傳訊息，只有五個字。\n「過來拿東西吃。」', hint:'去廟口找阿姨' },
-  { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。',
+  { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。她說了謝謝。',
     via:'msg',
     line:'小美傳訊息問你昨天那題怎麼寫的。', hint:'去學校教室找小美' },
   /* ── 意外 ── */
-  { id:'rain', cat:'trouble', instant:() => chg('mood', -3), instantDiary:'早上下雨，外套濕了一路。',
+  { id:'rain', cat:'trouble', instant:() => chg('mood', -3), instantDiary:'早上下雨，外套濕了一路。我只有那一件。',
     via:'home',
     line:'窗戶外面在下雨，聲音很大。\n你只有那件外套。', hint:'今天什麼都比較麻煩', note:'（情緒 −3）' },
-  { id:'pocket', cat:'trouble', instant:() => chg('money', -100), instantDiary:'口袋破了，零錢掉在路上。',
+  { id:'pocket', cat:'trouble', instant:() => chg('money', -100), instantDiary:'口袋破了，零錢不知道掉在哪一段路上。',
     via:'door',
     line:'走到巷口你才發現外套口袋破了一個洞。\n零錢不知道掉在哪一段路上。',
     hint:'今天要省一點', note:'（金錢 −100）' },
   { id:'moto-dead', cat:'trouble', goto:'motoboss', need:() => city.motos.some(m => m.owned),
-    diary:'車發不動，牽去給旺鴻看。', via:'door',
+    diary:'車發不動，牽去給旺鴻看。他說化油器積碳。', via:'door',
     line:'你踩了十幾下，車就是不發動。', hint:'牽去機車行給旺鴻看（$150）' },
   /* ── 後段(阿嬤那條線開始之後)專用 ── 2026-09-10,kc:「後段重排 阿嬤跟註冊費
      一起壓」:最後一個月不要再輪一次「下雨/口袋破洞」,要讓錢跟時間同時被兩件事
@@ -9108,12 +9108,12 @@ const DAILY_EVENTS = [
     hint:'去超商櫃台繳看護費（$800）' },
   { id:'kai-fast', cat:'people', goto:'kai', via:'phone',
     need:() => KAI.talked && TUITION_QUEST && !TUITION_QUEST.paid,
-    diary:'又幫阿凱送了一趟。錢比上次多。',
+    diary:'又幫阿凱送了一趟。錢比上次多。我數的時候手有點抖。',
     line:'手機震了，是阿凱。\n「有個東西要送，錢比上次多。」',
     hint:'去中華路機車行那邊找阿凱' },
   { id:'tuition-remind', cat:'money', via:'msg',
     need:() => TUITION_QUEST && !TUITION_QUEST.paid,
-    instant:() => {}, instantDiary:'導師傳訊息催註冊費。',
+    instant:() => {}, instantDiary:'導師傳訊息催註冊費，說再不繳要往上報。',
     line:'導師傳訊息。\n「註冊費那個，你再不繳我就要往上報了。」',
     hint:'學校走廊的繳費機' },
   /* ⚠ **不能假設主角有打工**(2026-09-10,kc:「超商代班 的部分有點怪 因為主角
@@ -9121,7 +9121,7 @@ const DAILY_EVENTS = [
      都沒去問過。工地這條是「隨到隨做、不用被錄用」(見 talkToForeman()),所以後段
      那幾個「錢從哪來」的日子改用它,誰都接得到。 */
   { id:'site-work', cat:'money', goto:'foreman', via:'phone',
-    diary:'去工地扛了一天磚。',
+    diary:'去工地扛了一天磚，肩膀到現在還在痛。',
     line:'工地那個大哥打來，講話很大聲。\n「今天缺人，你來不來？來就六點到。」',
     hint:'去永安街工地上工（今天工資加五成）' },
   { id:'co-extra', cat:'trouble', need:() => IN.hired, via:'phone',
@@ -9243,7 +9243,7 @@ function runDailyGoto(who){
       { label:'給她', cost: ST.money < 500 ? '身上不夠' : '−$500　歸屬感 +6',
         cls: ST.money < 500 ? 'bad' : '', run(){
           if(ST.money < 500){ toast('你身上不夠五百。', 2200); busy = false; return; }
-          chg('money', -500); chg('calm', 6); logDay('給了媽五百塊。');
+          chg('money', -500); chg('calm', 6); logDay('媽來要錢，說朋友那邊周轉。我給了五百。她收得很快。');
           playBeats([
             { who:'pc',  text:'她把錢摺起來，塞進口袋，動作很快。' },
             { who:'mom', text:'「下個月還你。」' },
@@ -9251,7 +9251,7 @@ function runDailyGoto(who){
           ], 0, () => { busy = false; });
         } },
       { label:'說你沒有', cost:'歸屬感 −6　情緒 −3', run(){
-          chg('calm', -6); chg('mood', -3); logDay('媽來要錢，我說我沒有。');
+          chg('calm', -6); chg('mood', -3); logDay('媽來要錢，我說我沒有。她把門關得很輕。');
           playBeats([
             { who:'mom', text:'「喔。」' },
             { who:'pc',  text:'她把門帶上，關得很輕。' },
@@ -9396,7 +9396,7 @@ function payBill(b){
   chg('money', -b.amount);
   const i = BILLS.indexOf(b);
   if(i >= 0) BILLS.splice(i, 1);
-  logDay('去超商繳了' + b.name + '，$' + b.amount + '。');
+  logDay('去超商繳了' + b.name + '，$' + b.amount + '。這個家的單子都是我在繳。');
   syncMiscQuestPanel();
   toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + b.amount + '）', 3400);
 }
@@ -10530,7 +10530,7 @@ const GRANDMA_ASLEEP_LINES = [
       openGrandmaFoodMenu() 裡才判斷 FOOD 是否為空,是就用一句話擋、
       不是隱藏整個選項。③是目前最終版本。 */
 function visitGrandma(){
-  logDay('去醫院看阿嬤。');
+  logDay('去醫院看阿嬤。她還是問我有沒有吃飽。');
   returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
   fade('醫院', () => {
@@ -11541,7 +11541,7 @@ function mountMoto(m){
   motoMountPos = { x: hero.group.position.x, z: hero.group.position.z };
   hintEl.classList.remove('on');
   if(m.owned){
-    logDay('騎車繞了一下。');
+    logDay('騎自己的車繞了一下，風吹過來整個人鬆一點。');
     toast('騎上自己的車。', 1600);
   } else {
     logDay('騎了別人的車。路上有人在看，不知道是不是看我。');
@@ -13072,7 +13072,7 @@ function getTattoo(id, price){
   advanceTime(90);
   say('tattooMaster', '「刺完了，包著保鮮膜，回去別馬上洗。」', () => {
     toast('刺青加進裝備欄了——拿不下來，除非去洗掉。', 3800);
-    logDay('去刺青店刺了一個。');
+    logDay('去刺青店刺了一個。拿不下來了，也不想拿下來。');
   });
 }
 function removeTattoo(){
@@ -13087,7 +13087,7 @@ function removeTattoo(){
   renderWearTab(); syncPanelStats();
   say('tattooMaster', '「洗完了，會分好幾次退色，這次只是開始。」', () => {
     toast('刺青洗掉了，裝備欄那格空了。', 3200);
-    logDay('把刺青洗掉了。');
+    logDay('把刺青洗掉了。師傅說要分好幾次才會退。');
   });
 }
 /* skipbuddy 原資料 days:1 暗示可以重複發生,這輪簡化成一次性(offered 之後
@@ -13435,7 +13435,7 @@ function talkToBrother(){
     syncMiscQuestPanel();
     say('brother', '「好了，這給你。」');
     toast('拿到良民證了。（歸屬感 +6）', 2600);
-    logDay('去警局拿到良民證。');
+    logDay('去警局拿到良民證。一張紙證明我是乾淨的。');
     return;
   }
 
@@ -13841,8 +13841,8 @@ function endForemanShift(){
   const siteExtra = DAILY.id === 'site-work' && DAILY.day === day;
   const paid = Math.round(FOREMAN_GAME.earned * (siteExtra ? 1.5 : 1));
   chg('money', paid);
-  logDay(siteExtra ? '工地缺人，去扛了一天磚，$' + paid + '。'
-                   : '去工地扛磚，拿了 $' + paid + '。');
+  logDay(siteExtra ? '工地缺人，去扛了一天磚，$' + paid + '。今天算多的。'
+                   : '去工地扛磚，拿了 $' + paid + '。手抖了一整晚。');
   toast(`今天疊到第 ${FOREMAN_GAME.stack.length} 層磚塌了，老闆給了你 $${paid}。`, 3200);
 }
 /* 陣頭音遊本體(2026-08-31 第二輪,太鼓達人手感)——見上面 TROUPE_GAME 那則
@@ -14174,7 +14174,7 @@ function finishTroupeGame(){
   const rate = total ? hitCount/total : 0;
   const onDone = TROUPE_GAME.onDone;
   TROUPE_GAME.onDone = null;
-  logDay(rate >= .55 ? '去廟口練陣頭，跟得上。' : '去廟口練陣頭，跟不太上。');
+  logDay(rate >= .55 ? '去廟口練陣頭，這次跟得上了。回家的路上還在數拍子。' : '去廟口練陣頭，鼓一下就把我甩開。阿源說他們也是這樣練出來的。');
   if(onDone) onDone(rate >= .55, rate);
 }
 /* 旺鴻(機車行老闆,2026-08-25 kc 要求)——買車現在要先跟他對話,不是走到
@@ -14333,7 +14333,7 @@ function offerMotoPayment(){
         MOTO_LOAN.weekly = weekly;
         MOTO_LOAN.nextDueDay = day + 7;
         toast('訂金付了——尾款收據收好,以後每週回家睡覺會自動扣一次。', 2800);
-        logDay('跟旺鴻分期買了一台車。');
+        logDay('跟旺鴻分期買了一台車。以後每個禮拜都要扣。');
         say('motoboss', MOTOBOSS_COLOR_LINES[Math.random()*MOTOBOSS_COLOR_LINES.length|0], () => offerMotoColor());
       } },
     { label:'算了', cls:'back', run(){} }
@@ -14353,7 +14353,7 @@ function offerMotoColor(){
       m.owned = true;
       shopMoto = m;
       toast('老闆幫你烤上了' + name + '色的漆——這台現在真的是你的了。', 2600);
-      logDay('車是' + name + '色的，我自己的。');
+      logDay('車烤了' + name + '色的漆。我自己的車。');
       mountMoto(m);
     }
   })));
