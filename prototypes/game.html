@@ -14690,7 +14690,11 @@ function loadGame(slot){
        (那是 three.js 物件的欄位),靠 MOTO_IMPOUND.active 重建。 */
     (d.motos || []).forEach((m, i) => {
       const t = city.motos[i]; if(!t) return;
-      t.owned = m.owned; t.forSale = m.forSale; t.ridden = m.ridden;
+      /* ridden 不吃存檔的值(2026-09-11,kc:「為何我無法去騎別人的車」)——
+         存檔常常是騎到一半 pagehide 存的,ridden:true 跟著存進去;讀回來
+         ridingMoto 卻永遠是 null(讀檔一律站著出生),那台車就變成永遠
+         「有人在騎」按不到。kc 的存檔裡累積了 4 台這種車。讀檔時一律歸零。 */
+      t.owned = m.owned; t.forSale = m.forSale; t.ridden = false;
     });
     if(MOTO_IMPOUND.active && !MOTO_IMPOUND.done){
       MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned) || null;
