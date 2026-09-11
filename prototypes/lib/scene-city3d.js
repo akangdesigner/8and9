@@ -4576,13 +4576,67 @@ export const PLAYER_FACE = {
 /* NPC 用的參數(2026-09-11)——跟主角分開一組:主角的 Remy 有獨立 Eyes mesh,
    其他骨架眼球埋在臉的 mesh 裡、眼皮比較厚,同樣的 out 會被眼皮蓋住(kc 截圖:
    Sophie 只露一條白縫),要推得更出來。數字還沒對過,game.html 有滑桿。 */
-export const NPC_FACE = { on:true, out:.05, irisR:.010, whiteR:2.6, iris:0x231a13, sclera:0xf1ece1 };
-function attachPlayerFace(THREE, model, FACE){
-  const boneL = model.getObjectByName('mixamorigLeftEye');
-  const boneR = model.getObjectByName('mixamorigRightEye');
-  const head  = model.getObjectByName('mixamorigHead');
-  if(!boneL || !boneR || !head) return null;
+export const NPC_FACE = { on:true, out:.012, irisR:.010, whiteR:2.6, dy:.35, iris:0x231a13, sclera:0xf1ece1 };
+/* 用睫毛 mesh 推眼睛位置——睫毛長在上眼皮邊緣,眼球中心在它下面一點(dy × 睫毛
+   高度)、往臉裡一點(睫毛是最突出的地方,out 從這裡再往外推)。頂點要先經過
+   skinning(applyBoneTransform)再轉世界座標,不能直接讀 geometry(那是 bind
+   pose,跟骨架帶到的位置差很多,見上面那則 bounding box 的教訓)。 */
+function eyeAnchorsFromLashes(THREE, model, head){
+  let lashes = null; model.traverse(o => { if(!lashes && o.isSkinnedMesh && /eyelash/i.test(o.name)) lashes = o; });
+  if(!lashes) return null;
+  const pos = lashes.geometry.attributes.position, v = new THREE.Vector3(), hp = new THREE.Vector3();
+  /* 左右用 model 空間的 X 分(model 的 +X 就是角色的左手邊,跟骨頭自己的軸
+     無關——Mixamo 骨頭的 local 軸各自亂指,第一版拿 head 的 +X 分結果全部
+     落在同一邊,回 null)。 */
+  head.getWorldPosition(hp); model.worldToLocal(hp);
+  /* skeleton.update() 一定要先跑——boneMatrices 是渲染時才算的,模型剛載完
+     還沒畫過第一幀就來取,拿到的是 NaN/垃圾(2026-09-11 在背景分頁查到的,
+     正常遊玩也是同一個時序:載完立刻 attach,還沒渲染)。 */
   model.updateMatrixWorld(true);
+  if(lashes.skeleton) lashes.skeleton.update();
+  const fn = lashes.applyBoneTransform ? 'applyBoneTransform' : 'boneTransform';
+  const side = { L:null, R:null };
+  for(let i = 0; i < pos.count; i++){
+    v.fromBufferAttribute(pos, i);            // applyBoneTransform 吃的是「這顆頂點原本的位置」,要先填進去
+    lashes[fn](i, v); lashes.localToWorld(v); model.worldToLocal(v);
+    const k = v.x >= hp.x ? 'L' : 'R';
+    const b = side[k] || (side[k] = { min:v.clone(), max:v.clone() });
+    b.min.min(v); b.max.max(v);
+  }
+  if(!side.L || !side.R) return null;
+  const mk = b => {
+    const h = b.max.y - b.min.y;
+    const c0 = model.localToWorld(new THREE.Vector3((b.min.x + b.max.x) / 2, b.min.y, (b.min.z + b.max.z) / 2));   // 睫毛下緣中點(model 空間→世界)
+    const c1 = model.localToWorld(new THREE.Vector3((b.min.x + b.max.x) / 2, b.min.y - h, (b.min.z + b.max.z) / 2)); // 再往下一個睫毛高度
+    const o = new THREE.Object3D();
+    head.add(o); head.updateMatrixWorld(true);
+    const l0 = head.worldToLocal(c0.clone()), l1 = head.worldToLocal(c1.clone());
+    /* 存 head-local 的基準點跟「往下」向量,apply() 用當下的 dy 重算位置——
+       滑桿拉 dy 才會即時生效,不用重建。 */
+    o.userData.c0 = l0; o.userData.down = l1.clone().sub(l0);
+    o.position.copy(l0).addScaledVector(o.userData.down, NPC_FACE.dy);
+    o.quaternion.identity();
+    o.updateMatrixWorld(true);
+    return o;
+  };
+  return { L: mk(side.L), R: mk(side.R) };
+}
+function attachPlayerFace(THREE, model, FACE){
+  let boneL = model.getObjectByName('mixamorigLeftEye');
+  let boneR = model.getObjectByName('mixamorigRightEye');
+  /* 骨頭名字的前綴不一定是 mixamorig(2026-09-11 查到 Sophie 是 mixamorigHead、
+     Megan 是 mixamorig2Head、Brian 是 mixamorig12Head),用結尾比對。 */
+  let head = null; model.traverse(o => { if(!head && o.isBone && /Head$/.test(o.name)) head = o; });
+  if(!head) return null;
+  model.updateMatrixWorld(true);
+  /* 沒有眼骨的骨架(Remy 以外全部都沒有,2026-09-11 查的):用睫毛 mesh 的
+     skinned 頂點算出兩隻眼睛在世界座標的位置,各掛一個空節點在 Head 骨頭
+     底下當「眼骨」,後面的流程就跟有眼骨的一樣。 */
+  if(!boneL || !boneR){
+    const anchors = eyeAnchorsFromLashes(THREE, model, head);
+    if(!anchors) return null;
+    boneL = anchors.L; boneR = anchors.R;
+  }
 
   const F = FACE || PLAYER_FACE;
   /* 眼白用 Standard(吃光,跟皮膚一起明暗,不會在暗巷裡發亮);黑眼球用
@@ -4634,6 +4688,7 @@ function attachPlayerFace(THREE, model, FACE){
     mesh.geometry = new THREE.CircleGeometry((r ?? F.irisR) * (wsc(model) / Math.max(wsc(bone), 1e-9)), 24);
   }
   function apply(){
+    [boneL, boneR].forEach(b => { if(b.userData.c0) b.position.copy(b.userData.c0).addScaledVector(b.userData.down, F.dy ?? 0); });
     model.updateMatrixWorld(true);
     P.irisL.visible = P.irisR.visible = F.on;
     if(!F.on) return;

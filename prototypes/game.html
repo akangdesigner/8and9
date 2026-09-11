@@ -10222,7 +10222,8 @@ function tweakNpcFacePanel(){
   if(old){ old.remove(); return; }
   const refresh = () => NPCS.forEach(n => n.refreshFace && n.refreshFace());
   const rows = [
-    ['nf_out','推出距離 out(太小被眼皮蓋住)', 0.02, 0.10, 0.001, () => NPC_FACE.out, v => { NPC_FACE.out = v; refresh(); }],
+    ['nf_out','推出距離 out(負=往臉裡)', -0.03, 0.06, 0.001, () => NPC_FACE.out, v => { NPC_FACE.out = v; refresh(); }],
+    ['nf_dy','高低 dy(睫毛往下幾個睫毛高)', -0.5, 1.5, 0.05, () => NPC_FACE.dy, v => { NPC_FACE.dy = v; refresh(); }],
     ['nf_r','黑眼球半徑', 0.004, 0.02, 0.0005, () => NPC_FACE.irisR, v => { NPC_FACE.irisR = v; refresh(); }],
     ['nf_w','眼白倍數(相對黑眼球)', 1.2, 5, 0.1, () => NPC_FACE.whiteR, v => { NPC_FACE.whiteR = v; refresh(); }],
   ];
