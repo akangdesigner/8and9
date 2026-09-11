@@ -4537,8 +4537,8 @@ function applyRidePose(bones){
  * 打架(riggedCharacter() 是整顆 material 換掉,不是疊 tint)。幾何五官純程式、
  * 零素材、隨時可退,先讓他看到臉。
  *
- * **只有主角有**(buildPlayer 呼叫,buildNPC 沒有)——這就是 kc 說的「特化」;
- * NPC 維持原本的素臉,主角是玩家唯一會一直盯著看的那一個。
+ * ~~只有主角有~~ 2026-09-11 起 buildNPC 也呼叫(kc:「其他路人能不能點一下眼睛
+ * 跟主角一樣不然很恐怖」),見 buildNPC 裡那行。
  *
  * ⚠ **第一版還畫了眉毛跟嘴,2026-09-09 同一天被 kc 拿掉**(「你用回預設的
  * 而且太多滑感很難跳 重點是眼睛」)——臉的其他部分回到預設素臉,只留眼睛,
@@ -4940,6 +4940,12 @@ export function buildNPC(THREE, scene, opts){
        不用真的找一副胖體型模型(見 MODELS.m7 那則長筆記)。 */
     if(opts.widen){ model.scale.x *= opts.widen; model.scale.z *= opts.widen; }
     g.add(model);
+    /* 路人也給眼睛(2026-09-11,kc:「其他路人能不能點一下眼睛跟主角一樣不然很
+       恐怖」)——跟主角同一套 attachPlayerFace():黑眼球掛在兩根眼骨上,任何
+       Mixamo 骨架都有那兩根。眼白只有 Remy(rig m)有獨立的 Eyes mesh 會被
+       塗白,其他骨架眼球是跟身體同一塊 mesh,只多兩顆黑眼球,已經夠不恐怖。
+       PLAYER_FACE 那則筆記說「只有主角有」從這天起不成立。 */
+    attachPlayerFace(THREE, model);
 
     /* 安全帽(2026-08-28,kc:「工地老闆可以帶個安全帽嗎」)——opts.helmet
        給顏色字串(或 true 用預設黃色)。掛在 model 底下當子物件,不是掛在
