@@ -9185,6 +9185,12 @@ const DAILY_EVENTS = [
     hint:'去超商櫃台繳水費（$120）' },
   { id:'mom-ask', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
+  /* 阿嬤那袋(2026-09-11,kc:「第二個行動天要是媽媽請你拿東西給阿嬤之類的 這樣主角
+     才知道自己有個病床上的阿嬤」)——之前阿嬤是 day16 電話才憑空冒出來。走到客廳
+     媽把袋子塞給你(leaveBedroom() 那段),拿去醫院第一次進去有專用的一段
+     (visitGrandma())。沒去不扣分,袋子留在雜物欄;代價是 day16 才第一次見到她。 */
+  { id:'grandma-bag', cat:'people', goto:'momBag', via:'home',
+    line:'媽在客廳，手上拎著一個袋子。', hint:'去客廳看媽要幹嘛' },
   { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {}, via:'msg',
     line:'機車行傳訊息：這期分期到了。', hint:'回家睡覺會自動扣款' },
   /* ── 要人的 ── */
@@ -9273,7 +9279,7 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
      喘息。最後一天(day90)是媽開口要錢——註冊費到期的前一天。
    要改哪一天就直接改這張表。 */
 const DAILY_SCHEDULE = {
-  2:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 12:'co-extra',
+  2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 12:'co-extra',   // day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3
   15:'moto-dead', 17:'rain', 20:'water', 22:'kai-hang', 23:'loan', 26:'yuan-call',
   29:'pocket', 31:'ayi-food', 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
   47:'acheng-hand', 50:'water', 51:'loan', 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
@@ -10121,8 +10127,25 @@ function leaveBedroom(){
        會檢查劇情節點,從房間走出來不會。開場第一幕是「房間起床→走出房門→
        客廳接母親線」,不補這行整段接不上。seenStoryDays 本來就會擋重複,
        多一個觸發點沒有副作用。 */
-    maybeTriggerStoryNode();
+    if(dailyGotoReady('momBag') && !GRANDMA.bagGiven) runMomBag();
+    else maybeTriggerStoryNode();
     checkGrandmaCall();
+  });
+}
+/* day2 阿嬤那袋——媽在客廳塞給你就出門。字是我寫的,kc 2026-09-11 點頭。 */
+function runMomBag(){
+  GRANDMA.bagGiven = true;
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'媽站在門口，手上一個袋子。' },
+    { who:'mom', text:'「這個拿去醫院給阿嬤。換洗的，還有她要的那罐麥片。」' },
+    { who:'mom', text:'「上禮拜住進去的，你都沒去。」' },
+    { who:'pc',  text:'她把袋子塞給你就出門了。' }
+  ], 0, () => {
+    TRASH.push({ name:'給阿嬤的袋子', icon:'🛍️', grandmaBag:true, detail:'換洗衣服跟一罐麥片。<br>媽說拿去醫院給她。' });
+    setTodayCard('拿東西去醫院給阿嬤');
+    logDay('媽叫我拿東西去醫院給阿嬤。上禮拜住院的，我今天才知道。');
+    busy = false;
   });
 }
 /* 教室 ⇄ 走廊(2026-08-28):跟客廳⇄房間同一套「兩個都算室內,只是 PLACE
@@ -10305,7 +10328,8 @@ let MOM_THEFT = 0, MOM_THEFT_DAY = -1;
 const GRANDMA_CALL_DAY = 46, GRANDMA_CALL_MINUTE = 18*60;
 let hospitalCallFired = false;
 let yuanMorningCallFired = false;   // sleep() 那段「阿源早上打電話來」用,見那則筆記
-const GRANDMA = { dead:false, wentToSee:false, toldYuan:false, critical:false, nextCheckDay:-1, visits:0, feeds:0 };
+const GRANDMA = { dead:false, wentToSee:false, toldYuan:false, critical:false, nextCheckDay:-1, visits:0, feeds:0,
+                  bagGiven:false, bagDelivered:false, met:false };   // day2 那袋(2026-09-11),met=在 day16 之前就見過她
 const GRANDMA_MONTH_DAYS = 30, GRANDMA_VISITS_NEEDED = 2, GRANDMA_FEEDS_NEEDED = 2;
 let altarTalkDay = -1, altarIncenseDay = -1;   // 家裡牌位互動一天一次,見 openIndoorSpot() PLACE==='home' 那段
 function checkGrandmaCall(){
@@ -10566,7 +10590,10 @@ function enterHospital(){
     document.getElementById('where').textContent = '醫院';
     hintEl.classList.remove('on');
     paintHospitalBackdrop(true);   // 這整場戲阿嬤都醒著在講話(HOSPITAL_GO_BEATS),用清醒那張圖
-    playBeats(HOSPITAL_GO_BEATS, 0, () => {
+    /* day2 那袋沒送(GRANDMA.met false):媽多一句。有送就照原本的。 */
+    const goBeats = GRANDMA.met ? HOSPITAL_GO_BEATS
+      : HOSPITAL_GO_BEATS.slice(0, 3).concat([{ who:'mom', text:'「上次叫你拿東西來，你都沒來。」' }], HOSPITAL_GO_BEATS.slice(3));
+    playBeats(goBeats, 0, () => {
       askFreeText('你想跟阿嬤說什麼？', '（打字,留白也可以）', text => {
         const said = text ? [{ who:'pc', text:'「'+text+'」' }].concat(HOSPITAL_LAST_WORDS_SAID) : HOSPITAL_LAST_WORDS_SILENT;
         playBeats(said.concat(HOSPITAL_CLOSING_BEATS), 0, () => {
@@ -10674,6 +10701,26 @@ function visitGrandma(){
        為 false 時這裡不累加，見 checkGrandmaMonthly()。只在真正走進來
        那一刻算一次，「陪她坐一下」重覆聊天不會疊加。 */
     if(GRANDMA.critical){ GRANDMA.visits++; updateGrandmaQuestHint(); }
+    /* day2 那袋還在身上:第一次進來走專用的一段,交完才接一般探望。 */
+    if(GRANDMA.bagGiven && !GRANDMA.bagDelivered){ deliverGrandmaBag(); return; }
+    grandmaVisitLine();
+  });
+}
+function deliverGrandmaBag(){
+  GRANDMA.bagDelivered = true; GRANDMA.met = true;
+  const i = TRASH.findIndex(t => t.grandmaBag); if(i >= 0) TRASH.splice(i, 1);
+  if(dailyDef() && dailyDef().id === 'grandma-bag') dailyDone(); else clearTodayCard();
+  paintHospitalBackdrop(true);
+  playBeats([
+    { who:'granny', text:'「你來了啊。」' },
+    { who:'pc',     text:'你把袋子放在床邊櫃子上。' },
+    { who:'granny', text:'「你媽呢。」' },
+    { who:'pc',     text:'「上班。」她點點頭，沒再問。' },
+    { who:'granny', text:'「有沒有吃飽。」' }
+  ], 0, () => {
+    chg('calm', 6); chg('mood', 3);
+    logDay('去醫院看阿嬤。她問我媽呢。');
+    toast('（歸屬感 +6、情緒 +3）', 2200);
     grandmaVisitLine();
   });
 }
