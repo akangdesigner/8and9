@@ -4210,8 +4210,11 @@ NPCS.push(...SEATED_BUS, SEATED_PARK);
 
 const RIDER_PATH = [[-76,-4.5],[76,-4.5],[76,4.5],[-76,4.5]];
 const RIDER = {
-  npc: buildNPC(THREE, scene, { x:-76, z:-4.5, rotationY:Math.PI/2, rig:'m3',
-    skin:'#c9976e', hood:'#2e3a4a', pants:'#2b2b2b', shoe:'#3a3430' }),
+  /* rig:'m'(2026-09-11,kc:「騎機車的人他的骨架要跟我的一樣啊」)——跟主角
+     同一副 Remy 骨架,RIDE_POSE 那組跨坐角度本來就是照這副骨架調的,換 m3
+     那副比例不同,套上去腿的張開角度會不一樣。 */
+  npc: buildNPC(THREE, scene, { x:-76, z:-4.5, rotationY:Math.PI/2, rig:'m',
+    skin:'#c9976e', hair:'#2c2622', hood:'#2e3a4a', pants:'#2b2b2b', shoe:'#3a3430' }),
   moto: city.spawnMoto(-76, -4.5, 4, false, true),
   idx:1, x:-76, z:-4.5, ry:Math.PI/2, mounted:false
 };
