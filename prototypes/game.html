@@ -967,7 +967,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="tweakCorridorPanel()">走廊滑桿</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -12687,8 +12687,9 @@ function chatWithMeiClassroom(){
    warnings 每筆 {day, kind, announced},公佈欄隔天才貼(day < 今天才算貼出來),
    直接寫「警告 N 次」。三次:隔天進教室導師找你(story-school day82 那段劇本)、
    清寒補助送不過(payAidNow());獎學金扣錢等期中考做好一起接。
-   ⚠ 主角在公佈欄上的名字 kc 還沒給,先用「（你）」。 */
+   主角名字是 PLAYER_NAME(開新遊戲時玩家自己輸入),舊存檔沒有就退回「（你）」。 */
 const DISCIPLINE = { warnings:[], phoneHeld:false, counseled:false };
+let PLAYER_NAME = '';   // 開新遊戲時問(見 bootFresh 那段),舊存檔沒有這個欄位就空字串 → 公佈欄退回「（你）」
 function addWarning(kind, onDay){
   DISCIPLINE.warnings.push({ day: onDay ?? day, kind, announced: kind !== 'absent' });
   if(kind === 'phone') DISCIPLINE.phoneHeld = true;
@@ -12697,7 +12698,7 @@ function readBoard(){
   const posted = DISCIPLINE.warnings.filter(w => w.day < day);
   const phone = posted.filter(w => w.kind === 'phone').length, absent = posted.filter(w => w.kind === 'absent').length;
   const mine = posted.length
-    ? `一年三班　（你）　　警告 ${posted.length} 次` + (posted.length >= 3 ? '　（送輔導室）' : '') +
+    ? `一年三班　${PLAYER_NAME || '（你）'}　　警告 ${posted.length} 次` + (posted.length >= 3 ? '　（送輔導室）' : '') +
       `\n　　　　　　　　　　（上課使用手機 ×${phone}、曠課 ×${absent}）\n`
     : '';
   const others = '一年一班　陳○宏　曠課累計　記大過乙次\n二年二班　林○翔　校外鬥毆　記大過兩次\n三年五班　黃○安　　　　　　退學\n一年三班　阿仁　　上課使用手機　警告乙次';
@@ -14797,6 +14798,7 @@ const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
 /* ③ 散裝的 let 變數:module scope 的 let 沒辦法用 Object.assign 寫回,一個
       變數配一個 getter/setter(不給參數是讀、給了是寫)。 */
 const SAVE_VARS = {
+  PLAYER_NAME:        v => v===undefined ? PLAYER_NAME        : (PLAYER_NAME = v),
   day:                v => v===undefined ? day                : (day = v),
   minute:             v => v===undefined ? minute             : (minute = v),
   lastExamDay:        v => v===undefined ? lastExamDay        : (lastExamDay = v),
@@ -15304,7 +15306,13 @@ if(bootSlot){
   if(bootSlot !== 'auto')   // 'auto' 是 #bar「重來」帶的旗標,那是開發用的重整,不用跟玩家報告
     setTimeout(() => toast(ok ? `已讀取存檔 ${bootSlot}。` : '讀取失敗,從頭開始。', 2600), 700);
 } else if(bootFresh){
-  showSchoolPick();          // 新遊戲第一件事是選學校,選完 finishSchoolPick() 才真的開始
+  /* 新遊戲第一件事先問名字(2026-09-11,kc:「主角的名字用變數 一開始會讓用戶
+     輸入」)——公佈欄、之後成績單都會印這個名字。空白就用預設「小傑」。
+     問完才進選學校。 */
+  askFreeText('你叫什麼名字？', '輸入名字（學校的公告、成績單會用這個）', text => {
+    PLAYER_NAME = text || '小傑';
+    showSchoolPick();          // 新遊戲第二件事是選學校,選完 finishSchoolPick() 才真的開始
+  });
 } else {
   showTitle();
 }
