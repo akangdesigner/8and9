@@ -8598,6 +8598,10 @@ function fade(label, mid){
    上完課還是早上,「放學後去哪」這種任務講不通。
    已經比放學晚才做(玩家中午才到學校之類)就不倒退時間,只跳提示。 */
 const SCHOOL_OUT_MINUTE = 16*60;
+/* 上課時間(2026-09-11,kc 定案:「上課 08:00、放學 16:00,兩個常數」)——目前
+   只有校門口的教官在用(talkToJiaoguan(),照「現在幾點 + 今天進過教室沒」
+   分三句),進教室本身不卡這個時間,遲到照樣能上課。 */
+const SCHOOL_IN_MINUTE = 8*60;
 function finishSchoolDay(){
   if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
   toast('放學了。', 2200);
@@ -12573,6 +12577,18 @@ function chatWithMeiClassroom(){
 function talkToJiaoguan(){
   const D = NpcSchool.JIAOGUAN;
   if(!YUAN.hasTattoo || JIAOGUAN.confronted){
+    /* 校門口的教官認得上下課時間(2026-09-11,kc 定案,見 SCHOOL_IN_MINUTE):
+       08:00 前一句早安;08:00~16:00 之間今天還沒進過教室(lastSchoolDay)就唸
+       一句「還在外面晃」——**只講話不扣指標**,體力<50 那條提醒已經在管
+       「沒去學校」這件事,不重複扣;16:00 後或今天上過了維持原本的閒聊。 */
+    if(minute < SCHOOL_IN_MINUTE){
+      say('jiaoguan', '「早。進去吧。」');
+      return;
+    }
+    if(minute < SCHOOL_OUT_MINUTE && lastSchoolDay !== day){
+      say('jiaoguan', '「現在幾點了？還在外面晃。」');
+      return;
+    }
     say('jiaoguan', D.idleTalk[Math.random()*D.idleTalk.length|0]);
     return;
   }
