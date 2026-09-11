@@ -4463,8 +4463,28 @@ export const RIDE_POSE = {
 
 function applyRidePose(bones){
   if(!bones.LeftUpLeg) return;
+  /* 2026-09-11 坐姿改成凍在同一格(holdPose)之後踩到的坑:three.js 的
+     PropertyMixer.apply() 只在「這一幀算出來的值跟上一幀不一樣」時才寫回
+     骨頭,凍格之後值都一樣,mixer 就不再碰這幾根骨頭——下面的 rotateX/Y/Z
+     是「在現在的角度上再加一點」,沒人幫忙歸零就一幀一幀累積上去,人越轉越
+     開(kc:「動作還是會亂跳」)。解法:每根骨頭記住「套姿勢前」跟「套姿勢後」
+     的四元數,下一幀進來如果骨頭還停在「套姿勢後」那個值(=mixer 這幀沒寫),
+     先還原成「套姿勢前」再套;mixer 有寫的話(crossfade 中、或動畫還在播)
+     就直接拿新值當底。這樣不管動畫是播著還是凍著,疊加量永遠只有一份。 */
+  const st = bones._ridePoseState || (bones._ridePoseState = {});
+  const begin = name => {
+    const b = bones[name]; if(!b) return null;
+    const r = st[name] || (st[name] = { base:b.quaternion.clone(), out:b.quaternion.clone(), has:false });
+    if(r.has && b.quaternion.equals(r.out)) b.quaternion.copy(r.base);
+    r.base.copy(b.quaternion);
+    return r;
+  };
+  const finish = (name, r) => { if(r){ r.out.copy(bones[name].quaternion); r.has = true; } };
+  const rL = begin('LeftUpLeg'), rR = begin('RightUpLeg');
   bones.LeftUpLeg.rotateY(-RIDE_POSE.thighSplay);
   bones.RightUpLeg.rotateY(RIDE_POSE.thighSplay);
+  finish('LeftUpLeg', rL); finish('RightUpLeg', rR);
+
   /* 手往前平伸(2026-08-17 kc 要求)——sit 動畫是手放大腿上那種坐姿,肩膀
      往前抬。拿 __dbg.boneWorldPos() 量手掌實際世界座標試出來的,不是肉眼
      直接調中的:
@@ -4483,12 +4503,14 @@ function applyRidePose(bones){
        slider,kc 說不夠)。單獨測過對手掌位置影響很小(接近骨頭自己的
        length/twist 軸),但留著給面板拖著玩,鏡射方式跟 armZ 一樣兩邊反號。 */
   if(bones.LeftArm){
+    const aL = begin('LeftArm'), aR = begin('RightArm');
     bones.LeftArm.rotateX(RIDE_POSE.armX);
     bones.LeftArm.rotateZ(RIDE_POSE.armZ);
     bones.LeftArm.rotateY(RIDE_POSE.armY);
     bones.RightArm.rotateX(RIDE_POSE.armX);
     bones.RightArm.rotateZ(-RIDE_POSE.armZ);
     bones.RightArm.rotateY(-RIDE_POSE.armY);
+    finish('LeftArm', aL); finish('RightArm', aR);
   }
 }
 

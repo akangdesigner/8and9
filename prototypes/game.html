@@ -967,7 +967,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugJumpBusStop()">跳公車亭</button><button class="tool" onclick="debugJumpPark()">跳公園</button><button class="tool" onclick="tweakSeatedPanel()">坐姿滑桿</button><button class="tool" onclick="debugJumpRider()">看騎士</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -11538,6 +11538,10 @@ function debugJumpPark(){
 }
 window.debugJumpBusStop = debugJumpBusStop;
 window.debugJumpPark = debugJumpPark;
+/* 補飽足(2026-09-11,kc:「先清掉多餘的按鈕補上補飽食度」)——測試用,一鍵補滿。
+   跳公車亭/跳公園/坐姿滑桿/看騎士那四顆同一天拔掉(函式留著,要再開跟我說)。 */
+function debugFillFull(){ chg('full', 100 - ST.full); }
+window.debugFillFull = debugFillFull;
 function tweakPassengerSeatPanel(){
   const old = document.getElementById('passengerSeatTweakPanel');
   if(old){ old.remove(); return; }
