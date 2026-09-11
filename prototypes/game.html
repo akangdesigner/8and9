@@ -2678,6 +2678,13 @@ keyLight.shadow.camera.near = 1; keyLight.shadow.camera.far = 130;
 keyLight.shadow.camera.left = -44; keyLight.shadow.camera.right = 44;
 keyLight.shadow.camera.top = 40;   keyLight.shadow.camera.bottom = -40;
 keyLight.shadow.bias = -0.0013;
+/* normalBias(2026-09-11,kc:「機車騎士手部會有一點點閃幀」→「我騎車也會閃」)
+   ——推測是 shadow acne:騎車時手臂平伸、手掌跟前臂的面幾乎平行於光線,
+   陰影貼圖的鋸齒剛好落在那些面上,加上 keyLight 每幀跟著玩家走,貼圖格子
+   一直在動就變成閃。normalBias 沿法線方向把取樣點往外推,專治這種
+   平行面的 acne,不像 bias 加大會讓影子跟腳分開(peter-panning)。數字先
+   抓 0.05,#bar「坐姿滑桿」裡有兩條陰影滑桿可以現場拉,拉到不閃再寫死。 */
+keyLight.shadow.normalBias = 0.05;
 scene.add(keyLight, keyLight.target);
 
 const city = buildCity(THREE, scene);
@@ -11489,7 +11496,9 @@ function tweakSeatedPanel(){
     ['st_park','公園長椅:坐姿高度', 0.3, 2.0, 0.02, () => SEAT_Y_PARK, v => { SEAT_Y_PARK = v; applySeatTweak(); }],
     ['st_parkz','公園長椅:前後(離卡片多遠)', -1.5, 1.5, 0.02, () => SEAT_DZ_PARK, v => { SEAT_DZ_PARK = v; applySeatTweak(); }],
     ['st_ry','騎士座墊高度', 0.3, 1.6, 0.02, () => RIDER_SEAT_Y, v => RIDER_SEAT_Y = v],
-    ['st_spd','機車速度', 2, 20, 0.5, () => RIDER_SPEED, v => RIDER_SPEED = v]
+    ['st_spd','機車速度', 2, 20, 0.5, () => RIDER_SPEED, v => RIDER_SPEED = v],
+    ['st_nb','陰影 normalBias(手閃幀試這條)', 0, 0.3, 0.005, () => keyLight.shadow.normalBias, v => { keyLight.shadow.normalBias = v; }],
+    ['st_sb','陰影 bias(×1000)', -6, 2, 0.1, () => keyLight.shadow.bias*1000, v => { keyLight.shadow.bias = v/1000; }]
   ];
   const panel = document.createElement('div');
   panel.id = 'seatedTweakPanel';
