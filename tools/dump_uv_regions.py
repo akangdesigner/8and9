@@ -17,7 +17,11 @@ import bpy, sys, json
 
 argv = sys.argv[sys.argv.index('--')+1:]
 src, out_json = argv[0], argv[1]
-body_material_name = argv[2] if len(argv) > 2 else None
+body_material_name = argv[2] if len(argv) > 2 and argv[2] != '-' else None
+# fine 模式(2026-09-11,教官 Lewis 那輪加的):分得比原本細——上臂/前臂/髖分開,
+# 給「程式直接上色」用(短袖襯衫=軀幹+上臂、皮膚=臉+前臂+手、褲子=髖+腿),
+# 見 tools/paint_uv_regions.py。原本那套 5 類粗分維持預設,給生圖工具參考用。
+fine = len(argv) > 3 and argv[3] == 'fine'
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=src, automatic_bone_orientation=True)
@@ -43,8 +47,12 @@ def region_for_bone(name):
         return 'hand'
     if 'foot' in n or 'toe' in n:
         return 'foot'
+    if fine and 'forearm' in n:
+        return 'forearm'
     if 'shoulder' in n or 'arm' in n:
         return 'arm'
+    if fine and 'hips' in n:
+        return 'hips'
     if 'leg' in n:
         return 'leg'
     return 'torso'

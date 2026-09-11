@@ -3602,8 +3602,12 @@ const NPCS = [
     tex:{ hood:'char-mei-shirt.png', pants:'char-mei-skirt.png' }
   }),
   buildNPC(THREE, scene, {                             // 教官・巡邏(見上面 JIAOGUAN 那則筆記)
-    x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*.1, rig:'m2',   // 2026-09-11 kc 第二次:「教官轉180度」——原本 Math.PI*1.1 是背對馬路,轉成 .1(面北朝校門那側才是他看得到玩家的方向,這裡的 rotationY 慣例跟我想的相反)
-    skin:'#c9a077', hair:'#232323', hood:'#5c6a4a', pants:'#2c3a2c', shoe:'#1c1c1c'
+    /* rig m8 = Lewis,教官專屬骨架(2026-09-11,見 scene-city3d.js MODELS.m8 那則)。
+       衣服顏色在 char-jiaoguan-body-uv.png 那張貼圖裡,這裡的 skin 只是貼圖
+       載入前的底色;hood/pants 對這副骨架沒有對應部件,不用給。 */
+    x:JIAOGUAN.x, z:JIAOGUAN.z, rotationY:Math.PI*.1, rig:'m8',   // 2026-09-11 kc 第二次:「教官轉180度」——原本 Math.PI*1.1 是背對馬路,轉成 .1(面北朝校門那側才是他看得到玩家的方向,這裡的 rotationY 慣例跟我想的相反)
+    skin:'#c9a077', hair:'#1a1714',
+    texRaw:{ skin:'char-jiaoguan-body-uv.png' }
   }),
   buildNPC(THREE, scene, {                             // 阿仁・蹺課常客(見上面 AREN 那則筆記)
     x:AREN.x, z:AREN.z, rotationY:Math.PI*.85, rig:'m3',   // 面南(朝馬路,玩家從那邊來),微偏東朝刺青店門——原本 .5 面東變成側對玩家,kc:「面對錯方向」

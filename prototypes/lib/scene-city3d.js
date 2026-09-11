@@ -4226,6 +4226,16 @@ const MODELS = {
      三副都是分件乾淨的拓樸(Body/Shirt/Pants/Shoes/Hair/Eyelashes 各自
      獨立 mesh 節點,不是 kid/Ortiz 那種單一合併 mesh),換色不會踩到
      「一顆 mesh 分不開」的坑。 */
+  /* 教官(2026-09-11,kc:「教官人物有重複嗎 模板」→ 要專屬骨架)。Mixamo 的
+     Lewis:短袖有領襯衫+皮帶+長褲,剪裁最接近 kc 給的台灣教官參考圖(灰綠
+     短袖制服+深藍褲)。Ch12_body 是皮膚+衣服黏死同一塊材質(跟小胖 James
+     同一種),衣服顏色靠 UV 貼圖 `assets/tex/char-jiaoguan-body-uv.png`——
+     不是生圖,是 tools/paint_uv_regions.py 按骨骼部位程式填色(軀幹+上臂=
+     灰綠襯衫、髖+腿=深藍褲、臉/前臂/手=皮膚、腳=黑鞋),走 opts.texRaw。
+     頭髮是獨立材質 slot,fbx2glb_split 切出來當 'hair' 正常上色。
+     Lewis 原本是黑人,膚色在遊戲裡是程式給的,跟其他 NPC 一樣。 */
+  m8: { idle:'base-human-m8-idle.glb', walk:'base-human-m8-walk.glb',
+        parts: { Ch12_body:'skin', Ch12_hair:'hair' } },
   f3: { idle:'base-human-f3-idle.glb', walk:'base-human-f3-walk.glb',
         /* Jody——kc 挑的是頭髮色調最接近既有 worker-portrait.png 大頭貼
            的一個(深色短髮,其餘兩個 Elizabeth 捲髮/Kate 金髮色差更大)。
