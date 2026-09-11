@@ -507,6 +507,18 @@
                      26%{transform:translate(-50%,0) scale(1);} 70%{opacity:1;}
                      100%{opacity:0;transform:translate(-50%,-30px);} }
 
+  /* 長椅休息讀條(2026-09-11,kc:「坐下來應該畫面中間上面會有一個時間讀條」)
+     ——畫面正上方一條,跑滿一輪就結算一次數值、時間往前推,見 tickBenchRest()。 */
+  #restBar { position:fixed; left:50%; top:9%; transform:translateX(-50%); width:320px;
+             background:rgba(8,10,14,.9); border:1px solid rgba(120,134,158,.35); border-radius:4px;
+             padding:8px 12px 9px; font-size:12px; color:#dfe4ea; letter-spacing:.06em;
+             display:none; z-index:7; pointer-events:none; text-align:center; }
+  #restBar.on { display:block; }
+  #restBar .lb { display:flex; justify-content:space-between; margin-bottom:5px; }
+  #restBar .lb b { color:#f2b25c; font-weight:600; }
+  #restBar .tr { height:6px; background:rgba(255,255,255,.1); border-radius:3px; overflow:hidden; }
+  #restBar .tr i { display:block; height:100%; width:0; background:linear-gradient(90deg,#4a8a5c,#6fc98a); }
+  #restBar .sub { margin-top:5px; color:#8f98a6; font-size:11px; }
   #toast { position:fixed; left:50%; top:16%; transform:translateX(-50%);
            background:rgba(8,10,14,.9); border-left:3px solid #d8b24a; padding:9px 18px;
            font-size:15px; color:#e8ecf1; border-radius:2px; letter-spacing:.05em;
@@ -843,6 +855,7 @@
 <div id="toast"></div>
 <div id="wlabels"></div>
 <div id="float"></div>
+<div id="restBar"><div class="lb"><span>坐著休息</span><b id="restClock"></b></div><div class="tr"><i id="restFill"></i></div><div class="sub">每 30 分鐘　體力 +5　情緒 +1　飽足 −3</div></div>
 
 <div id="dialog">
   <canvas id="portrait" width="100" height="100"></canvas>
@@ -10807,6 +10820,7 @@ function updateCity(dt){
   checkYuanEveningWatch();
   checkKaiRunDrop();
   tickStolenRide(dt);        // 騎在別人車上每 10 秒扣一次風評,見 mountMoto()
+  tickBenchRest(dt);         // 公園長椅休息讀條,見 sitOnBench()
   if(keys['q']) camYaw -= dt*.0018;
   if(keys['e']) camYaw += dt*.0018;
 
@@ -11288,19 +11302,41 @@ let motoMountPos = null;
    'sit',不疊騎車那組張腿),高度跟坐著的路人同一個 SEAT_Y_PARK。坐著的
    時候方向鍵/空白鍵都是「站起來」,站起來往北(椅子前方)退一步,不會卡在
    椅子碰撞箱裡。情緒 +6 維持坐下那一刻給,不做「坐越久加越多」。 */
-let benchSitting = false, BENCH_SIT_Y = 0;
+let benchSitting = false, BENCH_SIT_Y = 0, restT = 0;
+/* 休息讀條的節奏(2026-09-11,kc:「可以慢慢地回復體力跟一點點情緒 但時間跟
+   飽食度會流逝」)——跑滿一輪 REST_MS 真實秒數 = 遊戲裡 30 分鐘,結算一次
+   體力 +5 / 情緒 +1 / 飽足 −3,讀條歸零繼續跑,坐多久算多久。原本坐下那一刻
+   的情緒 +6 拿掉,改成這種慢慢累積。飽足掉到 5 以下自動站起來(餓到坐不住),
+   不讓休息把自己餓死——跟 spendBlockedReason() 同一個原則。數字都是我抓的,
+   不喜歡再調。 */
+const REST_MS = 8000, REST_MINUTES = 30, REST_GAIN = { stamina:5, mood:1, full:-3 };
+const restBarEl = document.getElementById('restBar'), restFillEl = document.getElementById('restFill'), restClockEl = document.getElementById('restClock');
 function sitOnBench(){
-  benchSitting = true;
+  benchSitting = true; restT = 0;
   BENCH_SIT_Y = SEAT_Y_PARK;
   hero.group.position.set(BENCH.x - 1.1, SEAT_Y_PARK, BENCH.z + SEAT_DZ_PARK);
   hero.group.rotation.y = 0;
   hintEl.classList.remove('on');
-  chg('mood', 6);
-  toast('你在長椅上坐下來，看公園裡的人來來去去。\n（方向鍵站起來）', 2600);
+  restBarEl.classList.add('on'); restFillEl.style.width = '0%'; restClockEl.textContent = fmtTime(minute);
+  toast('你在長椅上坐下來，看公園裡的人來來去去。', 2200);
 }
 function standFromBench(){
   benchSitting = false;
+  restBarEl.classList.remove('on');
   hero.group.position.set(BENCH.x - 1.1, .3, BENCH.z + 1.8);
+}
+function tickBenchRest(dt){
+  if(!benchSitting) return;
+  restT += dt;
+  restFillEl.style.width = Math.min(100, restT / REST_MS * 100) + '%';
+  restClockEl.textContent = fmtTime(minute);
+  if(restT < REST_MS) return;
+  restT -= REST_MS;
+  advanceTime(REST_MINUTES);
+  chg('stamina', REST_GAIN.stamina);
+  chg('mood', REST_GAIN.mood);
+  chg('full', REST_GAIN.full);
+  if(ST.full <= 5){ standFromBench(); toast('你餓到坐不住了，先去吃點東西。', 2600); }
 }
 window.sitOnBench = sitOnBench;
 function mountMoto(m){
