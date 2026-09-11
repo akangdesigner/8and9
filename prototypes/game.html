@@ -774,6 +774,20 @@
   /* 蓋在標題畫面上的時候要不透明——半透明的話標題那幾行字會從底下透出來,
      跟存檔列表的字疊在一起。蓋在遊戲畫面上時維持半透明(看得到自己站在哪)。 */
   #menuOverlay.overTitle { background:linear-gradient(180deg,#0a0d13 0%,#12161f 60%,#0a0d13 100%); }
+  /* 開場說明頁(2026-09-11,kc:「填完表單之後會有基本的規則說明還有你要幹嘛
+     之類的才不突兀」)——跟標題同一套暗底,幾行字+一顆「起床」。 */
+  #introScreen { position:fixed; inset:0; z-index:205; display:none; flex-direction:column;
+        align-items:center; justify-content:center; gap:0;
+        background:linear-gradient(180deg,#0a0d13 0%,#12161f 60%,#0a0d13 100%); color:#e6ebf2; }
+  #introScreen.on { display:flex; }
+  #introScreen .il { max-width:560px; font-size:16px; line-height:2.3; letter-spacing:.12em; color:#cfd6e0;
+        text-align:center; white-space:pre-line; opacity:0; transform:translateY(6px);
+        transition:opacity .9s, transform .9s; margin-bottom:8px; }
+  #introScreen .il.on { opacity:1; transform:none; }
+  #introScreen .il.keys { font-size:12px; letter-spacing:.2em; color:#7c869a; margin-top:10px; }
+  #introScreen .il.keys b { color:#b7c0cf; }
+  #introGo { margin-top:34px; opacity:0; transition:opacity .9s; }
+  #introGo.on { opacity:1; }
   #titleScreen h1 { margin:0 0 2px; font-size:40px; letter-spacing:.22em; font-weight:600; color:#f0f3f8; }
   #titleScreen .sub { margin:0 0 22px; font-size:12px; letter-spacing:.3em; color:#7c869a; }
   .menuBtn { width:280px; padding:12px 0; font-family:inherit; font-size:14px; letter-spacing:.14em;
@@ -954,6 +968,16 @@
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
 <button id="menuBtn" onclick="openGameMenu()">選單</button>
+<div id="introScreen">
+  <div class="il">九月。永安高中，一年三班。</div>
+  <div class="il">上面那七格是你：錢、飽足、體力、歸屬感、帥潮、情緒、風評。
+除了風評，哪一格見底，這一段就到這裡。</div>
+  <div class="il">每天做的事會寫進日記。
+睡一覺，就到下一個有事的日子。</div>
+  <div class="il">三年。看你能走到哪。</div>
+  <div class="il keys"><b>WASD</b> 走　<b>空白鍵</b> 互動　<b>Shift</b> 跑　<b>M</b> 地圖　<b>ESC</b> 選單</div>
+  <button id="introGo" class="menuBtn" onclick="finishIntro()">起　床</button>
+</div>
 <div id="namePick">
   <div class="sp_wrap">
     <div id="np_side" style="width:300px;text-align:right">
@@ -15289,9 +15313,24 @@ function finishNamePick(){
 window.finishNamePick = finishNamePick;
 function finishSchoolPick(){
   spEl.classList.remove('on');
+  showIntro();                          // 規則說明那頁,按「起床」才真的開始
+}
+/* 開場說明頁——一行一行淡入,最後出「起床」。 */
+function showIntro(){
+  const el = document.getElementById('introScreen');
+  el.classList.add('on');
+  const lines = [...el.querySelectorAll('.il')];
+  lines.forEach(l => l.classList.remove('on'));
+  document.getElementById('introGo').classList.remove('on');
+  lines.forEach((l, i) => setTimeout(() => l.classList.add('on'), 400 + i * 900));
+  setTimeout(() => document.getElementById('introGo').classList.add('on'), 400 + lines.length * 900);
+}
+function finishIntro(){
+  document.getElementById('introScreen').classList.remove('on');
   hideTitle();                          // 開始玩(saveOff 解除、選單鈕出現)
   openingWakeUp();
 }
+window.finishIntro = finishIntro;
 /* 開場第一幕(2026-09-09,kc:「選完後一進遊戲應該是從房間起床 你媽在門外
    叫你 然後就接 day3 的劇情」)——原本選完直接站在街上。現在丟進房間、
    媽媽在門外喊一聲,玩家自己走出房門到客廳才接上母親線第一個節點(那個節點
@@ -15305,7 +15344,9 @@ function openingWakeUp(){
   document.getElementById('city').style.display = 'none';
   wlabelsEl.style.display = 'none';
   document.getElementById('indoor').classList.add('on');
-  IN.px = BEDROOM_WALK_TWEAK.spawnPx; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
+  /* 站房間正中間、面向鏡頭(2026-09-11,kc:「一開始人會在房間的畫面中間比較像
+     剛起床」)——原本站門口那格 spawnPx,看起來像剛進門不像剛起床。 */
+  IN.px = (BEDROOM_WALK_TWEAK.minPx + BEDROOM_WALK_TWEAK.maxPx) / 2; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
   document.getElementById('where').textContent = '房間';
   paintBedroomBackdrop();
   /* 拆兩段:她喊的那句掛她的頭像,「門外你媽在叫你」是敘述,走旁白格式
