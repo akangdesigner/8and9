@@ -4576,7 +4576,7 @@ export const PLAYER_FACE = {
 /* NPC 用的參數(2026-09-11)——跟主角分開一組:主角的 Remy 有獨立 Eyes mesh,
    其他骨架眼球埋在臉的 mesh 裡、眼皮比較厚,同樣的 out 會被眼皮蓋住(kc 截圖:
    Sophie 只露一條白縫),要推得更出來。數字還沒對過,game.html 有滑桿。 */
-export const NPC_FACE = { on:true, out:.012, irisR:.010, whiteR:2.6, dy:.35, iris:0x231a13, sclera:0xf1ece1 };
+export const NPC_FACE = { on:true, out:.005, irisR:.005, whiteR:1.6, dy:-.3, iris:0x231a13, sclera:0xf1ece1 };   // 2026-09-11 kc 拉滑桿定案(截圖)
 /* 用睫毛 mesh 推眼睛位置——睫毛長在上眼皮邊緣,眼球中心在它下面一點(dy × 睫毛
    高度)、往臉裡一點(睫毛是最突出的地方,out 從這裡再往外推)。頂點要先經過
    skinning(applyBoneTransform)再轉世界座標,不能直接讀 geometry(那是 bind
