@@ -1948,7 +1948,11 @@ function debugDailyDraw(){
   debugDailyIdx++;
   DAILY.id = e.id; DAILY.day = day; DAILY.done = false;
   DAILY.dueDay = e.bill ? day + e.days : -1;
+  DAILY.told = true;
   if(e.instant) e.instant();
+  /* 帳單型要真的開單(2026-09-11,kc 用這顆按鈕抽到電費,去櫃台沒有「繳電費」
+     選項——正式路徑 checkDailyDoor() 有 addBill(),這裡漏了)。 */
+  if(e.doc) addBill(e);
   busy = true;
   dailyCard(e);
   say('pc', `（${debugDailyIdx}/${DAILY_EVENTS.length}）` + e.line, () => { busy = false; });
