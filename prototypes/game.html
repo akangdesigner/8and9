@@ -561,6 +561,32 @@
      零依賴那條,fallback 到系統的明體/楷體,公文感反而更接近。 */
   :root { --sp-serif:"Noto Serif TC","Source Han Serif TC","PMingLiU","MingLiU",serif;
           --sp-kai:"DFKai-SB","BiauKai","標楷體",var(--sp-serif); --sp-red:#a8281f; }
+  /* 輸入姓名的獨立畫面(2026-09-11,kc:「輸入姓名會有獨立的畫面 跟成績單那個
+     風格一樣」)——同一套暗底+紙,紙換成「新生基本資料卡」,姓名那條底線就是
+     輸入框。sp_ 那些 class 直接共用,只有 #namePick 自己的幾條在下面。 */
+  #namePick { position:fixed; inset:0; z-index:211; display:none;
+        align-items:center; justify-content:center; font-family:var(--sp-serif); color:#cfd4dc;
+        background:
+          radial-gradient(ellipse 70% 60% at 46% 38%, #3a3630 0%, #2a2a30 40%, transparent 70%),
+          radial-gradient(ellipse 90% 80% at 48% 45%, #34302a 0%, #22232a 45%, #14161b 100%); }
+  #namePick.on { display:flex; }
+  #namePick::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:3;
+        background: radial-gradient(ellipse 60% 64% at 50% 46%, transparent 38%, rgba(6,7,10,.74) 100%); }
+  #np_paper { position:relative; width:520px; color:#2b2620; transform:rotate(.5deg); padding:30px 38px 34px;
+        box-shadow:0 2px 4px rgba(0,0,0,.35), 0 18px 40px rgba(0,0,0,.55), 0 44px 90px rgba(0,0,0,.4);
+        animation: sp_land .8s cubic-bezier(.2,.9,.3,1) both; }
+  .np_row { display:flex; align-items:baseline; font-size:14px; color:#4e4738; margin:14px 0; }
+  .np_row .sp_k { letter-spacing:.4em; white-space:nowrap; }
+  .np_row .np_v { flex:1; border-bottom:1px solid #7a7160; margin-left:10px; padding:2px 6px;
+        font-family:var(--sp-kai); font-size:18px; color:#1e1a15; letter-spacing:.12em; min-height:24px; }
+  .np_row .np_v.np_dim { color:#8b8172; font-size:14px; }
+  #np_name { flex:1; margin-left:10px; padding:2px 6px; background:transparent; border:0;
+        border-bottom:1.5px solid #5f5748; outline:none; font-family:var(--sp-kai); font-size:22px;
+        color:#1e1a15; letter-spacing:.14em; }
+  #np_name::placeholder { color:#b3a794; font-size:14px; letter-spacing:.2em; }
+  #np_name:focus { border-bottom-color:var(--sp-red); }
+  .np_foot { margin-top:26px; font-size:10.5px; letter-spacing:.2em; color:#8b8172; text-align:right; }
+  #np_go { position:absolute; left:0; right:0; bottom:9%; text-align:center; z-index:6; }
   #schoolPick { position:fixed; inset:0; z-index:210; display:none;
         align-items:center; justify-content:center; font-family:var(--sp-serif); color:#cfd4dc;
         background:
@@ -919,6 +945,27 @@
 
 <div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
 <button id="menuBtn" onclick="openGameMenu()">選單</button>
+<div id="namePick">
+  <div class="sp_wrap">
+    <div id="np_side" style="width:300px;text-align:right">
+      <div class="sp_step">開　局</div>
+      <h1 class="sp_ask">叫什麼名字</h1>
+      <div class="sp_askSub">這張卡會跟著你三年。<br>公佈欄、成績單，<br>都會印這個名字。</div>
+    </div>
+    <div id="np_paper">
+      <div class="sp_ptitle">高級中等學校　新生入學</div>
+      <div class="sp_psub">學生基本資料卡</div>
+      <div class="sp_r1"></div><div class="sp_r2"></div>
+      <div class="np_row"><span class="sp_k">姓名</span><input id="np_name" type="text" maxlength="12" autocomplete="off" placeholder="在這裡寫"></div>
+      <div class="np_row"><span class="sp_k">班級</span><span class="np_v">一年三班</span></div>
+      <div class="np_row"><span class="sp_k">住址</span><span class="np_v np_dim">中華路（自填）</span></div>
+      <div class="np_row"><span class="sp_k">監護人</span><span class="np_v np_dim">父　　　　　母</span></div>
+      <div class="np_row"><span class="sp_k">緊急聯絡</span><span class="np_v np_dim"></span></div>
+      <div class="np_foot">此卡由學生本人填寫，資料不實者依校規處理。</div>
+    </div>
+  </div>
+  <div id="np_go"><button id="sp_go" onclick="finishNamePick()">填　好　了</button></div>
+</div>
 <div id="schoolPick">
   <canvas id="sp_noise"></canvas>
   <div class="sp_wrap">
@@ -932,7 +979,7 @@
         <div class="sp_ptitle">國民中學教育會考</div>
         <div class="sp_psub">成績通知單</div>
         <div class="sp_r1"></div><div class="sp_r2"></div>
-        <div class="sp_nameRow"><span class="sp_k">姓名</span><span class="sp_u"></span><span class="sp_n">阿凱</span></div>
+        <div class="sp_nameRow"><span class="sp_k">姓名</span><span class="sp_u"></span><span class="sp_n" id="sp_name">小傑</span></div>
         <div class="sp_grades" id="sp_grades"></div>
         <div class="sp_total">總積分<b>12</b></div>
       </div>
@@ -15188,6 +15235,7 @@ function buildSchoolPick(){
 }
 function showSchoolPick(){
   spDone = false;
+  document.getElementById('sp_name').textContent = PLAYER_NAME || '小傑';   // 成績單上的名字(原本寫死「阿凱」——那是 NPC 的名字,錯的)
   saveOff = true;                       // 還沒開始玩,不准自動存蓋掉東西
   document.getElementById('sp_stampLayer').innerHTML = '';
   document.getElementById('sp_after').classList.remove('sp_in');
@@ -15198,6 +15246,27 @@ function showSchoolPick(){
   buildSchoolPick();
   spEl.classList.add('on');
 }
+/* 姓名卡(2026-09-11)——紙的質感跟成績單同一張 spPaperTexture()。Enter 或
+   按鈕都算填好;空白就用預設「小傑」。 */
+const npEl = document.getElementById('namePick');
+function showNamePick(){
+  saveOff = true;
+  document.getElementById('np_paper').style.background = 'url('+spPaperTexture(520,420)+') center/cover';
+  npEl.classList.add('on');
+  const inp = document.getElementById('np_name');
+  inp.value = '';
+  setTimeout(() => inp.focus(), 300);
+  inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); finishNamePick(); } e.stopPropagation(); };
+  inp.onkeyup = e => e.stopPropagation();
+}
+function finishNamePick(){
+  const inp = document.getElementById('np_name');
+  PLAYER_NAME = inp.value.trim() || '小傑';
+  inp.onkeydown = null; inp.onkeyup = null;
+  npEl.classList.remove('on');
+  showSchoolPick();
+}
+window.finishNamePick = finishNamePick;
 function finishSchoolPick(){
   spEl.classList.remove('on');
   hideTitle();                          // 開始玩(saveOff 解除、選單鈕出現)
@@ -15393,10 +15462,7 @@ if(bootSlot){
   /* 新遊戲第一件事先問名字(2026-09-11,kc:「主角的名字用變數 一開始會讓用戶
      輸入」)——公佈欄、之後成績單都會印這個名字。空白就用預設「小傑」。
      問完才進選學校。 */
-  askFreeText('你叫什麼名字？', '輸入名字（學校的公告、成績單會用這個）', text => {
-    PLAYER_NAME = text || '小傑';
-    showSchoolPick();          // 新遊戲第二件事是選學校,選完 finishSchoolPick() 才真的開始
-  });
+  showNamePick();            // 填完 finishNamePick() 才進選學校
 } else {
   showTitle();
 }
