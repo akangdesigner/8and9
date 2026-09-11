@@ -928,8 +928,22 @@ export function buildCity(THREE, scene){
        的問題)。2026-08-13 換成真 3D 遊具後,鞦韆/滑梯/翹翹板改用實際佔地
        長度反推位置(見上面 placeGltfProp() 那段),長椅位置跟著重算一次,
        每邊留至少 0.3~0.5 個單位淨空,不要憑感覺挪。 */
-    addProp('bench', cx-8, cz+3, 2.6, 1.8, 0x8a6a42, 0);
-    addProp('bench', x1-2.5, cz+3, 2.6, 1.8, 0x8a6a42, Math.PI);
+    /* 2026-09-11 kc:「公園的長椅也太小」——照片卡片(2.6×1.8)換成公車亭同一顆
+       bench.glb、同一個 BENCH_SCALE 2.46(見 busStop()),兩處長椅一樣大;
+       順便解決「人坐在照片卡片前面」的穿幫(SEATED_PARK,game.html)。
+       朝向:公車亭那顆沒轉(預設面 −z,朝馬路),這裡西邊那張轉 Math.PI 面北
+       (朝入口),東邊那張維持面南,跟原本兩張卡片的朝向一致。碰撞箱照
+       實際長度(1.8×2.46≈4.4)給 hw,不再沿用卡片 w*.3 那個小方塊。 */
+    [[cx-8, cz+3, Math.PI], [x1-2.5, cz+3, 0]].forEach(([bx, bz, ry]) => {
+      const fallback = add(box(4.4, .5, 1.5, std({ color:0x8a6a42, roughness:.8 })), bx, .25, bz, false, true);
+      solid(bx, bz, 2.2, .75);
+      loadModel('bench.glb').then(gltf => {
+        scene.remove(fallback);
+        const g = add(propModel(THREE, gltf, 1.8, 'x'), bx, 0, bz, true, true);
+        g.scale.setScalar(2.46);
+        g.rotation.y = ry;
+      }).catch(() => {});
+    });
 
     /* 入口兩側各放一個盆栽,呼應現實公園入口常見的做法 */
     addProp('planter', cx-gateW/2-1, z1+.5, 1.0, 1.1, 0x6a7a5a);
