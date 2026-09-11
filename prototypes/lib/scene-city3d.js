@@ -160,7 +160,7 @@ function grimeTexture(THREE){
  *     2×2 街廓之後再談,這輪只確定骨架。 */
 export const CITY = {
   ROAD_HW: 9, WALK_W: 7, UNIT: 12, DEPTH: 11,
-  H_ROADS: [ { z:-84, name:'廟口路' }, { z:0, name:'中華路' }, { z:84, name:'後火車站' } ],
+  H_ROADS: [ { z:-84, name:'廟口路' }, { z:0, name:'中華路' }, { z:84, name:'永安街' } ],   // 2026-09-11 kc:「地點就是永安街不是後火車站」——火車站早就沒了(公車亭),路名跟著改;程式註解裡的「後火車站」是歷史名稱,不用一一改
   V_ROADS: [ { x:-84, name:'西園街' }, { x:84, name:'東和街' } ],
   get B_LINE(){ return this.ROAD_HW + this.WALK_W + this.DEPTH/2; },   // 21.5
   /* 2026-08-28,kc:「還是這樣欸」進不去——真正的原因不是碰撞箱,是這裡。

@@ -1138,6 +1138,16 @@ let makeupAnnouncedDay = -1;
 const AID_WAIT_DAYS = 30;
 function payAidNow(){
   TEACHER_STATE.aidPaid = true;
+  /* 三支警告,操行送不過(2026-09-11 跟 kc 定案:清寒補助那一千不會因為記過
+     扣錢,但記滿三次整筆沒了)。 */
+  if(DISCIPLINE.warnings.length >= 3){
+    playBeats([
+      { who:'teacher', text:'「欸，你過來一下。」' },
+      { who:'teacher', text:'「補助的事。你這學期三支警告，操行那關送不過。」' },
+      { who:'teacher', text:'「我盡力了。」他沒有再看你。' }
+    ], 0, () => { toast('清寒補助沒下來。', 3000); });
+    return;
+  }
   playBeats([
     { who:'teacher', text:'「欸，你過來一下。」' },
     { who:'pc', text:'他從抽屜裡翻出一個信封，遞給你。' },
@@ -1511,9 +1521,11 @@ function endPhoneGame(success, jitterLine){
     toast(jitterLine, 2200);
   } else {
     chg('star', -3); chg('calm', -6);
+    addWarning('phone');   // 記警告,手機在他桌上,放學去走廊拿(見 DISCIPLINE)
     playBeats([
       { who:'jiaoguan', text:'「你在幹嘛。」' },
-      { who:'pc',       text:'教官不知道什麼時候站到你後面了，手機直接被沒收。' }
+      { who:'pc',       text:'教官不知道什麼時候站到你後面了，手機直接被沒收。' },
+      { who:'jiaoguan', text:'「放學來走廊拿。」' }
     ], 0, () => {});
   }
 }
@@ -6456,7 +6468,7 @@ const CORRIDOR_PHOTO = {
     { id:'kiosk',     name:'繳費機', x:160, w:72  },
     { id:'jiaoguan',  name:'教官',   x:270, w:90  },
     { id:'board',     name:'公佈欄', x:362, w:126 },
-    { id:'outside',   name:'走出去', x:505, w:135 }
+    { id:'outside',   name:'離開學校', x:505, w:135 }   // 2026-09-11 kc:「走出去提示改成離開學校」
   ]
 };
 const schoolCorridorImg = new Image();
@@ -7409,10 +7421,7 @@ function openIndoorSpot(id){
     /* 公佈欄(2026-09-11)——先只掛「別人的」獎懲名單(虛構名字,層級拉開),
        主角那一行要等警告系統做出來(跟 kc 討論定案:直接寫次數;手機/曠課
        兩種先記,期中考那條等考試機制),主角名字他還沒給。 */
-    else if(id === 'board'){
-      readNotice('【本學期獎懲公告】\n\n一年一班　陳○宏　曠課累計　記大過乙次\n二年二班　林○翔　校外鬥毆　記大過兩次\n三年五班　黃○安　　　　　　退學\n一年三班　阿仁　　上課使用手機　警告乙次\n\n你在名單上找了一下自己的名字。還沒有。');   // 主角是一年三班(照片班牌),三年計畫從高一開始
-      return;
-    }
+    else if(id === 'board'){ readBoard(); return; }
     return;
   }
   /* 遊藝場(2026-08-26,kc:「裡面有 2d 場景 可以去跟機台對話玩遊戲 吃角子
@@ -9457,6 +9466,7 @@ function maybeIdleDay(){
 function sleep(){
   busy = true;
   const skippedSchool = lastSchoolDay !== day;   // 結算今天(睡覺當下的 day,還沒 ++)有沒有去學校
+  const skippedDay = day;                        // 曠課那一天的日期,給 addWarning 記(wake 那時 day 已經跳過去了)
   /* 先蓋上過渡頁做今天的結算(見 showSleepPage()),關掉之後才走原本那套
      fade→加天數→隔天早上的流程。day 還沒 ++,所以頁面上算的是「今天」。 */
   showSleepPage(() => sleepAdvance(skippedSchool));
@@ -9585,6 +9595,7 @@ function sleepAdvance(skippedSchool){
       /* 日記那頁已經把「今天過了什麼」講完了,睡醒不用再來一則「你回去睡了一覺」
          (2026-09-10,kc:「然後就會自動起床啊 接明天的故事」)——只有真的有事
          (昨天翹課被扣、機車分期扣款)才跳,沒事就直接接明天的戲。 */
+      if(skippedSchool) addWarning('absent', skippedDay);   // 曠課記警告,隔天校門口教官會講(見 DISCIPLINE)
       if(skippedSchool || loanMsg)
         toast((skippedSchool ? '昨天沒去學校。（風評 −3）' : '') + loanMsg, 3800);
       busy = false;
@@ -9651,7 +9662,7 @@ function warpIntoPlace(door){
        兩階段都要靠「進教室」這個動作觸發,跟 day5/21 那套 day-based
        節點是平行的兩套機制,不要合併。撞到的話(回傳 true)就不要再檢查
        下面那批,一次進場只彈一段。 */
-    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);
+    if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
   } else if(PLACE === 'arcade'){
     /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
        scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
@@ -10049,7 +10060,7 @@ function leaveCorridorToClassroom(){
     IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
-    if(!checkFieldTrip()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);
+    if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
     checkGrandmaCall();
   });
 }
@@ -12671,6 +12682,44 @@ function chatWithMeiClassroom(){
 }
 /* 觸發條件借用 YUAN.hasTattoo(刺青店真的接進來、換成讀真的完成條件之後,
    這裡不用跟著改,見 YUAN 那則筆記的先例)。 */
+/* 警告系統(2026-09-11,跟 kc 討論定案,見 DESIGN_NOTES「教官的本子」):
+   兩種會記——上課玩手機被抓(phone)、曠課(absent);期中考那條等考試機制。
+   warnings 每筆 {day, kind, announced},公佈欄隔天才貼(day < 今天才算貼出來),
+   直接寫「警告 N 次」。三次:隔天進教室導師找你(story-school day82 那段劇本)、
+   清寒補助送不過(payAidNow());獎學金扣錢等期中考做好一起接。
+   ⚠ 主角在公佈欄上的名字 kc 還沒給,先用「（你）」。 */
+const DISCIPLINE = { warnings:[], phoneHeld:false, counseled:false };
+function addWarning(kind, onDay){
+  DISCIPLINE.warnings.push({ day: onDay ?? day, kind, announced: kind !== 'absent' });
+  if(kind === 'phone') DISCIPLINE.phoneHeld = true;
+}
+function readBoard(){
+  const posted = DISCIPLINE.warnings.filter(w => w.day < day);
+  const phone = posted.filter(w => w.kind === 'phone').length, absent = posted.filter(w => w.kind === 'absent').length;
+  const mine = posted.length
+    ? `一年三班　（你）　　警告 ${posted.length} 次` + (posted.length >= 3 ? '　（送輔導室）' : '') +
+      `\n　　　　　　　　　　（上課使用手機 ×${phone}、曠課 ×${absent}）\n`
+    : '';
+  const others = '一年一班　陳○宏　曠課累計　記大過乙次\n二年二班　林○翔　校外鬥毆　記大過兩次\n三年五班　黃○安　　　　　　退學\n一年三班　阿仁　　上課使用手機　警告乙次';
+  const tail = posted.length ? '' : '\n\n你在名單上找了一下自己的名字。還沒有。';
+  readNotice('【本學期獎懲公告】\n\n' + mine + others + tail);
+}
+/* 三次警告 → 導師找你(進教室觸發一次)。劇本是 story-school.js day82 那段
+   (封存的節點,這裡不經過 schoolStorySource() 的日期篩選,直接拿 day:82 那筆
+   來播),不改劇本一個字。 */
+function maybeCounsel(after){
+  if(DISCIPLINE.warnings.length < 3 || DISCIPLINE.counseled){ if(after) after(); return false; }
+  const node = StorySchool.NODES.find(n => n.day === 82);
+  if(!node){ if(after) after(); return false; }
+  DISCIPLINE.counseled = true;
+  playBeats(node.beats, 0, () => {
+    openMenu(node.title, node.menu.map(item => ({
+      label: item.label, cost: item.cost,
+      run: () => { applyStoryChoice(item); playBeats(item.beats, 0, after || (() => {})); }
+    })));
+  });
+  return true;
+}
 function talkToJiaoguan(){
   const D = NpcSchool.JIAOGUAN;
   if(!YUAN.hasTattoo || JIAOGUAN.confronted){
@@ -12678,6 +12727,21 @@ function talkToJiaoguan(){
        08:00 前一句早安;08:00~16:00 之間今天還沒進過教室(lastSchoolDay)就唸
        一句「還在外面晃」——**只講話不扣指標**,體力<50 那條提醒已經在管
        「沒去學校」這件事,不重複扣;16:00 後或今天上過了維持原本的閒聊。 */
+    /* 曠課隔天在校門口被講(2026-09-11,警告系統)——排在時間那三句前面,
+       講過一次就標 announced,不重複。選項只影響他多回哪句,記不記都已經記了。 */
+    const ab = DISCIPLINE.warnings.find(w => w.kind === 'absent' && !w.announced);
+    if(ab){
+      ab.announced = true;
+      const n = DISCIPLINE.warnings.length;
+      say('jiaoguan', `「${dayToDate(ab.day)}沒來。記警告，目前 ${n} 次。」`, () => {
+        openMenu('教官', [
+          { label:'「生病。」', cls:'', run(){ say('jiaoguan', '「有假單嗎。」你沒有。他已經寫好了。'); } },
+          { label:'「打工。」', cls:'', run(){ say('jiaoguan', '他把筆放下。「幾點到幾點。」你說了。他看了你一下，還是寫。'); } },
+          { label:'不講', cls:'', run(){ say('pc', '他寫。什麼都沒說。'); } }
+        ]);
+      });
+      return;
+    }
     if(minute < SCHOOL_IN_MINUTE){
       say('jiaoguan', '「早。進去吧。」');
       return;
@@ -12712,6 +12776,18 @@ function talkToJiaoguan(){
  * 不用另外寫一組台詞。 */
 function talkToJiaoguanCorridor(){
   const D = NpcSchool.JIAOGUAN;
+  /* 手機還你(2026-09-11,警告系統,見 DISCIPLINE)——他直接講第幾次,不玩心機
+     (kc:「教官其實可以直接提醒」)。 */
+  if(DISCIPLINE.phoneHeld){
+    DISCIPLINE.phoneHeld = false;
+    const n = DISCIPLINE.warnings.length;
+    playBeats([
+      { who:'jiaoguan', text:'他從抽屜拿出來，放在桌上，手沒有放開。' },
+      { who:'jiaoguan', text:n >= 3 ? `「第 ${n} 次了，要送輔導室。」` : `「警告第 ${n} 次。」` },
+      { who:'jiaoguan', text:'手機推過來。「明天公佈欄會有你的名字。」' }
+    ], 0, () => {});
+    return;
+  }
   if(TUITION_QUEST && !TUITION_QUEST.paid){
     if(day > TUITION_QUEST.dueDay){
       say('jiaoguan', '「你那筆註冊費的事，教官室已經在問了，別再拖。」');
@@ -14712,7 +14788,7 @@ const SAVE_EVERY_MS = 3000;
       人持有它的參照)。 */
 const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
-  AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT,
+  AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
   MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE
 };
