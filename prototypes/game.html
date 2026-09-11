@@ -8683,7 +8683,7 @@ function finishSchoolDay(){
   toast('放學了。', 2200);
 }
 
-const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spoke:false, delivered:false, reported:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false };
+const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spoke:false, delivered:false, reported:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false, called:false };   // called:2026-09-11 給錯人兩天後阿凱的那通電話(見 checkKaiWrongCall)
 /* 交貨點是**遊藝場旁邊那條凹進去的巷子**(2026-09-10,kc:「側門的話你要放到
    側邊啊 原本街頭藝人的地方」)——第一版擺在遊藝場正門口(0/13.6),但台詞
    寫的是「側門那條防火巷」,人卻站在騎樓正面,對不上。這個凹室就是原本街頭
@@ -8941,6 +8941,24 @@ const KAI_WRONG_BEATS = [
 function kaiWrongDue(){
   return KAI_RUN.wrong && !KAI_RUN.confronted && KAI_RUN.dropDay >= 0 && day >= KAI_RUN.dropDay + 2;
 }
+/* 給錯人兩天後,阿凱主動來(2026-09-11,kc 問「阿凱真的會來找你嗎」——原本只有
+   玩家自己走去機車行才會播,沒有任何提醒,他永遠不會提。kc 選「手機震」那版):
+   第三天(以後)第一次走到街上,手機震一下、他一句「你過來一下」就掛,今天的卡
+   換成去找他。人還是在車行,走過去 talkToKai() 開頭那條 kaiWrongDue() 才播對峙。
+   dayHasSomething() 把那天算成「有事的日子」,睡覺不會跳過去。 */
+function checkKaiWrongCall(){
+  if(!kaiWrongDue() || KAI_RUN.called) return;
+  if(MODE !== 'city' || gameOver || busy || dlg.on) return;
+  KAI_RUN.called = true;
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'手機震了，是阿凱。' },
+    { who:'kai', text:'「你過來一下。」他沒等你回答就掛了。' }
+  ], 0, () => {
+    setTodayCard('去中華路機車行那邊找阿凱');
+    busy = false;
+  });
+}
 function kaiConfrontWrong(){
   KAI_RUN.confronted = true; KAI_RUN.reported = true;   // 這段一旦播了就不用再回報
   clearTodayCard();
@@ -8993,6 +9011,7 @@ function dayHasSomething(d){
   if(TUITION_QUEST && !TUITION_QUEST.paid && TUITION_QUEST.dueDay === d) return true;
   if(GRANDMA.nextCheckDay === d) return true;
   if(MOTO_LOAN.active && MOTO_LOAN.nextDueDay === d) return true;
+  if(KAI_RUN.wrong && !KAI_RUN.confronted && KAI_RUN.dropDay >= 0 && d === KAI_RUN.dropDay + 2) return true;   // 阿凱那通電話的日子
   return false;
 }
 /* 下一個會醒來的日子——最多往前找 14 天,真的整整兩週都沒事就直接 +1
@@ -11015,6 +11034,7 @@ function updateCity(dt){
   checkGrandmaCall();
   checkYuanEveningWatch();
   checkKaiRunDrop();
+  checkKaiWrongCall();       // 給錯人兩天後那通電話,見 kaiWrongDue() 下面
   tickStolenRide(dt);        // 騎在別人車上每 10 秒扣一次風評,見 mountMoto()
   tickBenchRest(dt);         // 公園長椅休息讀條,見 sitOnBench()
   if(keys['q']) camYaw -= dt*.0018;
