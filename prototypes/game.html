@@ -1890,7 +1890,18 @@ function debugWarpDoor(id){
   warpIntoPlace(d);
 }
 function debugJumpHome(){ debugWarpDoor('home'); }
-function debugJumpSchool(){ debugWarpDoor('school'); }
+/* 跳學校改成跳到校門口外面(2026-09-11,kc:「跳學校是跳到學校門口」)——原本
+   直接 warp 進教室,現在站在校門(doors school (-36,70.4))南邊人行道上,面朝
+   校門,教官就在右手邊。 */
+function debugJumpSchool(){
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  const d = city.doors.find(x => x.id === 'school');
+  hero.group.position.set(d ? d.x : -36, .3, (d ? d.z : 70.4) + 3.5);
+  hero.group.rotation.y = 0;
+}
 /* day5 跑腿的測試入口(2026-09-10)——把狀態設成「阿凱已經約過你、今天的課
    也上完了」,人直接丟到阿凱旁邊,按空白鍵就能拿袋子。 */
 /* 日常事件的測試入口(2026-09-10)——直接抽一件今天的事並播出來,不用睡到隔天。
@@ -3229,7 +3240,8 @@ const MEI      = { x:45, z:-26,   met:false, dated:false, rideAsked:false,
    不會在公園啊」——阿仁搬到刺青店門口(city.doors tattoo (-12,13.6))西邊
    人行道上,面向店門;教官搬到校門口(doors school (-36,70.4))東邊人行道,
    面向馬路。上面那段「三人都在公園」的選址理由只剩小美還適用。 */
-const JIAOGUAN = { x:-29, z:71, confronted:false };   // 原本 -32.5 離校門(-36,70.4)3.5,跟阿仁同一個毛病(nearDoor 半徑 3.6 先搶走),再往東挪
+const JIAOGUAN_HOME = { x:-29, z:71 };   // 讀檔後重擺用,見 loadGame() 那段「NPC 站位不吃存檔」
+const JIAOGUAN = { x:JIAOGUAN_HOME.x, z:JIAOGUAN_HOME.z, confronted:false };   // 原本 -32.5 離校門(-36,70.4)3.5,跟阿仁同一個毛病(nearDoor 半徑 3.6 先搶走),再往東挪
 const AREN     = { x:-19.5, z:12,  offered:false };   // 原本 -15.5 離刺青店門(-12,13.6)太近,nearDoor 半徑 3.6 先搶走,按空白鍵變成進店,kc:「阿仁為何我無法跟他講話」
 /* 導師的清寒補助(2026-08-26,kc:「書架上有廣告可以去找老師申請清寒家庭
    補助」)——狀態放這裡,跟其他學校角色的旗標放一起,見下面 talkToTeacher()
@@ -14700,6 +14712,15 @@ function loadGame(slot){
       MOTO_IMPOUND.motoRef = city.motos.find(m => m.owned) || null;
       if(MOTO_IMPOUND.motoRef?.group) MOTO_IMPOUND.motoRef.group.visible = false;
     }
+    /* NPC 站位不吃存檔(2026-09-11,kc 兩次回報「阿仁對不了話」,阿仁搬了兩次
+       都沒用)——MEI/AREN/KAI/JIAOGUAN 整個物件進 SAVE_OBJECTS,x/z 跟著存,
+       讀回來把常數裡的新座標蓋掉:互動判定點(AREN.x/z)留在舊位置(公園),
+       3D 模型卻站在新位置(刺青店),人站在模型旁邊按空白鍵永遠沒反應。
+       站位是程式定的,不是玩家狀態,讀完檔一律用程式裡的座標重擺:校外教學
+       途中(tripStarted 且還沒回教室)擺廟口,其餘擺各自的家。 */
+    if(CLASSFUND.tripStarted && !CLASSFUND.active) moveClassmatesToTemple();
+    else moveClassmatesHome();
+    JIAOGUAN.x = JIAOGUAN_HOME.x; JIAOGUAN.z = JIAOGUAN_HOME.z;
     return true;
     renderQuestPanel();
     syncMiscQuestPanel();
