@@ -709,6 +709,9 @@
     transform:translateY(-50%); transition:height .22s; box-shadow:0 0 10px rgba(168,40,31,.75);
   }
   .sp_last:hover { transform: translateX(7px); }
+  .sp_last.sp_lastOff { cursor:default; color:#8b8172; }
+  .sp_last.sp_lastOff:hover { transform:none; }
+  .sp_last.sp_lastOff:hover::before { height:0; }
   .sp_last:hover::before { height: 62%; }
   .sp_last small { display:block; font-size:11px; letter-spacing:.08em; color:#7d7365; margin-top:4px; }
 
@@ -15238,8 +15241,10 @@ function buildSchoolPick(){
   });
   html += '<div class="sp_sch sp_ok" data-k="day" data-only="1"><div class="sp_n">'+SCHOOL_ONLY[0]+'</div>'
         + '<div class="sp_d">'+SCHOOL_ONLY[1]+'</div><div class="sp_p">'+SCHOOL_ONLY[2]+'</div></div>';
-  /* 官方分類的用詞。放在整張表的最後面——你要把表捲完才看得到它。 */
-  html += '<div class="sp_last" data-k="none">未升學未就業<small>本項無需填表。</small></div>';
+  /* 官方分類的用詞。放在整張表的最後面——你要把表捲完才看得到它。
+     2026-09-11 kc:「選校的部分就是只能選永安不能選不讀書」——這行留著當
+     表格的一部分,但拿掉 data-k,點不了(下面 click handler 也不認它)。 */
+  html += '<div class="sp_last sp_lastOff">未升學未就業<small>本項無需填表。</small></div>';
   document.getElementById('sp_list').innerHTML = html;
   document.getElementById('sp_paper').style.background = 'url('+spPaperTexture(580,760)+') center/cover';
   spNoise();
@@ -15318,7 +15323,7 @@ document.getElementById('sp_listWrap').addEventListener('scroll', function(){
 }, { passive:true });
 
 document.getElementById('sp_list').addEventListener('click', e => {
-  const row = e.target.closest('.sp_sch.sp_ok, .sp_last');
+  const row = e.target.closest('.sp_sch.sp_ok');   // 未升學那行 2026-09-11 起不能選,只能選永安
   if(!row || spDone) return;
   spDone = true;
   const kind = row.dataset.k;
