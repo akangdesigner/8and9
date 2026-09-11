@@ -585,6 +585,12 @@
         color:#1e1a15; letter-spacing:.14em; }
   #np_name::placeholder { color:#b3a794; font-size:14px; letter-spacing:.2em; }
   #np_name:focus { border-bottom-color:var(--sp-red); }
+  .np_chk { margin-right:26px; cursor:pointer; font-size:16px; color:#1e1a15; letter-spacing:.2em; }
+  .np_chk input { display:none; }
+  .np_chk span::before { content:'☐'; margin-right:6px; color:#5f5748; }
+  .np_chk input:checked + span::before { content:'☑'; color:var(--sp-red); }
+  #np_age { padding:2px 6px; background:transparent; border:0; border-bottom:1.5px solid #5f5748; outline:none;
+        font-family:var(--sp-kai); font-size:20px; color:#1e1a15; text-align:center; margin-left:10px; }
   .np_foot { margin-top:26px; font-size:10.5px; letter-spacing:.2em; color:#8b8172; text-align:right; }
   #np_go { position:absolute; left:0; right:0; bottom:9%; text-align:center; z-index:6; }
   #schoolPick { position:fixed; inset:0; z-index:210; display:none;
@@ -950,18 +956,17 @@
     <div id="np_side" style="width:300px;text-align:right">
       <div class="sp_step">開　局</div>
       <h1 class="sp_ask">叫什麼名字</h1>
-      <div class="sp_askSub">這張卡會跟著你三年。<br>公佈欄、成績單，<br>都會印這個名字。</div>
+      <div class="sp_askSub">會考要報名了。<br>成績單、之後學校的公告，<br>都會印這個名字。</div>
     </div>
     <div id="np_paper">
-      <div class="sp_ptitle">高級中等學校　新生入學</div>
-      <div class="sp_psub">學生基本資料卡</div>
+      <div class="sp_ptitle">國民中學教育會考</div>
+      <div class="sp_psub">考生基本資料</div>
       <div class="sp_r1"></div><div class="sp_r2"></div>
       <div class="np_row"><span class="sp_k">姓名</span><input id="np_name" type="text" maxlength="12" autocomplete="off" placeholder="在這裡寫"></div>
-      <div class="np_row"><span class="sp_k">班級</span><span class="np_v">一年三班</span></div>
-      <div class="np_row"><span class="sp_k">住址</span><span class="np_v np_dim">中華路（自填）</span></div>
-      <div class="np_row"><span class="sp_k">監護人</span><span class="np_v np_dim">父　　　　　母</span></div>
-      <div class="np_row"><span class="sp_k">緊急聯絡</span><span class="np_v np_dim"></span></div>
-      <div class="np_foot">此卡由學生本人填寫，資料不實者依校規處理。</div>
+      <div class="np_row"><span class="sp_k">年齡</span><input id="np_age" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="15" style="flex:0 0 60px"><span class="np_v np_dim" style="flex:0 0 auto;border:0">歲</span></div>
+      <div class="np_row"><span class="sp_k">性別</span>
+        <span class="np_v" style="border:0"><label class="np_chk"><input type="radio" name="np_sex" value="男" checked><span>男</span></label><label class="np_chk"><input type="radio" name="np_sex" value="女"><span>女</span></label></span></div>
+      <div class="np_foot">由考生本人填寫。成績通知單將依此資料寄發。</div>
     </div>
   </div>
   <div id="np_go"><button id="sp_go" onclick="finishNamePick()">填　好　了</button></div>
@@ -12805,6 +12810,10 @@ function chatWithMeiClassroom(){
    主角名字是 PLAYER_NAME(開新遊戲時玩家自己輸入),舊存檔沒有就退回「（你）」。 */
 const DISCIPLINE = { warnings:[], phoneHeld:false, counseled:false };
 let PLAYER_NAME = '';   // 開新遊戲時問(見 bootFresh 那段),舊存檔沒有這個欄位就空字串 → 公佈欄退回「（你）」
+/* 年齡/性別(2026-09-11,kc:「應該填姓名跟年齡性別就好 後面才會接分發」)——先只
+   存起來,遊戲裡還沒有任何地方吃這兩個值(3D 主角只有男生模型,選女不會換模;
+   店員那句「十六」也還是寫死的),之後要接再說。 */
+let PLAYER_AGE = 15, PLAYER_SEX = '男';
 function addWarning(kind, onDay){
   DISCIPLINE.warnings.push({ day: onDay ?? day, kind, announced: kind !== 'absent' });
   if(kind === 'phone') DISCIPLINE.phoneHeld = true;
@@ -14930,6 +14939,8 @@ const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
       變數配一個 getter/setter(不給參數是讀、給了是寫)。 */
 const SAVE_VARS = {
   PLAYER_NAME:        v => v===undefined ? PLAYER_NAME        : (PLAYER_NAME = v),
+  PLAYER_AGE:         v => v===undefined ? PLAYER_AGE         : (PLAYER_AGE = v),
+  PLAYER_SEX:         v => v===undefined ? PLAYER_SEX         : (PLAYER_SEX = v),
   day:                v => v===undefined ? day                : (day = v),
   minute:             v => v===undefined ? minute             : (minute = v),
   lastExamDay:        v => v===undefined ? lastExamDay        : (lastExamDay = v),
@@ -15256,12 +15267,16 @@ function showNamePick(){
   const inp = document.getElementById('np_name');
   inp.value = '';
   setTimeout(() => inp.focus(), 300);
-  inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); finishNamePick(); } e.stopPropagation(); };
-  inp.onkeyup = e => e.stopPropagation();
+  [inp, document.getElementById('np_age')].forEach(el => {
+    el.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); finishNamePick(); } e.stopPropagation(); };
+    el.onkeyup = e => e.stopPropagation();
+  });
 }
 function finishNamePick(){
   const inp = document.getElementById('np_name');
   PLAYER_NAME = inp.value.trim() || '小傑';
+  PLAYER_AGE = parseInt(document.getElementById('np_age').value, 10) || 15;
+  PLAYER_SEX = (document.querySelector('input[name=np_sex]:checked') || {}).value || '男';
   inp.onkeydown = null; inp.onkeyup = null;
   npEl.classList.remove('on');
   showSchoolPick();
