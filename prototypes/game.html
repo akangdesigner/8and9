@@ -206,6 +206,23 @@
   #spStats .k { color:#9a8f79; margin-right:6px; }
   #spStats .up { color:#4a7a3f; } #spStats .dn { color:#a2564c; }
   #spTip { margin-top:16px; text-align:right; font-size:11.5px; letter-spacing:.18em; color:#a89c85; }
+  /* 跨天事件頁(2026-09-14,kc:「不連續的行動天 會是說 這幾天廟口那邊舉辦廟慶
+     你決定... 這樣就可以一次度過好幾天」)——日記頁關掉之後、淡出睡覺之前,
+     如果這次會跳過好幾天而且那幾天排了跨天事件,就蓋這一頁:一張紙,日期範圍、
+     一段敘述、兩三個選項;選完顯示結果,按空白才睡過去。見 SPAN_EVENTS。 */
+  #spanPage { position:fixed; inset:0; z-index:61; background:#0b0e13cc;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .4s ease; }
+  #spanPage.on { opacity:1; pointer-events:auto; }
+  #spanSheet { width:min(520px, 90vw); padding:24px 32px 18px; }
+  #spanSheet .spanDate { font-family:var(--sp-kai); font-weight:700; font-size:13px; letter-spacing:.24em; color:var(--ui-ink2); }
+  #spanSheet .spanTitle { font-family:var(--sp-kai); font-weight:700; font-size:22px; letter-spacing:.2em; color:var(--ui-red);
+    margin:4px 0 10px; padding-bottom:6px; border-bottom:1.5px solid var(--ui-red); }
+  #spanSheet .spanText { font-size:16px; line-height:1.9; color:var(--ui-ink); letter-spacing:.06em; white-space:pre-line; margin-bottom:12px; }
+  #spanSheet .spanResult { font-size:16px; line-height:1.9; color:var(--ui-ink); letter-spacing:.06em; white-space:pre-line;
+    border-top:1px dotted var(--ui-dot); padding-top:10px; margin-top:4px; }
+  #spanOpts { display:flex; flex-direction:column; }
+  #spanSheet .spanTip { margin-top:14px; text-align:right; font-size:11.5px; letter-spacing:.18em; color:var(--ui-ink2); }
   .qpNote { display:inline-block; margin-top:3px; font-size:11.5px; color:#8d96a4; opacity:.85; }
   /* 物品說明裡的動作鈕(2026-09-10,day5 那個「打開來看」)——#menu button 那組
      樣式選的是 #menu 底下的,這裡在物品欄裡面,自己抄一份最小的過來。 */
@@ -1278,6 +1295,7 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
+<div id="spanPage"><div id="spanSheet" class="menuSheet"><div class="spanDate" id="spanDate"></div><div class="spanTitle" id="spanTitle"></div><div class="spanText" id="spanText"></div><div id="spanOpts"></div><div class="spanResult" id="spanResult" hidden></div><div class="spanTip" id="spanTip" hidden>按 空白鍵 繼續</div></div></div>
 <div id="sleepPage"><div id="spPaper">
   <div id="spDate"></div>
   <div id="spDayEnd"></div>
@@ -8981,9 +8999,186 @@ function showSleepPage(onDone){
 /* 過渡頁開著的時候空白鍵只用來關它——用 capture 攔在遊戲那個全域 keydown
    前面,不然同一次按鍵會被下面的互動邏輯也吃掉一次。 */
 addEventListener('keydown', e => {
-  if(!sleepPageDone) return;
-  if(e.code === 'Space' || e.code === 'Enter'){ e.preventDefault(); e.stopPropagation(); sleepPageDone(); }
+  if(!sleepPageDone && !spanPageDone) return;
+  if(e.code === 'Space' || e.code === 'Enter'){
+    e.preventDefault(); e.stopPropagation();
+    if(sleepPageDone) sleepPageDone(); else if(spanPageDone) spanPageDone();
+  }
 }, true);
+
+/* 跨天事件(2026-09-14,kc:「不連續的行動天 會是說 這幾天廟口那邊舉辦廟慶 你決定...
+   這樣就可以一次度過好幾天」)——睡覺會跳到下一個有事的日子(nextActiveDay),
+   中間那幾天原本像不存在。現在每段空檔可以排一件「這幾天發生的事」:一段敘述
+   + 你決定怎麼過,選了直接結算數值,然後才睡過去。
+   ⚠ 照 kc 的規矩一天一天排死(from = 那段空檔的第一天),不抽、不輪。空檔
+   落在哪幾天看 DAILY_SCHEDULE 那張表跟主線節點(1/10/13/25/28/…)之間的洞;
+   `need()` 沒過(還不認識那個人)就當那段沒排東西,走 SPAN_DEFAULT 那句。
+   前 20 天只排自己/家裡的事,跟 DAILY_SCHEDULE 同一條規矩。
+   fx 的 key 直接對 chg(),另外 `rough:+1` 是略懂知識。選項的 cost 一定要把
+   數值寫出來(對話要提示數值那條慣例)。 */
+const SPAN_EVENTS = [
+  { from:6, title:'廟慶',
+    text:'廟口這幾天在辦廟慶，阿伯到處找人幫忙搬桌椅、掛燈籠，廟埕從早到晚都是人。',
+    opts:[
+      { label:'去幫阿伯搬東西', cost:'體力 −15　歸屬感 +6　+$300', fx:{ stamina:-15, calm:6, money:300 },
+        result:'你搬了兩天的桌椅，肩膀痠到抬不起來。收工的時候阿伯塞了三百塊給你，說是工錢。' },
+      { label:'晚上去看熱鬧就好', cost:'情緒 +6　−$100', fx:{ mood:6, money:-100 },
+        result:'你每天晚上都去廟口逛兩圈，吃了一堆東西，錢也花掉一些。' },
+      { label:'不去，待在家', cost:'體力 +10', fx:{ stamina:10 },
+        result:'你這幾天都待在家裡，廟口的鑼鼓聲從窗戶一直傳進來。' }
+    ] },
+  { from:8, title:'週末',
+    text:'這個週末媽都不在家，爸從中午開始就坐在客廳喝，電視開得很大聲。',
+    opts:[
+      { label:'出去晃到晚上再回家', cost:'情緒 +3　−$60', fx:{ mood:3, money:-60 },
+        result:'你在外面晃到很晚才回家，回來的時候他已經睡了。' },
+      { label:'待在房間打手遊', cost:'體力 +10　情緒 −3', fx:{ stamina:10, mood:-3 },
+        result:'你把門關起來，戴上耳機，可是客廳的聲音還是聽得到。' },
+      { label:'去超商問有沒有班', cost:'+$260　體力 −20', fx:{ money:260, stamina:-20 },
+        result:'店長說剛好有人請假，你站了一整天的班。' }
+    ] },
+  { from:11, title:'雨天',
+    text:'連著幾天都在下雨，學校走廊到處都是濕的，放學之後也沒有地方可以去。',
+    opts:[
+      { label:'放學直接回家睡', cost:'體力 +10', fx:{ stamina:10 },
+        result:'你每天放學就回家躺著，睡到媽回來叫你吃飯。' },
+      { label:'去圖書館待到閉館', cost:'略懂知識 +1　體力 −5', fx:{ rough:1, stamina:-5 },
+        result:'圖書館的冷氣很強，你在最後一排看了幾天書，看懂了一點。' },
+      { label:'去超商站班', cost:'+$260　體力 −20', fx:{ money:260, stamina:-20 },
+        result:'下雨天客人很少，你在店裡站了一整天，腳很痠。' }
+    ] },
+  { from:14, title:'社團招生',
+    text:'學校這禮拜在辦社團招生，走廊擺滿了攤位，班上同學一直在討論要參加哪一個。',
+    opts:[
+      { label:'去攤位看看', cost:'歸屬感 +3　情緒 +3', fx:{ calm:3, mood:3 },
+        result:'你在幾個攤位前面站了一下，熱音社的學長跟你聊了幾句，你沒有填單子。' },
+      { label:'沒理，放學就走', cost:'—', fx:{},
+        result:'你每天放學就走，社團的事跟你沒什麼關係。' }
+    ] },
+  { from:16, title:'轉涼',
+    text:'這幾天天氣突然轉涼，早上騎車的時候風很冷，你那件外套已經不夠了。',
+    opts:[
+      { label:'去夜市買一件二手外套', cost:'−$250　帥潮 +3', fx:{ money:-250, cool:3 },
+        result:'你在夜市翻了很久，買了一件還算新的外套，兩百五。' },
+      { label:'撐著', cost:'情緒 −3　體力 −5', fx:{ mood:-3, stamina:-5 },
+        result:'你把裡面多穿一件，早上還是冷到手在抖。' }
+    ] },
+  { from:18, title:'颱風',
+    text:'颱風來了，學校停課兩天。超商店長打來問有沒有人要上班，說颱風天時薪加倍。',
+    opts:[
+      { label:'去上班', cost:'+$520　體力 −30', fx:{ money:520, stamina:-30 },
+        result:'風雨最大的時候店裡還是有人來買泡麵，你做了兩天，領到五百二。' },
+      { label:'在家睡兩天', cost:'體力 +20', fx:{ stamina:20 },
+        result:'你在家睡了兩天，外面的風聲很大，窗戶一直在響。' },
+      { label:'幫媽把陽台的東西收進來', cost:'歸屬感 +3', fx:{ calm:3 },
+        result:'你把陽台的盆栽跟衣架都搬進來，媽沒說什麼，但晚餐多煮了一道菜。' }
+    ] },
+  { from:21, title:'運動會',
+    text:'學校運動會，一年級要跑大隊接力，班上少一個人，體育股長來問你要不要上。',
+    opts:[
+      { label:'上場跑', cost:'體力 −15　歸屬感 +6', fx:{ stamina:-15, calm:6 },
+        result:'你跑第三棒，沒有掉棒。班上最後拿第四名，大家還是在終點那邊鬧了很久。' },
+      { label:'翹掉去打工', cost:'+$260　風評 −2', fx:{ money:260, star:-2 },
+        result:'你早上就去超商站班，運動會的事你是隔天才聽同學講的。' }
+    ] },
+  { from:24, title:'阿嬤的電話',
+    text:'這幾天阿嬤打了兩通電話來，都是問你有沒有吃飯，講沒兩句就掛了。',
+    opts:[
+      { label:'回撥過去多聊一下', cost:'歸屬感 +6', fx:{ calm:6 },
+        result:'你打回去，她講了很久隔壁床的事，你一直嗯嗯地應著。' },
+      { label:'沒回', cost:'情緒 −3', fx:{ mood:-3 },
+        result:'你想說改天再打，改天一直沒有來。' }
+    ] },
+  { from:27, title:'流水席', need:() => AYI.visits > 0,
+    text:'廟口這幾天有人辦流水席，聽說是誰家的孩子當兵回來。阿姨傳訊息叫你過去吃。',
+    opts:[
+      { label:'去吃', cost:'飽足 +40　歸屬感 +3', fx:{ full:40, calm:3 },
+        result:'你連吃了兩天，阿姨每次都幫你多裝一袋帶回家。' },
+      { label:'沒去', cost:'—', fx:{},
+        result:'你沒有去，阿姨後來也沒有問。' }
+    ] },
+  { from:32, title:'連假', need:() => YUAN.visits > 0,
+    text:'連假兩天，阿源他們要騎車去海邊，問你要不要一起去。',
+    opts:[
+      { label:'跟他們去海邊', cost:'−$200　帥潮 +3　歸屬感 +6　體力 −15', fx:{ money:-200, cool:3, calm:6, stamina:-15 },
+        result:'你們騎了一個多小時才到，在海邊待到天黑。回程的時候你的車跟在最後面。' },
+      { label:'去工地做兩天', cost:'+$800　體力 −35', fx:{ money:800, stamina:-35 },
+        result:'你去工地扛了兩天磚，領了八百塊，回家的時候連澡都沒力氣洗。' },
+      { label:'在家', cost:'體力 +20', fx:{ stamina:20 },
+        result:'你在家睡了兩天，阿源傳來的照片裡每個人都曬得很黑。' }
+    ] },
+  { from:48, title:'校慶排練',
+    text:'校慶快到了，這幾天放學都被留下來練進場，教官在旁邊看。',
+    opts:[
+      { label:'認真練', cost:'體力 −10　歸屬感 +3', fx:{ stamina:-10, calm:3 },
+        result:'你練了幾天，隊形總算走對了，班上有人開始會跟你講話。' },
+      { label:'找理由躲掉', cost:'風評 −2　體力 +5', fx:{ star:-2, stamina:5 },
+        result:'你說要打工先走，教官看了你一眼，沒有攔你。' }
+    ] },
+  { from:54, title:'寒流',
+    text:'寒流來了，家裡的熱水器又壞了，媽說等發薪水再找人修。',
+    opts:[
+      { label:'洗冷水', cost:'體力 −10　情緒 −3', fx:{ stamina:-10, mood:-3 },
+        result:'你每天洗澡都用最快的速度，洗完全身發抖。' },
+      { label:'去超商上班，順便用店裡的熱水', cost:'+$260　體力 −15', fx:{ money:260, stamina:-15 },
+        result:'你連上了幾天班，下班前在店裡後面的水槽用熱水沖一沖再回家。' }
+    ] },
+  { from:65, title:'期中考週',
+    text:'期中考週，班上每個人都在補作業、借筆記，連阿凱都拿出課本了。',
+    opts:[
+      { label:'熬夜讀書', cost:'略懂知識 +1　體力 −15', fx:{ rough:1, stamina:-15 },
+        result:'你讀到半夜，有些地方好像看懂了，有些還是不懂。' },
+      { label:'照常睡', cost:'—', fx:{},
+        result:'你照常睡覺，考試的事到時候再說。' }
+    ] },
+  { from:84, title:'學期尾聲',
+    text:'學期快結束了，老師開始一個一個叫人去講台談成績，輪到你的時候他看了很久。',
+    opts:[
+      { label:'跟他說你會補', cost:'歸屬感 +3', fx:{ calm:3 },
+        result:'他點點頭，說補得回來就好，然後叫了下一個。' },
+      { label:'什麼都沒說', cost:'情緒 −3', fx:{ mood:-3 },
+        result:'你站在那裡沒有講話，他嘆了一口氣，叫了下一個。' }
+    ] }
+];
+const SPAN_DEFAULT = { title:'這幾天', text:'這幾天沒有什麼特別的事，你照常上學、打工、回家。',
+  opts:[ { label:'就這樣過去', cost:'—', fx:{}, result:'' } ] };
+function spanEventFor(from, to){
+  for(let d = from + 1; d < to; d++){
+    const ev = SPAN_EVENTS.find(e => e.from === d && (!e.need || e.need()));
+    if(ev) return ev;
+  }
+  return SPAN_DEFAULT;
+}
+let spanPageDone = null;
+function showSpanPage(from, to, ev, onDone){
+  const el = document.getElementById('spanPage');
+  const a = from + 1, b = to - 1;
+  document.getElementById('spanDate').textContent = a === b
+    ? dayToDate(a) + '（' + DAYS[a%7] + '）'
+    : dayToDate(a) + '（' + DAYS[a%7] + '）— ' + dayToDate(b) + '（' + DAYS[b%7] + '）';
+  document.getElementById('spanTitle').textContent = ev.title;
+  document.getElementById('spanText').textContent = ev.text;
+  const opts = document.getElementById('spanOpts'), res = document.getElementById('spanResult'), tip = document.getElementById('spanTip');
+  opts.innerHTML = ''; res.hidden = true; tip.hidden = true;
+  ev.opts.forEach(o => {
+    const btn = document.createElement('button');
+    btn.className = 'menuBtn';
+    btn.innerHTML = o.label + '<span class="s">' + (o.cost || '') + '</span>';
+    btn.onclick = () => {
+      Object.entries(o.fx || {}).forEach(([k, v]) => {
+        if(k === 'rough') KNOWLEDGE.rough += v; else chg(k, v);
+      });
+      opts.innerHTML = '';
+      if(o.result){ res.textContent = o.result; res.hidden = false; }
+      tip.hidden = false;
+      spanPageDone = () => { spanPageDone = null; el.classList.remove('on'); setTimeout(onDone, 420); };
+      el.onclick = () => spanPageDone && spanPageDone();
+    };
+    opts.appendChild(btn);
+  });
+  el.onclick = null;
+  el.classList.add('on');
+}
 
 function fade(label, mid){
   busy = true;
@@ -9868,6 +10063,16 @@ function sleep(){
   showSleepPage(() => sleepAdvance(skippedSchool));
 }
 function sleepAdvance(skippedSchool){
+  /* 這次會跳過好幾天的話,先過「這幾天發生的事」那頁(見 SPAN_EVENTS),
+     選完才真的睡過去。跳一天(隔天就有事)不出現。 */
+  const to = nextActiveDay(day);
+  if(to - day >= 2){
+    showSpanPage(day, to, spanEventFor(day, to), () => sleepAdvance2(skippedSchool));
+    return;
+  }
+  sleepAdvance2(skippedSchool);
+}
+function sleepAdvance2(skippedSchool){
   /* 標籤是「早上」不是「回家睡了一覺」(2026-09-10,kc:「回家睡了一覺很怪 我本來
      就是在家裡睡覺啊」)——這個 fade 的標籤本來是給場景轉換用的地名,睡覺這條
      沿用了一句敘述,而且那句描述的是「從外面回到家」,但玩家本來就站在自己房間
@@ -15704,7 +15909,7 @@ function tornAttach(el, amp, gen){
 function tornInit(){
   const q = sel => Array.from(document.querySelectorAll(sel));
   const big = ['#dialog .frame', '#menu', '#textPrompt', '#questPanel', '#mapPanel', '#invPanel'];
-  big.push('#tsSheet');
+  big.push('#tsSheet', '#spanSheet');
   big.forEach(sel => q(sel).forEach(el => { tornAttach(el, sel==='#dialog .frame' ? 5 : 4); el.classList.add('big'); }));
   ['.pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool']
     .forEach(sel => q(sel).forEach(el => tornAttach(el, 2)));
