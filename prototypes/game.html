@@ -262,46 +262,63 @@
   #hint.on { opacity:1; }
   #hint b { color:#f2d888; }
 
-  #dialog { position:fixed; left:5%; right:5%; bottom:5%; display:none; padding-top:44px; z-index:8; }
+  /* 對話框改紙感(2026-09-14)——kc 2026-09-11:「你一開始畫面做這麼漂亮結果
+     進去變這麼醜 成績單跟填姓名超好看」,遊戲內 UI 要整個往那套走,先拿對話框
+     做一個給他看。紙的質感跟成績單同一張 spPaperTexture()(uiPaperInit() 生一次
+     塞進 --ui-paper),字換明體、名牌換楷體+雙線(抄 .sp_r1/.sp_r2),頭像變
+     一張貼在卡上的照片(白邊、微斜),紅色只留給游標跟選項 hover 那條線。
+     其他面板(#menu、#bar、任務面板…)還沒動,等他點頭再一路推過去——見
+     DESIGN_NOTES「遊戲內 UI 要整個重整」。 */
+  :root { --ui-ink:#241f19; --ui-ink2:#4e4738; --ui-rule:#5f5748; --ui-dot:#b3a794; }
+  /* 寬度改成置中的 90%/最多 1180px 掛在 #dialog 本身(原本是 .frame 自己
+     max-width 置中、#dialog 撐滿 left/right 5%),不然寬螢幕上頭像釘在畫面
+     最左邊、紙在中間,兩個脫開(2026-09-14 截圖看到的)。 */
+  #dialog { position:fixed; left:50%; transform:translateX(-50%); width:90%; max-width:1180px; bottom:5%;
+            display:none; padding-top:44px; z-index:8; font-family:var(--sp-serif); }
   #dialog.on { display:block; }
-  #portrait { position:absolute; left:20px; top:0; width:100px; height:100px; z-index:3;
-              background:#1b202b; border:2px solid #55617a; border-radius:4px;
-              box-shadow:0 6px 18px rgba(0,0,0,.55); image-rendering:pixelated; }
-  #dialog .frame { padding:15px 22px 17px 144px; min-height:108px; max-width:1180px; margin:0 auto;
-    background:linear-gradient(180deg,rgba(14,18,26,.96),rgba(9,12,18,.98));
-    border:2px solid #55617a; border-radius:5px;
-    box-shadow:0 0 0 1px rgba(0,0,0,.6),0 10px 30px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.07); }
-  .dname { font-size:14px; letter-spacing:.12em; color:#d8b24a; margin-bottom:7px; }
-  .dbody { font-size:18px; line-height:1.8; color:#eef1f5; letter-spacing:.05em; white-space:pre-line; }
+  #portrait { position:absolute; left:28px; top:4px; width:100px; height:100px; z-index:3;
+              background:#1b202b; border:4px solid #f7f3ea; border-radius:1px;
+              box-shadow:0 2px 3px rgba(0,0,0,.3), 0 8px 18px rgba(0,0,0,.45); image-rendering:pixelated;
+              transform:rotate(-2.2deg); }
+  #dialog .frame { padding:16px 26px 18px 152px; min-height:108px;
+    background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
+    color:var(--ui-ink); border-radius:2px;
+    box-shadow:0 2px 4px rgba(0,0,0,.35), 0 14px 34px rgba(0,0,0,.55), 0 30px 70px rgba(0,0,0,.35); }
+  .dname { display:inline-block; position:relative; font-family:var(--sp-kai); font-size:15px;
+    letter-spacing:.32em; color:var(--ui-ink); padding:0 2px 3px 0; margin-bottom:9px;
+    border-bottom:2px solid var(--ui-rule); }
+  .dname::after { content:''; position:absolute; left:0; right:0; bottom:-5px; height:1px; background:var(--ui-rule); }
+  .dbody { font-size:18px; line-height:1.85; color:var(--ui-ink); letter-spacing:.06em; white-space:pre-line; }
   /* 旁白(2026-08-31,kc:「有些情境敘述的東西不要用我的頭像來呈現 因為
      那不是我說話」)——who:'pc' 這個 channel 同時混著「玩家真的講的話」
      (開頭一定是「」引號)跟「單純描述場景/動作的旁白」(不是引號開頭,
      全遊戲 372 句 pc 台詞裡有 339 句是這種),原本兩者都套用玩家真人
      照片+「你」名牌,旁白也長得像玩家在講話。判斷邏輯留在 say()(見那邊
      的長筆記),這裡只負責旁白模式的樣式:藏頭像跟名牌,文字改用滿版
-     padding(跟頭像那 144px 對齊用的縮排一起拿掉),不用另外做置中/斜體
-     那類更大的視覺改版。 */
+     padding(跟頭像那 152px 對齊用的縮排一起拿掉),墨色淡一階跟台詞區分。 */
   #dialog.narration #portrait, #dialog.narration .dname { display:none; }
-  #dialog.narration .frame { padding-left:22px; }
-  .caret { display:inline-block; margin-left:6px; color:#d8b24a; opacity:0; animation:bob 1s infinite; }
+  #dialog.narration .frame { padding-left:26px; }
+  #dialog.narration .dbody { color:var(--ui-ink2); }
+  .caret { display:inline-block; margin-left:6px; color:var(--sp-red); opacity:0; animation:bob 1s infinite; }
   .caret.on { opacity:1; }
   @keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(3px);} }
 
   /* 收銀小遊戲的選項(2026-08-19 第八輪,kc 說「對話框高度要大一點,上面
-     題目下面選項」)——原本借用既有的 openMenu()/#menu,結果是題目跟選項
-     兩個各自浮動的獨立元件,疊在畫面下方看起來是分開的兩塊。改成選項
-     直接長在 `#dialog .frame` 裡面(`#coOpts`,緊接在 `.dbody` 題目下面),
-     同一個灰底金框的盒子,自然會因為多了選項內容被撐高,不用另外設一個
-     固定的「大一點」高度。空的時候(平常劇情對話,沒有選項)`#coOpts`
-     沒有子元素,margin-top 也不會生效(:empty 選到就不留白),看起來
-     跟原本的對話框一樣,不會影響劇情那邊的既有樣子。 */
-  #coOpts { display:flex; flex-direction:column; gap:7px; margin-top:16px; }
+     題目下面選項」)——選項直接長在 `#dialog .frame` 裡面(`#coOpts`,緊接在
+     `.dbody` 題目下面),同一張紙自然被撐高。空的時候(平常劇情對話,沒有
+     選項)`#coOpts` 沒有子元素,:empty 選到就不留白。樣式抄落點表那一列
+     (.sp_sch.sp_ok):虛線底、hover 左邊冒一條紅線+往右滑。 */
+  #coOpts { display:flex; flex-direction:column; gap:2px; margin-top:14px; }
   #coOpts:empty { margin-top:0; }
-  #coOpts button { text-align:left; background:rgba(12,16,23,.95); color:#dfe4ea;
-    border:1px solid #3d4757; border-left:3px solid #55617a; padding:9px 15px;
-    font-size:15.5px; font-family:inherit; letter-spacing:.04em; cursor:pointer; border-radius:3px;
-    transition:all .13s; }
-  #coOpts button:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; transform:translateX(3px); }
+  #coOpts button { position:relative; text-align:left; background:none; color:var(--ui-ink); border:0;
+    border-bottom:1px dotted var(--ui-dot); padding:8px 6px 8px 16px; border-radius:0;
+    font-size:16px; font-family:inherit; letter-spacing:.08em; cursor:pointer;
+    transition:transform .2s cubic-bezier(.2,.8,.3,1), color .2s; }
+  #coOpts button::before { content:''; position:absolute; left:0; top:50%; width:3px; height:0;
+    background:var(--sp-red); transform:translateY(-50%); transition:height .22s cubic-bezier(.2,.8,.3,1);
+    box-shadow:0 0 10px rgba(168,40,31,.75); }
+  #coOpts button:hover { transform:translateX(7px); color:#000; }
+  #coOpts button:hover::before { height:74%; }
 
   #menu { position:fixed; left:50%; transform:translateX(-50%); bottom:6%;
           display:none; flex-direction:column; gap:5px; width:min(560px,82%); z-index:8; }
@@ -15298,6 +15315,15 @@ function spPaperTexture(w, h){
   }
   return c.toDataURL('image/jpeg', .92);
 }
+/* 遊戲內 UI 的紙(2026-09-14)——對話框那張紙跟成績單同一個材質函式,開機生一次
+   塞進 CSS 變數 --ui-paper 給 #dialog .frame(之後 #menu 那些改過來也共用這張)。
+   spRnd 是有種子的序列,這裡先存再還原,不然成績單/姓名卡那兩張紙的紋路會跟著位移。 */
+function uiPaperInit(){
+  const keep = spSeed;
+  document.documentElement.style.setProperty('--ui-paper', 'url('+spPaperTexture(1180,300)+')');
+  spSeed = keep;
+}
+uiPaperInit();
 function spNoise(){
   const cv = document.getElementById('sp_noise');
   const w = cv.width = 480, h = cv.height = 270;
