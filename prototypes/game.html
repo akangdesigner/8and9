@@ -9171,7 +9171,7 @@ function spanEventFor(from, to){
   }
   return null;
 }
-let spanPageDone = null;
+let spanPageDone = null, spanStaminaDelta = 0;   // spanStaminaDelta:跨天事件的體力增減,等 sleepLand() 補滿之後才套
 function showSpanPage(from, to, ev, onDone){
   const el = document.getElementById('spanPage');
   const a = from + 1, b = to - 1;
@@ -9187,8 +9187,13 @@ function showSpanPage(from, to, ev, onDone){
     btn.className = 'menuBtn';
     btn.innerHTML = o.label + '<span class="s">' + (o.cost || '') + '</span>';
     btn.onclick = () => {
+      /* 體力不在這裡扣(kc 2026-09-14:「應該是要預扣在隔天的初始體力才對 不然會
+         直接癱軟輸掉」)——人正在睡,體力本來就快見底,這時候扣會直接歸零。寄在
+         spanStaminaDelta,sleepLand() 補滿體力之後再加上去,變成隔天的起始體力。 */
       Object.entries(o.fx || {}).forEach(([k, v]) => {
-        if(k === 'rough') KNOWLEDGE.rough += v; else chg(k, v);
+        if(k === 'rough') KNOWLEDGE.rough += v;
+        else if(k === 'stamina') spanStaminaDelta += v;
+        else chg(k, v);
       });
       /* 選了就選了(kc 2026-09-14:「選完之後不要再出現這個介面了」)——不停在結果句
          那一頁,直接關掉往下走;結果句寄到 dayLogPending,寫進醒來那天的日記。 */
@@ -10104,6 +10109,7 @@ function sleepAdvance(skippedSchool){
 function sleepLand(skippedSchool){
   {
     chg('stamina', 100 - ST.stamina);
+    if(spanStaminaDelta){ chg('stamina', spanStaminaDelta); spanStaminaDelta = 0; }   // 跨天事件的體力增減,套在補滿之後(見 showSpanPage)
     /* 跳到下一個有事的日子(2026-09-10,kc 選的規則)——不是 day++。中間空白的
        日期一次跳過去,玩家醒來的次數就是「行動天」,見 nextActiveDay()。 */
     minute = 7*60; day = nextActiveDay(day);
