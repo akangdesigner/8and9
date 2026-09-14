@@ -2321,7 +2321,10 @@ function debugSnitchArm(){
   document.getElementById('city').style.display = '';
   wlabelsEl.style.display = '';
   hero.group.position.set(MOTO_RETURN_SPOT.x, .3, MOTO_RETURN_SPOT.z);   // 警局門口旁,核對過乾淨的點
-  toast('贓物協尋已解鎖：走近阿正。之後「跳廟口」找阿源是另一條路。', 3200);
+  /* 不靠 updateCity() 那個 22 半徑的主動觸發(kc 2026-09-14:「我去找阿正他都
+     不理我」——不確定是他那邊哪個狀態擋住了,測試鈕直接把揭露那三句播出來,
+     不再繞主動觸發那條判斷)。 */
+  setTimeout(() => { if(!busy && !dlg.on) talkToBrother(); }, 400);
 }
 window.debugSnitchArm = debugSnitchArm;
 /* 醫院滑桿按鈕(2026-09-04,kc:「滑感不見了」)——上一輪我叫 kc 自己在
