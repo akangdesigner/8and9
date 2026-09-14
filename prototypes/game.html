@@ -906,10 +906,12 @@
   #restBar .lb b { color:var(--ui-red); }
   #restBar .tr { background:rgba(60,45,25,.18); border-radius:0; }
   #restBar .sub { color:var(--ui-ink2); }
-  /* 飄字:小紙籤,漲綠跌紅由 centerFloat() 給 */
-  .cfl { background:var(--ui-paper-hi); border:1px solid var(--ui-line); border-radius:1px;
-         text-shadow:none; font-family:var(--sp-kai); font-weight:700; box-shadow:0 2px 6px rgba(0,0,0,.35); }
-  .cfl.big { box-shadow:0 0 0 1px currentColor inset, 0 2px 6px rgba(0,0,0,.35); }
+  /* 飄字:不套紙(kc 2026-09-14:「左上角的數值變動感覺不用套這個紙」),
+     就是一行楷體粗字浮在畫面上,靠黑影撐可讀性;漲綠跌紅由 centerFloat() 給 */
+  .cfl { background:none; border:0; border-radius:0; box-shadow:none; padding:0 4px;
+         font-family:var(--sp-kai); font-weight:700; font-size:17px;
+         text-shadow:0 1px 0 #000, 0 0 6px rgba(0,0,0,.95), 0 2px 10px rgba(0,0,0,.9); }
+  .cfl.big { font-size:23px; box-shadow:none; }
 
   /* 對話框:撕邊長條紙、相片斜貼、紅筆刷名牌、右側廟宇線稿浮水印 */
   #dialog { padding-top:50px; }
@@ -2481,9 +2483,8 @@ function centerFloat(k, d, el){
   const big = Math.abs(d) >= 10;
   const f = document.createElement('div');
   f.className = 'cfl' + (big ? ' big' : '');
-  /* 紙感主題(2026-09-14)後飄字底是米紙,COLOR 那些淡色壓不住,改成一律
-     漲=墨綠、跌=印章紅,不分指標。 */
-  f.style.color = d > 0 ? '#3f6f35' : '#a8281f';
+  /* 飄字不套紙、直接浮在場景上(2026-09-14),一律漲=綠、跌=紅,不分指標。 */
+  f.style.color = d > 0 ? '#8fe3a0' : '#f06055';
   const now = performance.now();
   while(cflStack.length && now - cflStack[0] > 1200) cflStack.shift();
   f.style.left = (r.left + r.width/2) + 'px';
