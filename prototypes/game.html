@@ -9186,8 +9186,7 @@ const KAI_RUN_NOTE = '<br><span class="qpNote">話少一點。他不會問你是
 /* 走到巷口先播一次開場(告訴玩家「有三個人」),之後就交給玩家自己走去看。 */
 const KAI_DROP_INTRO = [
   { who:'pc', text:'遊藝場側門那條防火巷，鐵門開著一半。' },
-  { who:'pc', text:'巷口有三個人。' },
-  { who:'pc', text:'你不知道是哪一個。' }
+  { who:'pc', text:'巷口站了三個人，你不知道要找的是哪一個。' }
 ];
 function checkKaiRunDrop(){
   if(!KAI_RUN.gotBag || KAI_RUN.done || KAI_RUN.arrived) return;
@@ -9230,13 +9229,13 @@ const RUNMAN_TAKE_RIGHT = [
   { who:'pc',     text:'你把袋子遞過去。' },
   { who:'pc',     text:'他沒有打開，直接塞進外套裡。' },
   { who:'runman', text:'「這個給你。」' },
-  { who:'pc',     text:'幾張鈔票，摺過兩次。' }
+  { who:'pc',     text:'他塞給你幾張鈔票，摺過兩次的。' }
 ];
 const RUNMAN_TAKE_WRONG = [
   { who:'pc', text:'你把袋子遞過去。' },
   { who:'pc', text:'他愣了一下，然後接了。' },
   { who:'pc', text:'他掏出幾張鈔票塞給你，看都沒看你。' },
-  { who:'pc', text:'那疊比你想的薄。' }
+  { who:'pc', text:'那疊鈔票比你想像的還薄。' }
 ];
 function handOverBag(ref){
   logDay('幫阿凱送了一個袋子去遊藝場側門。他說五分鐘的事。');
@@ -9969,8 +9968,7 @@ function sleepAdvance(skippedSchool){
     if(!yuanMorningCallFired && day === GRANDMA_CALL_DAY && YUAN.visits > 0){
       yuanMorningCallFired = true;
       impoundBeats = (impoundBeats || []).concat([
-        { who:'pc',   text:'手機又震了一下。' },
-        { who:'pc',   text:'是阿源。' },
+        { who:'pc',   text:'手機又震了一下，是阿源打來的。' },
         { who:'yuan', text:'「欸,晚上有空嗎。」' },
         { who:'yuan', text:'「顧一下場子,人在就好,不用做什麼。」' },
         { who:'pc',   text:'你應了一聲。' },
@@ -10750,8 +10748,7 @@ function notifyGrandmaDeath(){
      再也不會更新、內容也不對的舊任務。 */
   { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); renderQuestPanel(); }
   playBeats([
-    { who:'pc',  text:'手機又震了一下。' },
-    { who:'pc',  text:'是媽。' },
+    { who:'pc',  text:'手機又震了一下，是媽打來的。' },
     { who:'mom', text:'「阿嬤剛剛走了。」她的聲音很平,像是已經哭過一輪。' },
     { who:'pc',  text:'你握著手機,一時說不出話。' }
   ], 0, () => {
@@ -15070,7 +15067,7 @@ function talkToWorker(w){
             { who:'worker', text:'「有時候就是,這裡比家裡安靜。」' },
             { who:'pc',     text:'她頓了一下,像是想到什麼。' },
             { who:'worker', text:'「家裡還有一個要顧,比較小的。」' },
-            { who:'pc',     text:'沒有再說下去。' }
+            { who:'pc',     text:'她沒有再說下去。' }
           ], 0, () => {});
         } },
       { label:'不說話,轉身走掉', cls:'back', run(){} }
