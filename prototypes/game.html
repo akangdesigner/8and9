@@ -2309,7 +2309,7 @@ window.debugJumpTemple = debugJumpTemple;
 function debugSnitchArm(){
   /* 每按一次都從頭來(kc 2026-09-14:「我要重新跑一次任務」)——已報/已警告/
      過期的狀態跟阿源那邊的翻臉旗標一起清掉,不然 resolved 卡住第二次跑不了。 */
-  SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = null; SNITCH_QUEST.startDay = -1;
+  SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = null; SNITCH_QUEST.startDay = -1; SNITCH_QUEST.liedToBrother = false;
   YUAN.betrayed = false; YUAN.betrayedConfronted = false;
   syncMiscQuestPanel();
   SNITCH_QUEST.armed = true;
@@ -3781,7 +3781,7 @@ function motoImpoundMenuItems(){
   ];
 }
 const ID_CARD_QUEST = { active:false, requestedDay:-1, readyDay:-1, done:false };
-const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null, armed:false };   // resolved: null|'reported'|'warned'|'expired';armed 是 #bar「贓物協尋」測試鈕跳過 day52 門檻用
+const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null, armed:false, liedToBrother:false };   // resolved: null|'reported'|'warned'|'expired';armed 是 #bar「贓物協尋」測試鈕跳過 day52 門檻用
 /* 三條的任務面板統一走這個函式(2026-08-31)——跟阿正月長線那個
    syncBrotherArcPanel() 是平行的兩套,不合併是因為觸發時機不同:月長線
    那個要即時反映風評/知識(所以掛在 updateCity() 每幀跑),這三條狀態
@@ -4147,7 +4147,7 @@ const WATCHJOB_PATH = [[60, 10], [0, 10], [0, 15]];
    「玩家擋在路徑上」判定卡住小美哥),往東、往南各挪一點,留出往 x=60
    方向的視野。沒有實測過確切落點卡不卡東西,玩起來覺得怪跟我說要往哪調。 */
 const WATCHJOB_STAKEOUT = { x:10, z:14 };
-const WATCHJOB = { active:false, spotted:false, resolved:false, walker:null, lastDay:-1, exclaim:null };
+const WATCHJOB = { active:false, spotted:false, resolved:false, walker:null, lastDay:-1, exclaim:null, refusedDay:-99 };
 function startWatchJob(){
   /* 接任務當下的位置(2026-09-03,kc:「顧場臨時去找阿嬤 回來會回到當初
      接任務的地方」)——下面 fade() 會把玩家瞬移到固定的盯梢點
@@ -12770,11 +12770,15 @@ function talkToYuan(){
       return;
     }
   }
-  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && ST.calm >= 80){
+  /* 拒絕過就記天數(kc 2026-09-14:「阿源叫你顧場我都拒絕了為何他還一直叫」——
+     原本拒絕沒記 lastDay,同一天每講一次話就再問一次)。拒絕後隔 3 天才會再開口,
+     3 這個數字是我抓的。 */
+  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && day >= (WATCHJOB.refusedDay ?? -99) + 3 && ST.calm >= 80){
     say('yuan', NpcTemple.WATCH_JOB.hookText, () => {
       openMenu('阿源', [
         { label:'好', run(){ startWatchJob(); } },
         { label:'不要', cls:'back', run(){
+            WATCHJOB.lastDay = day; WATCHJOB.refusedDay = day;
             chg('calm', -3);
             toast(NpcTemple.WATCH_JOB.refuseQuiet, 2600);
           } }
@@ -12794,7 +12798,7 @@ function talkToYuan(){
             chg('calm', 6); chg('star', -6);
             SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'warned';
             syncMiscQuestPanel();
-            toast('他點了點頭，眼神變了一下。（歸屬感 +6／風評 −6）', 3000);
+            toast('他點了點頭，看你的眼神變了一下，沒有再多問。（歸屬感 +6／風評 −6）', 3200);
           } },
         { label:'先不要', cls:'back', run(){} }
       ]);
@@ -13916,29 +13920,50 @@ function talkToBrother(){
               SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'reported';
               YUAN.betrayed = true;
               syncMiscQuestPanel();
+              /* 句子要寫完整(kc 2026-09-14:「阿正沒拿筆 就聽 超怪 能不能講完完整
+                 的句子不要字已為文筆很好」)——旁白不要用斷句裝氣氛,一句話把事情講完。 */
               playBeats([
-                { who:'brother', text:'「說。」' },
-                { who:'pc', text:'你把在阿源那邊聽到的講了——哪天、誰載的、放在哪。講到一半你聽到自己的聲音，停了一下。' },
-                { who:'pc', text:'阿正沒拿筆，就聽。' },
-                { who:'brother', text:'「好。」' },
-                { who:'pc', text:'他從抽屜拿了一個信封推過來。' },
-                { who:'brother', text:'「這不是給你的，是給線民的。收了就是了。」' },
+                { who:'brother', text:'「你聽到什麼？說吧。」' },
+                { who:'pc', text:'你把在阿源那邊聽到的事情講了一遍：是哪一天、東西是誰載來的、現在放在哪裡。講到一半你突然聽見自己的聲音，停了一下才繼續講。' },
+                { who:'pc', text:'阿正沒有拿筆記下來，只是站在那裡聽你講完。' },
+                { who:'brother', text:'「好，我知道了。」' },
+                { who:'pc', text:'他轉身從櫃台後面的抽屜拿出一個信封，推到你面前。' },
+                { who:'brother', text:'「這不是給你的，這是給提供線索的人的。你收下就好，不用想太多。」' },
                 { cap:'阿正', menu:[
                   { label:'收下', cost:'+$800／風評 +6', money:800, star:6, beats:[
-                    { who:'pc', text:'你把信封塞進口袋。很薄。' } ] },
+                    { who:'pc', text:'你把信封塞進口袋裡。信封很薄，你沒有打開來看。' } ] },
                   { label:'不用了', cost:'風評 +6', star:6, beats:[
-                    { who:'pc', text:'他看了你一眼，把信封收回抽屜。' },
-                    { who:'brother', text:'「隨便你。」' } ] }
+                    { who:'pc', text:'他看了你一眼，沒有多說什麼，把信封收回抽屜裡。' },
+                    { who:'brother', text:'「不要就算了，隨便你。」' } ] }
                 ] },
-                { who:'brother', text:'「以後有事，還是可以來。」' },
-                { who:'pc', text:'走出警局，你往廟口的方向看了一眼。' }
+                { who:'brother', text:'「以後有什麼事，還是可以來找我。」' },
+                { who:'pc', text:'走出警局的時候，你往廟口的方向看了一眼，然後就走了。' }
               ], 0, () => {});
             } },
-          { label:'還沒有', cls:'back', run(){} }
+          { label:'還沒有聽到什麼', cls:'back', run(){} }
         ]);
       });
       return;
     }
+  }
+  /* 警告阿源之後回來跟阿正交代(kc 2026-09-14:「警告阿源之後 要回報阿正啊
+     就說不知道」)——一次性,說了謊就記著(liedToBrother),阿正不追問也不扣
+     數值,只是這件事他心裡有數。 */
+  if(SNITCH_QUEST.resolved === 'warned' && !SNITCH_QUEST.liedToBrother){
+    say('brother', '「上次那件事，你有問到什麼嗎？」', () => {
+      openMenu('阿正', [
+        { label:'「沒有，我什麼都沒聽到。」', run(){
+            SNITCH_QUEST.liedToBrother = true;
+            playBeats([
+              { who:'pc', text:'他看著你，看了大概兩秒鐘，沒有馬上接話。' },
+              { who:'brother', text:'「是喔。好，那就算了。」' },
+              { who:'pc', text:'他轉身回去做自己的事。你走出警局的時候，一直覺得背後有人在看你。' }
+            ], 0, () => {});
+          } },
+        { label:'先不講', cls:'back', run(){} }
+      ]);
+    });
+    return;
   }
   if(SNITCH_QUEST.resolved === null && (day >= 52 || SNITCH_QUEST.armed) && YUAN.visits > 0){
     SNITCH_QUEST.active = true; SNITCH_QUEST.startDay = day;
