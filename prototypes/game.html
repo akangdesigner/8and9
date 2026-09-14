@@ -12789,7 +12789,7 @@ function talkToYuan(){
      (兩條都是「阿源找你」相關,顧場子先)。選了之後直接鎖 resolved,
      跟報警那條一樣不能反悔(這遊戲的基本盤——沒有安全選項)。 */
   if(SNITCH_QUEST.active && SNITCH_QUEST.resolved === null){
-    say('yuan', '「怎樣？」', () => {
+    say('yuan', '「怎樣，找我有事喔？」', () => {
       openMenu('阿源', [
         { label:'警察在查你那批贓物，小心點', run(){
             chg('calm', 6); chg('star', -6);
@@ -12808,7 +12808,7 @@ function talkToYuan(){
      讀得到。改成選單不管有沒有出陣過都會出現,「跳陣頭」交給
      tryJoinTroupe() 自己判斷要接練習/出陣,還是已經出陣過的 routine
      日常那條分支(見那則筆記)。 */
-  say('yuan', YUAN.debuted ? '「欸，要不要跳一段？」' : '「欸，要不要一起？」', () => {
+  say('yuan', YUAN.debuted ? '「欸，等一下要練陣頭，你要不要來跳一段？」' : '「欸，我們等一下要練陣頭，你要不要一起來？」', () => {
     openMenu('阿源', [
       { label:'跳陣頭', run(){ tryJoinTroupe(); } },
       { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
@@ -12896,7 +12896,7 @@ function tryJoinTroupe(){
    場景。routineIdx 循環播 routine[] 兩則內容,不會兩次都放同一則。 */
 function offerTroupeRoutine(){
   if(YUAN.routineDay === day){
-    say('yuan', '「今天已經跳過了啦。」');
+    say('yuan', '「今天已經練過了啦，明天再來。」');
     return;
   }
   openMenu('阿源', [
