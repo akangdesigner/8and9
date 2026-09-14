@@ -210,7 +210,7 @@
      你決定... 這樣就可以一次度過好幾天」)——日記 →「你悠悠地睡了一覺」黑畫面之後,
      如果這次會跳過好幾天而且那幾天排了跨天事件,就蓋這一頁:一張紙,日期範圍、
      一段敘述、兩三個選項;選完顯示結果,按空白才醒來。沒排事件不出頁。見 SPAN_EVENTS。 */
-  #spanPage { position:fixed; inset:0; z-index:61; background:#0b0e13cc;
+  #spanPage { position:fixed; inset:0; z-index:61; background:rgba(11,14,19,.35);   /* 淡一點,後面房間看得到(kc:「選完卡片之前都是黑畫面」) */
     display:flex; align-items:center; justify-content:center;
     opacity:0; pointer-events:none; transition:opacity .4s ease; }
   #spanPage.on { opacity:1; pointer-events:auto; }
@@ -9049,15 +9049,13 @@ const SPAN_EVENTS = [
       { label:'不去，待在家', cost:'體力 +10', fx:{ stamina:10 },
         result:'你這幾天都待在家裡，廟口的鑼鼓聲從窗戶一直傳進來。' }
     ] },
-  { from:8, title:'週末',
-    text:'這個週末媽都不在家，爸從中午開始就坐在客廳喝，電視開得很大聲。',
+  { from:8, title:'社團招生',
+    text:'學校這禮拜在辦社團招生，走廊擺滿了攤位，班上同學一直在討論要參加哪一個。',
     opts:[
-      { label:'出去晃到晚上再回家', cost:'情緒 +3　−$60', fx:{ mood:3, money:-60 },
-        result:'你在外面晃到很晚才回家，回來的時候他已經睡了。' },
-      { label:'待在房間打手遊', cost:'體力 +10　情緒 −3', fx:{ stamina:10, mood:-3 },
-        result:'你把門關起來，戴上耳機，可是客廳的聲音還是聽得到。' },
-      { label:'去超商問有沒有班', cost:'+$260　體力 −20', fx:{ money:260, stamina:-20 },
-        result:'店長說剛好有人請假，你站了一整天的班。' }
+      { label:'去攤位看看', cost:'歸屬感 +3　情緒 +3', fx:{ calm:3, mood:3 },
+        result:'你在幾個攤位前面站了一下，熱音社的學長跟你聊了幾句，你沒有填單子。' },
+      { label:'沒理，放學就走', cost:'—', fx:{},
+        result:'你每天放學就走，社團的事跟你沒什麼關係。' }
     ] },
   { from:11, title:'雨天',
     text:'連著幾天都在下雨，學校走廊到處都是濕的，放學之後也沒有地方可以去。',
@@ -9069,13 +9067,15 @@ const SPAN_EVENTS = [
       { label:'去超商站班', cost:'+$260　體力 −20', fx:{ money:260, stamina:-20 },
         result:'下雨天客人很少，你在店裡站了一整天，腳很痠。' }
     ] },
-  { from:14, title:'社團招生',
-    text:'學校這禮拜在辦社團招生，走廊擺滿了攤位，班上同學一直在討論要參加哪一個。',
+  { from:14, title:'週末',
+    text:'這個週末媽都不在家，爸從中午開始就坐在客廳喝，電視開得很大聲。',
     opts:[
-      { label:'去攤位看看', cost:'歸屬感 +3　情緒 +3', fx:{ calm:3, mood:3 },
-        result:'你在幾個攤位前面站了一下，熱音社的學長跟你聊了幾句，你沒有填單子。' },
-      { label:'沒理，放學就走', cost:'—', fx:{},
-        result:'你每天放學就走，社團的事跟你沒什麼關係。' }
+      { label:'出去晃到晚上再回家', cost:'情緒 +3　−$60', fx:{ mood:3, money:-60 },
+        result:'你在外面晃到很晚才回家，回來的時候他已經睡了。' },
+      { label:'待在房間打手遊', cost:'體力 +10　情緒 −3', fx:{ stamina:10, mood:-3 },
+        result:'你把門關起來，戴上耳機，可是客廳的聲音還是聽得到。' },
+      { label:'去超商問有沒有班', cost:'+$260　體力 −20', fx:{ money:260, stamina:-20 },
+        result:'店長說剛好有人請假，你站了一整天的班。' }
     ] },
   { from:16, title:'轉涼',
     text:'這幾天天氣突然轉涼，早上騎車的時候風很冷，你那件外套已經不夠了。',
@@ -9095,21 +9095,21 @@ const SPAN_EVENTS = [
       { label:'幫媽把陽台的東西收進來', cost:'歸屬感 +3', fx:{ calm:3 },
         result:'你把陽台的盆栽跟衣架都搬進來，媽沒說什麼，但晚餐多煮了一道菜。' }
     ] },
-  { from:21, title:'運動會',
-    text:'學校運動會，一年級要跑大隊接力，班上少一個人，體育股長來問你要不要上。',
-    opts:[
-      { label:'上場跑', cost:'體力 −15　歸屬感 +6', fx:{ stamina:-15, calm:6 },
-        result:'你跑第三棒，沒有掉棒。班上最後拿第四名，大家還是在終點那邊鬧了很久。' },
-      { label:'翹掉去打工', cost:'+$260　風評 −2', fx:{ money:260, star:-2 },
-        result:'你早上就去超商站班，運動會的事你是隔天才聽同學講的。' }
-    ] },
-  { from:24, title:'阿嬤的電話',
+  { from:21, title:'阿嬤的電話',
     text:'這幾天阿嬤打了兩通電話來，都是問你有沒有吃飯，講沒兩句就掛了。',
     opts:[
       { label:'回撥過去多聊一下', cost:'歸屬感 +6', fx:{ calm:6 },
         result:'你打回去，她講了很久隔壁床的事，你一直嗯嗯地應著。' },
       { label:'沒回', cost:'情緒 −3', fx:{ mood:-3 },
         result:'你想說改天再打，改天一直沒有來。' }
+    ] },
+  { from:24, title:'運動會',
+    text:'學校運動會，一年級要跑大隊接力，班上少一個人，體育股長來問你要不要上。',
+    opts:[
+      { label:'上場跑', cost:'體力 −15　歸屬感 +6', fx:{ stamina:-15, calm:6 },
+        result:'你跑第三棒，沒有掉棒。班上最後拿第四名，大家還是在終點那邊鬧了很久。' },
+      { label:'翹掉去打工', cost:'+$260　風評 −2', fx:{ money:260, star:-2 },
+        result:'你早上就去超商站班，運動會的事你是隔天才聽同學講的。' }
     ] },
   { from:27, title:'流水席', need:() => AYI.visits > 0,
     text:'廟口這幾天有人辦流水席，聽說是誰家的孩子當兵回來。阿姨傳訊息叫你過去吃。',
@@ -9129,13 +9129,13 @@ const SPAN_EVENTS = [
       { label:'在家', cost:'體力 +20', fx:{ stamina:20 },
         result:'你在家睡了兩天，阿源傳來的照片裡每個人都曬得很黑。' }
     ] },
-  { from:48, title:'校慶排練',
-    text:'校慶快到了，這幾天放學都被留下來練進場，教官在旁邊看。',
+  { from:48, title:'校慶',
+    text:'禮拜六校慶，全校都要到，班上要在操場擺攤賣飲料，班長排了每個人的班。',
     opts:[
-      { label:'認真練', cost:'體力 −10　歸屬感 +3', fx:{ stamina:-10, calm:3 },
-        result:'你練了幾天，隊形總算走對了，班上有人開始會跟你講話。' },
-      { label:'找理由躲掉', cost:'風評 −2　體力 +5', fx:{ star:-2, stamina:5 },
-        result:'你說要打工先走，教官看了你一眼，沒有攔你。' }
+      { label:'去顧攤', cost:'體力 −10　歸屬感 +6', fx:{ stamina:-10, calm:6 },
+        result:'你顧了一整天的攤，搖飲料搖到手痠，班上的人第一次跟你講這麼多話。' },
+      { label:'翹掉去打工', cost:'+$260　風評 −2　歸屬感 −3', fx:{ money:260, star:-2, calm:-3 },
+        result:'你去超商站了一天的班，禮拜一回教室的時候，沒有人問你那天去哪了。' }
     ] },
   { from:54, title:'寒流',
     text:'寒流來了，家裡的熱水器又壞了，媽說等發薪水再找人修。',
@@ -9153,7 +9153,7 @@ const SPAN_EVENTS = [
       { label:'照常睡', cost:'—', fx:{},
         result:'你照常睡覺，考試的事到時候再說。' }
     ] },
-  { from:84, title:'學期尾聲',
+  { from:86, title:'學期尾聲',
     text:'學期快結束了，老師開始一個一個叫人去講台談成績，輪到你的時候他看了很久。',
     opts:[
       { label:'跟他說你會補', cost:'歸屬感 +3', fx:{ calm:3 },
