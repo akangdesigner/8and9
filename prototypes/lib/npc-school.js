@@ -148,7 +148,7 @@
         { who:'pc',  text:'你回「你想算什麼」。' },
         { who:'mei', text:'她回了一個貼圖。' }
       ],
-      quiet:'在一起之後，麻煩的是接下來每一次要不要撥時間、撥錢過去。'
+      quiet:'在一起之後，麻煩的是接下來每一次她約你，你都要先想時間跟錢夠不夠。'
     },
 
     /* mei4・她說要去你家(quests.js 原文 hook 照用)——2026-08-21 kc 糾正:
@@ -377,7 +377,7 @@
     branch:[
       { label:'把袖子拉起來', star:-6, cool:+4,
         beats:[
-          { who:'jiaoguan', text:'他看了三秒。' },
+          { who:'jiaoguan', text:'他看了三秒鐘，沒有說話。' },
           { who:'jiaoguan', text:'「什麼時候弄的。」' },
           { who:'pc',       text:'「去年。」' },
           { who:'jiaoguan', text:'他在本子上寫了幾個字。' }
@@ -386,8 +386,8 @@
       { label:'「沒有啊。」', star:-3, calm:-6,
         beats:[
           { who:'jiaoguan', text:'他盯著你的袖口。' },
-          { who:'pc',       text:'今天三十四度。' },
-          { who:'jiaoguan', text:'他沒有叫你拉起來。' },
+          { who:'pc',       text:'今天三十四度，你還穿著長袖。' },
+          { who:'jiaoguan', text:'他沒有叫你把袖子拉起來。' },
           { who:'jiaoguan', text:'「你自己知道就好。」' }
         ],
         quiet:'他其實知道是誰，他只是不想處理。' }
@@ -412,10 +412,9 @@
     branch:[
       { label:'去', calm:+6, money:-250, star:-6, leaveSchool:true,
         beats:[
-          { who:'pc',   text:'撞球間冷氣很強。' },
-          { who:'pc',   text:'你們打到五點半。' },
+          { who:'pc',   text:'撞球間的冷氣很強，你們一直打到五點半。' },
           { who:'aren', text:'他一直在講他想去刺青店當學徒的事。' },
-          { who:'pc',   text:'他講了三個月了。' }
+          { who:'pc',   text:'這件事他已經講了三個月了。' }
         ],
         quiet:'他不會去的，你自己也知道他不會去。' },
       { label:'不去', calm:-3,

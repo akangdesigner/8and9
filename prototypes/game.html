@@ -1367,7 +1367,7 @@ const ST_MAX = { full:100, calm:100, cool:100, mood:100, stamina:100 };
 const GAME_OVER_TEXT = {
   full:    '你已經好幾天沒有好好吃一頓飯了。那天早上，你怎麼樣都爬不起來——送到醫院的時候，醫生只問了一句：「這孩子平常都吃些什麼？」',
   stamina: '你已經硬撐太久了。走在路上，眼前忽然一黑，倒在人行道上。路過的人只是繞過去。',
-  calm:    '你打回家，沒人接；你站在教室門口，沒人抬頭。你在走廊站了很久，鐘響了，也沒有人來叫你。',
+  calm:    '你打電話回家沒有人接。到了學校，你站在教室門口，沒有人抬頭看你，鐘響了也沒有人來叫你進去。',
   cool:    '你太醜了，走到哪裡都被人在背後笑。沒有人願意再跟你站在一起——連你自己，都開始相信他們說的那些話。',
   mood:    '有一天，你突然什麼都不想做了。不想上學，不想回話，不想再解釋什麼。你把自己關在房間裡，誰敲門都沒有回應。',
   tuition: '註冊費一直沒繳齊。開學一個多月後，教官室把你的資料轉去輔導處——沒有人問過你，為什麼湊不出那筆錢。'
@@ -3017,9 +3017,9 @@ function closeArcadeGame(){
   agEl.classList.remove('on'); busy = false;
   if(ARCADE_GAMBLE.momEchoPending){
     ARCADE_GAMBLE.momEchoPending = false;
-    say('pc', '你想起媽媽也是這樣。', () => {
-      say('pc', '坐在牌桌前坐到很晚，眼睛盯著同一個地方。', () => {
-        say('pc', '你那時候不懂，她在等什麼。');
+    say('pc', '你想起媽媽也是這樣，坐在牌桌前坐到很晚，眼睛一直盯著牌。', () => {
+      say('pc', '你那時候不知道她在等什麼，現在你好像知道了。', () => {
+        say('pc', '你把代幣放回口袋，站了一下。');
       });
     });
   }
@@ -4243,9 +4243,9 @@ function resolveWatchJob(success){
       if(minute < YUAN_WATCH_EVENING_MINUTE + 30) minute = YUAN_WATCH_EVENING_MINUTE + 30;
       syncHUD();
       const codaBeats = success ? [
-        { who:'yuan', text:'「幹得好。」他笑了一下,難得的。' },
+        { who:'yuan', text:'「幹得好。」他難得笑了一下。' },
         { who:'yuan', text:'「走,請你吃飯。」' },
-        { who:'pc',   text:'你們找了個路邊攤坐下,菜才上一半。' }
+        { who:'pc',   text:'你們找了一攤路邊攤坐下來，他點了一桌菜，說今天他請。' }
       ] : [
         { who:'yuan', text:'「你是死人喔,人都走進去了才講。」' },
         { who:'pc', text:'他罵了幾句,轉身進去顧自己的場子。' },
@@ -7500,13 +7500,12 @@ function steal(feed){
     chg('star', -1); chg('calm', -12);   // 被看到偷東西是壞事,2026-08-14 風評改雙向後這裡要往負的走
     playBeats([
       { who:'clerk', text:'「同學。」' },
-      { who:'pc',    text:'他沒有把話講完。' },
-      { who:'pc',    text:'他只是看著你，等你自己把東西放回去。' }
+      { who:'pc',    text:'他沒有把話講完，只是看著你，等你自己把東西放回去。' }
     ], 0, () => toast('這家店的人以後看到你會多看一眼。'));
   } else {
     chg('full', feed); chg('calm', -6);
     pendingTheft += feed;
-    toast('東西在你外套裡。你走出去，沒有回頭。', 3200);
+    toast('東西還在你外套裡，你裝作沒事走出店門。', 3200);
   }
   advanceTime(2);
 }
@@ -7576,8 +7575,8 @@ function openIndoorSpot(id){
             altarTalkDay = day;
             askFreeText('你想跟阿嬤說什麼？', '（打字,留白也可以）', text => {
               const beats = text
-                ? [{ who:'pc', text:'「'+text+'」' }, { who:'pc', text:'香爐裡的煙很淡,飄了一下,散了。' }]
-                : [{ who:'pc', text:'你站在牌位前,最後什麼都沒說。' }];
+                ? [{ who:'pc', text:'「'+text+'」' }, { who:'pc', text:'香爐裡的煙很淡，飄一下就散了。' }]
+                : [{ who:'pc', text:'你站在牌位前面，最後什麼都沒有說。' }];
               playBeats(beats, 0, () => { chg('calm', 3); toast('（歸屬感 +3）', 2200); });
             });
           } },
@@ -9635,7 +9634,7 @@ function runDailyGoto(who){
           playBeats([
             { who:'mom', text:'「喔。」' },
             { who:'pc',  text:'她把門帶上，關得很輕。' },
-            { who:'pc',  text:'輕到你整個早上都在想那個聲音。' }
+            { who:'pc',  text:'她走了以後，你在房間裡坐了一下才出門。' }
           ], 0, () => { busy = false; });
         } }
     ]));
@@ -9654,7 +9653,7 @@ function runDailyGoto(who){
         } },
       { label:'算了，用牽的', cost:'情緒 −3', run(){
           chg('mood', -3); dailyDone();
-          playBeats([{ who:'pc', text:'你把車牽回去，中華路那段特別長。' }], 0, () => { busy = false; });
+          playBeats([{ who:'pc', text:'你把車牽回去，中華路那段路牽起來特別累。' }], 0, () => { busy = false; });
         } }
     ]));
     return;
@@ -9743,8 +9742,8 @@ function achengShift(){
   passTimeStanding(4, 3, [
     '你站到攤子後面，圍裙比你想的重。',
     '中午人一下子多起來，你連抬頭的空檔都沒有。',
-    '有人問你是不是他兒子。他沒有回答。',
-    '人散了。桌上還有三碗沒收。'
+    '有客人問你是不是他兒子，他沒有回答。',
+    '中午的人潮散了，桌上還有三碗沒收。'
   ], () => {
     chg('money', 60); chg('calm', 3);
     playBeats([
@@ -10711,9 +10710,8 @@ function triggerGrandmaCall(){
    跟「去」那邊有一整串見面的戲比,分量差太多。補一小段自言自語,跟
    HOSPITAL_GO_BEATS 同一個等級(對話框,不是 toast),不用開新場景。 */
 const HOSPITAL_DECLINE_BEATS = [
-  { who:'pc', text:'你沒有去。' },
-  { who:'pc', text:'你想起小時候，都是阿嬤在管你有沒有吃飯。' },
-  { who:'pc', text:'但你還是沒有動身。' }
+  { who:'pc', text:'你沒有去醫院。' },
+  { who:'pc', text:'你想起小時候，都是阿嬤在管你有沒有吃飯，但你還是沒有動身。' }
 ];
 function declineHospitalCall(){
   /* 2026-09-04 改:不再當場判定死亡(見「醫院探望+續命」長筆記)——這裡
@@ -10786,7 +10784,7 @@ const HOSPITAL_GO_BEATS = [
      一律走這個 who,不是給她加引號台詞),用咳嗽+講不清楚帶出她需要水,
      不直接讓她清楚開口要求。 */
   { who:'pc',    text:'她忽然咳了起來,一時停不下來。' },
-  { who:'pc',    text:'想說話,聲音卡在喉嚨裡,講不清楚。' },
+  { who:'pc',    text:'她想說話，但是聲音卡在喉嚨裡，講不清楚。' },
   { menu:[ { label:'倒水給她', beats:[
       { who:'pc',     text:'你倒了半杯溫水,扶著她慢慢喝。' },
       { who:'granny', text:'「夠了,夠了。」她輕輕推開你的手。' },
@@ -11075,7 +11073,7 @@ const DAD_CHECKIN_LINES = {
   /* 第4~8天(kc:「第4~9天會發酒瘋」):第4天節點已經發生過,他喝更多、
      更常鬧——純觀察,不是新的暴力事件,那條線只有第4天那次真的動手。 */
   4: ['他喝到一半,開始罵些聽不懂的話。', '他又在講那句「我是你老子」,你已經數不清第幾次了。'],
-  9: ['他手邊那罐,不知道今天是第幾罐。', '你進門那幾秒,還是習慣先繞一下。'],
+  9: ['他手邊那罐,不知道今天是第幾罐。', '你一進門，還是習慣先繞去看他在不在椅子上。'],
   /* 第15~19天:「他睡在地上」節點發生過之後,純觀察他喝到斷片這件事
      開始留下痕跡,不是新的事件。 */
   15: ['客廳的燈這幾天常常不開,你進門會先看一眼他還在不在椅子上。', '他椅子旁邊有一件外套,聞起來有酒味,沒人洗。'],
@@ -12210,7 +12208,7 @@ function openStallMenu(vendorLabel, whoName, price, full, buyLine, discountLine,
   const items = [
     { label: discount ? '買一份(自己人價)' : '買一份來吃', cost:'$'+p, cls: ST.money<p?'bad':'',
       run(){
-        if(ST.money < p){ toast('錢不夠,' + whoName + '看了你一眼,還是先笑笑。', 2000); return; }
+        if(ST.money < p){ toast('錢不夠,' + whoName + '她看了你一眼，還是先笑了笑。', 2000); return; }
         chg('money', -p); chg('full', full);
         toast(discount ? discountLine : buyLine, 2000);
       } }
@@ -12701,7 +12699,7 @@ function talkToYuan(){
     playBeats([
       { who:'pc', text:'他看你一眼,沒多問,只是往旁邊挪了挪。' },
       { who:'pc',   text:'你在他旁邊坐下,把阿嬤的事說了。' },
-      { who:'pc', text:'他沒說什麼安慰的話,就坐著。' },
+      { who:'pc', text:'他沒有說什麼安慰的話，就這樣陪你坐著。' },
       { who:'pc',   text:'你們兩個誰都沒有再開口,坐了很久。' }
     ], 0, () => {
       chg('mood', 12); chg('calm', 6);
@@ -13940,13 +13938,13 @@ function talkToBrother(){
                 { who:'brother', text:'「這不是給你的，這是給提供線索的人的。你收下就好，不用想太多。」' },
                 { cap:'阿正', menu:[
                   { label:'收下', cost:'+$800／風評 +6', money:800, star:6, beats:[
-                    { who:'pc', text:'你把信封塞進口袋裡。信封很薄，你沒有打開來看。' } ] },
+                    { who:'pc', text:'你把信封塞進口袋裡，沒有打開來數。' } ] },
                   { label:'不用了', cost:'風評 +6', star:6, beats:[
                     { who:'pc', text:'他看了你一眼，沒有多說什麼，把信封收回抽屜裡。' },
                     { who:'brother', text:'「不要就算了，隨便你。」' } ] }
                 ] },
                 { who:'brother', text:'「以後有什麼事，還是可以來找我。」' },
-                { who:'pc', text:'走出警局的時候，你往廟口的方向看了一眼，然後就走了。' }
+                { who:'pc', text:'你走出警局，不知道下次要怎麼面對阿源。' }
               ], 0, () => {});
             } },
           { label:'還沒有聽到什麼', cls:'back', run(){} }
@@ -14070,7 +14068,7 @@ function talkToKai(){
     KAI.talked = true;
     if(MODE === 'indoor'){
       playBeats([
-        { who:'pc',  text:'他抬頭看你一眼,嘴角勾了一下。' },
+        { who:'pc',  text:'他抬頭看你一眼，笑了一下。' },
         { who:'kai', text:'「聽說你也常去中華路那間車行晃?」' },
         { who:'kai', text:'「改天去,我車聲你一定要聽聽。」' }
       ], 0, () => {});
