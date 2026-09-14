@@ -9024,7 +9024,7 @@ addEventListener('keydown', e => {
   if(!sleepPageDone && !spanPageDone) return;
   if(e.code === 'Space' || e.code === 'Enter'){
     e.preventDefault(); e.stopPropagation();
-    if(sleepPageDone) sleepPageDone(); else if(spanPageDone) spanPageDone();
+    if(sleepPageDone) sleepPageDone(); else if(spanPageDone) spanPageDone();   // spanPageDone 現在不會被設(選了就關),留著無害
   }
 }, true);
 
@@ -9190,13 +9190,11 @@ function showSpanPage(from, to, ev, onDone){
       Object.entries(o.fx || {}).forEach(([k, v]) => {
         if(k === 'rough') KNOWLEDGE.rough += v; else chg(k, v);
       });
-      opts.innerHTML = '';
-      if(o.result){ res.textContent = o.result; res.hidden = false; }
-      tip.hidden = false;
-      spanPageDone = () => { spanPageDone = null; el.classList.remove('on'); setTimeout(onDone, 420); };
-      /* ⚠ 延一拍再掛——同一個 click 還會從按鈕冒泡到整頁,馬上掛就會被那一下
-         直接關掉,結果句閃一下就跳天(kc:「他就直接跨天了啊沒有辦法選」)。 */
-      setTimeout(() => { el.onclick = () => spanPageDone && spanPageDone(); }, 0);
+      /* 選了就選了(kc 2026-09-14:「選完之後不要再出現這個介面了」)——不停在結果句
+         那一頁,直接關掉往下走;結果句寄到 dayLogPending,寫進醒來那天的日記。 */
+      if(o.result) dayLogPending = (dayLogPending ? dayLogPending + '\n' : '') + o.result;
+      el.classList.remove('on');
+      setTimeout(onDone, 420);
     };
     opts.appendChild(btn);
   });
