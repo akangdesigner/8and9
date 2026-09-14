@@ -2277,14 +2277,25 @@ function debugSleepPage(){
   showSleepPage(() => {});
 }
 window.debugSleepPage = debugSleepPage;
-/* 跨天事件頁的測試入口(2026-09-14,kc:「我要測」)——每按一次翻下一件(14 件輪一圈),
-   不真的睡、不跳天,但選項的數值是真的會結算。真的流程用「睡一晚」連按會撞到。 */
+/* 跨天事件的測試入口(2026-09-14,kc:「我要模擬在床邊按睡覺之後的流程」)——
+   每按一次把日期設成下一件跨天事件的前一天、時間晚上十點、人放到房間床邊,
+   然後照真的流程去床邊按睡覺:日記 → 跨天那頁 → 醒來。14 件輪一圈。 */
 let debugSpanIdx = 0;
 function debugSpanPage(){
   if(busy || dlg.on || spanPageDone){ toast('現在有東西在播,等一下再按。', 2000); return; }
   const ev = SPAN_EVENTS[debugSpanIdx % SPAN_EVENTS.length]; debugSpanIdx++;
-  const span = ev.from === 18 || ev.from === 32 || ev.from === 54 ? 2 : 1;   // 颱風/連假/寒流那幾件是兩天
-  showSpanPage(ev.from - 1, ev.from + span, ev, () => {});
+  day = ev.from - 1; minute = 22*60;
+  const homeDoor = city.doors.find(d => d.id === 'home');
+  if(homeDoor){ returnTo.x = homeDoor.x; returnTo.z = homeDoor.z; }
+  MODE = 'indoor'; PLACE = 'bedroom';
+  document.getElementById('city').style.display = 'none';
+  wlabelsEl.style.display = 'none';
+  document.getElementById('indoor').classList.add('on');
+  IN.px = (BEDROOM_WALK_TWEAK.minPx + BEDROOM_WALK_TWEAK.maxPx) / 2; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
+  document.getElementById('where').textContent = '房間';
+  paintBedroomBackdrop();
+  syncHUD(); syncMiscQuestPanel();
+  toast(`已跳到 ${dayToDate(day)} 晚上，明天起是「${ev.title}」。去床邊按空白鍵睡覺。`, 3600);
 }
 window.debugSpanPage = debugSpanPage;
 let debugDailyIdx = 0;
