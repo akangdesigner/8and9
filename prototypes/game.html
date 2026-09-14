@@ -1013,6 +1013,33 @@
     font:14px var(--sp-serif); letter-spacing:.4em; text-indent:.4em; }
   #invClose:hover { color:#000; border-color:var(--ui-ink); background:var(--ui-paper-hi); }
 
+  /* 標題畫面 / ESC 選單 / 存檔格:選項排在一張撕邊紙上(kc 2026-09-14:「比如
+     選單介面」也要);標題字換楷體。紙外面的 .menuBtn(開場頁「起床」)走 #sp_go
+     那種細框字。 */
+  #titleScreen h1 { font-family:var(--sp-kai); font-weight:700; letter-spacing:.3em; text-indent:.3em; }
+  .menuSheet { width:340px; padding:22px 30px 16px; display:flex; flex-direction:column; gap:0;
+    font-family:var(--sp-serif); color:var(--ui-ink); box-sizing:border-box; }
+  .menuSheet .menuTitle { color:var(--ui-red); font-family:var(--sp-kai); font-weight:700; font-size:16px;
+    letter-spacing:.3em; border-bottom:1.5px solid var(--ui-red); padding-bottom:6px; margin-bottom:4px; }
+  .menuSheet .menuBtn { position:relative; width:auto; text-align:left; background:none; border:0;
+    border-bottom:1px dotted var(--ui-dot); border-radius:0; color:var(--ui-ink);
+    font:16px var(--sp-serif); letter-spacing:.12em; padding:12px 6px 12px 16px;
+    transition:transform .2s cubic-bezier(.2,.8,.3,1), color .2s; }
+  .menuSheet .menuBtn:last-of-type { border-bottom:0; }
+  .menuSheet .menuBtn::before { content:''; position:absolute; left:0; top:50%; width:3px; height:0;
+    background:var(--ui-red); transform:translateY(-50%); transition:height .22s cubic-bezier(.2,.8,.3,1);
+    box-shadow:0 0 10px rgba(142,42,38,.75); }
+  .menuSheet .menuBtn:hover { background:none; border-color:var(--ui-dot); color:#000; transform:translateX(7px); }
+  .menuSheet .menuBtn:hover::before { height:74%; }
+  .menuSheet .menuBtn .s { color:var(--ui-ink2); font-family:var(--sp-kai); font-size:12px; letter-spacing:.06em; }
+  .menuSheet .menuBtn[disabled] { opacity:.4; }
+  .menuSheet .menuBtn[disabled]:hover { background:none; border-color:var(--ui-dot); color:var(--ui-ink); transform:none; }
+  .menuSheet .menuBtn.back { color:var(--ui-ink2); font-size:14px; }
+  #titleScreen .menuNote, #menuOverlay .menuNote { color:#8a8272; font-family:var(--sp-serif); letter-spacing:.14em; }
+  #introGo.menuBtn { width:auto; background:none; border:1px solid #6f6a5e; border-radius:0; color:#e8e2d5;
+    font:15px var(--sp-serif); letter-spacing:.5em; text-indent:.5em; padding:11px 40px; }
+  #introGo.menuBtn:hover { background:rgba(232,226,213,.1); border-color:#cdc4b2; color:#fff; }
+
   /* 左下按鍵提示:鍵帽(參考圖) */
   #keys { color:#cfc6b4; font-family:var(--sp-serif); font-size:12px; letter-spacing:.1em; display:flex; align-items:center; gap:6px; }
   #keys kbd { display:inline-block; min-width:14px; padding:2px 6px; border:1px solid #cfc4ad; border-radius:3px;
@@ -1241,9 +1268,11 @@
 <div id="titleScreen">
   <h1>翻不了身</h1>
   <div class="sub">N O &nbsp; W A Y &nbsp; U P</div>
-  <button class="menuBtn" id="tsContinue" onclick="titleContinue()">繼續遊戲<span class="s"></span></button>
-  <button class="menuBtn" onclick="titleLoad()">讀取存檔</button>
-  <button class="menuBtn" onclick="titleNewGame()">開始新遊戲</button>
+  <div class="menuSheet" id="tsSheet">
+    <button class="menuBtn" id="tsContinue" onclick="titleContinue()">繼續遊戲<span class="s"></span></button>
+    <button class="menuBtn" onclick="titleLoad()">讀取存檔</button>
+    <button class="menuBtn" onclick="titleNewGame()">開始新遊戲</button>
+  </div>
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
@@ -15596,6 +15625,7 @@ function tornAttach(el, amp, gen){
 function tornInit(){
   const q = sel => Array.from(document.querySelectorAll(sel));
   const big = ['#dialog .frame', '#menu', '#textPrompt', '#questPanel', '#mapPanel', '#invPanel'];
+  big.push('#tsSheet');
   big.forEach(sel => q(sel).forEach(el => { tornAttach(el, sel==='#dialog .frame' ? 5 : 4); el.classList.add('big'); }));
   ['.pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool']
     .forEach(sel => q(sel).forEach(el => tornAttach(el, 2)));
@@ -15855,13 +15885,14 @@ function openGameMenu(){
   if(gameOver || titleEl.classList.contains('on')) return;
   saveOff = true;
   gmMenuEl.classList.remove('overTitle');
-  gmMenuEl.innerHTML = `<div class="menuTitle">選單</div>
+  gmMenuEl.innerHTML = `<div class="menuSheet"><div class="menuTitle">選單</div>
     <button class="menuBtn" onclick="closeGameMenu()">繼續遊戲</button>
     <button class="menuBtn" onclick="openSlotMenu('save', openGameMenu)">儲存進度</button>
     <button class="menuBtn" onclick="openSlotMenu('load', openGameMenu)">讀取存檔</button>
-    <button class="menuBtn" onclick="backToTitle()">回標題畫面</button>
+    <button class="menuBtn" onclick="backToTitle()">回標題畫面</button></div>
     <div class="menuNote">關掉這個選單:再按一次 ESC</div>`;
   gmMenuEl.classList.add('on');
+  menuSheetPaper();
 }
 function closeGameMenu(){ gmMenuEl.classList.remove('on'); saveOff = false; }
 function backToTitle(){
@@ -15880,14 +15911,20 @@ function openSlotMenu(mode, back){
     const dis  = (mode === 'load' && !info) ? ' disabled' : '';
     rows.push(`<button class="menuBtn" onclick="pickSlot('${mode}', ${i})"${dis}>存檔 ${i}<span class="s">${sub}</span></button>`);
   }
-  gmMenuEl.innerHTML = `<div class="menuTitle">${mode === 'save' ? '儲存到哪一格' : '讀取哪一格'}</div>`
+  gmMenuEl.innerHTML = `<div class="menuSheet"><div class="menuTitle">${mode === 'save' ? '儲存到哪一格' : '讀取哪一格'}</div>`
     + rows.join('')
-    + `<button class="menuBtn" onclick="(${back.name})()">返回</button>`;
+    + `<button class="menuBtn back" onclick="(${back.name})()">返回</button></div>`;
   /* 不關掉 titleEl——從標題畫面進來的話要留著它當背景(#menuOverlay 在 HTML
      裡排在 #titleScreen 後面,同一個 z-index 自然蓋在上面)。關掉的話背景會
      變成底下的遊戲畫面,玩家明明還沒開始玩卻看到街景。 */
   gmMenuEl.classList.toggle('overTitle', titleEl.classList.contains('on'));
   gmMenuEl.classList.add('on');
+  menuSheetPaper();
+}
+/* 選單那張紙是每次 innerHTML 重生的,tornInit() 開機掛的那批抓不到,這裡每次
+   重畫完補掛(2026-09-14「選單介面」也要紙感)。 */
+function menuSheetPaper(){
+  const sh = gmMenuEl.querySelector('.menuSheet'); if(sh){ tornAttach(sh, 4); sh.classList.add('big'); }
 }
 function pickSlot(mode, n){
   if(mode === 'save'){
