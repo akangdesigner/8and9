@@ -12808,9 +12808,21 @@ function talkToYuan(){
      讀得到。改成選單不管有沒有出陣過都會出現,「跳陣頭」交給
      tryJoinTroupe() 自己判斷要接練習/出陣,還是已經出陣過的 routine
      日常那條分支(見那則筆記)。 */
-  say('yuan', YUAN.debuted ? '「欸，等一下要練陣頭，你要不要來跳一段？」' : '「欸，我們等一下要練陣頭，你要不要一起來？」', () => {
+  /* 還沒出陣過:不是他邀你,是他講他們在幹嘛、你自己開口問能不能一起
+     (kc 2026-09-14:「他問你要不要一起 然後還拒絕你很怪」)——這樣不夠格被擋
+     (tryJoinTroupe 的 rejectCool/rejectRep)才合理。出陣過就是自己人,他直接叫你來。 */
+  if(YUAN.debuted){
+    say('yuan', '「欸，等一下要練陣頭，你要不要來跳一段？」', () => {
+      openMenu('阿源', [
+        { label:'跳陣頭', run(){ tryJoinTroupe(); } },
+        { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
+      ]);
+    });
+    return;
+  }
+  say('yuan', '「我們等一下要練陣頭，廟慶快到了，阿伯這陣子盯得很緊。」', () => {
     openMenu('阿源', [
-      { label:'跳陣頭', run(){ tryJoinTroupe(); } },
+      { label:'「我可以一起嗎？」', run(){ tryJoinTroupe(); } },
       { label:'先聊聊', cls:'back', run(){ yuanCasualTalk(); } }
     ]);
   });

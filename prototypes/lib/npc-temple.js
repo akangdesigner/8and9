@@ -319,12 +319,11 @@
     rejectCool: {
       by:'阿源',
       beats:[
-        { who:'pc',   text:'他們在後面練步。' },
-        { who:'pc',   text:'你站在旁邊看了一下。' },
-        { who:'yuan', text:'阿源看到你了，點了個頭。' },
-        { who:'yuan', text:'然後他繼續看他們練。' }
+        { who:'yuan', text:'「你喔？」他上下看了你一眼。' },
+        { who:'yuan', text:'「先不要啦，你現在這樣站上去會被笑。」' },
+        { who:'pc',   text:'他說完就轉回去看他們練步，沒有再理你。' }
       ],
-      quiet:'他沒有叫你過去，你站了十分鐘就走了。'
+      quiet:'你站在旁邊看了十分鐘，然後就走了。'
     },
     rejectRep: {
       by:'阿伯',
