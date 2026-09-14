@@ -840,145 +840,183 @@
   #fps { position:fixed; right:14px; bottom:12px; z-index:6; font-size:11px; color:#5c6470; }
 
   /* ============================================================
-     紙感主題(2026-09-14)——kc 看過對話框說「方向對」,整套遊戲內 UI 往
-     標題/成績單/資料卡那套推:紙底、明體、楷體數字、少圓角、紅色只留給
-     重點(hover 那條線、主線、警示)。
-     上面那些「深灰圓角框」的規則是原型時代留下的,這一段用同名選擇器整段
-     蓋過去——刻意集中在一處而不是回頭逐條改,方便對照/調整;哪天確定
-     不回頭再把上面的舊值清掉。沒碰的:標題畫面(暗底那頁 kc 認可)、
-     遊藝場 #arcadeGame(有自己的宮廟 LED 邊框)、算命籤 #fortunePanel
-     (本來就是紅框紙籤)、睡覺日記頁(本來就是紙)。
+     紙感主題(2026-09-14)——第一版是「乾淨的公文紙」;同日 kc 拿 GPT 畫的兩張
+     參考圖定案(「這個風格還是最好看 你盡量做」):**撕邊舊紙籤、紅色筆刷名牌、
+     綠底白字台灣路牌、廟宇線稿浮水印、鍵帽提示**。我提過古風的疑慮,他拍板了,
+     照做——理由與取捨見 DESIGN_NOTES「遊戲內 UI 要整個重整」。
+     作法:紙不用 CSS 邊框,每個元素照自己實際尺寸用 canvas 生一張「紙+撕邊+
+     邊緣泛黃」的透明 PNG 當 background(見 tornAttach()),撕邊外的投影靠
+     filter:drop-shadow。⚠ 因此 hover/閃爍都**不能寫 background 簡寫**(會把
+     inline 的紙圖蓋掉),一律改 filter / color。
+     上面那些「深灰圓角框」的規則是原型時代的,這一段用同名選擇器整段蓋過去,
+     集中一處方便調;哪天確定不回頭再清。沒碰:標題畫面、遊藝場、算命籤、睡覺日記。
      ============================================================ */
-  :root { --ui-paper-flat:#ece5d4; --ui-paper-hi:#f7f3ea; --ui-line:#8b8172; }
-  /* 小標籤鈕:#bar 工具列、角色/任務/地圖、右上角選單——一張小紙籤 */
+  :root { --ui-ink:#2a2118; --ui-ink2:#5a4b38; --ui-rule:#6b5a42; --ui-dot:#a8967a; --ui-line:#8b7a5e;
+          --ui-red:#8e2a26; --ui-paper-hi:#f4ecd8; }
+  .torn { border:0 !important; border-radius:0 !important; box-shadow:none !important; backdrop-filter:none;
+          background-color:transparent !important; background-repeat:no-repeat;
+          filter:drop-shadow(0 1px 1px rgba(0,0,0,.45)) drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
+  .torn.big { filter:drop-shadow(0 2px 2px rgba(0,0,0,.45)) drop-shadow(0 16px 28px rgba(0,0,0,.5)); }
+
+  /* 小紙籤鈕:#bar 工具列、角色/任務/地圖、右上角選單 */
   button.tool, #menuBtn, #charCardBtn, #mapBtn, #questToggleBtn {
-    background:var(--ui-paper-flat); color:var(--ui-ink); border:1px solid var(--ui-line);
-    border-radius:1px; font-family:var(--sp-serif); letter-spacing:.14em;
-    box-shadow:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.25); }
+    color:var(--ui-ink); font-family:var(--sp-serif); letter-spacing:.16em; text-indent:.16em; }
   button.tool:hover, #menuBtn:hover, #charCardBtn:hover, #mapBtn:hover, #questToggleBtn:hover {
-    background:var(--ui-paper-hi); color:#000; border-color:var(--ui-ink); }
-  button.tool { padding:5px 12px; font-size:12px; }
-  #charCardBtn, #mapBtn, #questToggleBtn, #menuBtn { font:12px/1.4 var(--sp-serif); padding:5px 12px; }
-  #menuBtn { top:66px; }   /* 時鐘換楷體後高了幾 px,原本 52 會跟時鐘疊到 */
+    color:#000; filter:drop-shadow(0 1px 1px rgba(0,0,0,.45)) drop-shadow(0 6px 10px rgba(0,0,0,.35)) brightness(1.06); }
+  button.tool { padding:6px 13px; font-size:12px; }
+  #charCardBtn, #mapBtn, #questToggleBtn { font:15px/1.4 var(--sp-kai); padding:8px 18px; }
+  #charCardBtn { left:16px; top:106px; } #mapBtn { left:96px; top:106px; }
+  #questToggleBtn { left:176px; top:106px; }        /* 三顆排一列(參考圖),任務面板從它們底下開始 */
+  #questPanel { top:154px; }
+  /* 任務面板開著時,「任務」那顆變紅底白字(參考圖) */
+  body:has(#questPanel.on) #questToggleBtn { background-image:none !important; background-color:var(--ui-red) !important;
+    color:#f3ead6; text-shadow:0 1px 0 rgba(0,0,0,.3); }
+  #menuBtn { top:70px; font:14px/1.4 var(--sp-kai); padding:6px 16px; }
+  #menuBtn::before { content:'☰ '; font-size:12px; }
 
-  /* HUD 七格:紙籤,數字用楷體(跟成績單的積分一樣) */
-  .pod { background:var(--ui-paper-flat); border:1px solid var(--ui-line); border-radius:1px;
-         backdrop-filter:none; font-family:var(--sp-serif);
-         box-shadow:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.25); }
-  .pod .lb { color:var(--ui-line); letter-spacing:.2em; }
-  .pod .nm { color:var(--ui-ink); font-family:var(--sp-kai); font-size:16px; }
+  /* HUD 七格:撕邊紙籤,數字楷體 */
+  .pod { font-family:var(--sp-serif); padding:7px 12px 8px; min-width:78px; }
+  .pod .lb { color:var(--ui-ink2); letter-spacing:.2em; font-size:11px; }
+  .pod .nm { color:var(--ui-ink); font-family:var(--sp-kai); font-size:19px; font-weight:700; }
   .pod.money .nm { color:var(--ui-ink); }
-  .pod .track { background:rgba(60,50,35,.14); border-radius:0; }
-  .pod.star .track::before { background:rgba(60,50,35,.45); }
-  .pod.low { border-color:var(--sp-red); }
-  @keyframes lowpulse { 50% { border-color:rgba(168,40,31,.25); } }
-  @keyframes bump { 30% { border-color:var(--ui-ink); transform:translateY(-3px); } }
-  @keyframes flashUp { 0%{background:rgba(111,201,138,.55); border-color:#4a8a5c; transform:translateY(-3px);}
-                       40%{background:rgba(111,201,138,.35);} 100%{background:var(--ui-paper-flat);} }
-  @keyframes flashDn { 0%{background:rgba(168,40,31,.5); border-color:var(--sp-red); transform:translateX(-2px);}
+  .pod .track { background:rgba(60,45,25,.18); border-radius:0; height:5px; }
+  .pod.star .track::before { background:rgba(60,45,25,.5); }
+  .pod.low { animation:lowpulse 1.15s infinite; }
+  @keyframes lowpulse { 50% { filter:drop-shadow(0 0 0 rgba(0,0,0,0)) drop-shadow(0 0 7px rgba(200,40,30,.95)); } }
+  @keyframes bump { 30% { transform:translateY(-3px); } }
+  @keyframes flashUp { 0%{filter:drop-shadow(0 0 2px #6fc98a) drop-shadow(0 0 10px #4a8a5c) brightness(1.12); transform:translateY(-3px);}
+                       40%{filter:drop-shadow(0 0 2px #6fc98a) drop-shadow(0 0 8px #4a8a5c);} }
+  @keyframes flashDn { 0%{filter:drop-shadow(0 0 2px #e0483a) drop-shadow(0 0 10px #a8281f); transform:translateX(-2px);}
                        15%{transform:translateX(2px);} 30%{transform:translateX(-1px);}
-                       40%{background:rgba(168,40,31,.32); transform:none;} 100%{background:var(--ui-paper-flat);} }
+                       40%{filter:drop-shadow(0 0 2px #e0483a) drop-shadow(0 0 8px #a8281f); transform:none;} }
 
-  /* 地名 / 時鐘 / 提示 / toast:同一種紙籤 */
-  #where, #clock, #hint, #toast, #restBar {
-    background:var(--ui-paper-flat); border:1px solid var(--ui-line); border-radius:1px;
-    backdrop-filter:none; color:var(--ui-ink); font-family:var(--sp-serif);
-    box-shadow:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.25); }
-  #where { font-family:var(--sp-kai); letter-spacing:.3em; text-indent:.3em; font-size:15px; }
-  #clock .d { color:var(--ui-line); }
-  #clock .t { color:var(--ui-ink); font-family:var(--sp-kai); }
-  #hint b { color:var(--sp-red); }
-  #toast { border-left:3px solid var(--sp-red); }
-  #restBar .lb b { color:var(--sp-red); }
-  #restBar .tr { background:rgba(60,50,35,.14); border-radius:0; }
-  #restBar .sub { color:var(--ui-line); }
-  /* 飄字:紙籤上一行墨字,漲綠跌紅由 centerFloat() 給的 color 決定 */
+  /* 地名:綠底白字台灣路牌(參考圖第二張) */
+  #where { background:#1f6b3d; color:#fff; border:2px solid #f2f2ea; outline:2px solid #1f6b3d; border-radius:3px;
+    font-family:var(--sp-kai); font-weight:700; font-size:21px; letter-spacing:.3em; text-indent:.3em;
+    padding:5px 24px 6px; backdrop-filter:none; box-shadow:0 3px 10px rgba(0,0,0,.55);
+    text-shadow:0 1px 0 rgba(0,0,0,.35); }
+  /* 時鐘 / 提示 / toast / 休息條:紙籤 */
+  #clock, #hint, #toast, #restBar { color:var(--ui-ink); font-family:var(--sp-serif); }
+  #clock { padding:8px 16px 9px; }
+  #clock .d { color:var(--ui-ink2); font-size:11px; }
+  #clock .t { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; font-size:21px; }
+  #hint { padding:8px 20px; } #hint b { color:var(--ui-red); }
+  #toast { padding:10px 20px; }
+  #toast::before { content:''; position:absolute; left:8px; top:8px; bottom:8px; width:3px; background:var(--ui-red); }
+  #restBar .lb b { color:var(--ui-red); }
+  #restBar .tr { background:rgba(60,45,25,.18); border-radius:0; }
+  #restBar .sub { color:var(--ui-ink2); }
+  /* 飄字:小紙籤,漲綠跌紅由 centerFloat() 給 */
   .cfl { background:var(--ui-paper-hi); border:1px solid var(--ui-line); border-radius:1px;
-         text-shadow:none; font-family:var(--sp-kai); font-weight:400; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+         text-shadow:none; font-family:var(--sp-kai); font-weight:700; box-shadow:0 2px 6px rgba(0,0,0,.35); }
   .cfl.big { box-shadow:0 0 0 1px currentColor inset, 0 2px 6px rgba(0,0,0,.35); }
 
-  /* 選單(openMenu)/打字框:一張紙,選項是虛線列,hover 左邊冒紅線往右滑 */
-  #menu, #textPrompt { gap:0; padding:12px 18px 10px; font-family:var(--sp-serif);
-    background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
-    border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,.35), 0 14px 34px rgba(0,0,0,.55); }
-  #menu .cap, #textPrompt .cap { color:var(--ui-line); letter-spacing:.32em; font-size:11px;
-    padding:0 0 6px 4px; margin:0 0 4px; border-bottom:2px solid var(--ui-rule); position:relative; }
-  #menu .cap::after, #textPrompt .cap::after { content:''; position:absolute; left:0; right:0; bottom:-4px; height:1px; background:var(--ui-rule); }
+  /* 對話框:撕邊長條紙、相片斜貼、紅筆刷名牌、右側廟宇線稿浮水印 */
+  #dialog { padding-top:50px; }
+  #portrait { left:34px; top:0; width:150px; height:150px; border:5px solid #f7f3ea; border-radius:1px;
+              image-rendering:auto; transform:rotate(-2.5deg);
+              box-shadow:0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.5); }
+  #dialog .frame { position:relative; padding:16px 30px 18px 236px; min-height:150px; box-sizing:border-box;
+    background-color:transparent; box-shadow:none; border-radius:0; }
+  #dialog .frame::after { content:''; position:absolute; right:16px; top:6px; bottom:6px; width:36%;
+    background:var(--ui-temple) right center/contain no-repeat; opacity:.22; pointer-events:none; }
+  #dialog.narration .frame { padding-left:34px; }
+  .dname { display:inline-block; position:relative; font-family:var(--sp-kai); font-weight:700; font-size:20px;
+    letter-spacing:.2em; color:#f6efe2; text-shadow:0 1px 0 rgba(0,0,0,.35);
+    padding:4px 40px 5px 16px; margin:0 0 10px -6px; border:0; background-size:100% 100%; background-repeat:no-repeat; }
+  .dname::after { display:none; }
+  .dbody { font-size:19px; line-height:1.9; color:var(--ui-ink); letter-spacing:.08em; position:relative; z-index:1; }
+  #dialog.narration .dbody { color:var(--ui-ink2); }
+  .caret { color:var(--ui-red); }
+  #coTimerTrack { bottom:calc(5% + 240px); }
+  #coOpts { position:relative; z-index:1; }
+  #coOpts button { color:var(--ui-ink); border-bottom-color:var(--ui-dot); }
+  #coOpts button::before { background:var(--ui-red); box-shadow:0 0 10px rgba(142,42,38,.75); }
+
+  /* 選單(openMenu)/打字框:撕邊紙,選項虛線列,hover 左邊冒紅線往右滑 */
+  #menu, #textPrompt { gap:0; padding:16px 22px 14px; font-family:var(--sp-serif); }
+  #menu .cap, #textPrompt .cap { color:var(--ui-red); font-family:var(--sp-kai); font-weight:700; font-size:14px;
+    letter-spacing:.24em; padding:0 0 6px 4px; margin:0 0 4px; border-bottom:1.5px solid var(--ui-red); position:relative; }
+  #menu .cap::after, #textPrompt .cap::after { display:none; }
   #menu button { position:relative; background:none; color:var(--ui-ink); border:0;
     border-bottom:1px dotted var(--ui-dot); border-radius:0; padding:9px 6px 9px 16px;
     font-size:16px; letter-spacing:.08em; transition:transform .2s cubic-bezier(.2,.8,.3,1), color .2s; }
   #menu button:last-child { border-bottom:0; }
   #menu button::before { content:''; position:absolute; left:0; top:50%; width:3px; height:0;
-    background:var(--sp-red); transform:translateY(-50%); transition:height .22s cubic-bezier(.2,.8,.3,1);
-    box-shadow:0 0 10px rgba(168,40,31,.75); }
+    background:var(--ui-red); transform:translateY(-50%); transition:height .22s cubic-bezier(.2,.8,.3,1);
+    box-shadow:0 0 10px rgba(142,42,38,.75); }
   #menu button:hover { background:none; color:#000; transform:translateX(7px); }
   #menu button:hover::before { height:74%; }
-  #menu button .cost { color:var(--ui-line); font-family:var(--sp-kai); }
-  #menu button.bad { color:#9a8f79; } #menu button.bad .cost { color:var(--sp-red); }
+  #menu button .cost { color:var(--ui-ink2); font-family:var(--sp-kai); }
+  #menu button.bad { color:#9a8a70; } #menu button.bad .cost { color:var(--ui-red); }
   #menu button.risk { color:#7a2a22; }
   #menu button.risk::before { height:74%; width:1px; box-shadow:none; opacity:.6; }
   #menu button.risk:hover::before { width:3px; opacity:1; }
-  #menu button.back { color:var(--ui-line); font-size:14px; margin-top:4px; }
+  #menu button.back { color:var(--ui-ink2); font-size:14px; margin-top:4px; }
   #textPrompt { gap:8px; }
   #textPromptInput { background:transparent; color:var(--ui-ink); border:0; border-radius:0;
     border-bottom:1.5px solid var(--ui-rule); font-family:var(--sp-kai); font-size:18px; letter-spacing:.1em; padding:6px 4px; }
-  #textPromptInput:focus { border-color:transparent; border-bottom-color:var(--sp-red); }
+  #textPromptInput:focus { border-color:transparent; border-bottom-color:var(--ui-red); }
   #textPromptSubmit { background:none; color:var(--ui-ink); border:1px solid var(--ui-line); border-radius:1px;
     font-family:var(--sp-serif); letter-spacing:.3em; text-indent:.3em; padding:6px 16px; }
   #textPromptSubmit:hover { background:var(--ui-paper-hi); color:#000; border-color:var(--ui-ink); }
 
-  /* 任務小面板:一張便條,主線紅字 */
-  #questPanel { background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
-    border:0; border-radius:2px; color:var(--ui-ink); font-family:var(--sp-serif);
-    box-shadow:0 2px 4px rgba(0,0,0,.35), 0 10px 26px rgba(0,0,0,.5); }
+  /* 任務小面板:撕邊便條,「主線」紅字底下一條紅線(參考圖) */
+  #questPanel { color:var(--ui-ink); font-family:var(--sp-serif); padding:16px 22px 18px; max-width:340px; }
   #questPanel .qpItem { border-top:1px dotted var(--ui-dot); }
-  #questPanel .qpTitle { color:var(--ui-ink); letter-spacing:.06em; }
-  #questPanel .qpHint { color:var(--ui-ink2); }
-  #questPanel .qpSect { color:var(--ui-line); }
-  #questPanel .qpSect.main { color:var(--sp-red); }
-  .qpNote { color:var(--ui-line); }
+  #questPanel .qpTitle { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; font-size:20px; letter-spacing:.08em; }
+  #questPanel .qpHint { color:var(--ui-ink2); font-size:14px; }
+  #questPanel .qpSect { color:var(--ui-ink2); font-family:var(--sp-kai); font-weight:700; font-size:15px; letter-spacing:.2em;
+    border-bottom:1.5px solid var(--ui-ink2); padding-bottom:5px; margin:8px 0 8px; }
+  #questPanel .qpSect.main { color:var(--ui-red); border-bottom-color:var(--ui-red); }
+  #questPanel .qpSect + .qpItem { border-top:0; padding-top:0; }   /* 小標底下已有一條線,不要再一條虛線 */
+  .qpNote { color:var(--ui-ink2); }
 
   /* 地圖面板 */
-  #mapPanel { background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
-    border:0; border-radius:2px; font-family:var(--sp-serif);
-    box-shadow:0 2px 4px rgba(0,0,0,.35), 0 18px 50px rgba(0,0,0,.6); }
-  #mapHead { color:var(--ui-ink); font-family:var(--sp-kai); letter-spacing:.3em; }
-  #mapHead .sub, #mapTip { color:var(--ui-line); }
+  #mapPanel { font-family:var(--sp-serif); padding:20px 24px 16px; }
+  #mapHead { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; font-size:18px; letter-spacing:.3em; }
+  #mapHead .sub, #mapTip { color:var(--ui-ink2); }
 
-  /* 角色卡:一張大的紙,分頁鈕像蓋章的墨塊,格子是虛線框 */
-  #invPanel { background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
-    border:0; border-radius:2px; color:var(--ui-ink); font-family:var(--sp-serif);
-    box-shadow:0 2px 4px rgba(0,0,0,.35), 0 18px 40px rgba(0,0,0,.55), 0 44px 90px rgba(0,0,0,.4); }
-  #invPanel h3 { color:var(--ui-line); letter-spacing:.3em; border-bottom:1px solid var(--ui-rule); padding-bottom:4px; }
-  #invPanel .invEmpty { color:#9a8f79; }
-  .invHead h2 { color:var(--ui-ink); font-family:var(--sp-kai); letter-spacing:.3em; font-size:19px; }
-  .invHead .invMoney { color:var(--ui-ink); font-family:var(--sp-kai); }
-  .invGoal { border:1.5px solid var(--sp-red); border-radius:1px; background:rgba(168,40,31,.05); }
-  .invGoal .lb { color:var(--sp-red); }
-  .invGoal .tx { color:var(--ui-ink); font-family:var(--sp-kai); font-size:17px; }
-  .invGoal .nm { color:var(--ui-line); }
+  /* 角色卡:一張大的撕邊紙,分頁鈕像蓋章的墨塊,格子是虛線框 */
+  #invPanel { color:var(--ui-ink); font-family:var(--sp-serif); padding:30px 36px 26px; }
+  #invPanel h3 { color:var(--ui-ink2); font-family:var(--sp-kai); font-weight:700; font-size:14px; letter-spacing:.3em;
+    border-bottom:1px solid var(--ui-rule); padding-bottom:4px; }
+  #invPanel .invEmpty { color:#9a8a70; }
+  .invHead h2 { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; letter-spacing:.3em; font-size:22px; }
+  .invHead .invMoney { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; font-size:20px; }
+  .invGoal { border:1.5px solid var(--ui-red); border-radius:1px; background:rgba(142,42,38,.06); }
+  .invGoal .lb { color:var(--ui-red); font-family:var(--sp-kai); font-weight:700; font-size:12px; }
+  .invGoal .tx { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; font-size:18px; }
+  .invGoal .nm { color:var(--ui-ink2); }
   .invTabBtn { background:none; color:var(--ui-ink2); border:1px solid var(--ui-line); border-radius:1px;
-    font:12px var(--sp-serif); letter-spacing:.2em; padding:4px 14px; }
-  .invTabBtn.on { background:var(--ui-ink); color:var(--ui-paper-hi); border-color:var(--ui-ink); font-weight:400; }
-  .itemCard { background:rgba(255,255,255,.18); border:1px dotted var(--ui-line); border-radius:1px; }
+    font:13px var(--sp-kai); font-weight:700; letter-spacing:.2em; padding:4px 14px; }
+  .invTabBtn.on { background:var(--ui-red); color:#f6efe2; border-color:var(--ui-red); }
+  .itemCard { background:rgba(255,255,255,.16); border:1px dotted var(--ui-line); border-radius:1px; }
   .itemCard:hover { border-style:solid; border-color:var(--ui-ink); }
-  .itemCard.on { border-style:solid; border-color:var(--sp-red); background:rgba(168,40,31,.06); }
+  .itemCard.on { border-style:solid; border-color:var(--ui-red); background:rgba(142,42,38,.07); }
   .itemCard .lb { color:var(--ui-ink2); }
   .itemCard.on .lb { color:var(--ui-ink); }
-  .itemCard .badge { color:var(--ui-paper-hi); background:var(--sp-red); border-radius:1px; }
+  .itemCard .badge { color:#f6efe2; background:var(--ui-red); border-radius:1px; }
   #itemDetail { color:var(--ui-ink2); }
-  #itemDetail .amt { color:var(--sp-red); font-weight:400; font-family:var(--sp-kai); }
+  #itemDetail .amt { color:var(--ui-red); font-weight:700; font-family:var(--sp-kai); }
   #itemDetail button { background:none; color:var(--ui-ink); border:1px solid var(--ui-line); border-radius:1px;
     font-family:var(--sp-serif); letter-spacing:.2em; }
   #itemDetail button:hover { background:var(--ui-paper-hi); color:#000; border-color:var(--ui-ink); }
-  .equipBadge { border:1px dotted var(--ui-line); border-radius:1px; background:rgba(255,255,255,.18); }
-  .equipBadge.filled { border:1px solid var(--sp-red); background:rgba(168,40,31,.06); }
-  #invPortrait { border:4px solid var(--ui-paper-hi); border-radius:1px; background:#1b202b;
-    box-shadow:0 2px 3px rgba(0,0,0,.3), 0 8px 18px rgba(0,0,0,.35); }
-  .statList .pod { box-shadow:none; background:rgba(255,255,255,.18); }
+  .equipBadge { border:1px dotted var(--ui-line); border-radius:1px; background:rgba(255,255,255,.16); }
+  .equipBadge.filled { border:1px solid var(--ui-red); background:rgba(142,42,38,.07); }
+  #invPortrait { border:5px solid var(--ui-paper-hi); border-radius:1px; background:#1b202b; transform:rotate(1.2deg);
+    box-shadow:0 2px 3px rgba(0,0,0,.3), 0 10px 22px rgba(0,0,0,.4); }
+  .statList .pod { filter:none; }
   #invClose { background:none; color:var(--ui-ink2); border:1px solid var(--ui-line); border-radius:1px;
     font:14px var(--sp-serif); letter-spacing:.4em; text-indent:.4em; }
   #invClose:hover { color:#000; border-color:var(--ui-ink); background:var(--ui-paper-hi); }
+
+  /* 左下按鍵提示:鍵帽(參考圖) */
+  #keys { color:#cfc6b4; font-family:var(--sp-serif); font-size:12px; letter-spacing:.1em; display:flex; align-items:center; gap:6px; }
+  #keys kbd { display:inline-block; min-width:14px; padding:2px 6px; border:1px solid #cfc4ad; border-radius:3px;
+    background:rgba(236,229,212,.12); color:#efe8d8; font:11px/1.3 var(--sp-serif); text-align:center; }
+  #keys kbd + kbd { margin-left:-3px; }
+  #keys .sep { color:#6a6152; margin:0 6px; }
 
 </style>
 </head>
@@ -1076,7 +1114,7 @@
 <div id="restBar"><div class="lb"><span>坐著休息</span><b id="restClock"></b></div><div class="tr"><i id="restFill"></i></div><div class="sub">每 30 分鐘　體力 +5　情緒 +1　飽足 −3</div></div>
 
 <div id="dialog">
-  <canvas id="portrait" width="100" height="100"></canvas>
+  <canvas id="portrait" width="200" height="200"></canvas>
   <div class="frame">
     <div class="dname" id="dName">你</div>
     <div class="dbody"><span id="dTx"></span><span class="caret" id="dCaret">▼</span></div>
@@ -1135,7 +1173,7 @@
   <button class="tool" onclick="location.reload()">重新開始</button>
 </div>
 
-<div id="keys"><b>WASD</b> 走　<b>Q E</b> 轉相機（街上）　<b>Shift</b> 跑　<b>空白</b> 互動</div>
+<div id="keys"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動</span><span class="sep">|</span><span><kbd>Q</kbd><kbd>E</kbd> 轉視角</span><span class="sep">|</span><span><kbd>Shift</kbd> 跑步</span><span class="sep">|</span><span><kbd>空白</kbd> 互動</span></div>
 <button id="menuBtn" onclick="openGameMenu()">選單</button>
 <div id="introScreen">
   <div class="il">九月。永安高中，一年三班。</div>
@@ -15458,16 +15496,127 @@ function spPaperTexture(w, h){
   }
   return c.toDataURL('image/jpeg', .92);
 }
-/* 遊戲內 UI 的紙(2026-09-14)——對話框那張紙跟成績單同一個材質函式,開機生一次
-   塞進 CSS 變數 --ui-paper 給 #dialog .frame(之後 #menu 那些改過來也共用這張)。
-   spRnd 是有種子的序列,這裡先存再還原,不然成績單/姓名卡那兩張紙的紋路會跟著位移。 */
-function uiPaperInit(){
-  const keep = spSeed;
-  // 1200×900:角色卡那張大紙也用它,太小會被 cover 拉大、紋路變粗
-  document.documentElement.style.setProperty('--ui-paper', 'url('+spPaperTexture(1200,900)+')');
-  spSeed = keep;
+/* 撕邊紙(2026-09-14,kc 選定 GPT 那兩張參考圖:「這個風格還是最好看 你盡量做」)
+   ——面板/紙籤不用 CSS 邊框,每個元素照自己的實際尺寸用 canvas 生一張「紙+撕邊
+   +邊緣泛黃」的透明 PNG 當 background,撕邊外面靠 CSS filter:drop-shadow 投影
+   (見 <style> 底下「紙感主題」)。尺寸變了(選單換內容、對話框多一行)由
+   ResizeObserver 重生;尺寸先取整到一階再拉伸,免得打字每多一行邊緣就重抽。
+   同元素同尺寸的邊緣由種子決定,不會每次不一樣;同尺寸的圖有快取。
+   spRnd 那條有種子的序列這裡不碰,免得成績單/姓名卡的紋路跟著位移。 */
+const TORN = { cache:new Map(), ro:null, n:0 };
+function tornRng(seed){ let s = (seed>>>0) || 1; return () => (s = (s*1664525 + 1013904223) >>> 0) / 4294967296; }
+function tornPaperURL(w, h, amp, seed){
+  const key = 'p'+w+'x'+h+'|'+amp+'|'+seed;
+  if(TORN.cache.has(key)) return TORN.cache.get(key);
+  // 角色卡那種整張大紙不做 2x,PNG 會到 MB 級、生一張要一兩百 ms
+  const rnd = tornRng(seed), dpr = w*h > 400000 ? 1 : Math.min(2, window.devicePixelRatio||1);
+  const c = document.createElement('canvas'); c.width = Math.ceil(w*dpr); c.height = Math.ceil(h*dpr);
+  const x = c.getContext('2d'); x.scale(dpr,dpr);
+  // 紙:比成績單那張再黃一階(參考圖是舊紙),斑塊多一點
+  const g = x.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,'#eee2c6'); g.addColorStop(.5,'#e6d7b6'); g.addColorStop(1,'#dccaa3');
+  x.fillStyle = g; x.fillRect(0,0,w,h);
+  const area = w*h, nBlot = Math.max(10, Math.round(area/2400));
+  for(let i=0;i<nBlot;i++){
+    const cx=rnd()*w, cy=rnd()*h, r=16+rnd()*Math.min(180, Math.max(w,h)*.35);
+    const rg = x.createRadialGradient(cx,cy,0,cx,cy,r);
+    rg.addColorStop(0,'rgba(135,100,50,'+(.02+rnd()*.055)+')'); rg.addColorStop(1,'rgba(135,100,50,0)');
+    x.fillStyle = rg; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
+  }
+  x.strokeStyle='rgba(120,95,55,.07)'; x.lineWidth=1;
+  for(let i=0, n=Math.round(area/450); i<n; i++){
+    const px=rnd()*w, py=rnd()*h, a=rnd()*Math.PI, len=2+rnd()*7;
+    x.beginPath(); x.moveTo(px,py); x.lineTo(px+Math.cos(a)*len, py+Math.sin(a)*len); x.stroke();
+  }
+  // 撕邊:沿四邊每 9px 一個點,往內抖 0~amp,偶爾一個大缺口;點跟點之間用
+  // 二次曲線接(不然是鋸齒,參考圖的撕邊是圓一點的)
+  const step = 9, pts = [];
+  const jit = () => 1 + rnd()*amp*(rnd()<.07 ? 2.6 : 1);
+  for(let px=1; px<w-1; px+=step) pts.push([px, jit()]);
+  for(let py=1; py<h-1; py+=step) pts.push([w-jit(), py]);
+  for(let px=w-1; px>1; px-=step) pts.push([px, h-jit()]);
+  for(let py=h-1; py>1; py-=step) pts.push([jit(), py]);
+  const path = new Path2D(), n = pts.length;
+  path.moveTo((pts[0][0]+pts[n-1][0])/2, (pts[0][1]+pts[n-1][1])/2);
+  for(let i=0;i<n;i++){ const a = pts[i], b = pts[(i+1)%n]; path.quadraticCurveTo(a[0], a[1], (a[0]+b[0])/2, (a[1]+b[1])/2); }
+  path.closePath();
+  // 邊緣泛黃(裁之前先畫,clip 住只留內側那半)
+  x.save(); x.clip(path);
+  x.lineWidth = Math.max(10, amp*5); x.strokeStyle='rgba(115,80,35,.14)'; x.stroke(path);
+  x.lineWidth = 3; x.strokeStyle='rgba(115,80,35,.18)'; x.stroke(path);
+  x.restore();
+  x.globalCompositeOperation='destination-in'; x.fillStyle='#000'; x.fill(path);
+  const url = c.toDataURL('image/png');
+  TORN.cache.set(key, url); return url;
 }
-uiPaperInit();
+/* 名牌的紅筆刷(參考圖第二張「阿嬤」那塊):暗紅一塊,上下緣毛、右端乾筆拖尾 */
+function brushTagURL(w, h, amp, seed){
+  const key = 'b'+w+'x'+h+'|'+seed;
+  if(TORN.cache.has(key)) return TORN.cache.get(key);
+  const rnd = tornRng(seed), dpr = Math.min(2, window.devicePixelRatio||1);
+  const c = document.createElement('canvas'); c.width = Math.ceil(w*dpr); c.height = Math.ceil(h*dpr);
+  const x = c.getContext('2d'); x.scale(dpr,dpr);
+  const body = w*0.82, g = x.createLinearGradient(0,0,body,0);
+  g.addColorStop(0,'#8f2b27'); g.addColorStop(1,'#7c2320');
+  x.fillStyle = g;
+  const p = new Path2D(); p.moveTo(2, 2+rnd()*2);
+  for(let px=2; px<body; px+=4) p.lineTo(px, 1+rnd()*2.5);
+  for(let py=2; py<h-2; py+=3) p.lineTo(body - rnd()*3, py);
+  for(let px=body; px>2; px-=4) p.lineTo(px, h-1-rnd()*2.5);
+  for(let py=h-2; py>2; py-=3) p.lineTo(1+rnd()*2, py);
+  p.closePath(); x.fill(p);
+  // 乾筆拖尾:幾條愈來愈短、愈來愈淡的橫刷
+  for(let i=0;i<14;i++){
+    const y = 2 + rnd()*(h-4), len = (w-body)*(.3+rnd()*.9), a = .25+rnd()*.6;
+    x.fillStyle = 'rgba(128,36,32,'+a+')'; x.fillRect(body-6, y, len+6, 1+rnd()*2.2);
+  }
+  // 筆刷裡面幾道淺紋
+  for(let i=0;i<10;i++){
+    const y = 1 + rnd()*(h-2); x.fillStyle = 'rgba(255,225,200,'+(.04+rnd()*.07)+')';
+    x.fillRect(rnd()*body*.3, y, body*(.4+rnd()*.6), 1);
+  }
+  const url = c.toDataURL('image/png');
+  TORN.cache.set(key, url); return url;
+}
+function tornPaint(el){
+  const o = el.__torn; if(!o) return;
+  const w = el.offsetWidth, h = el.offsetHeight; if(!w || !h) return;
+  const st = v => v < 160 ? Math.ceil(v/8)*8 : Math.ceil(v/40)*40;
+  el.style.backgroundImage = 'url('+o.gen(st(w), st(h), o.amp, o.seed)+')';
+  el.style.backgroundSize = '100% 100%';
+}
+function tornAttach(el, amp, gen){
+  if(!el || el.__torn) return;
+  el.__torn = { amp, seed: 7919 * (++TORN.n) + 17, gen: gen || tornPaperURL };
+  el.classList.add('torn');
+  if(!TORN.ro) TORN.ro = new ResizeObserver(es => { for(const e of es) tornPaint(e.target); });
+  TORN.ro.observe(el); tornPaint(el);
+}
+function tornInit(){
+  const q = sel => Array.from(document.querySelectorAll(sel));
+  const big = ['#dialog .frame', '#menu', '#textPrompt', '#questPanel', '#mapPanel', '#invPanel'];
+  big.forEach(sel => q(sel).forEach(el => { tornAttach(el, sel==='#dialog .frame' ? 5 : 4); el.classList.add('big'); }));
+  ['.pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool']
+    .forEach(sel => q(sel).forEach(el => tornAttach(el, 2)));
+  q('.dname').forEach(el => { el.__torn = { amp:0, seed:31, gen:brushTagURL }; TORN.ro.observe(el); tornPaint(el); });
+  /* 廟宇線稿浮水印(對話框右側,參考圖第二張)——素材 assets/ui/temple-lineart.png
+     還沒有,kc 用 GPT 生一張「黑線白底」的就行:這裡把白底當透明(亮度→alpha),
+     線條染成墨色,塞進 --ui-temple 給 #dialog .frame::after。檔案不在就安靜跳過。 */
+  const im = new Image();
+  im.onload = () => {
+    const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height), a = d.data;
+    for(let i=0;i<a.length;i+=4){
+      const lum = a[i]*.3 + a[i+1]*.59 + a[i+2]*.11;
+      a[i+3] = Math.round(a[i+3] * (1 - lum/255)); a[i] = 58; a[i+1] = 44; a[i+2] = 30;
+    }
+    x.putImageData(d, 0, 0);
+    document.documentElement.style.setProperty('--ui-temple', 'url('+c.toDataURL('image/png')+')');
+  };
+  im.src = '../assets/ui/temple-lineart.png';
+}
+tornInit();
 function spNoise(){
   const cv = document.getElementById('sp_noise');
   const w = cv.width = 480, h = cv.height = 270;
