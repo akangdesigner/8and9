@@ -839,6 +839,147 @@
   #keys b { color:#9aa3b0; }
   #fps { position:fixed; right:14px; bottom:12px; z-index:6; font-size:11px; color:#5c6470; }
 
+  /* ============================================================
+     紙感主題(2026-09-14)——kc 看過對話框說「方向對」,整套遊戲內 UI 往
+     標題/成績單/資料卡那套推:紙底、明體、楷體數字、少圓角、紅色只留給
+     重點(hover 那條線、主線、警示)。
+     上面那些「深灰圓角框」的規則是原型時代留下的,這一段用同名選擇器整段
+     蓋過去——刻意集中在一處而不是回頭逐條改,方便對照/調整;哪天確定
+     不回頭再把上面的舊值清掉。沒碰的:標題畫面(暗底那頁 kc 認可)、
+     遊藝場 #arcadeGame(有自己的宮廟 LED 邊框)、算命籤 #fortunePanel
+     (本來就是紅框紙籤)、睡覺日記頁(本來就是紙)。
+     ============================================================ */
+  :root { --ui-paper-flat:#ece5d4; --ui-paper-hi:#f7f3ea; --ui-line:#8b8172; }
+  /* 小標籤鈕:#bar 工具列、角色/任務/地圖、右上角選單——一張小紙籤 */
+  button.tool, #menuBtn, #charCardBtn, #mapBtn, #questToggleBtn {
+    background:var(--ui-paper-flat); color:var(--ui-ink); border:1px solid var(--ui-line);
+    border-radius:1px; font-family:var(--sp-serif); letter-spacing:.14em;
+    box-shadow:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.25); }
+  button.tool:hover, #menuBtn:hover, #charCardBtn:hover, #mapBtn:hover, #questToggleBtn:hover {
+    background:var(--ui-paper-hi); color:#000; border-color:var(--ui-ink); }
+  button.tool { padding:5px 12px; font-size:12px; }
+  #charCardBtn, #mapBtn, #questToggleBtn, #menuBtn { font:12px/1.4 var(--sp-serif); padding:5px 12px; }
+  #menuBtn { top:66px; }   /* 時鐘換楷體後高了幾 px,原本 52 會跟時鐘疊到 */
+
+  /* HUD 七格:紙籤,數字用楷體(跟成績單的積分一樣) */
+  .pod { background:var(--ui-paper-flat); border:1px solid var(--ui-line); border-radius:1px;
+         backdrop-filter:none; font-family:var(--sp-serif);
+         box-shadow:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.25); }
+  .pod .lb { color:var(--ui-line); letter-spacing:.2em; }
+  .pod .nm { color:var(--ui-ink); font-family:var(--sp-kai); font-size:16px; }
+  .pod.money .nm { color:var(--ui-ink); }
+  .pod .track { background:rgba(60,50,35,.14); border-radius:0; }
+  .pod.star .track::before { background:rgba(60,50,35,.45); }
+  .pod.low { border-color:var(--sp-red); }
+  @keyframes lowpulse { 50% { border-color:rgba(168,40,31,.25); } }
+  @keyframes bump { 30% { border-color:var(--ui-ink); transform:translateY(-3px); } }
+  @keyframes flashUp { 0%{background:rgba(111,201,138,.55); border-color:#4a8a5c; transform:translateY(-3px);}
+                       40%{background:rgba(111,201,138,.35);} 100%{background:var(--ui-paper-flat);} }
+  @keyframes flashDn { 0%{background:rgba(168,40,31,.5); border-color:var(--sp-red); transform:translateX(-2px);}
+                       15%{transform:translateX(2px);} 30%{transform:translateX(-1px);}
+                       40%{background:rgba(168,40,31,.32); transform:none;} 100%{background:var(--ui-paper-flat);} }
+
+  /* 地名 / 時鐘 / 提示 / toast:同一種紙籤 */
+  #where, #clock, #hint, #toast, #restBar {
+    background:var(--ui-paper-flat); border:1px solid var(--ui-line); border-radius:1px;
+    backdrop-filter:none; color:var(--ui-ink); font-family:var(--sp-serif);
+    box-shadow:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.25); }
+  #where { font-family:var(--sp-kai); letter-spacing:.3em; text-indent:.3em; font-size:15px; }
+  #clock .d { color:var(--ui-line); }
+  #clock .t { color:var(--ui-ink); font-family:var(--sp-kai); }
+  #hint b { color:var(--sp-red); }
+  #toast { border-left:3px solid var(--sp-red); }
+  #restBar .lb b { color:var(--sp-red); }
+  #restBar .tr { background:rgba(60,50,35,.14); border-radius:0; }
+  #restBar .sub { color:var(--ui-line); }
+  /* 飄字:紙籤上一行墨字,漲綠跌紅由 centerFloat() 給的 color 決定 */
+  .cfl { background:var(--ui-paper-hi); border:1px solid var(--ui-line); border-radius:1px;
+         text-shadow:none; font-family:var(--sp-kai); font-weight:400; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+  .cfl.big { box-shadow:0 0 0 1px currentColor inset, 0 2px 6px rgba(0,0,0,.35); }
+
+  /* 選單(openMenu)/打字框:一張紙,選項是虛線列,hover 左邊冒紅線往右滑 */
+  #menu, #textPrompt { gap:0; padding:12px 18px 10px; font-family:var(--sp-serif);
+    background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
+    border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,.35), 0 14px 34px rgba(0,0,0,.55); }
+  #menu .cap, #textPrompt .cap { color:var(--ui-line); letter-spacing:.32em; font-size:11px;
+    padding:0 0 6px 4px; margin:0 0 4px; border-bottom:2px solid var(--ui-rule); position:relative; }
+  #menu .cap::after, #textPrompt .cap::after { content:''; position:absolute; left:0; right:0; bottom:-4px; height:1px; background:var(--ui-rule); }
+  #menu button { position:relative; background:none; color:var(--ui-ink); border:0;
+    border-bottom:1px dotted var(--ui-dot); border-radius:0; padding:9px 6px 9px 16px;
+    font-size:16px; letter-spacing:.08em; transition:transform .2s cubic-bezier(.2,.8,.3,1), color .2s; }
+  #menu button:last-child { border-bottom:0; }
+  #menu button::before { content:''; position:absolute; left:0; top:50%; width:3px; height:0;
+    background:var(--sp-red); transform:translateY(-50%); transition:height .22s cubic-bezier(.2,.8,.3,1);
+    box-shadow:0 0 10px rgba(168,40,31,.75); }
+  #menu button:hover { background:none; color:#000; transform:translateX(7px); }
+  #menu button:hover::before { height:74%; }
+  #menu button .cost { color:var(--ui-line); font-family:var(--sp-kai); }
+  #menu button.bad { color:#9a8f79; } #menu button.bad .cost { color:var(--sp-red); }
+  #menu button.risk { color:#7a2a22; }
+  #menu button.risk::before { height:74%; width:1px; box-shadow:none; opacity:.6; }
+  #menu button.risk:hover::before { width:3px; opacity:1; }
+  #menu button.back { color:var(--ui-line); font-size:14px; margin-top:4px; }
+  #textPrompt { gap:8px; }
+  #textPromptInput { background:transparent; color:var(--ui-ink); border:0; border-radius:0;
+    border-bottom:1.5px solid var(--ui-rule); font-family:var(--sp-kai); font-size:18px; letter-spacing:.1em; padding:6px 4px; }
+  #textPromptInput:focus { border-color:transparent; border-bottom-color:var(--sp-red); }
+  #textPromptSubmit { background:none; color:var(--ui-ink); border:1px solid var(--ui-line); border-radius:1px;
+    font-family:var(--sp-serif); letter-spacing:.3em; text-indent:.3em; padding:6px 16px; }
+  #textPromptSubmit:hover { background:var(--ui-paper-hi); color:#000; border-color:var(--ui-ink); }
+
+  /* 任務小面板:一張便條,主線紅字 */
+  #questPanel { background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
+    border:0; border-radius:2px; color:var(--ui-ink); font-family:var(--sp-serif);
+    box-shadow:0 2px 4px rgba(0,0,0,.35), 0 10px 26px rgba(0,0,0,.5); }
+  #questPanel .qpItem { border-top:1px dotted var(--ui-dot); }
+  #questPanel .qpTitle { color:var(--ui-ink); letter-spacing:.06em; }
+  #questPanel .qpHint { color:var(--ui-ink2); }
+  #questPanel .qpSect { color:var(--ui-line); }
+  #questPanel .qpSect.main { color:var(--sp-red); }
+  .qpNote { color:var(--ui-line); }
+
+  /* 地圖面板 */
+  #mapPanel { background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
+    border:0; border-radius:2px; font-family:var(--sp-serif);
+    box-shadow:0 2px 4px rgba(0,0,0,.35), 0 18px 50px rgba(0,0,0,.6); }
+  #mapHead { color:var(--ui-ink); font-family:var(--sp-kai); letter-spacing:.3em; }
+  #mapHead .sub, #mapTip { color:var(--ui-line); }
+
+  /* 角色卡:一張大的紙,分頁鈕像蓋章的墨塊,格子是虛線框 */
+  #invPanel { background:var(--ui-paper, linear-gradient(135deg,#efe9dc,#e9e2d3 50%,#e3dbc9)) center/cover;
+    border:0; border-radius:2px; color:var(--ui-ink); font-family:var(--sp-serif);
+    box-shadow:0 2px 4px rgba(0,0,0,.35), 0 18px 40px rgba(0,0,0,.55), 0 44px 90px rgba(0,0,0,.4); }
+  #invPanel h3 { color:var(--ui-line); letter-spacing:.3em; border-bottom:1px solid var(--ui-rule); padding-bottom:4px; }
+  #invPanel .invEmpty { color:#9a8f79; }
+  .invHead h2 { color:var(--ui-ink); font-family:var(--sp-kai); letter-spacing:.3em; font-size:19px; }
+  .invHead .invMoney { color:var(--ui-ink); font-family:var(--sp-kai); }
+  .invGoal { border:1.5px solid var(--sp-red); border-radius:1px; background:rgba(168,40,31,.05); }
+  .invGoal .lb { color:var(--sp-red); }
+  .invGoal .tx { color:var(--ui-ink); font-family:var(--sp-kai); font-size:17px; }
+  .invGoal .nm { color:var(--ui-line); }
+  .invTabBtn { background:none; color:var(--ui-ink2); border:1px solid var(--ui-line); border-radius:1px;
+    font:12px var(--sp-serif); letter-spacing:.2em; padding:4px 14px; }
+  .invTabBtn.on { background:var(--ui-ink); color:var(--ui-paper-hi); border-color:var(--ui-ink); font-weight:400; }
+  .itemCard { background:rgba(255,255,255,.18); border:1px dotted var(--ui-line); border-radius:1px; }
+  .itemCard:hover { border-style:solid; border-color:var(--ui-ink); }
+  .itemCard.on { border-style:solid; border-color:var(--sp-red); background:rgba(168,40,31,.06); }
+  .itemCard .lb { color:var(--ui-ink2); }
+  .itemCard.on .lb { color:var(--ui-ink); }
+  .itemCard .badge { color:var(--ui-paper-hi); background:var(--sp-red); border-radius:1px; }
+  #itemDetail { color:var(--ui-ink2); }
+  #itemDetail .amt { color:var(--sp-red); font-weight:400; font-family:var(--sp-kai); }
+  #itemDetail button { background:none; color:var(--ui-ink); border:1px solid var(--ui-line); border-radius:1px;
+    font-family:var(--sp-serif); letter-spacing:.2em; }
+  #itemDetail button:hover { background:var(--ui-paper-hi); color:#000; border-color:var(--ui-ink); }
+  .equipBadge { border:1px dotted var(--ui-line); border-radius:1px; background:rgba(255,255,255,.18); }
+  .equipBadge.filled { border:1px solid var(--sp-red); background:rgba(168,40,31,.06); }
+  #invPortrait { border:4px solid var(--ui-paper-hi); border-radius:1px; background:#1b202b;
+    box-shadow:0 2px 3px rgba(0,0,0,.3), 0 8px 18px rgba(0,0,0,.35); }
+  .statList .pod { box-shadow:none; background:rgba(255,255,255,.18); }
+  #invClose { background:none; color:var(--ui-ink2); border:1px solid var(--ui-line); border-radius:1px;
+    font:14px var(--sp-serif); letter-spacing:.4em; text-indent:.4em; }
+  #invClose:hover { color:#000; border-color:var(--ui-ink); background:var(--ui-paper-hi); }
+
 </style>
 </head>
 <body>
@@ -2302,7 +2443,9 @@ function centerFloat(k, d, el){
   const big = Math.abs(d) >= 10;
   const f = document.createElement('div');
   f.className = 'cfl' + (big ? ' big' : '');
-  f.style.color = k === 'star' ? (d > 0 ? '#6fc98a' : '#e0483a') : COLOR[k];
+  /* 紙感主題(2026-09-14)後飄字底是米紙,COLOR 那些淡色壓不住,改成一律
+     漲=墨綠、跌=印章紅,不分指標。 */
+  f.style.color = d > 0 ? '#3f6f35' : '#a8281f';
   const now = performance.now();
   while(cflStack.length && now - cflStack[0] > 1200) cflStack.shift();
   f.style.left = (r.left + r.width/2) + 'px';
@@ -15320,7 +15463,8 @@ function spPaperTexture(w, h){
    spRnd 是有種子的序列,這裡先存再還原,不然成績單/姓名卡那兩張紙的紋路會跟著位移。 */
 function uiPaperInit(){
   const keep = spSeed;
-  document.documentElement.style.setProperty('--ui-paper', 'url('+spPaperTexture(1180,300)+')');
+  // 1200×900:角色卡那張大紙也用它,太小會被 cover 拉大、紋路變粗
+  document.documentElement.style.setProperty('--ui-paper', 'url('+spPaperTexture(1200,900)+')');
   spSeed = keep;
 }
 uiPaperInit();
