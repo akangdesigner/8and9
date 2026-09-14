@@ -1284,7 +1284,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -2300,6 +2300,23 @@ function debugJumpTemple(){
 window.debugJumpHome = debugJumpHome;
 window.debugJumpSchool = debugJumpSchool;
 window.debugJumpTemple = debugJumpTemple;
+/* 贓物協尋測試鈕(2026-09-14,kc 要驗這條)——正常要 day52 + 認識阿源才會由
+   阿正主動開口;這顆把門檻跳過(SNITCH_QUEST.armed)、補上「認識阿源」,人丟到
+   警局阿正面前,走近他就會播揭露那三句。之後兩條路:回警局跟阿正報(「跳廟口」
+   旁邊那顆就是這顆)、或「跳廟口」去跟阿源通風報信。 */
+function debugSnitchArm(){
+  SNITCH_QUEST.armed = true;
+  if(YUAN.visits < 1) YUAN.visits = 1;
+  BROTHER.met = true;            // 主動觸發要「認識阿正」;沒見過就當見過,跳過小美帶你去那段
+  MEI.together = true;           // talkToBrother() 整條線卡在「跟小美交往中」後面(!MEI.together 只回閒聊句),測試先當交往中
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(MOTO_RETURN_SPOT.x, .3, MOTO_RETURN_SPOT.z);   // 警局門口旁,核對過乾淨的點
+  toast('贓物協尋已解鎖：走近阿正。之後「跳廟口」找阿源是另一條路。', 3200);
+}
+window.debugSnitchArm = debugSnitchArm;
 /* 醫院滑桿按鈕(2026-09-04,kc:「滑感不見了」)——上一輪我叫 kc 自己在
    console 打 `__dbg.tweakHospital()` 開滑桿,踩了 [[feedback_no_console_commands_add_buttons]]
    那條早就記過的坑:kc 不打 console 指令,叫他打等於滑桿直接消失。跟
@@ -3754,7 +3771,7 @@ function motoImpoundMenuItems(){
   ];
 }
 const ID_CARD_QUEST = { active:false, requestedDay:-1, readyDay:-1, done:false };
-const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null };   // resolved: null|'reported'|'warned'|'expired'
+const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null, armed:false };   // resolved: null|'reported'|'warned'|'expired';armed 是 #bar「贓物協尋」測試鈕跳過 day52 門檻用
 /* 三條的任務面板統一走這個函式(2026-08-31)——跟阿正月長線那個
    syncBrotherArcPanel() 是平行的兩套,不合併是因為觸發時機不同:月長線
    那個要即時反映風評/知識(所以掛在 updateCity() 每幀跑),這三條狀態
@@ -11559,7 +11576,7 @@ function updateCity(dt){
      一樣的條件成立就會再被拉回同一句。三個都補齊:
      `!MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active`。 */
   if(!busy && !dlg.on && !MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
-    const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && day >= 52 && YUAN.visits > 0;
+    const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && (day >= 52 || SNITCH_QUEST.armed) && YUAN.visits > 0;
     if(MEI.together && !BROTHER.met) talkToBrother();
     else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) talkToBrother();
   }
@@ -13893,7 +13910,7 @@ function talkToBrother(){
       return;
     }
   }
-  if(SNITCH_QUEST.resolved === null && day >= 52 && YUAN.visits > 0){
+  if(SNITCH_QUEST.resolved === null && (day >= 52 || SNITCH_QUEST.armed) && YUAN.visits > 0){
     SNITCH_QUEST.active = true; SNITCH_QUEST.startDay = day;
     syncMiscQuestPanel();
     playBeats([
