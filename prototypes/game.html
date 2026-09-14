@@ -1527,7 +1527,7 @@ function askMakeupExam(){
     } else {
       chg('star', -3);
       playBeats([
-        { who:'pc', text:'那科就這樣掛了。他沒有再提。' }
+        { who:'pc', text:'那科就這樣掛了，他後來也沒有再提。' }
       ], 0, () => toast('補考沒過。（風評 −3）', 3000));
       logDay('補考沒過，那科就這樣掛了。老師也沒再說什麼。');
     }
@@ -8465,7 +8465,7 @@ function updateIndoor(dt){
         playBeats([
           { who:'clerk', text:'「等一下。」' },
           { who:'pc',    text:'他轉過身,先看你的外套,再看架上少的那格。' },
-          { who:'pc',    text:'沒有人說話。你把東西放回去。' }
+          { who:'pc',    text:'沒有人說話，你把東西放回架上。' }
         ], 0, () => toast('這家店你今天別再想了。', 3200));
       }
     }
@@ -9196,7 +9196,7 @@ function checkKaiRunDrop(){
   if(Math.hypot(p.x - KAI_RUN_DROP.x, p.z - KAI_RUN_DROP.z) > KAI_RUN_RANGE) return;
   KAI_RUN.arrived = true;
   busy = true;
-  setTodayCard('三個人。是哪一個？' + KAI_RUN_NOTE);
+  setTodayCard('側門那邊站了三個人，不知道要交給哪一個。' + KAI_RUN_NOTE);
   playBeats(KAI_DROP_INTRO, 0, () => { busy = false; });
 }
 function talkToRunman(ref){
@@ -9222,7 +9222,7 @@ function runmanReact(ref, quiet){
       { label:'先不要', cls:'back', run(){ busy = false; } }
     ]);
     /* 第一次先開口才提醒一次「你把依據毀掉了」,之後不再囉唆。 */
-    if(first) say('pc', '你先開口了。\n他伸手接過去，跟另外兩個人一樣的動作。', after);
+    if(first) say('pc', '你先開口問了，他伸手把袋子接過去，動作跟另外兩個人一模一樣。', after);
     else after();
   });
 }
@@ -9255,8 +9255,8 @@ function handOverBag(ref){
     const pay = ref.right ? KAI_RUN_PAY : KAI_RUN_PAY_WRONG;
     chg('money', pay); chg('star', -3);
     toast(ref.right
-      ? '四百塊。比你在超商站四個小時還快。\n（金錢 +' + pay + '　風評 −3）'
-      : '兩百五。你數了兩次。\n（金錢 +' + pay + '　風評 −3）', 4600);
+      ? '袋子裡是四百塊，比你在超商站四個小時賺得還快。\n（金錢 +' + pay + '　風評 −3）'
+      : '兩百五十塊，你數了兩次才確定。\n（金錢 +' + pay + '　風評 −3）', 4600);
     busy = false;
   });
 }
@@ -9668,7 +9668,7 @@ function runDailyGoto(who){
                        { who:'kai', text:'「六百。」' },
                        { who:'pc',  text:'他報數字的時候看著你的眼睛。' } ],
                run(){ chg('money', 600); chg('star', -3); chg('calm', 3); chg('stamina', -3);
-                      toast('六百塊。你數的時候手有點抖。\n（金錢 +600　風評 −3　歸屬感 +3）', 4400); } },
+                      toast('六百塊，你數的時候手有點抖。\n（金錢 +600　風評 −3　歸屬感 +3）', 4400); } },
     kai:     { beats:[ { who:'kai', text:'「你來啦。」' },
                        { who:'pc',  text:'他往旁邊挪了一點，讓你靠在車上。' },
                        { who:'kai', text:'「沒事啊，就問你有沒有空。」' } ],
@@ -9704,7 +9704,7 @@ function runDailyGoto(who){
     foreman: { beats:[ { who:'foreman', text:'「來了喔，安全帽自己拿。」' },
                        { who:'pc',      text:'他指了指牆邊那疊磚。' },
                        { who:'foreman', text:'「今天缺人，算你多的。」' } ],
-               run(){ toast('今天工資加五成。開始扛磚。', 2600); startForemanShift(); } },
+               run(){ toast('今天工資加五成，你開始扛磚了。', 2600); startForemanShift(); } },
     mei:     { beats:[ { who:'mei', text:'「這題你昨天不是會嗎。」' },
                        { who:'pc',  text:'你把算式寫在她的講義邊邊。' },
                        { who:'mei', text:'「喔——」她拉得很長。' } ],
@@ -13204,7 +13204,7 @@ function readBoard(){
       `\n　　　　　　　　　　（上課使用手機 ×${phone}、曠課 ×${absent}）\n`
     : '';
   const others = '一年一班　陳○宏　曠課累計　記大過乙次\n二年二班　林○翔　校外鬥毆　記大過兩次\n三年五班　黃○安　　　　　　退學\n一年三班　阿仁　　上課使用手機　警告乙次';
-  const tail = posted.length ? '' : '\n\n你在名單上找了一下自己的名字。還沒有。';
+  const tail = posted.length ? '' : '\n\n你在名單上找了一下自己的名字，還沒有被貼上去。';
   readNotice('【本學期獎懲公告】\n\n' + mine + others + tail);
 }
 /* 三次警告 → 導師找你(進教室觸發一次)。劇本是 story-school.js day82 那段
@@ -13240,9 +13240,9 @@ function talkToJiaoguan(){
       logDay('校門口被教官攔下來問昨天去哪。警告第 ' + n + ' 次。');
       say('jiaoguan', `「${dayToDate(ab.day)}沒來。記警告，目前 ${n} 次。」`, () => {
         openMenu('教官', [
-          { label:'「生病。」', cls:'', run(){ say('jiaoguan', '「有假單嗎。」你沒有。他已經寫好了。'); } },
-          { label:'「打工。」', cls:'', run(){ say('jiaoguan', '他把筆放下。「幾點到幾點。」你說了。他看了你一下，還是寫。'); } },
-          { label:'不講', cls:'', run(){ say('pc', '他寫。什麼都沒說。'); } }
+          { label:'「生病。」', cls:'', run(){ say('jiaoguan', '「有假單嗎？」你沒有假單，他在你回答之前就已經寫好了。'); } },
+          { label:'「打工。」', cls:'', run(){ say('jiaoguan', '他把筆放下，問你「幾點到幾點」，你老實說了。他看了你一下，還是寫了下去。'); } },
+          { label:'不講', cls:'', run(){ say('pc', '他低頭寫，什麼都沒有說。'); } }
         ]);
       });
       return;
@@ -13290,7 +13290,7 @@ function talkToJiaoguanCorridor(){
     playBeats([
       { who:'jiaoguan', text:'他從抽屜拿出來，放在桌上，手沒有放開。' },
       { who:'jiaoguan', text:n >= 3 ? `「第 ${n} 次了，要送輔導室。」` : `「警告第 ${n} 次。」` },
-      { who:'jiaoguan', text:'手機推過來。「明天公佈欄會有你的名字。」' }
+      { who:'jiaoguan', text:'他把手機推過來給你。「明天公佈欄會有你的名字。」' }
     ], 0, () => {});
     return;
   }
@@ -14718,7 +14718,7 @@ function talkToMotoBoss(){
           } },
         { label:'（心裡覺得他也不過如此）', cls:'risk', run(){
             chg('star', -6);
-            toast('你沒說出口。他看了你一眼，低頭繼續修車，之後也沒再跟你多聊。（風評 −6）', 3400);
+            toast('你沒有把那句話說出口。他看了你一眼，低頭繼續修車，之後也沒有再跟你多聊。（風評 −6）', 3400);
           } }
       ]);
     });
@@ -14852,7 +14852,7 @@ function offerMotoColor(){
       m.owned = true;
       shopMoto = m;
       toast('老闆幫你烤上了' + name + '色的漆——這台現在真的是你的了。', 2600);
-      logDay('車烤了' + name + '色的漆。我自己的車。');
+      logDay('車烤了' + name + '色的漆，是我自己的車了。');
       mountMoto(m);
     }
   })));
@@ -14964,7 +14964,7 @@ function talkToWorker(w){
     const confess = () => {
       playBeats([
         { who:'pc', text:'她撐了幾秒，終於別開臉。' },
-        { who:'worker', text:'「……對，是我拿的。」聲音很輕。' },
+        { who:'worker', text:'「……對，是我拿的。」他的聲音很輕。' },
         { who:'worker', text:'「小孩生病，那個月手頭真的不夠。」' },
         { who:'worker', text:'「看你們那些小孩在那邊拜拜、嘻嘻哈哈的，錢就放在桌上沒人管，我一時鬼迷心竅。」' },
         { who:'pc',     text:'她沒有再多解釋，低頭點了根菸。' }
@@ -15048,7 +15048,7 @@ function talkToWorker(w){
           if(freeOne){
             ALLEY_WORKER.freeMassageOwed = false;
           } else {
-            if(ST.money < WORKER_PRICE){ toast('錢不夠。她聳聳肩,轉向別人。', 2000); return; }
+            if(ST.money < WORKER_PRICE){ toast('你的錢不夠，她聳聳肩，轉頭去招呼別人。', 2000); return; }
             chg('money', -WORKER_PRICE);
           }
           chg('mood', 6); chg('stamina', -10);   // advanceTime 交給 chg() 統一算
@@ -15290,7 +15290,7 @@ function interactProp(prop){
         ACHENG.litterQuest.picked++;
         if(ACHENG.litterQuest.picked >= ACHENG.litterQuest.need){
           ACHENG.litterQuest.taskDone = true;
-          setTimeout(() => toast('湊到三包了。可以回去跟阿成說一聲了。', 2600), 2400);
+          setTimeout(() => toast('三包湊齊了，可以回去跟阿成說一聲了。', 2600), 2400);
         }
         syncLitterQuestPanel();
       }
@@ -15569,7 +15569,7 @@ const SCHOOL_ONLY = ['永安高中','普通科',5];
 const SCHOOL_AFTER = {
   day:   '',
   night: '晚上六點半上課，十點下課。\n白天空著——空著的意思是可以去上班。',
-  none:  '你沒有填表。\n八月一號，同學都在拍制服照。'
+  none:  '你沒有填表。\n八月一號那天，同學都在學校拍制服照，你不在裡面。'
 };
 
 const spEl = document.getElementById('schoolPick');
