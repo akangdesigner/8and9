@@ -12789,7 +12789,7 @@ function talkToYuan(){
      (兩條都是「阿源找你」相關,顧場子先)。選了之後直接鎖 resolved,
      跟報警那條一樣不能反悔(這遊戲的基本盤——沒有安全選項)。 */
   if(SNITCH_QUEST.active && SNITCH_QUEST.resolved === null){
-    say('yuan', '「怎樣，找我有事喔？」', () => {
+    say('yuan', '「怎樣？」', () => {
       openMenu('阿源', [
         { label:'警察在查你那批贓物，小心點', run(){
             chg('calm', 6); chg('star', -6);
