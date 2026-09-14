@@ -207,9 +207,9 @@
   #spStats .up { color:#4a7a3f; } #spStats .dn { color:#a2564c; }
   #spTip { margin-top:16px; text-align:right; font-size:11.5px; letter-spacing:.18em; color:#a89c85; }
   /* 跨天事件頁(2026-09-14,kc:「不連續的行動天 會是說 這幾天廟口那邊舉辦廟慶
-     你決定... 這樣就可以一次度過好幾天」)——日記頁關掉之後、淡出睡覺之前,
+     你決定... 這樣就可以一次度過好幾天」)——日記 →「你悠悠地睡了一覺」黑畫面之後,
      如果這次會跳過好幾天而且那幾天排了跨天事件,就蓋這一頁:一張紙,日期範圍、
-     一段敘述、兩三個選項;選完顯示結果,按空白才睡過去。見 SPAN_EVENTS。 */
+     一段敘述、兩三個選項;選完顯示結果,按空白才醒來。沒排事件不出頁。見 SPAN_EVENTS。 */
   #spanPage { position:fixed; inset:0; z-index:61; background:#0b0e13cc;
     display:flex; align-items:center; justify-content:center;
     opacity:0; pointer-events:none; transition:opacity .4s ease; }
@@ -9162,14 +9162,14 @@ const SPAN_EVENTS = [
         result:'你站在那裡沒有講話，他嘆了一口氣，叫了下一個。' }
     ] }
 ];
-const SPAN_DEFAULT = { title:'這幾天', text:'這幾天沒有什麼特別的事，你照常上學、打工、回家。',
-  opts:[ { label:'就這樣過去', cost:'—', fx:{}, result:'' } ] };
+/* 那段空檔沒排事件就回 null,睡覺安靜跳過去(kc:「跨天才需要事件」——沒事就不要
+   多一頁「這幾天沒什麼事」)。 */
 function spanEventFor(from, to){
   for(let d = from + 1; d < to; d++){
     const ev = SPAN_EVENTS.find(e => e.from === d && (!e.need || e.need()));
     if(ev) return ev;
   }
-  return SPAN_DEFAULT;
+  return null;
 }
 let spanPageDone = null;
 function showSpanPage(from, to, ev, onDone){
@@ -9202,6 +9202,8 @@ function showSpanPage(from, to, ev, onDone){
   });
   el.onclick = null;
   el.classList.add('on');
+  busy = true;
+  setTimeout(() => { if(el.classList.contains('on')) busy = true; }, 1300);   // fade() 1150ms 會放掉 busy,頁還開著就再鎖回來
 }
 
 function fade(label, mid){
@@ -10087,21 +10089,22 @@ function sleep(){
   showSleepPage(() => sleepAdvance(skippedSchool));
 }
 function sleepAdvance(skippedSchool){
-  /* 這次會跳過好幾天的話,先過「這幾天發生的事」那頁(見 SPAN_EVENTS),
-     選完才真的睡過去。跳一天(隔天就有事)不出現。 */
-  const to = nextActiveDay(day);
-  if(to - day >= 2){
-    showSpanPage(day, to, spanEventFor(day, to), () => sleepAdvance2(skippedSchool));
-    return;
-  }
-  sleepAdvance2(skippedSchool);
-}
-function sleepAdvance2(skippedSchool){
   /* 標籤是「早上」不是「回家睡了一覺」(2026-09-10,kc:「回家睡了一覺很怪 我本來
      就是在家裡睡覺啊」)——這個 fade 的標籤本來是給場景轉換用的地名,睡覺這條
      沿用了一句敘述,而且那句描述的是「從外面回到家」,但玩家本來就站在自己房間
      的床邊。**句子是 kc 給的原句**(2026-09-10:「黑畫面標 你悠悠地睡了一覺」)。 */
   fade('你悠悠地睡了一覺', () => {
+    /* 跨天事件(2026-09-14,kc:「先悠悠的睡了一覺 才接事件」)——黑畫面之後、
+       真的跳天之前,如果這次會跳過好幾天而且那段有排事件(SPAN_EVENTS),先過
+       那一頁;沒排事件就安靜跳過去,不出頁。 */
+    const spanTo = nextActiveDay(day);
+    const spanEv = spanTo - day >= 2 ? spanEventFor(day, spanTo) : null;
+    if(spanEv){ showSpanPage(day, spanTo, spanEv, () => sleepLand(skippedSchool)); return; }
+    sleepLand(skippedSchool);
+  });
+}
+function sleepLand(skippedSchool){
+  {
     chg('stamina', 100 - ST.stamina);
     /* 跳到下一個有事的日子(2026-09-10,kc 選的規則)——不是 day++。中間空白的
        日期一次跳過去,玩家醒來的次數就是「行動天」,見 nextActiveDay()。 */
@@ -10234,7 +10237,7 @@ function sleepAdvance2(skippedSchool){
     };
     if(impoundBeats) playBeats(impoundBeats, 0, wake);
     else wake();
-  });
+  }
 }
 /* 拆出來的「真的切進室內」那段(2026-08-28,kc:「你不要用走的.. 你用
    debug模式直接傳送啊」)——原本這整段焊在 walkIn.done()→fade() 的回呼
