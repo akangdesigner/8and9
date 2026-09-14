@@ -1304,7 +1304,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button></div>
+<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -2277,6 +2277,16 @@ function debugSleepPage(){
   showSleepPage(() => {});
 }
 window.debugSleepPage = debugSleepPage;
+/* 跨天事件頁的測試入口(2026-09-14,kc:「我要測」)——每按一次翻下一件(14 件輪一圈),
+   不真的睡、不跳天,但選項的數值是真的會結算。真的流程用「睡一晚」連按會撞到。 */
+let debugSpanIdx = 0;
+function debugSpanPage(){
+  if(busy || dlg.on || spanPageDone){ toast('現在有東西在播,等一下再按。', 2000); return; }
+  const ev = SPAN_EVENTS[debugSpanIdx % SPAN_EVENTS.length]; debugSpanIdx++;
+  const span = ev.from === 18 || ev.from === 32 || ev.from === 54 ? 2 : 1;   // 颱風/連假/寒流那幾件是兩天
+  showSpanPage(ev.from - 1, ev.from + span, ev, () => {});
+}
+window.debugSpanPage = debugSpanPage;
 let debugDailyIdx = 0;
 function debugDailyDraw(){
   if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
