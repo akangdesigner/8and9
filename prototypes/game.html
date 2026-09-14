@@ -210,7 +210,7 @@
      你決定... 這樣就可以一次度過好幾天」)——日記 →「你悠悠地睡了一覺」黑畫面之後,
      如果這次會跳過好幾天而且那幾天排了跨天事件,就蓋這一頁:一張紙,日期範圍、
      一段敘述、兩三個選項;選完顯示結果,按空白才醒來。沒排事件不出頁。見 SPAN_EVENTS。 */
-  #spanPage { position:fixed; inset:0; z-index:61; background:rgba(11,14,19,.35);   /* 淡一點,後面房間看得到(kc:「選完卡片之前都是黑畫面」) */
+  #spanPage { position:fixed; inset:0; z-index:61; background:#05060a;   /* 全黑:卡片選完之前都還在「睡了一覺」的黑畫面裡(kc),選完按空白才淡回房間 */
     display:flex; align-items:center; justify-content:center;
     opacity:0; pointer-events:none; transition:opacity .4s ease; }
   #spanPage.on { opacity:1; pointer-events:auto; }
