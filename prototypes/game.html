@@ -964,12 +964,14 @@
   #textPromptSubmit:hover { background:var(--ui-paper-hi); color:#000; border-color:var(--ui-ink); }
 
   /* 任務小面板:撕邊便條,「主線」紅字底下一條紅線(參考圖) */
-  #questPanel { color:var(--ui-ink); font-family:var(--sp-serif); padding:16px 22px 18px; max-width:340px; }
-  #questPanel .qpItem { border-top:1px dotted var(--ui-dot); }
-  #questPanel .qpTitle { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; font-size:20px; letter-spacing:.08em; }
-  #questPanel .qpHint { color:var(--ui-ink2); font-size:14px; }
-  #questPanel .qpSect { color:var(--ui-ink2); font-family:var(--sp-kai); font-weight:700; font-size:15px; letter-spacing:.2em;
-    border-bottom:1.5px solid var(--ui-ink2); padding-bottom:5px; margin:8px 0 8px; }
+  /* 尺寸維持原本那個小面板(kc 2026-09-14:「任務展開後的選單太大了 應該要跟
+     原本差不多」)——只換紙跟字型,padding/字級都是舊值。 */
+  #questPanel { color:var(--ui-ink); font-family:var(--sp-serif); padding:12px 18px 14px; max-width:320px; gap:8px; }
+  #questPanel .qpItem { border-top:1px dotted var(--ui-dot); padding-top:6px; }
+  #questPanel .qpTitle { color:var(--ui-ink); font-family:var(--sp-kai); font-weight:700; font-size:15.5px; letter-spacing:.06em; }
+  #questPanel .qpHint { color:var(--ui-ink2); font-size:12.5px; line-height:1.45; }
+  #questPanel .qpSect { color:var(--ui-ink2); font-family:var(--sp-kai); font-weight:700; font-size:11px; letter-spacing:.24em;
+    border-bottom:1px solid var(--ui-ink2); padding-bottom:3px; margin:4px 0 4px; }
   #questPanel .qpSect.main { color:var(--ui-red); border-bottom-color:var(--ui-red); }
   #questPanel .qpSect + .qpItem { border-top:0; padding-top:0; }   /* 小標底下已有一條線,不要再一條虛線 */
   .qpNote { color:var(--ui-ink2); }
