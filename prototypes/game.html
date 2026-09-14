@@ -2307,6 +2307,11 @@ window.debugJumpTemple = debugJumpTemple;
    警局阿正面前,走近他就會播揭露那三句。之後兩條路:回警局跟阿正報(「跳廟口」
    旁邊那顆就是這顆)、或「跳廟口」去跟阿源通風報信。 */
 function debugSnitchArm(){
+  /* 每按一次都從頭來(kc 2026-09-14:「我要重新跑一次任務」)——已報/已警告/
+     過期的狀態跟阿源那邊的翻臉旗標一起清掉,不然 resolved 卡住第二次跑不了。 */
+  SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = null; SNITCH_QUEST.startDay = -1;
+  YUAN.betrayed = false; YUAN.betrayedConfronted = false;
+  syncMiscQuestPanel();
   SNITCH_QUEST.armed = true;
   if(YUAN.visits < 1) YUAN.visits = 1;
   BROTHER.met = true;            // 主動觸發要「認識阿正」;沒見過就當見過,跳過小美帶你去那段
