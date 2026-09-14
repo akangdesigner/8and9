@@ -13899,12 +13899,31 @@ function talkToBrother(){
           /* 2026-09-01,kc 先嫌 $800 太多改成 $300,同一輪又說「改回800元」
              ——金額退回原本的 $800,star 維持上一輪降的 +5(kc 沒提這個要
              改回去)。 */
+          /* 2026-09-14 kc:「我選告訴阿正 就直接加數值了欸 沒有其他互動嗎」——
+             原本選了直接 +$800 結束。補成一段戲:你講、他聽、他推一個信封過來,
+             **拿不拿那筆錢**是這條線真正的問題,所以錢改成選項(拿=+$800,不拿
+             =沒錢),風評 +6 兩邊都有(報了就是報了)。阿源那邊翻臉的戲不動。 */
           { label:'把你知道的告訴他', run(){
-              chg('money', 800); chg('star', 6);
               SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'reported';
               YUAN.betrayed = true;
               syncMiscQuestPanel();
-              toast('（+$800／風評 +6）', 2600);
+              playBeats([
+                { who:'brother', text:'「說。」' },
+                { who:'pc', text:'你把在阿源那邊聽到的講了——哪天、誰載的、放在哪。講到一半你聽到自己的聲音，停了一下。' },
+                { who:'pc', text:'阿正沒拿筆，就聽。' },
+                { who:'brother', text:'「好。」' },
+                { who:'pc', text:'他從抽屜拿了一個信封推過來。' },
+                { who:'brother', text:'「這不是給你的，是給線民的。收了就是了。」' },
+                { cap:'阿正', menu:[
+                  { label:'收下', cost:'+$800／風評 +6', money:800, star:6, beats:[
+                    { who:'pc', text:'你把信封塞進口袋。很薄。' } ] },
+                  { label:'不用了', cost:'風評 +6', star:6, beats:[
+                    { who:'pc', text:'他看了你一眼，把信封收回抽屜。' },
+                    { who:'brother', text:'「隨便你。」' } ] }
+                ] },
+                { who:'brother', text:'「以後有事，還是可以來。」' },
+                { who:'pc', text:'走出警局，你往廟口的方向看了一眼。' }
+              ], 0, () => {});
             } },
           { label:'還沒有', cls:'back', run(){} }
         ]);
