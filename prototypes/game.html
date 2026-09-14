@@ -2294,6 +2294,7 @@ function debugSpanPage(){
   IN.px = (BEDROOM_WALK_TWEAK.minPx + BEDROOM_WALK_TWEAK.maxPx) / 2; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
   document.getElementById('where').textContent = '房間';
   paintBedroomBackdrop();
+  if(ST.stamina >= 30) chg('stamina', 20 - ST.stamina);   // 床邊的「睡覺」要體力 <30 才睡得著,先扣到 20
   syncHUD(); syncMiscQuestPanel();
   toast(`已跳到 ${dayToDate(day)} 晚上，明天起是「${ev.title}」。去床邊按空白鍵睡覺。`, 3600);
 }
