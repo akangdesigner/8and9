@@ -13785,8 +13785,9 @@ function syncBrotherArcPanel(){
      到、用來倒數的下一個)。 */
   const nd = BROTHER_ARC_DAYS.find(d => !seenStoryDays.has('brother-'+d));
   const deadline = nd == null ? '' :
-    nd === 24 ? `　下次 ${dayToDate(nd)}（還有${Math.max(0,nd-day)}天）——這天定案，風評/知識要在這之前到位`
-              : `　下次 ${dayToDate(nd)}（還有${Math.max(0,nd-day)}天）`;
+    /* 倒數用「行動天」(kc 2026-09-14:「你的天數敘述要改成行動天啊」),跟註冊單那張卡同一把尺 */
+    nd === 24 ? `　下次 ${dayToDate(nd)}（還有 ${activeDaysUntil(nd)} 個行動天）——這天定案，風評/知識要在這之前到位`
+              : `　下次 ${dayToDate(nd)}（還有 ${activeDaysUntil(nd)} 個行動天）`;
   const hint = `略懂書本內容 ${KNOWLEDGE.rough}/1、風評 ${ST.star}/0（不是任務門檻，會決定阿正後面怎麼待你）${deadline}`;
   if(idx >= 0){
     if(ACTIVE_QUESTS[idx].hint !== hint){ ACTIVE_QUESTS[idx].hint = hint; renderQuestPanel(); }
