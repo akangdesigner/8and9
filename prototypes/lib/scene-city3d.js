@@ -874,7 +874,9 @@ export function buildCity(THREE, scene){
    * 人走了、舞台跟麥克風架留在原地。新座標 (-24,104),永安公車站前面那排人行道,
    * 中華路那個凹室整個讓給 day5 跑腿的交貨點(見 game.html KAI_RUN_DROP)。 */
   (function buskerStage(){
-    const bx = -24, bz = 104, R = 2.6;
+    /* 2026-09-15 第四次搬家(kc):東和街內側、南街廓東邊那塊空地,跟 game.html
+       BUSKER_POS 同步。街在東邊,麥克風架改放在他東側身前。 */
+    const bx = 62, bz = 42, R = 2.6;
     add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, .3, 24), M.stallTop),
         bx, .15, bz, false, true);
     add(new THREE.Mesh(new THREE.CylinderGeometry(R+.12, R+.12, .12, 24), M.curb),
@@ -882,7 +884,7 @@ export function buildCity(THREE, scene){
     /* 麥克風架站在舞台前緣、面對巡邏路人常走的那條人行道(不是舞台正中央,
        不然會擋住街頭藝人本人站的位置——他的座標見 game.html BUSKER_POS,
        這裡往前推 .9 個單位剛好在他身前)。 */
-    const micX = bx - .6, micZ = bz + .7;
+    const micX = bx + .9, micZ = bz;
     add(box(.7,.06,.7, M.metal), micX, .33, micZ, false, true);   // 三腳架簡化成一片寬底盤
     add(new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,3.1,10), M.metal),
         micX, .36+1.55, micZ, false, false);

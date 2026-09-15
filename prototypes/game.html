@@ -3399,7 +3399,12 @@ function updateWorldLabels(){
    `__dbg.city.blocked()` 掃過那一帶只有 z=102 那排柱子,104 這排是空的。
    圍觀路人的偏移量沒動——那是為了窄凹室縮小過的值,搬到開闊的地方只會顯得
    圍得比較緊,不會穿牆。 */
-const BUSKER_POS = { x: -24, z: 104 };
+/* 2026-09-15 第四次搬家(kc:「第三個開口可以把街頭藝人搬過來」)——南街廓
+   東邊、東和街內側人行道旁那塊沒封的空地(見 DESIGN_NOTES「巷子收邊」還沒
+   封的開口那段)。舞台放 (62,42),東邊 3.4 個單位就是人行道內緣 x=68;
+   街在東邊,所以 rotationY 改成 π/2 面朝 +x。圍觀路人偏移量還是沒動。
+   舞台/麥克風架在 scene-city3d.js buskerStage() 同步改了,不要只改這裡。 */
+const BUSKER_POS = { x: 62, z: 42 };
 
 /* 阿姨挪去顧鴨頭攤(2026-08-20,kc:「把阿姨調整過來」)——她原本是廟埕
    一個獨立站點(x:6,z:-86),人設是「鹹酥雞攤」,但鹹酥雞那個 3D 攤位
@@ -4016,7 +4021,7 @@ function syncMiscQuestPanel(){
  * 舞台/麥克風架是靜態幾何,見 scene-city3d.js 的 buskerStage()——那邊
  * 決定「地方長什麼樣」,這裡只決定「人跟吉他」。 */
 const buskerNPC = buildNPC(THREE, scene, {
-  x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:Math.PI*.75, rig:'m2',
+  x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:Math.PI*.5, rig:'m2',   // 2026-09-15 面朝東和街(+x)
   skin:'#b98a63', hair:'#3a3128',
   hood:'#2e4a3a', pants:'#26241f', shoe:'#4a4038'
 });
