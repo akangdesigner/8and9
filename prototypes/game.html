@@ -16200,6 +16200,12 @@ function applyDaylight(){
   keyLight.intensity = A.keyI + (B.keyI - A.keyI) * k;
   renderer.toneMappingExposure = A.exposure + (B.exposure - A.exposure) * k;
   bloomPass.strength = A.bloom + (B.bloom - A.bloom) * k;
+  city.setDaylight(k);   // 發光材質/路燈/遠景圖那邊的白天處理,見 scene-city3d.js setDaylight()
+  /* 環境貼圖強度的漏網之魚:scene-city3d.js 的 std()/add()/三個模型載入點都壓過了,
+     但還有直接 new MeshStandardMaterial 再 scene.add() 的零星材質(機車皮膚那次就是
+     白車過曝抓到的)。這裡每次 k 變動順手掃一遍,還是 1.0 的一律壓到 .3——k 只在
+     日夜交界會動,平常一天掃不到幾次,不花錢。 */
+  scene.traverse(o => [].concat(o.material || []).forEach(m => { if(m && m.isMeshStandardMaterial && m.envMapIntensity === 1) m.envMapIntensity = .3; }));
 }
 const fpsEl = document.getElementById('fps');
 const coordEl = document.getElementById('coord');

@@ -198,6 +198,28 @@ export function buildCity(THREE, scene){
      ④ 白天/晚上兩套燈光調色在 game.html applyDaylight(),照時鐘切。 */
   const ENV_K = .25;
   const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMapIntensity:ENV_K }, o));
+  /* 白天把發光材質壓暗(2026-09-15,kc:「處理」——第一層做完白天招牌/店面照片還
+     在發光、路燈還亮)。dayK 0=晚上 1=白天,由 game.html applyDaylight() 每次變動
+     時呼叫 setDaylight(k) 餵進來。發光材質分兩種:建城時就存在的(glow()/glassLit
+     那批)第一次 setDaylight() 掃場景一次全登記;圖片載完才設 emissive 的(店面
+     照片/招牌燈箱那三處)改走 em() 登記,不然載入時機在掃描之後就漏掉。
+     白天不壓到 0,留 15%——招牌白天本來也看得到是亮的,只是不刺眼。 */
+  const backdropRef = {};   // 遠景大圖的握把,skylineBackdrop() 在下面填
+  let dayK = 0, emScanned = false;
+  const emMats = new Set();
+  const emApply = m => { m.emissiveIntensity = m.userData.emBase * (1 - dayK * .85); };
+  function em(m, base){ m.userData.emBase = base; emMats.add(m); emApply(m); }
+  function setDaylight(k){
+    dayK = k;
+    if(!emScanned){
+      emScanned = true;
+      scene.traverse(o => [].concat(o.material || []).forEach(m => {
+        if(m && m.isMeshStandardMaterial && m.emissiveIntensity > 0 && m.userData.emBase === undefined) em(m, m.emissiveIntensity);
+      }));
+    }
+    emMats.forEach(emApply);
+    if(backdropRef.mesh) backdropRef.mesh.material.opacity = 1 - k * .8;   // 夜景遠景圖白天退成淡淡的剪影,等有白天那張再換
+  }
   const glow = (c,i) => std({ color:c, emissive:c, emissiveIntensity:i||1.6, roughness:.5 });
   const M = {
     stone:std({map:T.stone,roughness:.95}), walk:std({map:T.walk,roughness:.94}),
@@ -400,7 +422,7 @@ export function buildCity(THREE, scene){
       const ia = img.width / img.height;
       if(ia > FRONT_ASPECT){ const r = FRONT_ASPECT/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
       else { const r = ia/FRONT_ASPECT; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
-      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = kind === 'store' ? .18 : .55;
+      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); em(m, kind === 'store' ? .18 : .55);
       m.color.setHex(0xffffff); m.roughness = .6; m.metalness = 0; m.needsUpdate = true;
     };
     /* 2026-08-17:shop-home.png 這輪反覆重生了好幾版,瀏覽器一直吃到舊快取
@@ -438,7 +460,7 @@ export function buildCity(THREE, scene){
       else { const r = ia/aspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
       /* emissiveK:三間特別點名的店亮法不一樣——超商偏過曝、機車行舊招牌整體偏暗、
          藥局比較新所以正常偏亮,不能全部套同一個發光強度。 */
-      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = 1.0*emissiveK;
+      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); em(m, 1.0*emissiveK);
       m.color.setHex(0xffffff); m.roughness = .55; m.needsUpdate = true;
     }, undefined, () => {});
     return m;
@@ -488,7 +510,7 @@ export function buildCity(THREE, scene){
       const ia = img.width / img.height;
       if(ia > aspect){ const r = aspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
       else { const r = ia/aspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
-      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = .22;
+      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); em(m, .22);
       m.color.setHex(0xffffff); m.needsUpdate = true;    // 窗戶裡的燈自己微微亮
     }, undefined, () => {});
     return m;
@@ -4118,7 +4140,7 @@ export function buildCity(THREE, scene){
     POOL.forEach((l,i) => {
       const s = lampSpots[i];
       if(s && s._d < 90*90){ l.position.set(s.x,s.y,s.z); l.color.setHex(s.c);
-                             l.intensity = s.i; l.distance = s.r; }
+                             l.intensity = s.i * (1 - dayK); l.distance = s.r; }   // 白天路燈/店門口暖光關掉(dayK 見 setDaylight)
       else l.intensity = 0;
     });
   }
@@ -4276,7 +4298,6 @@ export function buildCity(THREE, scene){
    * 會左右翻過去,看不出接縫)補足,不硬拉伸。
    * 位置/尺寸交給 __dbg.tweakBackdrop() 滑桿(kc 的慣例:不要我先裁好,給他
    * 拉),拉定後再把數字寫回這裡。 */
-  const backdropRef = {};
   (function skylineBackdrop(){
     /* 這四個數字是 kc 2026-09-15 自己拉滑桿定的,不要憑感覺改回去。
        tint/bright 是同一輪補的調色:material.color 乘在貼圖上,tint 往冷藍拉、
@@ -4286,7 +4307,7 @@ export function buildCity(THREE, scene){
        tint 從 .55 降到 .12、bright 從 .8 回到 .95,細節交給滑桿。 */
     const cfg = { w:235, h:17, y:-1, z:118, tint:.12, bright:.95 };
     const COOL = { r:.62, g:.76, b:1.0 };      // 冷藍端,tint=1 時完全走這個色
-    const mat = new THREE.MeshBasicMaterial({ color:0x5a5a68, fog:true, side:THREE.DoubleSide });
+    const mat = new THREE.MeshBasicMaterial({ color:0x5a5a68, fog:true, side:THREE.DoubleSide, transparent:true, opacity:1 });   // transparent 給白天退淡用,見 setDaylight()
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);
     mesh.rotation.y = Math.PI;                 // 正面朝 -z(城市這側)
     mesh.renderOrder = -1;                     // 永遠先畫,不跟街上物件搶深度
@@ -4313,7 +4334,7 @@ export function buildCity(THREE, scene){
     backdropRef.mesh = mesh; backdropRef.cfg = cfg; backdropRef.apply = apply;
   })();
 
-  return { backdrop:backdropRef, colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, hospitalProps:hospitalPropRef, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
+  return { backdrop:backdropRef, setDaylight, colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, hospitalProps:hospitalPropRef, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
 }
 
 /* ---------------- 角色 ----------------
@@ -4767,7 +4788,7 @@ function applyMotoSkin(THREE, model, file){
          第一次呼叫(parkMoto() 停車當下)因為只呼叫一次沒踩到,這裡補上
          name 讓材質判斷式對任意呼叫次數都成立,不是只能用一次。 */
       boxProjectUV(THREE, o.geometry, 3.2);
-      o.material = new THREE.MeshStandardMaterial({ name:'Material.001', map:tex, roughness:.55 });
+      o.material = new THREE.MeshStandardMaterial({ name:'Material.001', map:tex, roughness:.55, envMapIntensity:.35 });   // envMapIntensity 2026-09-15:沒壓的話白色車皮吃滿環境貼圖直接過曝成一團白
     });
   }, undefined, () => {});
 }

@@ -8473,10 +8473,12 @@ kc 看了 `prototypes/corner-study/index.html`(GPT 生的獨立街角示範,111 
   範本:天空與霧 #96a4a5 灰綠、hemi #cbd9dc/#4b534f、太陽 #ffe2bc 2.4、曝光 1.1、bloom .10。
   晚上一個數字都沒動。街上原本永遠是同一套夜景,時鐘走到早上畫面也不亮,現在會。
 
-**還沒處理、kc 看了再說**:
-- 白天路燈/店門口暖光(lampSpots)還亮著,站在超商門口的人會過曝。
-- 店面照片 emissive(.55/.18)白天還在發光,招牌燈箱也是。要做的話是 applyDaylight()
-  順便把 emissiveIntensity 乘上 (1-k)。
-- 遠景大圖是夜景圖,白天看會怪;要另一張白天的。
+**同日 kc:「處理」,三項都收了**(`setDaylight(k)`,game.html applyDaylight() 每次 k 變動餵進來):
+- 路燈池 intensity 乘 (1−k),白天全關。
+- 發光材質:建城時就在的第一次掃場景登記,圖片載完才設 emissive 的三處改走 `em()` 登記;
+  白天壓到 15%(不歸零,招牌白天本來也看得出是亮的)。
+- 遠景夜景圖白天 opacity 退到 .2 當淡剪影;真的要好看得另生一張白天的。
+- 順手抓到:機車皮膚是 `new MeshStandardMaterial` 沒壓 envMapIntensity,白車吃滿環境貼圖
+  過曝成一團白。補了,game.html 那邊每次 k 變動也掃一遍把漏網的 1.0 壓到 .3。
 - 第二層(接觸陰影/招牌字卡)等 kc 說要不要。
 
