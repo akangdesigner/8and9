@@ -4205,7 +4205,59 @@ export function buildCity(THREE, scene){
   /* spawnMoto:parkMoto() 本體直接掛出去(2026-09-03,配合「不要有展示車」
      那輪——買車現在要現生一台,見上面 forSale 那段長筆記),回傳新 entry
      讓呼叫端(game.html)自己標 owned/存起來,不是回傳 void。 */
-  return { colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, hospitalProps:hospitalPropRef, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
+  /* ===== 遠景大圖(2026-09-15,kc:「遠景圖片可以解決嗎」→「你先貼公車那面
+   * 我看看」)=====
+   * 用 kc 自己生的 assets/tex/skyline-temple.png(2172×724,夜景頂樓加蓋,
+   * 一直放著沒用)貼一片站在地圖南緣外面的大平面,先只做永安街/公車亭這一面,
+   * 看過再決定其他三面。程序生成的方塊遠景(skylineRing)先留著,兩者不衝突
+   * (那批在 x 兩側跟這一面幾乎不重疊),等 kc 決定四面都換再一起拆。
+   * 材質用 MeshBasicMaterial:遠景不該吃場景燈光,不然白天黑夜會跟著忽明忽暗,
+   * 也不該投/收陰影。fog:true 讓它跟著場景的指數霧退遠,接得上天空色。
+   *
+   * ⚠ **這台相機看不到天空**(2026-09-15 實測,第一版把圖立成 100 高整片
+   * 都看不到才查出來):CAM = dist 22 / high 11 / fov 40、lookAt 主角眼睛
+   * (PLAYER.eyeY 3.65 × lookY .78)——俯角 atan((11.3-3.15)/22) = 20.3°,
+   * 垂直視角一半是 20°,**畫面最上緣剛好比水平線低 0.3°**。也就是說不管站
+   * 多遠,世界裡高過 y≈11.3 的東西永遠在畫面外,平常看到的樓是因為離得近、
+   * 只露出下半截。連帶解釋了 kc 一路抓到的「後面多出房子/一片黑」——那片
+   * 黑不是天空,是遠處什麼都沒有、只剩 fog 顏色。
+   * 所以遠景不能做成「立一片很高的天際線」,要做成**貼著地平線那條 0~11
+   * 的窄帶**:平面底邊壓在地面(y=0)、高度只做 24,可見的就是圖的下緣那段
+   * 密集街屋,從街道缺口望出去是一條橫在畫面最上緣的城市帶,正好。
+   * 寬度要蓋滿整個地圖(300),跟圖的 3:1 對不起來,橫向用鏡射重複(seam
+   * 會左右翻過去,看不出接縫)補足,不硬拉伸。
+   * 位置/尺寸交給 __dbg.tweakBackdrop() 滑桿(kc 的慣例:不要我先裁好,給他
+   * 拉),拉定後再把數字寫回這裡。 */
+  const backdropRef = {};
+  (function skylineBackdrop(){
+    /* 預設值怎麼算出來的:可見帶是 y 0~11.3。要讓圖裡「樓頂剪影+一點天空」
+       那段(從圖上緣往下 25%~60%)剛好落在這條帶上,圖的上緣就要放在
+       y≈21,所以高度 40 的話底邊在 y=-19(圖的下半截埋在地面下,看不到)。 */
+    const cfg = { w:300, h:40, y:-19, z:124 };
+    const mat = new THREE.MeshBasicMaterial({ color:0x5a5a68, fog:true, side:THREE.DoubleSide });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);
+    mesh.rotation.y = Math.PI;                 // 正面朝 -z(城市這側)
+    mesh.renderOrder = -1;                     // 永遠先畫,不跟街上物件搶深度
+    scene.add(mesh);
+    let tex = null;
+    const apply = () => {
+      mesh.position.set(0, cfg.y + cfg.h/2, cfg.z);
+      mesh.scale.set(cfg.w, cfg.h, 1);
+      if(tex){ tex.repeat.set(cfg.w / (cfg.h * 3), 1); tex.needsUpdate = true; }   // 3 是圖的長寬比
+    };
+    apply();
+    loader.load(TEX_DIR + 'skyline-temple.png', img => {
+      tex = new THREE.Texture(img);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+      tex.wrapS = THREE.MirroredRepeatWrapping; tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.needsUpdate = true;
+      mat.map = tex; mat.color.setHex(0xffffff); mat.needsUpdate = true;
+      apply();
+    }, undefined, () => {});
+    backdropRef.mesh = mesh; backdropRef.cfg = cfg; backdropRef.apply = apply;
+  })();
+
+  return { backdrop:backdropRef, colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, hospitalProps:hospitalPropRef, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
 }
 
 /* ---------------- 角色 ----------------

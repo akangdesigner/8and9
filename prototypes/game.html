@@ -1395,7 +1395,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -6467,6 +6467,35 @@ function tweakBusStopPanel(){
    是深藍色的大板子」——調的其實是背牆,不是 4 張小資訊牌,第一版滑桿
    接錯物件,這裡改調 `busStopRef.wall`)。opacity 越低越透明、roughness
    越低越光滑/壓克力感越強。 */
+/* 遠景大圖滑桿(2026-09-15)——寬/高/底邊高度/離城市多遠,四條。
+   拉到滿意跟我說數字,我寫回 scene-city3d.js 的 skylineBackdrop()。 */
+function tweakBackdropPanel(){
+  const old = document.getElementById('backdropTweakPanel');
+  if(old){ old.remove(); return; }
+  const b = city.backdrop;
+  if(!b || !b.mesh){ alert('遠景大圖還沒生成'); return; }
+  const c = b.cfg;
+  const rows = [
+    ['w', '寬度', 120, 600, 5],
+    ['h', '高度', 8, 80, 1],
+    ['y', '底邊高度', -60, 40, 1],
+    ['z', '離城市多遠(z)', 118, 220, 2]
+  ];
+  const panel = document.createElement('div');
+  panel.id = 'backdropTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.5 system-ui;width:250px';
+  panel.innerHTML = '<div style="font-weight:bold;margin-bottom:6px">遠景大圖滑桿(公車亭那面)</div>' +
+    rows.map(([k,label,min,max,step]) =>
+      '<div style="margin-bottom:8px">' + label + ': <span id="bd_' + k + '_v">' + c[k] + '</span><br>' +
+      '<input type="range" id="bd_' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + c[k] + '" style="width:100%"></div>').join('') +
+    '<div style="margin-top:4px;opacity:.7">關掉:再按一次「遠景滑桿」<br>拉到滿意跟我說四個數字</div>';
+  document.body.appendChild(panel);
+  rows.forEach(([k]) => document.getElementById('bd_' + k).addEventListener('input', e => {
+    c[k] = +e.target.value;
+    document.getElementById('bd_' + k + '_v').textContent = c[k];
+    b.apply();
+  }));
+}
 function tweakBusStopWallPanel(){
   const old = document.getElementById('busStopWallTweakPanel');
   if(old){ old.remove(); return; }
@@ -16547,6 +16576,7 @@ window.__dbg = {
   tweakPoliceCar: tweakPoliceCarPanel,
   tweakConstruction: tweakConstructionPanel,
   tweakBusStop: tweakBusStopPanel,
+  tweakBackdrop: tweakBackdropPanel,
   tweakBusStopWall: tweakBusStopWallPanel,
   tweakBusStopBoards: tweakBusStopBoardsPanel,
   tweakBusStopProps: tweakBusStopPropsPanel,
