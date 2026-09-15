@@ -1393,6 +1393,21 @@ export function buildCity(THREE, scene){
   fillerHouse(-88.2, -84.5, 100, 111, -1);                                            // 接到警察局西牆
   row({ axis:'x', at:YA_AT, face:-1, from:44, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh ]});   // 工地東翼:38.2~97.8
   fillerHouse(97.8, 100, 100, 111, -1);
+  /* 三個地標之間那兩塊空地圍起來(2026-09-15,kc:「警察局那一排幫我把空格的
+     部分做一些圍牆之類的」)——kc 已經定案中間不蓋房子,所以只在建築線
+     (z=100)上立一道空地圍牆:水泥牆板 3.2 高、每 6.5 個單位一根略高的方柱,
+     台灣路邊圍起來的畸零地就長這樣。牆擋住視線也擋住人,空地留在牆後面。
+       A 段:警察局東牆(-71.5)⇄ 公車亭西端(-52)
+       B 段:公車亭東端(-20)⇄ 工地西緣(2) */
+  function vacantLotWall(x0, x1){
+    const Z = 100.4, H = 3.2, T = .5, PITCH = 6.5;
+    add(box(x1-x0, H, T, M.wallB), (x0+x1)/2, H/2, Z);
+    solid((x0+x1)/2, Z, (x1-x0)/2, T/2+.4);
+    const n = Math.max(2, Math.round((x1-x0)/PITCH));
+    for(let i=0;i<=n;i++) add(box(.7, H+.45, .7, M.wallC), x0 + (x1-x0)*i/n, (H+.45)/2, Z);
+  }
+  vacantLotWall(-71.5, -52);
+  vacantLotWall(-20, 2);
   /* 廟口路那排店整組刪掉了(2026-08-21,kc:「外面那些實體下城建築刪掉」)
      ——上一輪才剛把 at 從寫死的舊路口(-78)修成跟著新路口(-84+B_LINE)
      走,結果 kc 從廟埕裡看,這排真建築(有窗戶/冷氣機/真貼圖)還是從矮牆
