@@ -1395,7 +1395,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugMidtermMail()">成績單</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2421,6 +2421,19 @@ function debugDailyDraw(){
 window.debugDailyDraw = debugDailyDraw;
 /* 期中考測試鈕(2026-09-15)——把日子調到 MIDTERM_DAY、清掉狀態,再把人
    丟到校門口外面幾步,按空白鍵就會遇到阿凱。 */
+/* 成績單測試鈕(2026-09-15)——假裝考完 8 題、日子推到寄達那天,直接把信
+   塞進雜物,再把人丟回家裡客廳,找媽就能拿出來。改 MIDTERM.score 可以測
+   其他分數;要測缺考把 chose 改成 'out'。 */
+function debugMidtermMail(){
+  MIDTERM.settled = true; MIDTERM.chose = 'in'; MIDTERM.score = 8;
+  MIDTERM.mailed = false; MIDTERM.shown = false;
+  const i = TRASH.findIndex(t => t.midtermReport); if(i >= 0) TRASH.splice(i, 1);
+  day = MIDTERM_DAY + MIDTERM_MAIL_DELAY;
+  syncHUD();
+  checkMidtermReport();
+  toast('成績單已經放進雜物了。回家找媽拿給她看。', 4000);
+}
+window.debugMidtermMail = debugMidtermMail;
 function debugMidterm(){
   day = MIDTERM_DAY;
   MIDTERM.chose = ''; MIDTERM.settled = false; MIDTERM.score = -1;
@@ -7786,6 +7799,15 @@ function openIndoorSpot(id){
         });
         return;
       }
+      /* 期中考成績單(2026-09-15,kc:「拿給你媽會有獎勵」)——手上有那張紙
+         而且還沒給她看過,就先問要不要拿出來,不是自動演。 */
+      if(!MIDTERM.shown && TRASH.some(t => t.midtermReport)){
+        openMenu('媽媽', [
+          { label:'把成績單拿給她看', run(){ busy = true; showMidtermReportToMom(); } },
+          { label:'先收著', run(){ toast('你把成績單塞回書包。', 2400); } }
+        ]);
+        return;
+      }
       const lines = momCheckinLines();
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
@@ -10561,7 +10583,7 @@ function leaveIndoor(){
     checkGrandmaCall();
     /* 走出家門才發現的事(口袋破了、車發不動)——只在從「家」走出去那次,
        見 checkDailyDoor()/DAILY_EVENTS 的 via:'door'。 */
-    if(wasHome) setTimeout(checkDailyDoor, 900);
+    if(wasHome){ setTimeout(checkDailyDoor, 900); setTimeout(checkMidtermReport, 2600); }   // 成績單自己一條,撞到日常事件就下次出門再發(見 checkMidtermReport)
   });
 }
 /* 約小美出去公園(2026-08-26,kc:「約他出去玩，直接跳轉到公園」)——跟
@@ -11769,7 +11791,96 @@ const SCHOOL_ACTIVE_DAYS = [22, 37];   // 2026-09-15 13→22:day13 整天讓給�
  * 走了就自然會多一筆。但選了翹課之後這一天就不能再回頭進學校,不然警告
  * 會被洗掉,校門口會擋下來。 */
 const MIDTERM_DAY = 13, MIDTERM_PASS = 8, MIDTERM_QN = 10;
-const MIDTERM = { chose:'', settled:false, score:-1, gift:false, arcadePending:false };
+const MIDTERM = { chose:'', settled:false, score:-1, gift:false, arcadePending:false, mailed:false, shown:false };
+
+/* 成績單寄到家裡(2026-09-15,kc:「成績單可以寄到家裡 你考得好的話拿給你媽
+   會有獎勵 他會給你幾百塊」)——考完三個行動天以後,第一次走出家門開信箱
+   就會拿到,跟電費水費同一個入口(checkDailyDoor() 的 via:'door')。但它不是
+   DAILY_EVENTS 的一筆,是自己一條獨立的檢查,跟班費/期中考本身同一個結構,
+   不去動 kc 一天一天排死的 DAILY_SCHEDULE。
+   撞到當天的日常事件就先不發,下次出門再發——寧可晚一天,也不要兩段對話
+   疊在一起搶畫面。
+   翹課那條也會收到,上面那欄寫的是缺考。 */
+const MIDTERM_MAIL_DELAY = 3;
+function checkMidtermReport(){
+  if(!MIDTERM.settled || MIDTERM.mailed) return;
+  if(day - MIDTERM_DAY < MIDTERM_MAIL_DELAY) return;
+  if(busy || dlg.on || gameOver) return;
+  MIDTERM.mailed = true;
+  const skipped = MIDTERM.chose === 'out';
+  const good = !skipped && MIDTERM.score >= MIDTERM_PASS;
+  TRASH.push({
+    name:'期中考成績單', icon:'📄', midtermReport:true,
+    star: good ? 8 : 0, active: good,
+    detail: skipped
+      ? '那天你沒去。<br>名次那一欄印著「缺考」。'
+      : `期中考 ${MIDTERM.score}／${MIDTERM_QN}。<br>` + (good
+          ? '學校寄到家裡的那一張，媽還沒看過。'
+          : '學校寄到家裡的那一張。分數印在右上角。')
+  });
+  if(good) chg('star', 8);
+  busy = true;
+  say('pc', skipped
+    ? '出門的時候你順手開了信箱。\n學校寄來的成績單躺在裡面，缺考那兩個字印得很清楚。'
+    : '出門的時候你順手開了信箱。\n學校寄來的成績單躺在裡面，還沒有人拆過。',
+    () => { busy = false; });
+  setTodayCard('成績單寄到家裡了。<br><span class="qpNote">可以拿給媽看</span>');
+  logDay(skipped ? '成績單寄來了，缺考。' : `成績單寄來了，${MIDTERM.score} 題。`);
+}
+/* 拿給媽看。好成績她真的會給錢(kc 說幾百塊)——8/9/10 題分別是 $300/$400/$500。
+   錢從哪裡來這件事不明講,只留最後那一句。她在賭,見 story-bet.js。 */
+function showMidtermReportToMom(){
+  MIDTERM.shown = true;
+  const card = TRASH.find(t => t.midtermReport);
+  const skipped = MIDTERM.chose === 'out';
+  const n = MIDTERM.score;
+  clearTodayCard();
+  if(skipped){
+    playBeats([
+      { who:'pc',  text:'你把那張紙放在桌上，上面那欄寫著缺考。' },
+      { who:'mom', text:'「你那天沒去學校？」' },
+      { who:'pc',  text:'「……嗯。」' },
+      { who:'pc',  text:'她沒有罵你，只是把紙折起來放到旁邊。' },
+      { who:'mom', text:'「隨便你啦。」' }
+    ], 0, () => {
+      chg('calm', -6); chg('mood', -6);
+      busy = false;
+      toast('（歸屬感 −6，情緒 −6）', 2800);
+      logDay('成績單拿給媽看了。她只說隨便我。');
+    });
+    return;
+  }
+  if(n < MIDTERM_PASS){
+    playBeats([
+      { who:'pc',  text:'你把成績單放在桌上，推過去。' },
+      { who:'mom', text:'她看了一眼。「喔。」' },
+      { who:'pc',  text:'然後把電視的音量轉回原來那格。' }
+    ], 0, () => {
+      chg('mood', -4);
+      busy = false;
+      toast('（情緒 −4）', 2600);
+      logDay('成績單拿給媽看了。她說喔。');
+    });
+    return;
+  }
+  const reward = n >= 10 ? 500 : n >= 9 ? 400 : 300;
+  playBeats([
+    { who:'pc',  text:'你把成績單放在桌上，推過去。' },
+    { who:'mom', text:'「這什麼。」' },
+    { who:'pc',  text:'她把電視轉小聲，拿起來看了很久。' },
+    { who:'mom', text:`「……${n} 題喔。」` },
+    { who:'mom', text:'「不錯啊你。」' },
+    { who:'pc',  text:'她從口袋裡掏出一疊皺掉的鈔票，數了幾張出來塞給你。' },
+    { who:'mom', text:'「拿去買點東西吃。」' },
+    { who:'pc',  text:'你沒有問那是哪裡來的。' }
+  ], 0, () => {
+    chg('money', reward); chg('calm', 8); chg('mood', 10);
+    if(card) card.detail += '<br>媽看過了。';
+    busy = false;
+    toast(`媽給了你 $${reward}。（歸屬感 +8，情緒 +10）`, 4200);
+    logDay(`成績單拿給媽看了，她給了我 $${reward}。我沒有問那是哪裡來的。`);
+  });
+}
 
 /* 校門口攔截。回傳 true = 這次按空白鍵被這場戲接走了,enterIndoor() 不要再往下跑。 */
 function midtermGate(door){
