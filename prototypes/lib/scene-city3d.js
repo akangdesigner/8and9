@@ -2535,8 +2535,13 @@ export function buildCity(THREE, scene){
      工地一樣獨立做醫院」,見 DESIGN_NOTES 待辦清單那節+下面 hospitalCompound()
      開頭的長筆記。這裡改成兩格 S.gap 空出腹地,建築本體挪到 row() 外面
      自己蓋,不再走 row() 的單店面板+貼圖裁切那套。 */
-  row({ axis:'z', at:-84-B_LINE, face:1, from:-58, shops:[ S.sh,S.sh,S.sh,S.gap,S.gap,S.sh,S.sh,S.sh ]});
-  row({ axis:'z', at: 84+B_LINE, face:-1, from:-58, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
+  /* 2026-09-15 kc:「西園街醫院右邊有缺口,缺口後面不該有房子,應該要合併在
+     缺口處」——這兩排原本 8 格從 z=-58 起,只鋪到 -63.8~31.8,北端到廟口路
+     (-84)、南端到永安街人行道(68)各留一段空,從街上看過去是外圍遠景方塊
+     (skylineRing)退在後面。北端前面補 2 格、南端後面補 3 格,排滿到
+     -87.8~67.8,缺口處直接是房子,不再看到後面的東西。東和街那排對稱處理。 */
+  row({ axis:'z', at:-84-B_LINE, face:1, from:-82, shops:[ S.sh,S.sh, S.sh,S.sh,S.sh,S.gap,S.gap,S.sh,S.sh,S.sh, S.sh,S.sh,S.sh ]});
+  row({ axis:'z', at: 84+B_LINE, face:-1, from:-82, shops:[ S.sh,S.sh, S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh, S.sh,S.sh,S.sh ]});
 
   /* ===== 醫院(獨立建築,2026-09-04)=====
    * 2026-09-03 先塞進 row() 當一間 12 米單店面(S.hospital()),kc 隔天說
