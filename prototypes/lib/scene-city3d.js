@@ -877,8 +877,10 @@ export function buildCity(THREE, scene){
     /* 2026-09-15 第四次搬家(kc):東和街內側、南街廓東邊那塊空地,跟 game.html
        BUSKER_POS 同步。同日 kc「應該要在更裡面角落」、再截圖「是牆壁的夾角」
        → 自強巷東牆(斜)跟中華路南排店背牆(z=27)夾的 40° 尖角,舞台沿平分線
-       離角頂 9.5 個單位 (36,30),面朝平分線往外;麥克風架放他面前(沿 rot .9)。 */
-    const bx = 36, bz = 30, R = 2.6, rot = Math.PI*.39;
+       離角頂 9.5 個單位 (36,30),面朝平分線往外;麥克風架放他面前(沿 rot .9)。
+       再一輪 kc「別太裡面都出來一點」→ 沿平分線再推到離角頂 14 個單位 (40,32)。 */
+    const bx = 40, bz = 32, R = 2.6, rot = Math.PI*.39;
+    const ux = Math.sin(rot), uz = Math.cos(rot), px = -uz, pz = ux;   // 面前方向 / 左右方向
     add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, .3, 24), M.stallTop),
         bx, .15, bz, false, true);
     add(new THREE.Mesh(new THREE.CylinderGeometry(R+.12, R+.12, .12, 24), M.curb),
@@ -893,6 +895,29 @@ export function buildCity(THREE, scene){
     add(new THREE.Mesh(new THREE.SphereGeometry(.09,10,8), M.metal),
         micX, .36+3.15, micZ, false, false);
     solid(bx, bz, R*.55, R*.55);   // 只擋舞台中段,麥克風架跟舞台邊緣留給路人站
+
+    /* 觀眾席(2026-09-15,kc:「好歹放些椅子之類」)——紅色塑膠椅,台灣路邊
+       攤/廟口活動那種,跟整座城市同一套「灰模+材質」做法(M.plastic 就是
+       那個紅)。尺寸照 1 單位≈0.42 米換算:座高 1.07、座面 .95 見方、椅背到
+       1.9。兩排各三張,朝舞台,距離舞台 6.5/8.2 個單位,左右 ±2.4;每張用
+       索引給一點固定的歪斜跟位移(不用亂數),才不會像閱兵。三個圍觀路人
+       站在椅子後面 9~10 個單位(game.html BUSKER_AUDIENCE)。 */
+    function plasticChair(x, z, ry){
+      const g = new THREE.Group();
+      const part = (w,h,d, dx,dy,dz) => { const m = box(w,h,d, M.plastic); m.position.set(dx,dy,dz); m.castShadow = true; g.add(m); };
+      part(.95,.08,.95, 0,1.07,0);                                   // 座面
+      part(.95,.85,.08, 0,1.5,-.43);                                  // 椅背(-z 是背面,+z 朝舞台)
+      [[-.4,-.4],[.4,-.4],[-.4,.4],[.4,.4]].forEach(([a,b]) => part(.08,1.07,.08, a,.535,b));
+      g.rotation.y = ry; g.position.set(x, 0, z);
+      scene.add(g);
+      solid(x, z, .5, .5);
+    }
+    const faceStage = Math.atan2(-ux, -uz);   // 椅背朝外、正面朝舞台
+    [[6.5,-2.4],[6.5,0],[6.5,2.4],[8.2,-2.4],[8.2,0],[8.2,2.4]].forEach(([d, side], i) => {
+      const jitter = [.12,-.08,.18,-.15,.05,-.1][i], slide = [.2,-.1,.3,-.25,.15,-.2][i];
+      const along = d + slide, s2 = side + slide*.5;
+      plasticChair(bx + ux*along + px*s2, bz + uz*along + pz*s2, faceStage + jitter);
+    });
   })();
 
   /* ===== 公園:中華路南側切兩個店面寬度出來(2026-08-13,kc 說要真的一塊

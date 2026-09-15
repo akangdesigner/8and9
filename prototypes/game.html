@@ -3410,13 +3410,17 @@ function updateWorldLabels(){
    單位遠的弧線上(沿平分線 u=(.94,.34) 推、垂直方向 p=(-.34,.94) 左右錯開),
    rotationY 各自用 atan2 算成面對他。
    舞台/麥克風架在 scene-city3d.js buskerStage() 同步改了,不要只改這裡。 */
-const BUSKER_POS = { x: 36, z: 30 };
+/* 再一輪 kc「別太裡面都出來一點,而且人離太近了,另外好歹放些椅子之類」——
+   舞台沿平分線再推到離角頂 14 個單位 (40,32);觀眾拉到 9~10 個單位遠,
+   中間那 6.5~8.2 的帶子放兩排紅色塑膠椅(scene-city3d.js buskerStage() 裡),
+   人站在椅子後面看。 */
+const BUSKER_POS = { x: 40, z: 32 };
 const BUSKER_ROT = Math.PI*.39;
-/* 三個圍觀路人:相對舞台的偏移(在他面前那個方向 5~6 個單位遠),面向用 atan2 對著他 */
+/* 三個圍觀路人:相對舞台的偏移(在他面前那個方向 9~10 個單位遠、椅子後面),面向用 atan2 對著他 */
 const BUSKER_AUDIENCE = [
-  { dx: 4.3, dz: 4.2 },
-  { dx: 5.6, dz: 2.0 },
-  { dx: 6.0, dz: -.5 }
+  { dx: 7.3, dz: 6.4 },
+  { dx: 9.4, dz: 3.4 },
+  { dx: 9.6, dz: -.2 }
 ].map(o => ({ x:BUSKER_POS.x+o.dx, z:BUSKER_POS.z+o.dz, rotationY:Math.atan2(-o.dx, -o.dz) }));
 
 /* 阿姨挪去顧鴨頭攤(2026-08-20,kc:「把阿姨調整過來」)——她原本是廟埕
