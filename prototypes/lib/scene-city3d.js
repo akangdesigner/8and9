@@ -186,7 +186,18 @@ export function buildCity(THREE, scene){
   const T = makeTextures(THREE);
   const { ROAD_HW, WALK_W, UNIT, DEPTH, H_ROADS, V_ROADS, B_LINE } = CITY;
 
-  const std = o => new THREE.MeshStandardMaterial(o);
+  /* 2026-09-15 質感第一層(kc 看了 GPT 的 corner-study 範本問「做成這種質感有
+     可能否」,拆三層,這是第一層,全在這個材質工廠附近改,不動任何建築位置):
+     ① game.html 給整個場景一張 RoomEnvironment 環境貼圖(scene.environment),
+        所有 PBR 材質都會吃到柔和反光——但預設強度 1.0 太亮,材質全部壓到 .25
+        (範本的值);add() 那邊對沒走 std() 的材質也補同一個值。
+     ② 貼圖同時當 bumpMap(強度很小),磁磚縫/浪板才浮得出來,見下面換裝表。
+     ③ 貼圖照真實尺度鋪(userData.tile = 一張圖蓋幾個世界單位),box() 依每一面
+        的實際尺寸改 UV,牆多大都是同一個磁磚大小——之前 rep 寫死幾次,50 高的
+        大樓跟 17 高的店面共用同一張圖就是拉伸三倍,kc 抓過好幾次「貼圖拉伸」。
+     ④ 白天/晚上兩套燈光調色在 game.html applyDaylight(),照時鐘切。 */
+  const ENV_K = .25;
+  const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMapIntensity:ENV_K }, o));
   const glow = (c,i) => std({ color:c, emissive:c, emissiveIntensity:i||1.6, roughness:.5 });
   const M = {
     stone:std({map:T.stone,roughness:.95}), walk:std({map:T.walk,roughness:.94}),
@@ -308,13 +319,13 @@ export function buildCity(THREE, scene){
      看不出來,巷子/廟埕看起來像沒貼圖。改成永遠重置(沒給 tint 就設回白,
      不再是「沒給就不動」),一次修掉整批,以後新增規則也不會再忘記補
      tint。 */
-  [ { mats:[M.wall, M.wallB, M.wallC, M.wallD], file:'wall.png', rep:[1,1], lift:.16 },
-    { mats:[M.shutter], file:'shutter.png', rep:[1,1], tint:0xa8b0ac },
-    { mats:[M.road],  file:'road.png',  rep:[5,5], mirror:true, tint:0x6a7178 },
-    { mats:[M.walk],  file:'walk.png',  rep:[3,3], mirror:true, tint:0xc2beb4 },
-    { mats:[M.alleyFloor], file:'walk.png', rep:[3,3], mirror:true, tint:0x2e2a26 },
-    { mats:[M.alleyWallSide], file:'alley-wall-side.png', rep:[1,2], mirror:true },
-    { mats:[M.stone], file:'stone.png', rep:[5,5], mirror:true, tint:0xcfcabc },
+  [ { mats:[M.wall, M.wallB, M.wallC, M.wallD], file:'wall.png', rep:[1,1], lift:.16, tile:15, bump:.013 },
+    { mats:[M.shutter], file:'shutter.png', rep:[1,1], tint:0xa8b0ac, tile:7, bump:.019 },
+    { mats:[M.road],  file:'road.png',  rep:[1,1], mirror:true, tint:0x6a7178, tile:16.6, bump:.013 },
+    { mats:[M.walk],  file:'walk.png',  rep:[1,1], mirror:true, tint:0xc2beb4, tile:9.6, bump:.025 },
+    { mats:[M.alleyFloor], file:'walk.png', rep:[1,1], mirror:true, tint:0x2e2a26, tile:9.6, bump:.025 },
+    { mats:[M.alleyWallSide], file:'alley-wall-side.png', rep:[1,1], mirror:true, tile:14, bump:.015 },
+    { mats:[M.stone], file:'stone.png', rep:[1,1], mirror:true, tint:0xcfcabc, tile:14, bump:.023 },
     /* 冷氣機/電表箱的貼圖(ac-unit.png/meterbox-unit.png 系列)第二十四輪
        改成 wallUnit() 自己直接 loader.load(),不再借這條共用管線掛在
        M.tin/M.meterboxTex 上——M.tin 其實還有別的用途(騎樓雨遮材質,見
@@ -327,11 +338,11 @@ export function buildCity(THREE, scene){
        kc 抓到,以為這批廟口貼圖已經包含牆面,其實沒有)——補上。 */
     { mats:[M.red, M.redD], file:'temple-wall.png', rep:[2,1], mirror:true, lift:.14 },
     { mats:[M.gold], file:'temple-gold.png', rep:[1,1], mirror:true, lift:.1 },
-    { mats:[M.curb], file:'curb.png', rep:[6,1], mirror:true, lift:.1 },
+    { mats:[M.curb], file:'curb.png', rep:[1,1], mirror:true, lift:.1, tile:8, bump:.01 },
     { mats:[M.tarp], file:'tarp-red.png', rep:[1,1], mirror:true, lift:.12 },
     { mats:[M.tarpB], file:'tarp-blue.png', rep:[1,1], mirror:true, lift:.12 },
     { mats:[M.plastic], file:'plastic-red.png', rep:[1,1], mirror:true, lift:.1 },
-    { mats:[M.metal], file:'metal-frame.png', rep:[1,1], mirror:true, lift:.08 },
+    { mats:[M.metal], file:'metal-frame.png', rep:[1,1], mirror:true, lift:.08, tile:7.6, bump:.008 },
     { mats:[M.stallTop], file:'stall-top.png', rep:[1,1], mirror:true, lift:.1 },
     /* 紙箱堆(2026-08-18 第二十八輪):crateStack() 兩顆箱子共用同一顆材質貼滿
        六面(頂上那顆還會亂轉角度),跟冷氣機/電表箱不同,紙箱沒有正面/側面
@@ -343,11 +354,21 @@ export function buildCity(THREE, scene){
        2026-08-18 抓到 utility-box.png 這張其實是廟金雕花貼圖貼錯,已經有現成對的
        prop-utilitybox.png(街上原本就在用的綠色鐵箱)可以借,直接改用卡片貼法。 */
   ].forEach(o => {
+    /* tile 要在 box() 之前就掛上材質(同步),圖片是之後才載到的——UV 是建
+       幾何時算的,材質有沒有 tile 決定那一面要不要照尺寸鋪。 */
+    /* mirror:true 的 prep() 會把圖拼成 2×2 鏡射,一次 repeat 其實是兩張原圖,
+       所以那些條目的 tile 寫的是「兩張圖」的寬(走道 9.6 = 每張 4.8 ≈ 2m)。 */
+    if(o.tile) o.mats.forEach(m => { m.userData.tile = o.tile; });
     loader.load(TEX_DIR + o.file, img => {
       const t = new THREE.CanvasTexture(prep(img, o));
-      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(o.rep[0], o.rep[1]);
-      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-      o.mats.forEach(m => { m.map = t; m.color.setHex(o.tint || 0xffffff); m.needsUpdate = true; });
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(o.rep[0], o.rep[1]);   // mirror 的鏡射拼接 prep() 已經做在 canvas 上,這裡不要再 Mirrored 一次
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+      o.mats.forEach(m => {
+        m.map = t; m.color.setHex(o.tint || 0xffffff);
+        /* 同一張圖當 bump(2026-09-15 質感第一層②),強度很小,只要縫跟浪板浮出來 */
+        if(o.bump){ m.bumpMap = t; m.bumpScale = o.bump; }
+        m.needsUpdate = true;
+      });
     }, undefined, () => {});                 // 沒這張圖就算了,不要吵
   });
 
@@ -473,7 +494,24 @@ export function buildCity(THREE, scene){
     return m;
   }
 
-  const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+  /* BoxGeometry 六面順序 +x,-x,+y,-y,+z,-z,每面 4 個頂點;有 userData.tile 的
+     材質把那一面的 UV 乘上「面寬/tile、面高/tile」,貼圖 repeat 維持 (1,1) 交給
+     UV 決定重複幾次。沒設 tile 的材質(招牌照片、店面照片、六面圖那批)完全
+     不動,還是 0~1 貼滿。 */
+  function tileUV(g, w, h, d, m){
+    const mats = Array.isArray(m) ? m : null;
+    const dims = [[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+    const uv = g.attributes.uv; let touched = false;
+    for(let f = 0; f < 6; f++){
+      const mat = mats ? mats[f] : m;
+      const t = mat && mat.userData && mat.userData.tile; if(!t) continue;
+      const [fw, fh] = dims[f];
+      for(let i = f*4; i < f*4+4; i++) uv.setXY(i, uv.getX(i)*fw/t, uv.getY(i)*fh/t);
+      touched = true;
+    }
+    if(touched) uv.needsUpdate = true;
+  }
+  const box = (w,h,d,m) => { const g = new THREE.BoxGeometry(w,h,d); tileUV(g, w,h,d, m); return new THREE.Mesh(g, m); };
   const colliders = [], doors = [], lampSpots = [], play = [];
   /* 場景地標文字牌(2026-08-19,kc 說廟埕那批方塊分不出哪個是哪個,截圖
      裡全部糊成色塊)——不是遊戲內容,是給 kc 邊玩邊對照用的除錯標籤,
@@ -522,6 +560,7 @@ export function buildCity(THREE, scene){
   const add = (mesh,x,y,z,cast,recv) => {
     mesh.position.set(x,y,z);
     mesh.castShadow = cast !== false; mesh.receiveShadow = recv !== false;
+    [].concat(mesh.material || []).forEach(m => { if(m && m.isMeshStandardMaterial && m.envMapIntensity === 1) m.envMapIntensity = ENV_K; });
     scene.add(mesh); return mesh;
   };
   const solid = (x,z,hw,hd) => colliders.push({x,z,hw,hd});
@@ -4410,7 +4449,7 @@ function buildPrimitiveRig(THREE, parent, M){
     const s = box(.33,.20,.53, M.shoe); s.position.set(0,-1.78,.09); p.add(s);
   });
 
-  g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; [].concat(o.material||[]).forEach(m => { if(m && m.isMeshStandardMaterial) m.envMapIntensity = .35; }); } });   // envMapIntensity .35 = 範本給 GLB 的值(2026-09-15)
   parent.add(g);
 
   let phase = 0;
@@ -4669,7 +4708,7 @@ function riggedCharacter(THREE, idleGltf, mats, heightUnits, parts){
  * placeGltfProp() 呼叫處的間距推算),滑梯的「長度」也是撐滿軸,不是身高。 */
 function propModel(THREE, gltf, targetSize, lockAxis, ry){
   const model = gltf.scene.clone(true);
-  model.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  model.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; [].concat(o.material||[]).forEach(m => { if(m && m.isMeshStandardMaterial) m.envMapIntensity = .35; }); } });
   model.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(model);
   const size = { x: box.max.x-box.min.x, y: box.max.y-box.min.y, z: box.max.z-box.min.z };

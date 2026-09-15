@@ -1430,6 +1430,7 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';   // 2026-09-15 質感第一層:環境貼圖
 import { CITY, CAM, PLAYER, PLAYER_FACE, NPC_FACE, buildCity, buildPlayer, buildNPC, RIDE_POSE, skyGradient } from './lib/scene-city3d.js';
 
 /* ===================================================================
@@ -3267,13 +3268,25 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.32;
 document.getElementById('city').appendChild(renderer.domElement);
+/* 環境貼圖(2026-09-15 質感第一層①,照 GPT corner-study 範本):three.js 內建的
+   RoomEnvironment 用 PMREM 烤成一張環境圖掛在 scene.environment,所有 PBR 材質
+   都吃到柔和的反光,水泥/鐵皮/玻璃才有質地。強度由各材質的 envMapIntensity 控
+   (scene-city3d.js 那邊全部壓到 .25,GLB 模型 .35),不是這裡調。 */
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const room = new RoomEnvironment(renderer);
+  scene.environment = pmrem.fromScene(room, .04).texture;
+  room.dispose(); pmrem.dispose();
+}
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.48, 0.55, 0.82));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.48, 0.55, 0.82);
+composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
-scene.add(new THREE.HemisphereLight(0x6b7fa4, 0x3a3f4a, 1.85));
+const hemiLight = new THREE.HemisphereLight(0x6b7fa4, 0x3a3f4a, 1.85);
+scene.add(hemiLight);
 const keyLight = new THREE.DirectionalLight(0xd2dfff, 1.0);
 keyLight.position.set(-24, 34, 20); keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(2048, 2048);
@@ -16150,6 +16163,44 @@ function fit(){
   camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
 }
 
+/* 白天/晚上兩套調色(2026-09-15 質感第一層④)——街上原本永遠是同一套深藍
+   夜景,時鐘走到早上畫面也不會亮。白天那套照 GPT corner-study 範本抓:灰綠
+   陰天的天空與霧、冷色 hemi、暖色太陽、bloom 壓低;晚上維持原本那套一個
+   數字都沒動。06:00~17:30 之間算白天,兩端各用半小時做漸變,不會一格跳掉。
+   每幀算一次 lerp 很便宜,但材質 emissive(招牌/店面照片)不在這裡動——
+   白天招牌還是會亮一點,kc 覺得刺眼再說。 */
+const DAY_LOOK   = { bg:new THREE.Color('#96a4a5'), fog:new THREE.Color('#96a4a5'), fogD:.0075,
+                     hemiSky:new THREE.Color('#cbd9dc'), hemiGround:new THREE.Color('#4b534f'), hemiI:1.85,
+                     keyC:new THREE.Color('#ffe2bc'), keyI:2.4, exposure:1.1, bloom:.10 };
+const NIGHT_LOOK = { bg:null, fog:new THREE.Color(0x0d141e), fogD:.0058,
+                     hemiSky:new THREE.Color(0x6b7fa4), hemiGround:new THREE.Color(0x3a3f4a), hemiI:1.85,
+                     keyC:new THREE.Color(0xd2dfff), keyI:1.0, exposure:1.32, bloom:.48 };
+const NIGHT_SKY = scene.background;   // skyGradient 那張,晚上用
+const _c1 = new THREE.Color(), _c2 = new THREE.Color();
+let lastDayK = -1;
+function daylightK(){
+  const h = minute / 60;
+  if(h < 5.5 || h >= 18) return 0;
+  if(h < 6) return (h - 5.5) * 2;
+  if(h >= 17.5) return 1 - (h - 17.5) * 2;
+  return 1;
+}
+function applyDaylight(){
+  const k = daylightK();
+  if(Math.abs(k - lastDayK) < .01) return;
+  lastDayK = k;
+  const A = NIGHT_LOOK, B = DAY_LOOK;
+  scene.fog.color.copy(_c1.copy(A.fog).lerp(B.fog, k));
+  scene.fog.density = A.fogD + (B.fogD - A.fogD) * k;
+  scene.background = k < .5 ? NIGHT_SKY : _c2.copy(B.bg);
+  hemiLight.color.copy(_c1.copy(A.hemiSky).lerp(B.hemiSky, k));
+  hemiLight.groundColor.copy(_c1.copy(A.hemiGround).lerp(B.hemiGround, k));
+  hemiLight.intensity = A.hemiI + (B.hemiI - A.hemiI) * k;
+  keyLight.color.copy(_c1.copy(A.keyC).lerp(B.keyC, k));
+  keyLight.intensity = A.keyI + (B.keyI - A.keyI) * k;
+  renderer.toneMappingExposure = A.exposure + (B.exposure - A.exposure) * k;
+  bloomPass.strength = A.bloom + (B.bloom - A.bloom) * k;
+}
 const fpsEl = document.getElementById('fps');
 const coordEl = document.getElementById('coord');
 let last = performance.now(), acc = 0, frames = 0;
@@ -16157,7 +16208,7 @@ renderer.setAnimationLoop(now => {
   if(gameOver) return;   // 失敗結局蓋上之後整個模擬凍結,見 triggerGameOver()
   const dt = Math.min(50, now-last); last = now;
   fit(); tickDialog(dt);
-  if(MODE === 'city'){ updateCity(dt); updateWorldLabels(); updatePatrolMarker(dt); updateAxiaMarker(dt); composer.render(); }
+  if(MODE === 'city'){ applyDaylight(); updateCity(dt); updateWorldLabels(); updatePatrolMarker(dt); updateAxiaMarker(dt); composer.render(); }
   else { updateIndoor(dt); renderIndoor3D(dt); renderIndoorForeground(); }
   acc += dt; frames++;
   if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc=0; frames=0; }
