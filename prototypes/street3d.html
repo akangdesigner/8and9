@@ -231,8 +231,8 @@ function drawMap(){
   mm.fillStyle = 'rgba(20,26,34,.8)'; mm.fillRect(0,0,MM_S,MM_S);
   const px = v => MM_S/2 + v*MM_SCALE;
   mm.strokeStyle = '#4c5665'; mm.lineWidth = CITY.ROAD_HW*2*MM_SCALE;
-  CITY.H_ROADS.forEach(r => { mm.beginPath(); mm.moveTo(px(-105), px(r.z)); mm.lineTo(px(105), px(r.z)); mm.stroke(); });
-  CITY.V_ROADS.forEach(r => { mm.beginPath(); mm.moveTo(px(r.x), px(-90)); mm.lineTo(px(r.x), px(80)); mm.stroke(); });
+  CITY.H_ROADS.forEach(r => { mm.beginPath(); mm.moveTo(px(CITY.V_ROADS[0].x-CITY.ROAD_HW), px(r.z)); mm.lineTo(px(CITY.V_ROADS.at(-1).x+CITY.ROAD_HW), px(r.z)); mm.stroke(); });
+  CITY.V_ROADS.forEach(r => { mm.beginPath(); mm.moveTo(px(r.x), px(CITY.H_ROADS[0].z)); mm.lineTo(px(r.x), px(CITY.H_ROADS.at(-1).z)); mm.stroke(); });
   mm.strokeStyle = '#6b7788'; mm.lineWidth = 6*MM_SCALE;
   city.alleys.forEach(a => { mm.beginPath(); mm.moveTo(px(a.x), px(a.z0)); mm.lineTo(px(a.x), px(a.z1)); mm.stroke(); });
   city.diagAlleys.forEach(a => { mm.beginPath(); mm.moveTo(px(a.x0), px(a.z0)); mm.lineTo(px(a.x1), px(a.z1)); mm.stroke(); });
@@ -313,9 +313,14 @@ function drawBlueprint(){
   ctx.strokeStyle = '#3b4452'; ctx.lineWidth = 1.5;
   ctx.strokeRect(px(bx0), pz(bz0), (bx1-bx0)*scale, (bz1-bz0)*scale);
 
-  ctx.strokeStyle = '#40495a'; ctx.lineWidth = Math.max(2, CITY.ROAD_HW*2*scale);
-  CITY.H_ROADS.forEach(r => { ctx.beginPath(); ctx.moveTo(px(bx0-6), pz(r.z)); ctx.lineTo(px(bx1+6), pz(r.z)); ctx.stroke(); });
-  CITY.V_ROADS.forEach(r => { ctx.beginPath(); ctx.moveTo(px(r.x), pz(bz0-6)); ctx.lineTo(px(r.x), pz(bz1+6)); ctx.stroke(); });
+  ctx.fillStyle = '#40495a';
+  const roadLeft=CITY.V_ROADS[0].x-CITY.ROAD_HW, roadRight=CITY.V_ROADS.at(-1).x+CITY.ROAD_HW;
+  const roadNorth=CITY.H_ROADS[0].z, roadSouth=CITY.H_ROADS.at(-1).z;
+  CITY.H_ROADS.forEach((r,i) => {
+    const north=i===0?r.z:r.z-CITY.ROAD_HW;
+    ctx.fillRect(px(roadLeft),pz(north),(roadRight-roadLeft)*scale,(i===0?CITY.ROAD_HW:CITY.ROAD_HW*2)*scale);
+  });
+  CITY.V_ROADS.forEach(r => ctx.fillRect(px(r.x-CITY.ROAD_HW),pz(roadNorth),CITY.ROAD_HW*2*scale,(roadSouth-roadNorth)*scale));
 
   ctx.strokeStyle = '#565f70'; ctx.lineWidth = 3;
   city.alleys.forEach(a => { ctx.beginPath(); ctx.moveTo(px(a.x), pz(a.z0)); ctx.lineTo(px(a.x), pz(a.z1)); ctx.stroke(); });
@@ -323,6 +328,16 @@ function drawBlueprint(){
 
   ctx.fillStyle = 'rgba(150,160,180,.35)'; ctx.strokeStyle = 'rgba(210,218,235,.55)'; ctx.lineWidth = 1;
   city.colliders.forEach(c => {
+    if(c.angle!==undefined){
+      ctx.beginPath();
+      const cs=Math.cos(c.angle),sn=Math.sin(c.angle);
+      [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sz],i)=>{
+        const lx=sx*c.localHW,lz=sz*c.localHD;
+        const x=px(c.x+lx*cs+lz*sn),z=pz(c.z-lx*sn+lz*cs);
+        if(i===0)ctx.moveTo(x,z);else ctx.lineTo(x,z);
+      });
+      ctx.closePath();ctx.fill();ctx.stroke();return;
+    }
     const x0 = px(c.x-c.hw), z0 = pz(c.z-c.hd), w = c.hw*2*scale, h = c.hd*2*scale;
     ctx.fillRect(x0, z0, w, h); ctx.strokeRect(x0, z0, w, h);
   });

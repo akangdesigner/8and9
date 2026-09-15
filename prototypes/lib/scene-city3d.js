@@ -379,7 +379,7 @@ export function buildCity(THREE, scene){
       const ia = img.width / img.height;
       if(ia > FRONT_ASPECT){ const r = FRONT_ASPECT/ia; t.repeat.set(r,1); t.offset.set((1-r)/2, 0); }
       else { const r = ia/FRONT_ASPECT; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
-      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = .55;
+      m.map = t; m.emissiveMap = t; m.emissive.setHex(0xffffff); m.emissiveIntensity = kind === 'store' ? .18 : .55;
       m.color.setHex(0xffffff); m.roughness = .6; m.metalness = 0; m.needsUpdate = true;
     };
     /* 2026-08-17:shop-home.png 這輪反覆重生了好幾版,瀏覽器一直吃到舊快取
@@ -527,6 +527,24 @@ export function buildCity(THREE, scene){
   const solid = (x,z,hw,hd) => colliders.push({x,z,hw,hd});
 
   /* ===== 路面 ===== */
+  // 2026-09-15: keep established locations; trim pavement at junctions, not across lanes.
+  function streetSegments(start, end, crossings, halfWidth=ROAD_HW){
+    let cursor=start; const segments=[];
+    for(const center of [...crossings].sort((a,b)=>a-b)){
+      const lo=Math.max(start,center-halfWidth), hi=Math.min(end,center+halfWidth);
+      if(hi<=cursor || lo>=end) continue;
+      if(lo>cursor) segments.push([cursor,lo]);
+      cursor=Math.max(cursor,hi);
+    }
+    if(cursor<end) segments.push([cursor,end]);
+    return segments;
+  }
+  const streetX0=CITY.bounds.x[0], streetX1=CITY.bounds.x[1];
+  const streetZ0=H_ROADS[0].z, streetZ1=H_ROADS[H_ROADS.length-1].z;
+  const horizontalWalk=streetSegments(streetX0,streetX1,V_ROADS.map(r=>r.x));
+  const horizontalPaving=streetSegments(streetX0,streetX1,V_ROADS.map(r=>r.x),ROAD_HW+WALK_W);
+  const roadWidth=V_ROADS[V_ROADS.length-1].x-V_ROADS[0].x+ROAD_HW*2;
+  const verticalWalk=streetSegments(streetZ0,streetZ1,H_ROADS.map(r=>r.z));
   H_ROADS.forEach(r => {
     /* 廟口路的路面/人行道伸進廟城裡面了(2026-08-21,kc 截圖抓到「黃線上面
        不會有路啊」)——原本廟口路南側(s=-1,朝廟城那側)不放 curb 是舊設計
@@ -539,15 +557,21 @@ export function buildCity(THREE, scene){
        消失,不會再看到路面/黃線切進廟城裡面。 */
     const templeRoad = r.z === H_ROADS[0].z;
     if(templeRoad){
-      add(box(210,.2,ROAD_HW, M.road), 0, 0, r.z + ROAD_HW/2, false, true);
+      add(box(roadWidth,.2,ROAD_HW, M.road), 0, 0, r.z + ROAD_HW/2, false, true);
     } else {
-      add(box(210,.2,ROAD_HW*2, M.road), 0, 0, r.z, false, true);
+      add(box(roadWidth,.2,ROAD_HW*2, M.road), 0, 0, r.z, false, true);
     }
     (templeRoad ? [1] : [-1,1]).forEach(s => {
-      add(box(210,.3,WALK_W, M.walk), 0, .15, r.z + s*(ROAD_HW+WALK_W/2), false, true);
-      add(box(210,.34,.6, M.curb), 0, .17, r.z + s*(ROAD_HW+.3), false, true);
+      for(const [a,b] of horizontalPaving)
+        add(box(b-a,.3,WALK_W, M.walk), (a+b)/2, .15, r.z + s*(ROAD_HW+WALK_W/2), false, true);
+      for(const [a,b] of horizontalWalk){
+        add(box(b-a,.34,.6, M.curb), (a+b)/2, .17, r.z + s*(ROAD_HW+.3), false, true);
+      }
     });
-    for(let x=-100;x<104;x+=7) add(box(3.4,.02,.2, glow(0xb8ad72,.3)), x, .11, r.z, false, true);
+    if(!templeRoad) for(let x=streetX0+2;x<streetX1-2;x+=7){
+      if(Math.abs(x)>roadWidth/2-1.7 || V_ROADS.some(v=>Math.abs(x-v.x)<ROAD_HW+1.7)) continue;
+      add(box(3.4,.02,.2, glow(0xb8ad72,.3)), x, .11, r.z, false, true);
+    }
   });
   /* 側街路面伸過頭了(2026-08-21,kc 畫圖確認過:「正方形四邊都是乾淨
      直角,只有廟埕本身凸出去,街道不能凸出去」)——depth 172、中心 z:-3
@@ -559,8 +583,12 @@ export function buildCity(THREE, scene){
   V_ROADS.forEach(r => {
     add(box(ROAD_HW*2,.2,168, M.road), r.x, 0, 0, false, true);
     [-1,1].forEach(s => {
-      add(box(WALK_W,.3,168, M.walk), r.x + s*(ROAD_HW+WALK_W/2), .15, 0, false, true);
-      add(box(.6,.34,168, M.curb), r.x + s*(ROAD_HW+.3), .17, 0, false, true);
+      const outerSide = r.x*s>0;
+      const pavementSegments = outerSide ? [[streetZ0,streetZ1+ROAD_HW+WALK_W]] : verticalWalk;
+      for(const [a,b] of pavementSegments){
+        add(box(WALK_W,.3,b-a, M.walk), r.x + s*(ROAD_HW+WALK_W/2), .15, (a+b)/2, false, true);
+        add(box(.6,.34,b-a, M.curb), r.x + s*(ROAD_HW+.3), .17, (a+b)/2, false, true);
+      }
     });
   });
 
@@ -1018,14 +1046,14 @@ export function buildCity(THREE, scene){
    * 這版把同一張照片材質包進一個真的有深度的洞裡:凹進去的箱體(側面沒圖,交給
    * 方向光自己暗下去做出深度)、鐵框、玻璃反光層、外推的門檻、地面油漬/腳踩痕
    * (假接觸陰影),再加一盞貼著地面的暖光讓騎樓地板/柱子吃到一點店內的光色。 */
-  function richStoreFront({ axis, face, fX, fZ, faceW, photoMat }){
+  function richStoreFront({ axis, face, fX, fZ, faceW, photoMat, store = false }){
     const FRONT = .06, RECESS = .42, BORDER = .22, THICK = .12;
     const nX = axis==='z' ? face : 0, nZ = axis==='x' ? face : 0;   // 面朝哪
     const aX = axis==='x' ? 1 : 0,   aZ = axis==='x' ? 0 : 1;       // 沿牆哪個方向
     const dims = (along,h,thick) => axis==='x' ? [along,h,thick] : [thick,h,along];
     const at = (alongOff,nOff) => [fX+aX*alongOff+nX*nOff, fZ+aZ*alongOff+nZ*nOff];
     const mainIdx = axis==='x' ? (face>0?4:5) : (face>0?0:1);
-    const faces = m => Array.from({length:6},(_,i)=>i===mainIdx?photoMat:M.recess);
+    const faces = () => Array.from({length:6},(_,i)=>i===mainIdx?photoMat:M.recess);
 
     const [pcx,pcz] = at(0, FRONT-RECESS/2);
     add(box(...dims(faceW,4.6,RECESS), faces()), pcx, 2.5, pcz, false, true);
@@ -1052,7 +1080,19 @@ export function buildCity(THREE, scene){
     add(decal, dx, .025, dz, false, false);
 
     const [lx,lz] = at(0, FRONT+.6);
-    lampSpots.push({ x:lx, y:.6, z:lz, c:0xffcf9c, i:14, r:10 });
+    lampSpots.push({ x:lx, y:store ? 4.5 : .6, z:lz, c:store ? 0xffe5be : 0xffcf9c, i:store ? 12 : 14, r:store ? 14 : 10 });
+    // 超商入口試做：窄鋁框、玻璃門分割與腳踏墊，見 DESIGN_NOTES「超商與 UI 視覺整理」。
+    if(store){
+      const [mx,mz] = at(0, FRONT+.1);
+      add(box(...dims(.09,4.35,.1), M.alumFrame), mx, 2.5, mz, false, true);
+      [-.35,.35].forEach(offset => {
+        const [hx,hz] = at(offset, FRONT+.18);
+        add(box(...dims(.07,.65,.1), fm), hx, 2.25, hz, false, true);
+      });
+      const [matX,matZ] = at(0, FRONT+1.15);
+      const mat = std({color:0x353d38,roughness:1});
+      add(box(...dims(faceW*.36,.035,1.3),mat), matX,.065,matZ,false,true);
+    }
   }
 
   /* ===== 一排店面 ===== */
@@ -1098,9 +1138,9 @@ export function buildCity(THREE, scene){
          鐵捲門那張貼圖貼上去之後一直沒出現就是這個原因。 */
       if(s.kind === 'shutter'){
         add(box(faceW,4.4,faceD, M.shutter), fX+offX, 2.3, fZ+offZ, false, true);
-      } else if(s.proto && shopFront(s.kind, s.bodyIdx)){
+      } else if((s.proto || s.kind === 'store') && shopFront(s.kind, s.bodyIdx)){
         /* 單一店面試做「有厚度」的版本,先不動其他店——比較效果用,見上面 richStoreFront。 */
-        richStoreFront({ axis, face, fX, fZ, faceW, photoMat: shopFront(s.kind, s.bodyIdx) });
+        richStoreFront({ axis, face, fX, fZ, faceW:alongW-2.6, photoMat: shopFront(s.kind, s.bodyIdx), store:s.kind === 'store' });
       } else {
         const lit = s.kind === 'store';
         const photo = shopFront(s.kind, s.bodyIdx);
@@ -1145,7 +1185,7 @@ export function buildCity(THREE, scene){
            drug 原本 vertH 3.5 比 store 明顯大一號,箱體側面鋁框露出的面積跟著放大,
            讀起來像一塊厚重的方塊而不是薄招牌(kc 抓到的問題)——縮到跟 store 同尺寸。 */
         const ART = {
-          store:  { along: alongW-6.5, vertH:2.7,  y:8.0,  emissiveK:1.3 },
+          store:  { along: alongW-6.5, vertH:2.7,  y:8.0,  emissiveK:.45 },
           moto:   { along: alongW-5.7, vertH:2.5,  y:7.8,  emissiveK:1.15 },
           drug:   { along: alongW-6.5, vertH:2.7,  y:8.0,  emissiveK:1.1 },
           tattoo: { along: alongW-5.9, vertH:2.8,  y:8.0,  emissiveK:1.15 }
@@ -1327,7 +1367,11 @@ export function buildCity(THREE, scene){
     const TOWERS = [
       { x:-58, w:18, file:'office-tower-1.png', sideFile:'office-tower-1-side.png', color:0x8a97a0 },   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面 2026-08-27 補上(kc 生的圖一開始被誤放成大樓3正面,kc 糾正「我給你的是側面」才發現配對錯,原始生圖同樣左右留了近 30% 黑邊,裁法跟大樓3那次一樣)
       { x:-16, w:14, file:'office-tower-2.png', sideFile:'office-tower-2-side.png?v=2', color:0xb08858 },   // 學校跟火車站中間,只有 16 寬的窄縫,樓也窄一點——古銅色帷幕,側面 v2(2026-08-26,kc:「他是大樓二」,原本以為 v2 那張是大樓一,修正)
-      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png?v=2', color:0xc8c4ba }    // 火車站跟小美哥站位(x≈48)中間——淺灰石材。正面+側面 2026-08-27
+      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png?v=2', color:0xc8c4ba },   // 火車站跟小美哥站位(x≈48)中間——淺灰石材。正面+側面 2026-08-27
+      // 第四棟(2026-09-15)——第三棟到東和街人行道(x 68)那段原本是空地,自強巷
+      // 從 x=48 冒出來時背後什麼都沒有;補一棟,跟第三棟之間留 42~52 當巷口。
+      // 圖還沒生,先素色佔位(檔名先訂好,kc 生了圖放進去就會自動換)。
+      { x:60,  w:16, file:'office-tower-4.png', sideFile:'office-tower-4-side.png', color:0x9aa4ac }
       // 同一輪重生(kc 一次生兩張,一張真的填滿畫面、一張側面又留了黑邊,裁法
       // 跟前面幾次一樣),側面加 ?v=2 破快取,取代掉先前那張磁磚特寫拉伸版。
     ];
@@ -2963,16 +3007,20 @@ export function buildCity(THREE, scene){
   /* shopfront.z=-38 對齊 game.html 的 ALLEY_WORKER.z(-38)——她站的位置
      本來就已經偏東牆(x:-22.3,巷子中心 x=-24),店門開在她面前那面牆上,
      不用另外挪她的座標。 */
-  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + B_LINE + DEPTH/2, '光明巷',
+  /* 北端 2026-09-15 從 -57(廟口路那排店刪掉後留下的舊建築線)延到 -68
+     (廟口路人行道邊),巷子直接接到人行道,中間不再留 11 單位裸地——見
+     DESIGN_NOTES「巷子收邊」。 */
+  alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + ROAD_HW + WALK_W, '光明巷',
     { shopfront:{ side:1, z:-38, id:'massage', label:'越式按摩' } });   // 中華路 ⇄ 廟口路
-  alley(-60 + 2*UNIT,  B_LINE + DEPTH/2,  84 - B_LINE - DEPTH/2, '太平巷');   // 中華路 ⇄ 後火車站
+  /* 太平巷(x=-36)2026-09-15 整條拿掉:一頭是網咖背牆、一頭是學校後牆,
+     根本沒有入口(GPT 抓到的);它提的 L 形死巷方案沒採用,見 DESIGN_NOTES
+     「巷子收邊」。網咖右邊 x=-24 那格凹室維持空著。 */
 
   /* ===== 斜巷:跟 alley() 同一套「兩排素牆夾一條走道」邏輯,只是不沿 x/z
    * 軸走,是斜的(2026-08-13——kc 說圓環、廟埕那些都是路口貼裝飾,路本身
    * 還是直的;這條路本身就是斜的,呼應老市區地界不平整長出來的斜切捷徑)。
    * 角度靠 rotation.y = atan2(dx,dz) 轉,跟玩家轉向、alley() 的牆用同一套
-   * 三角函數。碰撞箱用旋轉矩形的軸對齊包絡框(AABB)概略擋,巷子兩邊本來
-   * 就是空的街廓內部,擋多一點無傷。 */
+   * 三角函數。碰撞先用 AABB 篩選,再轉回牆面局部座標判斷,避免包絡框封住走道。 */
   const diagAlleys = [];
   function alleyDiag(x0, z0, x1, z1, name){
     diagAlleys.push({ x0, z0, x1, z1, name });
@@ -2992,7 +3040,9 @@ export function buildCity(THREE, scene){
       wall.rotation.y = ang;
       const [wx,wz] = at(0, s*(HW+3));
       add(wall, wx, 6.5, wz);
-      solid(wx, wz, Math.abs(len/2*ux)+Math.abs(3*nx), Math.abs(len/2*uz)+Math.abs(3*nz));
+      // Keep the broad bounds for map drawing; walking uses the actual rotated wall.
+      colliders.push({x:wx,z:wz,hw:Math.abs(len/2*ux)+Math.abs(3*nx),
+        hd:Math.abs(len/2*uz)+Math.abs(3*nz),angle:ang,localHW:3,localHD:len/2});
     });
     /* 掛牆版冷氣機/電表箱,同一套跟 alley() 一致(見上面 wallUnit 那則
        筆記,高度分層見 AC_Y/MB_Y 那則第二十六輪筆記)。斜巷用 at(along, side)
@@ -3825,8 +3875,16 @@ export function buildCity(THREE, scene){
     return '巷子';
   }
   function blocked(x, z){
-    for(const c of colliders)
-      if(Math.abs(x-c.x) < c.hw+.55 && Math.abs(z-c.z) < c.hd+.55) return true;
+    for(const c of colliders){
+      const dx=x-c.x, dz=z-c.z;
+      if(Math.abs(dx)>=c.hw+.55 || Math.abs(dz)>=c.hd+.55) continue;
+      if(c.angle!==undefined){
+        const cs=Math.cos(c.angle), sn=Math.sin(c.angle);
+        if(Math.abs(dx*cs-dz*sn)>=c.localHW+.55 ||
+           Math.abs(dx*sn+dz*cs)>=c.localHD+.55) continue;
+      }
+      return true;
+    }
     return false;
   }
 
@@ -3905,6 +3963,108 @@ export function buildCity(THREE, scene){
        這次聊天紀錄:純方塊、kc 自己生的 assets/tex/skyline-temple.png
        大圖(貼牆做法已經寫過一次,見對話紀錄),或別的做法,到時候再議,
        不要看到舊註解就自動接回這批 tower。 */
+  })();
+
+  /* ===== 街廓內部收邊(2026-09-15,kc:巷子「直接穿到房子的背後」、
+   * 「有些地區做不了」)=====
+   * 街廓是 2×2 骨架,但房子只沿中華路兩側跟永安街南側蓋;北街廓
+   * (z -68~-27)跟南街廓(z 27~57)的內部、還有西園街/東和街內側整條,
+   * 都是沒鋪過的裸地,巷子的牆就是兩片獨立立在空地上的牆,俯視鏡頭一眼
+   * 看穿。這裡不蓋新的「店」,用台灣街屋後面那種後院加蓋把內部鋪滿:
+   * 一格一格的低矮鐵皮屋頂(4.5~6.5 高,比店面 17+、巷牆 13 都矮,俯視
+   * 讀成一片高低不齊的鐵皮,不會跟正面的店搶戲),外圍面向街道那幾邊
+   * 再圍一圈 2.6 高的圍牆。格子碰到既有碰撞箱(店、巷牆、斜巷的旋轉牆)
+   * 或巷子走道就跳過,所以巷子兩側自然留出來,不用手算每一段。
+   * 高度/屋頂顏色用 (col,row) 索引錯開,不用亂數(kc:不要亂數)。
+   * 長篇理由見 DESIGN_NOTES「巷子收邊」。 */
+  (function backyardFill(){
+    const tinTex = (base, dark) => {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+      const x = c.getContext('2d');
+      x.fillStyle = base; x.fillRect(0,0,64,64);
+      x.fillStyle = dark;
+      for(let i=0;i<64;i+=8) x.fillRect(i,0,3,64);          // 浪板稜線
+      x.fillStyle = 'rgba(0,0,0,.18)';
+      for(let i=0;i<64;i+=8) x.fillRect(i+3,0,1,64);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3,2);
+      return t;
+    };
+    const ROOFS = [
+      std({ map:tinTex('#7d8a8f','#5e6a70'), roughness:.55, metalness:.25 }),   // 鍍鋅灰
+      std({ map:tinTex('#8f5a42','#6b3f2c'), roughness:.7,  metalness:.15 }),   // 鏽紅
+      std({ map:tinTex('#5c6e78','#44525b'), roughness:.6,  metalness:.2  })    // 藍灰
+    ];
+    const SIDES = [M.wallB, M.wallC, M.wall, M.wallD];
+    const H = [4.5, 6.5, 5.5];
+
+    const ALLEY_HW = 3.2, DIAG_HW = 3.6;
+    /* 一個點有沒有壓到「不能蓋」的東西:既有碰撞箱(含斜巷旋轉牆)或
+       巷子走道。跟 blocked() 同一套旋轉判斷,但不加 .55 的走路緩衝。 */
+    const snapshot = colliders.slice();   // 這批加蓋自己也會 solid(),不要拿自己當障礙
+    function occupied(x, z){
+      for(const c of snapshot){
+        const dx = x-c.x, dz = z-c.z;
+        if(Math.abs(dx) >= c.hw || Math.abs(dz) >= c.hd) continue;
+        if(c.angle !== undefined){
+          const cs = Math.cos(c.angle), sn = Math.sin(c.angle);
+          if(Math.abs(dx*cs-dz*sn) >= c.localHW || Math.abs(dx*sn+dz*cs) >= c.localHD) continue;
+        }
+        return true;
+      }
+      for(const a of alleys)
+        if(Math.abs(x-a.x) < ALLEY_HW+.5 && z > Math.min(a.z0,a.z1)-.5 && z < Math.max(a.z0,a.z1)+.5) return true;
+      for(const a of diagAlleys){
+        const dx = a.x1-a.x0, dz = a.z1-a.z0, len = Math.hypot(dx,dz), ux = dx/len, uz = dz/len;
+        const px = x-a.x0, pz = z-a.z0, along = px*ux+pz*uz, side = px*uz-pz*ux;
+        if(along > -.5 && along < len+.5 && Math.abs(side) < DIAG_HW+.5) return true;
+      }
+      return false;
+    }
+    function cellFree(x0, z0, x1, z1){
+      const xs = [x0, (x0+x1)/2, x1], zs = [z0, (z0+z1)/2, z1];
+      for(const x of xs) for(const z of zs) if(occupied(x, z)) return false;
+      return true;
+    }
+    function fill(x0, z0, x1, z1, cols, rows){
+      const cw = (x1-x0)/cols, cd = (z1-z0)/rows, GAP = .5;
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+        const ax = x0+c*cw+GAP/2, az = z0+r*cd+GAP/2, bx = ax+cw-GAP, bz = az+cd-GAP;
+        if(!cellFree(ax, az, bx, bz)) continue;
+        const k = (c*7+r*3)%3, h = H[(c+r*2)%3];
+        const side = SIDES[(c+r)%4];
+        add(box(bx-ax, h, bz-az, [side,side,ROOFS[k],side,side,side]), (ax+bx)/2, h/2, (az+bz)/2);
+        solid((ax+bx)/2, (az+bz)/2, (bx-ax)/2, (bz-az)/2);
+      }
+    }
+    /* 外圍圍牆:面向街道那幾邊(北街廓的廟口路邊、兩個街廓的西園街/東和街
+       邊、南街廓在永安街上那塊原火車站空地)。巷口那段自動讓開(alleys
+       走道範圍內不放)。 */
+    function ringWall(axis, at, from, to){
+      const SEG = 4;
+      for(let a=from; a<to; a+=SEG){
+        const b = Math.min(to, a+SEG), m = (a+b)/2;
+        const x = axis==='x' ? m : at, z = axis==='x' ? at : m;
+        if(occupied(x, z)) continue;
+        if(axis==='x') { add(box(b-a, 2.6, .6, M.wallB), m, 1.3, at); solid(m, at, (b-a)/2, .3); }
+        else           { add(box(.6, 2.6, b-a, M.wallB), at, 1.3, m); solid(at, m, .3, (b-a)/2); }
+      }
+    }
+    const INNER_X = V_ROADS[1].x - ROAD_HW - WALK_W;   // 68:東和街人行道內緣(西邊對稱 -68)
+    // 北街廓:z -68(廟口路人行道邊)~ -27(中華路北排店背)
+    ringWall('x', -84 + ROAD_HW + WALK_W + .8, -INNER_X, INNER_X);
+    ringWall('z', -INNER_X + .8, -84 + ROAD_HW + WALK_W + 1.4, -B_LINE - DEPTH/2);
+    ringWall('z',  INNER_X - .8, -84 + ROAD_HW + WALK_W + 1.4, -B_LINE - DEPTH/2);
+    fill(-INNER_X + 1.6, -84 + ROAD_HW + WALK_W + 1.6, INNER_X - 1.6, -B_LINE - DEPTH/2, 11, 5);
+    // 南街廓:z 27(中華路南排店背)~ 57(永安街南排建築線)
+    ringWall('z', -INNER_X + .8, B_LINE + DEPTH/2, 84 - B_LINE - DEPTH/2);
+    ringWall('z',  INNER_X - .8, B_LINE + DEPTH/2, 84 - B_LINE - DEPTH/2);
+    ringWall('x', 84 - B_LINE - DEPTH/2 + .6, -9, 19);   // 原火車站那格空地,先圍起來(見 DESIGN_NOTES「巷子收邊」待決)
+    fill(-INNER_X + 1.6, B_LINE + DEPTH/2, INNER_X - 1.6, 84 - B_LINE - DEPTH/2 - 1.2, 11, 4);
+    // 自強巷在永安街的巷口(第三、四棟大樓之間 x 42~52):斜巷地面只鋪到
+    // 建築線 z 57,巷口到人行道那段補一塊,不然又是一塊裸地。
+    add(box(10, .28, DEPTH, M.alleyFloor), 47, .14, 84 - B_LINE, false, true);
   })();
 
   /* spawnMoto:parkMoto() 本體直接掛出去(2026-09-03,配合「不要有展示車」

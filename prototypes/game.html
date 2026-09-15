@@ -1066,6 +1066,86 @@
   #keys kbd + kbd { margin-left:-3px; }
   #keys .sep { color:#6a6152; margin:0 6px; }
 
+  /* 2026-09-14 第一輪視覺整理，見 DESIGN_NOTES「超商與 UI 視覺整理」。 */
+  .hud { gap:10px; top:18px; left:20px; }
+  .hudGroup { display:flex; padding:9px 6px; gap:0; }
+  .hud .pod { background:none; border:0; border-radius:0; min-width:72px;
+    padding:2px 12px 4px; filter:none; }
+  .hud .pod + .pod { border-left:1px solid rgba(90,73,49,.18); }
+  .hud .pod .lb { font-size:12px; letter-spacing:.08em; }
+  .hud .pod .nm { font-size:22px; line-height:1.2; margin-top:5px; }
+  .hudMoney .pod { min-width:94px; }
+  .hudMoney .nm { font-size:26px; }
+  .hud .track { height:3px; margin-top:6px; }
+  .pod.full i, .pod.stamina i { background:#577564; }
+  .pod.calm i, .pod.cool i, .pod.mood i { background:#9a794b; }
+  .pod.low i { background:#a1372d; }
+  #charCardBtn, #mapBtn, #questToggleBtn { top:108px; min-height:38px; }
+  #charCardBtn { left:20px; } #mapBtn { left:102px; } #questToggleBtn { left:184px; }
+  #questPanel { left:20px; top:158px; max-height:calc(100vh - 360px); overflow:auto; }
+  #where { top:22px; font-size:18px; padding:7px 20px; }
+  #clock { top:18px; right:20px; min-width:110px; }
+  #menuBtn { top:98px; right:20px; min-height:36px; }
+  #hint { bottom:19%; max-width:calc(100vw - 40px); white-space:normal;
+    text-align:center; font-size:17px; line-height:1.6; padding:12px 22px; }
+  #hint b { display:inline-block; border:1px solid rgba(90,73,49,.38); border-bottom-width:3px;
+    padding:0 7px; margin:0 4px; font-size:15px; border-radius:3px; }
+  #dialog { width:calc(100% - 64px); max-width:1060px; bottom:64px; padding-top:28px; }
+  #portrait { width:120px; height:120px; left:28px; top:0; transform:rotate(-2deg); }
+  #dialog .frame { padding:20px 32px 24px 180px; min-height:152px; }
+  #dialog .frame::after { opacity:.10; }
+  .dname { font-size:18px; margin-bottom:12px; }
+  .dbody { font-size:20px; line-height:1.8; letter-spacing:.035em; }
+  #dialog.narration .frame { padding-left:32px; }
+  #menu { width:min(660px,calc(100vw - 40px)); max-height:60vh; overflow:auto; bottom:64px; }
+  #menu button, #coOpts button { min-height:48px; font-size:18px; line-height:1.55; }
+  #coTimerTrack { bottom:252px; }
+  button:focus-visible, summary:focus-visible { outline:2px solid var(--ui-red); outline-offset:4px; }
+  #keys { left:20px; bottom:18px; padding:8px 12px; background:rgba(15,18,18,.82);
+    border:1px solid rgba(236,229,212,.15); border-radius:3px; font-size:13px; }
+  #devTools { position:fixed; bottom:18px; right:20px; z-index:7; font:13px/1.5 system-ui,sans-serif; }
+  #devTools summary { list-style:none; cursor:pointer; color:#d2cab9; padding:8px 14px;
+    background:rgba(15,18,18,.86); border:1px solid rgba(236,229,212,.22); border-radius:3px; }
+  #devTools summary::before { content:'＋ '; } #devTools[open] summary::before { content:'－ '; }
+  #devTools #bar { position:absolute; left:auto; right:0; bottom:48px; transform:none;
+    display:flex; flex-wrap:wrap; justify-content:flex-end; width:min(440px,calc(100vw - 40px));
+    padding:14px; gap:8px; background:rgba(15,18,18,.94); border:1px solid #514b40; }
+  @media (max-width:1250px) {
+    #where { left:auto; right:154px; transform:none; }
+  }
+  @media (max-width:960px) {
+    .hud .pod { min-width:58px; padding-inline:8px; }
+    .hudMoney .pod { min-width:80px; }
+    .hudGroup { padding-inline:3px; }
+    #where { top:108px; right:20px; }
+    #menuBtn { top:156px; }
+  }
+  @media (max-width:640px) {
+    .hud { top:76px; left:12px; right:12px; gap:6px; }
+    .hudGroup { flex:3; min-width:0; padding:8px 3px; }
+    .hudGroup.hudMoney { flex:1.25; }
+    .hud .pod { flex:1; min-width:0; padding:2px 4px; }
+    .hud .pod .lb { font-size:10px; letter-spacing:0; white-space:nowrap; }
+    .hud .pod .nm { font-size:17px; }
+    #where { top:20px; left:14px; right:auto; font-size:16px; }
+    #clock { top:12px; right:12px; padding:6px 12px; }
+    #clock .t { font-size:19px; }
+    #charCardBtn, #mapBtn, #questToggleBtn { top:158px; padding:7px 12px; font-size:14px; }
+    #charCardBtn { left:12px; } #mapBtn { left:80px; } #questToggleBtn { left:148px; }
+    #menuBtn { top:158px; right:12px; padding:7px 10px; }
+    #questPanel { left:12px; top:204px; max-width:calc(100vw - 24px); max-height:28vh; }
+    #dialog { width:calc(100% - 24px); bottom:70px; padding-top:12px; }
+    #portrait { width:66px; height:66px; left:18px; }
+    #dialog .frame { padding:18px 22px 20px; min-height:156px; max-height:48vh; overflow:auto; }
+    #dialog .dname { margin-left:78px; margin-bottom:18px; }
+    .dbody { font-size:18px; line-height:1.65; }
+    #keys { left:12px; right:98px; bottom:14px; flex-wrap:wrap; gap:4px; font-size:10px; padding:6px; }
+    #keys .sep { display:none; } #keys kbd { font-size:10px; padding:1px 3px; }
+    #devTools { right:12px; bottom:14px; }
+    #devTools summary { padding:8px; font-size:11px; }
+    #menu { bottom:76px; }
+  }
+
 </style>
 </head>
 <body>
@@ -1077,14 +1157,20 @@
   <canvas id="c2df" width="1280" height="720"></canvas>
 </div></div>
 
-<div class="hud">
-  <div class="pod money" id="pMoney"><div class="lb">金錢</div><div class="nm">$63</div></div>
-  <div class="pod full"  id="pFull"><div class="lb">飽足</div><div class="nm">42</div><div class="track"><i></i></div></div>
-  <div class="pod stamina" id="pStamina"><div class="lb">體力</div><div class="nm">100</div><div class="track"><i></i></div></div>
-  <div class="pod calm"  id="pCalm"><div class="lb">歸屬感</div><div class="nm">55</div><div class="track"><i></i></div></div>
-  <div class="pod cool"  id="pCool"><div class="lb">帥潮</div><div class="nm">8</div><div class="track"><i></i></div></div>
-  <div class="pod mood"  id="pMood"><div class="lb">情緒</div><div class="nm">60</div><div class="track"><i></i></div></div>
-  <div class="pod star"  id="pStar"><div class="lb">風評</div><div class="nm">0</div><div class="track"><i></i></div></div>
+<div class="hud" aria-label="角色狀態">
+  <div class="hudGroup hudMoney" aria-label="金錢">
+    <div class="pod money" id="pMoney"><div class="lb">金錢</div><div class="nm">$63</div></div>
+  </div>
+  <div class="hudGroup" aria-label="生活狀態">
+    <div class="pod full"  id="pFull"><div class="lb">飽足</div><div class="nm">42</div><div class="track"><i></i></div></div>
+    <div class="pod stamina" id="pStamina"><div class="lb">體力</div><div class="nm">100</div><div class="track"><i></i></div></div>
+    <div class="pod mood"  id="pMood"><div class="lb">情緒</div><div class="nm">60</div><div class="track"><i></i></div></div>
+  </div>
+  <div class="hudGroup" aria-label="社交狀態">
+    <div class="pod calm"  id="pCalm"><div class="lb">歸屬感</div><div class="nm">55</div><div class="track"><i></i></div></div>
+    <div class="pod cool"  id="pCool"><div class="lb">帥潮</div><div class="nm">8</div><div class="track"><i></i></div></div>
+    <div class="pod star"  id="pStar"><div class="lb">風評</div><div class="nm">0</div><div class="track"><i></i></div></div>
+  </div>
 </div>
 <button id="charCardBtn">角色</button>
 <button id="questToggleBtn">任務</button>
@@ -1304,7 +1390,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -15859,13 +15945,13 @@ function tornPaperURL(w, h, amp, seed){
   const x = c.getContext('2d'); x.scale(dpr,dpr);
   // 紙:比成績單那張再黃一階(參考圖是舊紙),斑塊多一點
   const g = x.createLinearGradient(0,0,w,h);
-  g.addColorStop(0,'#eee2c6'); g.addColorStop(.5,'#e6d7b6'); g.addColorStop(1,'#dccaa3');
+  g.addColorStop(0,'#f3ecdc'); g.addColorStop(.5,'#ece2cc'); g.addColorStop(1,'#e5d6b9');
   x.fillStyle = g; x.fillRect(0,0,w,h);
   const area = w*h, nBlot = Math.max(10, Math.round(area/2400));
   for(let i=0;i<nBlot;i++){
     const cx=rnd()*w, cy=rnd()*h, r=16+rnd()*Math.min(180, Math.max(w,h)*.35);
     const rg = x.createRadialGradient(cx,cy,0,cx,cy,r);
-    rg.addColorStop(0,'rgba(135,100,50,'+(.02+rnd()*.055)+')'); rg.addColorStop(1,'rgba(135,100,50,0)');
+    rg.addColorStop(0,'rgba(135,100,50,'+(.012+rnd()*.028)+')'); rg.addColorStop(1,'rgba(135,100,50,0)');
     x.fillStyle = rg; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
   }
   x.strokeStyle='rgba(120,95,55,.07)'; x.lineWidth=1;
@@ -15942,7 +16028,7 @@ function tornInit(){
   const big = ['#dialog .frame', '#menu', '#textPrompt', '#questPanel', '#mapPanel', '#invPanel'];
   big.push('#tsSheet', '#spanSheet');
   big.forEach(sel => q(sel).forEach(el => { tornAttach(el, sel==='#dialog .frame' ? 5 : 4); el.classList.add('big'); }));
-  ['.pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool']
+  ['.hudGroup', '.statList .pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool']
     .forEach(sel => q(sel).forEach(el => tornAttach(el, 2)));
   q('.dname').forEach(el => { el.__torn = { amp:0, seed:31, gen:brushTagURL }; TORN.ro.observe(el); tornPaint(el); });
   /* 廟宇線稿浮水印(對話框右側,參考圖第二張)——素材 assets/ui/temple-lineart.png
