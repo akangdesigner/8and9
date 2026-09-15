@@ -11891,19 +11891,20 @@ function midtermGate(door){
   }
   if(MIDTERM.chose === 'in') return false;      // 已經選過進去,正常進場
   busy = true;
+  /* 2026-09-15 kc 抓 AI 味:原本有轉鑰匙、停頓、「……你要進去喔?」那種欲言
+     又止,他說阿凱就是直接講「反正你也不會寫」「不要考了啦陪我出去玩」。
+     十六歲的人講話不繞。 */
   playBeats([
-    { who:'pc',  text:'校門口前面幾步，阿凱靠在圍牆邊，書包丟在腳邊。' },
-    { who:'pc',  text:'他手上轉著機車鑰匙，沒有要進去的意思。' },
+    { who:'pc',  text:'校門口旁邊，阿凱靠在圍牆上。' },
     { who:'kai', text:'「反正你也不會寫。」' },
-    { who:'kai', text:'「……你要進去喔？」' }
+    { who:'kai', text:'「不要考了啦，陪我出去玩。」' }
   ], 0, () => {
     openMenu('校門口', [
       { label:'進去。', run(){
           MIDTERM.chose = 'in';
           playBeats([
-            { who:'pc',  text:'阿凱看了你一眼，把書包從地上撈起來。' },
-            { who:'kai', text:'「……那我也進去好了。」' },
-            { who:'pc',  text:'他走在你後面半步，一路沒有再說話。' }
+            { who:'kai', text:'「蛤，真的要考喔。」' },
+            { who:'kai', text:'「好啦好啦，那我也進去。」' }
           ], 0, () => { busy = false; enterIndoor(door); });
         } },
       { label:'走啦。', cost:'歸屬感 +10　情緒 +12　曠課一次', run(){
@@ -11921,8 +11922,7 @@ function midtermSkip(){
   clearTodayCard();
   playBeats([
     { who:'kai', text:'「走走走。」' },
-    { who:'pc',  text:'他把書包甩上肩，走在前面，沒有回頭確認你有沒有跟上。' },
-    { who:'pc',  text:'你們沿著圍牆走到底，轉出去的時候上課鐘剛好響。' }
+    { who:'pc',  text:'你們沿著圍牆走出去，上課鐘在後面響了。' }
   ], 0, () => {
     busy = false;
     MIDTERM.arcadePending = true;
@@ -11935,18 +11935,17 @@ function midtermArcadeScene(){
   MIDTERM.settled = true;
   busy = true;
   playBeats([
-    { who:'pc',  text:'早上的遊藝場幾乎沒有人，機台的音樂空空地響著。' },
-    { who:'kai', text:'「我媽昨天沒回來。」' },
-    { who:'pc',  text:'他一邊投幣一邊講，眼睛沒有離開螢幕。' },
-    { who:'kai', text:'「我不是不敢自己來。」' },
-    { who:'kai', text:'「我是不想一個人待一整天。」' },
-    { who:'pc',  text:'他沒有再講下去，那局也很快就結束了。' }
+    { who:'pc',  text:'早上的遊藝場沒什麼人。' },
+    { who:'kai', text:'「我媽昨天又沒回來。」' },
+    { who:'pc',  text:'他一邊投幣一邊講。' },
+    { who:'kai', text:'「一個人在家很無聊欸，才找你出來。」' },
+    { who:'pc',  text:'那一局他很快就輸了。' }
   ], 0, () => {
     chg('calm', 10); chg('mood', 12); chg('stamina', -6);
     advanceTime(3);
     busy = false;
     toast('你們在遊藝場耗掉了一個上午。（歸屬感 +10，情緒 +12，體力 −6）', 4200);
-    logDay('今天沒去考試。阿凱說他不是不敢自己來，是不想一個人待一整天。');
+    logDay('今天沒去考試，跟阿凱去遊藝場。他說他媽又沒回來，一個人在家很無聊。');
   });
 }
 
