@@ -13697,8 +13697,8 @@ function offerTroupeRoutine(){
     return;
   }
   openMenu('阿源', [
-    { label:'容身', run(){ playTroupeRoutine('rongshen'); } },
-    { label:'無人望', run(){ playTroupeRoutine('wurenwang'); } },
+    { label:'容身',   cost:'體力 −10', run(){ playTroupeRoutine('rongshen'); } },     // 2026-09-15 補標體力,選單紅字警示才抓得到
+    { label:'無人望', cost:'體力 −10', run(){ playTroupeRoutine('wurenwang'); } },
     { label:'先不要', cls:'back', run(){} }
   ]);
 }
@@ -14944,8 +14944,12 @@ function talkToForeman(){
   }
   say('foreman', '「工地缺人，要不要來扛磚？扛一趟給一趟的錢，看你手腳快不快。」', () => {
     openMenu('工地・老闆', [
-      { label:'上工扛磚', cost:'體力 -20', cls: ST.stamina<20 ? 'bad' : '', run(){
-          if(ST.stamina < 20){ toast('你現在扛不動，先去休息。', 2200); return; }
+      { label:'上工扛磚', cost:'體力 −20', cls: spendBlockedReason(20) ? 'bad' : '', run(){
+          /* 2026-09-15 kc:「上班要提示吧 不然突然暴斃」——原本只擋體力<20,飽足
+             ≤20 的人上工會被 chg() 那條 1:1 連動扣到餓死。改走 spendBlockedReason()
+             跟超商上班同一道門(體力/飽足都看),選單那行也會照 menuCostWarnings()
+             先紅字。 */
+          { const r = spendBlockedReason(20); if(r){ toast(r, 2400); return; } }
           startForemanShift();
         } },
       ...(dogItem ? [dogItem] : []),
@@ -15839,7 +15843,7 @@ function talkToWorker(w){
   say('worker', line, () => {
     openMenu('巷子裡', [
       { label: freeOne ? '爽一下（她說這次算她的）' : '爽一下',
-        cost: freeOne ? '免費' : '$'+WORKER_PRICE,
+        cost: (freeOne ? '免費' : '$'+WORKER_PRICE) + '　體力 −10',   // 2026-09-15 補標體力
         cls: (!freeOne && ST.money<WORKER_PRICE) ? 'bad' : '',
         run(){
           /* 2026-08-20 kc 糾正:「付錢才會換場景」——開場白+選單本來就在
