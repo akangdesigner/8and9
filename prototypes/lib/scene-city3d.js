@@ -3012,9 +3012,8 @@ export function buildCity(THREE, scene){
      DESIGN_NOTES「巷子收邊」。 */
   alley(-72 + 4*UNIT, -B_LINE - DEPTH/2, -84 + ROAD_HW + WALK_W, '光明巷',
     { shopfront:{ side:1, z:-38, id:'massage', label:'越式按摩' } });   // 中華路 ⇄ 廟口路
-  /* 太平巷(x=-36)2026-09-15 整條拿掉:一頭是網咖背牆、一頭是學校後牆,
-     根本沒有入口(GPT 抓到的);它提的 L 形死巷方案沒採用,見 DESIGN_NOTES
-     「巷子收邊」。網咖右邊 x=-24 那格凹室維持空著。 */
+  /* 舊太平巷(x=-36,網咖背牆⇄學校後牆,沒有入口)2026-09-15 拿掉,同日重做成
+     轉彎版,見下面 alleyPath() 那通呼叫。 */
 
   /* ===== 斜巷:跟 alley() 同一套「兩排素牆夾一條走道」邏輯,只是不沿 x/z
    * 軸走,是斜的(2026-08-13——kc 說圓環、廟埕那些都是路口貼裝飾,路本身
@@ -3083,6 +3082,106 @@ export function buildCity(THREE, scene){
     alleyFill(cx, cz);
   }
   alleyDiag(12, B_LINE+DEPTH/2, 48, 84-B_LINE-DEPTH/2, '自強巷');   // 中華路 ⇄ 後火車站,斜的那條(同一批舊路口 72→84 的坑)
+
+  /* 自強巷永安街端東側補一截牆(2026-09-15):斜巷的東牆到建築線之前就結束了
+     (內角 (50.3,54.2)),跟第四棟大樓(x 52 起)之間留一條斜縫,玩家從巷口
+     可以鑽進街廓內部的裸地(kc:「不能走到裸地」)。把東牆沿同一個方向再延
+     8 個單位,延伸段穿進第四棟的西北角(藏在大樓體積裡),縫就封死了。 */
+  (function ziqiangEastCap(){
+    const x0 = 12, z0 = B_LINE+DEPTH/2, x1 = 48, z1 = 84-B_LINE-DEPTH/2;
+    const ang = Math.atan2(x1-x0, z1-z0), ux = Math.sin(ang), uz = Math.cos(ang), nx = Math.cos(ang), nz = -Math.sin(ang);
+    const EXT = 8, cx = x1 + ux*EXT/2 + nx*6.6, cz = z1 + uz*EXT/2 + nz*6.6;
+    const wall = box(6, 13, EXT, alleyWallFaces(EXT)); wall.rotation.y = ang;
+    add(wall, cx, 6.5, cz);
+    colliders.push({ x:cx, z:cz, hw:Math.abs(EXT/2*ux)+Math.abs(3*nx), hd:Math.abs(EXT/2*uz)+Math.abs(3*nz), angle:ang, localHW:3, localHD:EXT/2 });
+  })();
+
+  /* ===== 轉彎的巷子(2026-09-15,kc:「補一個彎曲的小巷子連接永安街跟中華路,
+   * 巷子用高牆兩邊,類似光明巷,只是彎曲變化且比較長」)=====
+   * 跟 alley() 同一套「兩排 13 高素牆夾一條走道」,差別是路徑可以轉直角。
+   * 這條巷子同時解掉三個開口:網咖右邊 x=-24 那格凹室的底、永安街原火車站
+   * 那格空地(巷子從那裡出來,兩側補牆接到第二、三棟大樓)、以及南街廓內部
+   * 「走得到裸地」的問題——牆本身就是封口,不用另外填內部(整片鋪加蓋那個
+   * 方案 kc 已打回,見 DESIGN_NOTES「巷子收邊」)。
+   * 轉角的牆怎麼接:進彎那段,外側牆多伸 HW+6 蓋住轉角那塊,內側牆提前 HW
+   * 停在下一段走道的邊;出彎那段,外側牆往回多伸 HW 貼到前一段外側牆,
+   * 內側牆晚 HW+6 起頭,剛好接在前一段內側牆的外面。地板各段多鋪 HW+3
+   * 疊在轉角,y 錯開一點點避免閃爍。
+   * 只支援軸對齊的段(每段只沿 x 或只沿 z),斜的用 alleyDiag()。 */
+  function alleyPath(pts, name){
+    const HW = 3.2, T = 6;
+    const segs = [];
+    for(let i=0;i<pts.length-1;i++){
+      const [ax,az] = pts[i], [bx,bz] = pts[i+1];
+      const len = Math.hypot(bx-ax, bz-az), dx = (bx-ax)/len, dz = (bz-az)/len;
+      segs.push({ ax, az, bx, bz, len, dx, dz, px:dz, pz:-dx, ang:Math.atan2(dx,dz) });
+    }
+    const turn = i => {   // 第 i 段跟第 i+1 段之間的轉向:+1/-1;內側 s = -turn
+      const a = segs[i], b = segs[i+1];
+      return Math.sign(a.dx*b.dz - a.dz*b.dx);
+    };
+    segs.forEach((g, i) => {
+      const at = (along, side) => [g.ax + g.dx*along + g.px*side, g.az + g.dz*along + g.pz*side];
+      const tIn = i>0 ? turn(i-1) : 0, tOut = i<segs.length-1 ? turn(i) : 0;
+      // 地板
+      const f0 = i>0 ? -(HW+3) : 0, f1 = i<segs.length-1 ? g.len+HW+3 : g.len;
+      const floor = box(HW*2+8, .28, f1-f0, M.alleyFloor); floor.rotation.y = g.ang;
+      const [fx,fz] = at((f0+f1)/2, 0);
+      add(floor, fx, .14 + i*.006, fz, false, true);
+      // 兩側牆
+      [-1,1].forEach(s => {
+        let a = 0, b = g.len;
+        if(tIn)  a = (s === -tIn)  ? HW+T : -HW;        // 出彎:內側晚起頭,外側往回貼
+        if(tOut) b = (s === -tOut) ? g.len-HW : g.len+HW+T;   // 進彎:內側提前停,外側蓋轉角
+        const L = b-a;
+        const wall = box(T, 13, L, alleyWallFaces(L)); wall.rotation.y = g.ang;
+        const [wx,wz] = at((a+b)/2, s*(HW+T/2));
+        add(wall, wx, 6.5, wz);
+        colliders.push({ x:wx, z:wz, hw:Math.abs(L/2*g.dx)+Math.abs(T/2*g.px), hd:Math.abs(L/2*g.dz)+Math.abs(T/2*g.pz), angle:g.ang, localHW:T/2, localHD:L/2 });
+      });
+      // 小地圖/巷名登記:沿 z 的段進 alleys,沿 x 的段借 diagAlleys 那條線畫
+      if(Math.abs(g.dz) > .5) alleys.push({ x:g.ax, z0:g.az, z1:g.bz, name });
+      else diagAlleys.push({ x0:g.ax, z0:g.az, x1:g.bx, z1:g.bz, name });
+      // 裝飾:跟 alley()/alleyDiag() 同一套,數量按段長縮
+      const acs = g.len > 24 ? [.15,.45,.75] : [.25,.7];
+      acs.forEach((f, k) => {
+        const side = (k%2 ? 1 : -1)*(HW-.3);
+        const [jx,jz] = at(g.len*f, side);
+        const uy = AC_Y[AC_TIER[(k+i)%3]];
+        wallUnit(...AC_DIMS, ...AC_FILES, jx, uy, jz, g.ang);
+        const [qx,qz] = at(g.len*f + AC_DIMS[2]*.42, side);
+        addPipe(qx, uy - AC_DIMS[1]/2, .3, qz);
+      });
+      if(i % 2 === 0){
+        [-1.1,0,1.1].forEach(d => { const [rx,rz] = at(g.len*.55+d, -(HW-.3)); wallUnit(...MB_DIMS, ...MB_FILES, rx, MB_Y.row, rz, g.ang); });
+      } else {
+        const [sx,sz] = at(g.len*.35, HW-.3); wallUnit(...MB_DIMS, ...MB_FILES, sx, MB_Y.single, sz, g.ang);
+      }
+      { const [lx,lz] = at(g.len*.5, (i%2 ? 1 : -1)*(HW-.6)); placeAlleyLamp(lx, lz); }
+      [[.3,12.3,.5],[.7,11.7,.9]].forEach(([f,y,sag]) => {
+        const [wx0,wz0] = at(g.len*f, -(HW+3)), [wx1,wz1] = at(g.len*f, HW+3);
+        alleyWire(wx0, wz0, wx1, wz1, y, sag);
+      });
+      { const [cx,cz] = at(g.len*.3, (i%2 ? -1 : 1)*(HW-.6)); crateStack(cx, cz); }
+      if(i>0){ const [gx,gz] = at(2, -(HW-.5)); drainGrate(gx, gz); }
+      { const [mx,mz] = at(g.len*.5, 0); alleyFill(mx, mz); }
+    });
+  }
+  /* 太平巷(重做):網咖右邊 x=-24 的凹室進去 → 往南到 z 46 → 往東到 x 4 →
+     往南從永安街原火車站那格(x -9~19)出來。第一段地板從凹室前緣(z 16)
+     開始鋪,不然凹室本身還是裸地。出口兩側各補一塊 13 高的牆接到第二棟
+     (x -9)/第三棟(x 19)大樓,把那格空地剩下的寬度封掉。
+     轉角 z=46 是避開自強巷斜牆算出來的(z 42.8 那條北牆的東端 x 13.2,
+     斜巷西牆外緣在那個高度是 x≈16),別隨手往北挪。 */
+  alleyPath([[-24, B_LINE+DEPTH/2 - DEPTH], [-24, 46], [4, 46], [4, 84-B_LINE+DEPTH/2]], '太平巷');
+  (function taipingExitCaps(){
+    const zc = 84-B_LINE, W = [[-9, -5.2], [13.2, 19]];   // 第二棟東緣~西牆外緣、東牆外緣~第三棟西緣
+    W.forEach(([a,b]) => {
+      const wall = box(DEPTH, 13, b-a, alleyWallFaces(DEPTH)); wall.rotation.y = Math.PI/2;   // 轉 90° 讓貼圖那兩面朝永安街
+      add(wall, (a+b)/2, 6.5, zc);
+      solid((a+b)/2, zc, (b-a)/2, DEPTH/2);
+    });
+  })();
 
   /* ===== 廟埕 ===== */
   (function temple(){
