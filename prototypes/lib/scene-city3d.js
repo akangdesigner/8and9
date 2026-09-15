@@ -1368,6 +1368,13 @@ export function buildCity(THREE, scene){
   row({ axis:'x', at:H_ROADS[0].z - DEPTH/2, face: 1, from: 63, shops:[ S.sh,S.sh,S.sh ]});   // 廟口路北側,廟埕東邊
   add(box(7.2, 17, DEPTH, [M.wallC,M.wallC,M.wallC,M.wallC,M.shutter,M.wallC]), 96.4, 8.5, H_ROADS[0].z - DEPTH/2);   // 東北角補的窄街屋,鐵捲門面朝 +z(廟口路)
   solid(96.4, H_ROADS[0].z - DEPTH/2, 3.6, DEPTH/2);
+  /* 廟口路南排兩端到側街人行道內緣(±68)各剩 2.2 寬、11 深的小凹槽(排是從
+     x=-60 起 11 格,為了讓 x=-24 那格對上光明巷),填成一片窄牆面,免得從
+     廟口路看是兩道細縫。 */
+  [-1,1].forEach(sg => {
+    add(box(2.2, 17, DEPTH, M.wallC), sg*66.9, 8.5, H_ROADS[0].z + OUTER_AT);
+    solid(sg*66.9, H_ROADS[0].z + OUTER_AT, 1.1, DEPTH/2);
+  });
   /* 廟口路那排店整組刪掉了(2026-08-21,kc:「外面那些實體下城建築刪掉」)
      ——上一輪才剛把 at 從寫死的舊路口(-78)修成跟著新路口(-84+B_LINE)
      走,結果 kc 從廟埕裡看,這排真建築(有窗戶/冷氣機/真貼圖)還是從矮牆
@@ -3150,13 +3157,23 @@ export function buildCity(THREE, scene){
      (內角 (50.3,54.2)),跟第四棟大樓(x 52 起)之間留一條斜縫,玩家從巷口
      可以鑽進街廓內部的裸地(kc:「不能走到裸地」)。把東牆沿同一個方向再延
      8 個單位,延伸段穿進第四棟的西北角(藏在大樓體積裡),縫就封死了。 */
-  (function ziqiangEastCap(){
+  /* 同日再補西牆的起點(kc 截圖「這邊ㄋㄜ」+ 用 blocked() 做可達性掃描抓到):
+     斜巷兩道牆是沿線偏移 ±6.6 的,牆的端面跟中心線垂直,所以「外側」那道牆
+     的端點會比建築線退後 5 個單位——中華路這頭退後的是西牆(遊藝場後角跟
+     牆頭之間一塊三角缺口),永安街那頭退後的是東牆(上面那個 cap)。西牆往回
+     延 12 個單位插進遊藝場的角,缺口才封死。 */
+  (function ziqiangCaps(){
     const x0 = 12, z0 = B_LINE+DEPTH/2, x1 = 48, z1 = 84-B_LINE-DEPTH/2;
     const ang = Math.atan2(x1-x0, z1-z0), ux = Math.sin(ang), uz = Math.cos(ang), nx = Math.cos(ang), nz = -Math.sin(ang);
-    const EXT = 8, cx = x1 + ux*EXT/2 + nx*6.6, cz = z1 + uz*EXT/2 + nz*6.6;
-    const wall = box(6, 13, EXT, alleyWallFaces(EXT)); wall.rotation.y = ang;
-    add(wall, cx, 6.5, cz);
-    colliders.push({ x:cx, z:cz, hw:Math.abs(EXT/2*ux)+Math.abs(3*nx), hd:Math.abs(EXT/2*uz)+Math.abs(3*nz), angle:ang, localHW:3, localHD:EXT/2 });
+    /* side +1 = 東牆那側,-1 = 西牆;along 是延伸段中心相對「線的哪一端」的沿線距離 */
+    const cap = (endX, endZ, side, alongMid, EXT) => {
+      const cx = endX + ux*alongMid + nx*6.6*side, cz = endZ + uz*alongMid + nz*6.6*side;
+      const wall = box(6, 13, EXT, alleyWallFaces(EXT)); wall.rotation.y = ang;
+      add(wall, cx, 6.5, cz);
+      colliders.push({ x:cx, z:cz, hw:Math.abs(EXT/2*ux)+Math.abs(3*nx), hd:Math.abs(EXT/2*uz)+Math.abs(3*nz), angle:ang, localHW:3, localHD:EXT/2 });
+    };
+    cap(x1, z1,  1,  4,  8);    // 永安街端東牆往前延 8,插進第四棟西北角
+    cap(x0, z0, -1, -6, 12);    // 中華路端西牆往回延 12,插進遊藝場東南角
   })();
 
   /* ===== 轉彎的巷子(2026-09-15,kc:「補一個彎曲的小巷子連接永安街跟中華路,
