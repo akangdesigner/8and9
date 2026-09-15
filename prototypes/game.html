@@ -11903,18 +11903,32 @@ function startMidtermExam(){
       chg('star', 8); chg('mood', 8);
       const gift = !owned.includes('pen');
       if(gift){ owned.push('pen'); MIDTERM.gift = true; }
-      playBeats([
-        { who:'teacher', text:`「${PLAYER_NAME || '欸'}。」` },
-        { who:'pc',      text:'全班還沒走完，他在講台上叫你的名字，你不知道要幹嘛。' },
-        { who:'teacher', text:`「${correct} 題。你這次考得不錯。」` },
-        { who:'teacher', text:'「我幫你報一支嘉獎。」' },
-        { who:'pc',      text:'他拉開抽屜，翻了一下，拿出一盒立可白跟一支筆。' },
-        { who:'teacher', text:'「多的，你拿去。」' },
-        { who:'pc',      text:'他沒有多講什麼，就低頭改別人的考卷了。' }
-      ], 0, () => {
+      /* 2026-09-15 kc 糾正:原本老師那句是「多的,你拿去」,他說「不對,就是
+         真的稱讚他當乖寶寶」——改成老師是真心在誇你,而且誇的內容是「乖」。
+         獎勵一支筆,條件是你要繼續乖下去、不要跟那些人混在一起。阿凱如果
+         是跟著你進來的,他就坐在後面聽完這整段。笑點朝的是學校怎麼看待
+         這群人,不是朝角色,見 CLAUDE.md 基準線。 */
+      const giftBeats = [
+        { who:'teacher', text:`「${PLAYER_NAME || '欸'}，你過來一下。」` },
+        { who:'pc',      text:'全班還沒走完，他在講台上叫你的名字。' },
+        { who:'teacher', text:`「${correct} 題。」` },
+        { who:'teacher', text:'「我就說嘛，你認真起來根本沒問題。」' },
+        { who:'teacher', text:'「以後就這樣，乖乖的。」' },
+        { who:'teacher', text:'「不要再跟那些人混在一起，你跟他們不一樣。」' }
+      ];
+      if(MIDTERM.chose === 'in'){
+        giftBeats.push({ who:'pc', text:'阿凱還在後面收書包。你不知道他有沒有聽到。' });
+      }
+      giftBeats.push(
+        { who:'pc',      text:'老師拉開抽屜，拿出一盒立可白跟一支筆，塞到你手上。' },
+        { who:'teacher', text:'「這個給你，好好用。」' },
+        { who:'teacher', text:'「老師看好你。」' },
+        { who:'pc',      text:'還沒走的幾個同學回頭看了一眼。' }
+      );
+      playBeats(giftBeats, 0, () => {
         busy = false;
         toast(`期中考 ${correct}/${MIDTERM_QN}。嘉獎一支，抵掉一次警告。\n老師給了你一支筆（風評 +8，情緒 +8）`, 5200);
-        logDay(`期中考考了 ${correct} 題。老師報了我一支嘉獎，還給我一支筆，說是多的。`);
+        logDay(`期中考考了 ${correct} 題。老師當著全班誇我，說我跟他們不一樣，還給了我一支筆。`);
       });
     } else {
       playBeats([
