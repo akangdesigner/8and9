@@ -4231,10 +4231,12 @@ export function buildCity(THREE, scene){
   const backdropRef = {};
   (function skylineBackdrop(){
     /* 這四個數字是 kc 2026-09-15 自己拉滑桿定的,不要憑感覺改回去。
-       tint/bright 是同一輪補的調色:原圖是暖橘紫的夜景,街上是冷調深藍,
-       直接貼會跳色——material.color 乘在貼圖上,tint 往冷藍拉、bright 壓暗,
-       讓它退進 scene.fog(0x0d141e)那個色溫裡。 */
-    const cfg = { w:235, h:17, y:-1, z:118, tint:.55, bright:.8 };
+       tint/bright 是同一輪補的調色:material.color 乘在貼圖上,tint 往冷藍拉、
+       bright 壓暗,讓它退進 scene.fog(0x0d141e)那個色溫裡。
+       2026-09-15 稍晚 kc 重生了 skyline-temple.png(同檔名換內容,一樣 2172×724
+       3:1),新圖本身就是冷藍夜景、視平線是平的,不用再靠 tint 硬掰,所以
+       tint 從 .55 降到 .12、bright 從 .8 回到 .95,細節交給滑桿。 */
+    const cfg = { w:235, h:17, y:-1, z:118, tint:.12, bright:.95 };
     const COOL = { r:.62, g:.76, b:1.0 };      // 冷藍端,tint=1 時完全走這個色
     const mat = new THREE.MeshBasicMaterial({ color:0x5a5a68, fog:true, side:THREE.DoubleSide });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);
