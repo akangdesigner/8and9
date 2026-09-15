@@ -1397,7 +1397,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugMidtermMail()">成績單</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugMidtermMail()">成績單</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2427,6 +2427,15 @@ window.debugDailyDraw = debugDailyDraw;
 /* 成績單測試鈕(2026-09-15)——假裝考完 8 題、日子推到寄達那天,直接把信
    塞進雜物,再把人丟回家裡客廳,找媽就能拿出來。改 MIDTERM.score 可以測
    其他分數;要測缺考把 chose 改成 'out'。 */
+/* 撥時鐘(2026-09-15,kc:「我怎測試」日夜調色)——每按一次往前撥三小時,
+   過午夜不換天(只動 minute,不動 day),免得把劇情觸發也一起撥掉。
+   05:30~06:00 轉亮、17:30~18:00 轉暗,按到那附近會看到漸變。 */
+function debugClock(){
+  minute = (minute + 180) % (24*60);
+  syncHUD();
+  toast('時鐘撥到 ' + String(Math.floor(minute/60)).padStart(2,'0') + ':' + String(minute%60).padStart(2,'0'), 2200);
+}
+window.debugClock = debugClock;
 function debugMidtermMail(){
   MIDTERM.settled = true; MIDTERM.chose = 'in'; MIDTERM.score = 8;
   MIDTERM.mailed = false; MIDTERM.shown = false;
