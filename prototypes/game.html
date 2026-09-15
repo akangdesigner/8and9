@@ -1390,7 +1390,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 
 <script src="lib/character.js"></script>
@@ -2425,6 +2425,24 @@ function debugJumpTemple(){
   wlabelsEl.style.display = '';
   hero.group.position.set(-17, .3, -90);
 }
+/* 2026-09-15 巷子收邊:三段還沒封的街廓開口(廟口路南側、西園街內側、東和街
+   內側),kc 要親自去看。一顆按鈕輪流跳,省得開三顆。封完之後可以拔掉。 */
+const OPEN_EDGE_SPOTS = [
+  { x:-48, z:-71, name:'廟口路南側(光明巷西邊的裸地)' },
+  { x:-71, z:-48, name:'西園街內側(北街廓西邊)' },
+  { x: 71, z: 42, name:'東和街內側(南街廓東邊)' }
+];
+let openEdgeIdx = 0;
+function debugJumpOpenEdge(){
+  const p = OPEN_EDGE_SPOTS[openEdgeIdx++ % OPEN_EDGE_SPOTS.length];
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(p.x, .3, p.z);
+  toast(p.name);
+}
+window.debugJumpOpenEdge = debugJumpOpenEdge;
 window.debugJumpHome = debugJumpHome;
 window.debugJumpSchool = debugJumpSchool;
 window.debugJumpTemple = debugJumpTemple;
