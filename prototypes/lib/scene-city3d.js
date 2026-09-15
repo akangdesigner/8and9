@@ -1375,6 +1375,32 @@ export function buildCity(THREE, scene){
     add(box(2.2, 17, DEPTH, M.wallC), sg*66.9, 8.5, H_ROADS[0].z + OUTER_AT);
     solid(sg*66.9, H_ROADS[0].z + OUTER_AT, 1.1, DEPTH/2);
   });
+  /* ===== 永安街對面(z 100 以南)的空隙(2026-09-15,kc:「你外圍都檢查一次」,
+     可達性掃描抓到最大一塊裸地:x -100~100、z 101~122 整條)=====
+     那一側只有警察局(x -84.5~-71.5)、公車亭(x -52~-20,月台 z 101~108,
+     東端開放)、工地(x 2~38,z 103~119)三個地標,中間跟兩端都是裸地,而且
+     從公車亭東端可以繞到三者背後那條 z 108~122 的空帶。收法:
+     - 地標之間/兩端用 row() 街屋(z 100~111,面朝永安街)填滿,格子對不上的
+       零頭用 fillerHouse() 補一塊窄屋貼齊。
+     - 公車亭正後方(z 108~119)再排一排街屋,背後那條空帶就封在裡面;公車亭
+       東端那塊雨遮下空地(kc 9/1 要求留著)保留,只是走進去三面都是房子。
+     - 工地內部本來就是裸地(工地),不動。 */
+  const YA_AT = 84 + B_LINE;   // 105.5:z 100~111
+  function fillerHouse(x0, x1, z0, z1, faceSign){
+    const faces = [M.wallC,M.wallC,M.wallC,M.wallC, faceSign>0 ? M.shutter : M.wallC, faceSign<0 ? M.shutter : M.wallC];
+    add(box(x1-x0, 17, z1-z0, faces), (x0+x1)/2, 8.5, (z0+z1)/2);
+    solid((x0+x1)/2, (z0+z1)/2, (x1-x0)/2, (z1-z0)/2);
+  }
+  row({ axis:'x', at:YA_AT, face:-1, from:-94, shops:[ S.sh ]});                      // 西端 -99.8~-88.2
+  fillerHouse(-88.2, -84.5, 100, 111, -1);                                            // 接到警察局西牆
+  row({ axis:'x', at:YA_AT, face:-1, from:-58, shops:[ S.sh ]});                      // 警察局⇄公車亭:-63.8~-52.2
+  fillerHouse(-71.5, -63.8, 100, 111, -1);
+  row({ axis:'x', at:YA_AT, face:-1, from:-14, shops:[ S.sh ]});                      // 公車亭⇄工地:-19.8~-8.2
+  fillerHouse(-8.2, 2, 100, 111, -1);
+  row({ axis:'x', at:YA_AT, face:-1, from:44, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh ]});   // 工地東側到邊界:38.2~97.8
+  fillerHouse(97.8, 100, 100, 111, -1);
+  row({ axis:'x', at:108 + DEPTH/2, face:-1, from:-46, shops:[ S.sh,S.sh ]});         // 公車亭正後方 -51.8~-28.2,z 108~119
+  fillerHouse(-28.2, -20, 108, 119, -1);
   /* 廟口路那排店整組刪掉了(2026-08-21,kc:「外面那些實體下城建築刪掉」)
      ——上一輪才剛把 at 從寫死的舊路口(-78)修成跟著新路口(-84+B_LINE)
      走,結果 kc 從廟埕裡看,這排真建築(有窗戶/冷氣機/真貼圖)還是從矮牆
@@ -4154,7 +4180,12 @@ export function buildCity(THREE, scene){
      同一輪曾把兩個街廓內部整片鋪滿「後院加蓋」+ 圍牆,kc 看到當場打回
      (「我不會俯視啊 到底在幹嘛」)——鏡頭是斜的、從街上看,街廓內部只有
      從幾個開口看得到,整片鋪滿沒意義,已整段刪掉。見 DESIGN_NOTES「巷子收邊」。 */
-  add(box(10, .28, DEPTH, M.alleyFloor), 47, .14, 84 - B_LINE, false, true);
+  add(box(15, .28, 14, M.alleyFloor), 44.5, .14, 61, false, true);   // x 37~52、z 54~68:蓋掉第三棟東側跟斜巷地板末端的兩小塊裸地(掃描抓到的)
+  /* 中華路兩個凹室(x=-24 光明巷口、x=12 交貨點/自強巷口)本身是 row() 留空的
+     格子,沒鋪地——巷子地板都從店背線(±27)才開始,凹室那 11 個單位一直是
+     裸地。補同一款巷子地板。 */
+  add(box(12.4, .28, DEPTH, M.alleyFloor), -24, .14, -B_LINE, false, true);
+  add(box(12.4, .28, DEPTH, M.alleyFloor),  12, .14,  B_LINE, false, true);
 
   /* spawnMoto:parkMoto() 本體直接掛出去(2026-09-03,配合「不要有展示車」
      那輪——買車現在要現生一台,見上面 forSale 那段長筆記),回傳新 entry
