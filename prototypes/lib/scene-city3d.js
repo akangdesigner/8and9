@@ -2266,6 +2266,15 @@ export function buildCity(THREE, scene){
     add(box(westSegW, fenceH, .15, fenceMats(westSegW,'z','fence-sign-west.png')), (cx-siteW/2+gateX0)/2, fenceH/2, siteZ0, false, true);
     add(box(eastSegW, fenceH, .15, fenceMats(eastSegW,'z','fence-sign-east.png')), (gateX1+cx+siteW/2)/2, fenceH/2, siteZ0, false, true);
     add(box(siteW+.3,fenceH,.15, fenceMats(siteW+.3,'z')), cx, fenceH/2, siteZ1, false, true);
+    /* 工地背板(2026-09-15,kc:「工地應該要有獨立的背板才合理」)——原本背面
+       只有跟其他三面一樣 6 高的圍籬,但相機可見帶到 y≈11.3(見 skylineBackdrop()
+       那則長筆記),從大門缺口望進去,圍籬上緣到可見帶頂之間是空的,會直接看穿
+       到遠景大圖;而且 kc 把大圖拉到 z=118,剛好切在工地 103~119 的深度裡面。
+       補一片 13 高的獨立背板,擋在大圖前面(z=117),浪板材質跟圍籬同一套,
+       讀起來就是工地自己那面比較高的背板,不是借用旁邊那道空地圍牆。 */
+    const backBoardH = 13, backBoardZ = 117;
+    add(box(siteW+.3, backBoardH, .3, fenceMats(siteW+.3,'z')), cx, backBoardH/2, backBoardZ, false, true);
+    solid(cx, backBoardZ, (siteW+.3)/2, .3);
     add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx-siteW/2, fenceH/2, siteCz, false, true);
     add(box(.15,fenceH,siteD, fenceMats(siteD,'x')), cx+siteW/2, fenceH/2, siteCz, false, true);
     /* 門楣:缺口上方一根橫樑框住出入口,不然單看兩根柱子容易讀成「牆破了
