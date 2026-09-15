@@ -3133,7 +3133,7 @@ function renderQuestPanel(){
 /* 主線 = 會讓你活不下去或畢不了業的事(kc 2026-09-11 點頭的名單):今天的卡、
    註冊單、帳單、常去看阿嬤、班費;之後期中考也進來。其餘(別人的事、自己惹的
    事,贖車也算)都是支線。警告不做成任務。 */
-const QUEST_MAIN_IDS = new Set(['today', 'tuition', 'bills', 'grandma-visit', 'classfund', 'classfund-return']);
+const QUEST_MAIN_IDS = new Set(['today', 'tuition', 'bills', 'grandma-visit', 'classfund', 'classfund-return', 'diploma']);   // diploma 2026-09-15:畢業證書那個承諾,貫穿全遊戲的那張
 const fpEl = document.getElementById('fortunePanel'), fpStageEl = document.getElementById('fpStage');
 const fpTextEl = document.getElementById('fpText'), fpResultEl = document.getElementById('fpResult');
 const fpGradeEl = document.getElementById('fpGrade'), fpHeadNoEl = document.getElementById('fpHeadNo');
@@ -11234,6 +11234,8 @@ function notifyGrandmaDeath(){
   /* 死了之後拔掉續命任務卡(見 updateGrandmaQuestHint()),不留一張
      再也不會更新、內容也不對的舊任務。 */
   { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); renderQuestPanel(); }
+  /* 畢業證書那張卡不拔,改成牌位版(2026-09-15,見 deliverGrandmaBag() 那則筆記)。 */
+  { const q = ACTIVE_QUESTS.find(q => q.id === 'diploma'); if(q){ q.title = '帶畢業證書去牌位前'; q.hint = '她沒有等到。<br><span class="qpNote">沒有期限。</span>'; renderQuestPanel(); } }
   playBeats([
     { who:'pc',  text:'手機又震了一下，是媽打來的。' },
     { who:'mom', text:'「阿嬤剛剛走了。」她的聲音很平,像是已經哭過一輪。' },
@@ -11422,7 +11424,8 @@ const GRANDMA_AWAKE_LINES = [
   '「有沒有吃飽。」她問，跟以前一樣。',
   '她拉著你的手，沒說什麼，只是笑了一下。',
   '「乖，常回來看阿嬤。」',
-  '「外面是不是很冷。」她望向窗外，窗簾其實是拉著的。'
+  '「外面是不是很冷。」她望向窗外，窗簾其實是拉著的。',
+  '「書有沒有在讀。」她問。你說有。她說那就好。'   // 2026-09-15 畢業證書那條,偶爾提一下,不天天念
 ];
 const GRANDMA_ASLEEP_LINES = [
   '阿嬤睡著了，呼吸很輕。你在床邊坐了一會兒就走了。',
@@ -11477,16 +11480,32 @@ function deliverGrandmaBag(){
   const i = TRASH.findIndex(t => t.grandmaBag); if(i >= 0) TRASH.splice(i, 1);
   if(dailyDef() && dailyDef().id === 'grandma-bag') dailyDone(); else clearTodayCard();
   paintHospitalBackdrop(true);
+  /* 畢業證書那個承諾(2026-09-15,kc:「媽媽給你註冊單後會叫你去看阿嬤 阿嬤會
+     叫你要好好念書帶畢業證書來給他看 這可以貫穿我們的最大主線」)——就種在
+     這一場,「有沒有吃飽」後面接五句,不多。從這一刻起主線多一張沒有期限
+     的卡(diploma),掛三年。她走了之後卡改成牌位版(見 notifyGrandmaDeath())。
+     畢業那一幕接 lib/story-ending.js 的 cert 分岔,但遊戲現在只有九十天的
+     日曆,三年結構還沒有,那一幕先欠著,見 DESIGN_NOTES「阿嬤與畢業證書」。 */
   playBeats([
     { who:'granny', text:'「你來了啊。」' },
     { who:'pc',     text:'你把袋子放在床邊櫃子上。' },
     { who:'granny', text:'「你媽呢。」' },
     { who:'pc',     text:'「上班。」她點點頭，沒再問。' },
-    { who:'granny', text:'「有沒有吃飽。」' }
+    { who:'granny', text:'「有沒有吃飽。」' },
+    { who:'granny', text:'「註冊單你媽給你了沒。」' },
+    { who:'pc',     text:'「給了。」' },
+    { who:'granny', text:'「那就好好念，不要學你媽。」' },
+    { who:'granny', text:'「畢業的時候，證書拿來給我看。」' },
+    { who:'pc',     text:'「嗯。」' },
+    { who:'granny', text:'「我等你。」' }
   ], 0, () => {
     chg('calm', 6); chg('mood', 3);
-    logDay('去醫院看阿嬤。她問我媽呢。');
+    logDay('去醫院看阿嬤。她問我媽呢，然後叫我畢業的時候把證書拿去給她看。');
     toast('（歸屬感 +6、情緒 +3）', 2200);
+    if(!ACTIVE_QUESTS.some(q => q.id === 'diploma')){
+      ACTIVE_QUESTS.push({ id:'diploma', title:'帶畢業證書給阿嬤看', hint:'她說她等你。<br><span class="qpNote">沒有期限。</span>' });
+      renderQuestPanel();
+    }
     grandmaVisitLine();
   });
 }
@@ -11505,9 +11524,27 @@ function grandmaVisitLine(){
        上一輪「沒食物就不顯示」的判斷是錯的,這輪才是最終版本。 */
     const opts = [
       { label:'陪她坐一下', run: grandmaVisitLine },
-      { label:'餵她吃東西', run: openGrandmaFoodMenu },
-      { label:'先出去', cls:'back', run: leaveIndoor }
+      { label:'餵她吃東西', run: openGrandmaFoodMenu }
     ];
+    /* 期中考考得好的成績單可以拿給她看(2026-09-15)——她不會給錢,只說一句好,
+       把紙放在枕頭邊。一次就好,看過就不再出現。 */
+    if(awake && MIDTERM.settled && MIDTERM.chose === 'in' && MIDTERM.score >= MIDTERM_PASS && !MIDTERM.shownGranny && TRASH.some(t => t.midtermReport)){
+      opts.push({ label:'把成績單拿給她看', run(){
+        MIDTERM.shownGranny = true;
+        playBeats([
+          { who:'pc',     text:'你把成績單拿出來，攤在她面前。' },
+          { who:'pc',     text:'她看了很久，不知道有沒有看清楚上面的字。' },
+          { who:'granny', text:'「好。」' },
+          { who:'pc',     text:'她把那張紙折好，放在枕頭邊。' }
+        ], 0, () => {
+          chg('calm', 8); chg('mood', 6);
+          toast('（歸屬感 +8、情緒 +6）', 2400);
+          logDay('把成績單拿給阿嬤看。她說好，然後放在枕頭邊。');
+          grandmaVisitLine();
+        });
+      } });
+    }
+    opts.push({ label:'先出去', cls:'back', run: leaveIndoor });
     openMenu('探望阿嬤', opts);
   });
 }
