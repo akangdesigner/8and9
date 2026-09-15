@@ -878,8 +878,10 @@ export function buildCity(THREE, scene){
        BUSKER_POS 同步。同日 kc「應該要在更裡面角落」、再截圖「是牆壁的夾角」
        → 自強巷東牆(斜)跟中華路南排店背牆(z=27)夾的 40° 尖角,舞台沿平分線
        離角頂 9.5 個單位 (36,30),面朝平分線往外;麥克風架放他面前(沿 rot .9)。
-       再一輪 kc「別太裡面都出來一點」→ 沿平分線再推到離角頂 14 個單位 (40,32)。 */
-    const bx = 40, bz = 32, R = 2.6, rot = Math.PI*.39;
+       再一輪 kc「別太裡面都出來一點」→ 沿平分線再推到離角頂 14 個單位 (40,32);
+       又一輪「再往外推靠近路邊」→ 24 個單位 (50,35),已經離開尖角在空地中段,
+       觀眾那排離東和街人行道內緣(x 68)只剩 7~8 個單位,路上走過就看得到。 */
+    const bx = 50, bz = 35, R = 2.6, rot = Math.PI*.39;
     const ux = Math.sin(rot), uz = Math.cos(rot), px = -uz, pz = ux;   // 面前方向 / 左右方向
     add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, .3, 24), M.stallTop),
         bx, .15, bz, false, true);
@@ -913,7 +915,7 @@ export function buildCity(THREE, scene){
       solid(x, z, .5, .5);
     }
     const faceStage = Math.atan2(-ux, -uz);   // 椅背朝外、正面朝舞台
-    [[6.5,-2.4],[6.5,0],[6.5,2.4],[8.2,-2.4],[8.2,0],[8.2,2.4]].forEach(([d, side], i) => {
+    [[6.5,-2.8],[6.5,0],[6.5,2.8],[8.4,-2.8],[8.4,0],[8.4,2.8]].forEach(([d, side], i) => {
       const jitter = [.12,-.08,.18,-.15,.05,-.1][i], slide = [.2,-.1,.3,-.25,.15,-.2][i];
       const along = d + slide, s2 = side + slide*.5;
       plasticChair(bx + ux*along + px*s2, bz + uz*along + pz*s2, faceStage + jitter);
