@@ -1356,6 +1356,18 @@ export function buildCity(THREE, scene){
   row({ axis:'z', at:V_ROADS[0].x + OUTER_AT, face:-1, from:-51, shops:[ S.sh,S.sh,S.sh ]});   // 西園街東側,北街廓
   row({ axis:'z', at:V_ROADS[0].x + OUTER_AT, face:-1, from: 27, shops:[ S.sh,S.sh,S.sh ]});   // 西園街東側,南街廓
   row({ axis:'z', at:V_ROADS[1].x - OUTER_AT, face: 1, from:-51, shops:[ S.sh,S.sh,S.sh ]});   // 東和街西側,北街廓
+  /* 廟埕兩側的角落(同日,kc 截圖「開口還是在啊」):廟埕圍牆 x -62~57、
+     z -116~-84,兩邊到地圖邊界(±100)之間 z -118~-84 那兩塊是裸地,從廟口路
+     西端/東端(側街盡頭)直接走得進去。各放一排面向廟口路的街屋(z -95~-84,
+     廟口路北側沒人行道,房子直接貼路緣):
+     - 西角 3 格 x -94/-82/-70(-99.8~-64.2),東端離廟西牆 (x -62,solid 半寬
+       1.2)只剩 0.1,緩衝封死;西端貼邊界。
+     - 東角 3 格 x 63/75/87(57.2~92.8),再補一間 7.2 寬的窄街屋 92.8~100
+       貼到邊界(用第 4 格會伸到 104.8,撞到外圍 skylineRing 那排遠景方塊)。 */
+  row({ axis:'x', at:H_ROADS[0].z - DEPTH/2, face: 1, from:-94, shops:[ S.sh,S.sh,S.sh ]});   // 廟口路北側,廟埕西邊
+  row({ axis:'x', at:H_ROADS[0].z - DEPTH/2, face: 1, from: 63, shops:[ S.sh,S.sh,S.sh ]});   // 廟口路北側,廟埕東邊
+  add(box(7.2, 17, DEPTH, [M.wallC,M.wallC,M.wallC,M.wallC,M.shutter,M.wallC]), 96.4, 8.5, H_ROADS[0].z - DEPTH/2);   // 東北角補的窄街屋,鐵捲門面朝 +z(廟口路)
+  solid(96.4, H_ROADS[0].z - DEPTH/2, 3.6, DEPTH/2);
   /* 廟口路那排店整組刪掉了(2026-08-21,kc:「外面那些實體下城建築刪掉」)
      ——上一輪才剛把 at 從寫死的舊路口(-78)修成跟著新路口(-84+B_LINE)
      走,結果 kc 從廟埕裡看,這排真建築(有窗戶/冷氣機/真貼圖)還是從矮牆
