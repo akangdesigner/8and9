@@ -2556,10 +2556,13 @@ export function buildCity(THREE, scene){
   /* 2026-09-15 kc:「西園街醫院右邊有缺口,缺口後面不該有房子,應該要合併在
      缺口處」——這兩排原本 8 格從 z=-58 起,只鋪到 -63.8~31.8,北端到廟口路
      (-84)、南端到永安街人行道(68)各留一段空,從街上看過去是外圍遠景方塊
-     (skylineRing)退在後面。北端前面補 2 格、南端後面補 3 格,排滿到
-     -87.8~67.8,缺口處直接是房子,不再看到後面的東西。東和街那排對稱處理。 */
-  row({ axis:'z', at:-84-B_LINE, face:1, from:-82, shops:[ S.sh,S.sh, S.sh,S.sh,S.sh,S.gap,S.gap,S.sh,S.sh,S.sh, S.sh,S.sh,S.sh ]});
-  row({ axis:'z', at: 84+B_LINE, face:-1, from:-82, shops:[ S.sh,S.sh, S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh, S.sh,S.sh,S.sh ]});
+     (skylineRing)退在後面。第一次補到 -87.8~67.8,kc 在永安街西端 (-96,84)
+     又抓到「開口問題以及後面多出房子,跟廟口狀況類似」——南端到永安街這頭
+     (67.8~100)還是空的、北端到廟口路以北也空。乾脆拉滿整個地圖高度
+     z -118~122,剛好 20 格;醫院那兩格空位跟著換算成 index 8、9(z -22~2)。
+     這排在 bounds 外面(x<-100),純視覺,不影響碰撞。東和街對稱。 */
+  row({ axis:'z', at:-84-B_LINE, face:1, from:-118, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh, S.gap,S.gap, S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
+  row({ axis:'z', at: 84+B_LINE, face:-1, from:-118, shops:[ S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh, S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});
 
   /* ===== 醫院(獨立建築,2026-09-04)=====
    * 2026-09-03 先塞進 row() 當一間 12 米單店面(S.hospital()),kc 隔天說
