@@ -3402,17 +3402,20 @@ function updateWorldLabels(){
 /* 2026-09-15 第四次搬家(kc:「第三個開口可以把街頭藝人搬過來」)——南街廓
    東邊、東和街內側人行道旁那塊沒封的空地(見 DESIGN_NOTES「巷子收邊」還沒
    封的開口那段)。第一版放 (62,42) 貼著人行道,kc:「街頭藝人應該要在更裡面
-   角落,然後三個人站在一定距離看他」——改到 (60,51),那是自強巷東牆(斜的)
-   跟第四棟大樓背牆夾出來的角落,離人行道內緣 x=68 有 8 個單位;人面朝東北
-   (往人行道方向,rotationY π*.77)。圍觀路人這次不再用凹室那組緊貼的偏移量,
-   改站在他東北側 5~6 個單位遠的弧線上,rotationY 各自用 atan2 算成面對他。
+   角落,然後三個人站在一定距離看他」——第二版放到第四棟背牆那邊,kc 截圖
+   糾正「是牆壁的夾角」:他指的是**自強巷東牆(斜的)跟中華路南排店背牆(z=27)
+   夾出來的那個尖角**,角頂在 (27,27),夾角只有 40°。舞台要離角頂 9.5 個單位
+   才塞得下(兩邊各留 3 個單位到牆),沿夾角平分線推出來是 (36,30);人面朝
+   平分線方向往外(rotationY π*.39,約朝東南)。圍觀路人站在他面前 5~6 個
+   單位遠的弧線上(沿平分線 u=(.94,.34) 推、垂直方向 p=(-.34,.94) 左右錯開),
+   rotationY 各自用 atan2 算成面對他。
    舞台/麥克風架在 scene-city3d.js buskerStage() 同步改了,不要只改這裡。 */
-const BUSKER_POS = { x: 60, z: 51 };
-const BUSKER_ROT = Math.PI*.77;
+const BUSKER_POS = { x: 36, z: 30 };
+const BUSKER_ROT = Math.PI*.39;
 /* 三個圍觀路人:相對舞台的偏移(在他面前那個方向 5~6 個單位遠),面向用 atan2 對著他 */
 const BUSKER_AUDIENCE = [
-  { dx: 4.5, dz:-4.0 },
-  { dx: 1.0, dz:-6.0 },
+  { dx: 4.3, dz: 4.2 },
+  { dx: 5.6, dz: 2.0 },
   { dx: 6.0, dz: -.5 }
 ].map(o => ({ x:BUSKER_POS.x+o.dx, z:BUSKER_POS.z+o.dz, rotationY:Math.atan2(-o.dx, -o.dz) }));
 
@@ -4031,7 +4034,7 @@ function syncMiscQuestPanel(){
  * 舞台/麥克風架是靜態幾何,見 scene-city3d.js 的 buskerStage()——那邊
  * 決定「地方長什麼樣」,這裡只決定「人跟吉他」。 */
 const buskerNPC = buildNPC(THREE, scene, {
-  x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:BUSKER_ROT, rig:'m2',   // 2026-09-15 面朝東北、往人行道那邊
+  x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:BUSKER_ROT, rig:'m2',   // 2026-09-15 面朝夾角平分線往外
   skin:'#b98a63', hair:'#3a3128',
   hood:'#2e4a3a', pants:'#26241f', shoe:'#4a4038'
 });

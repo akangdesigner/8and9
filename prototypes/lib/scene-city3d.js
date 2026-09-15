@@ -875,9 +875,10 @@ export function buildCity(THREE, scene){
    * 中華路那個凹室整個讓給 day5 跑腿的交貨點(見 game.html KAI_RUN_DROP)。 */
   (function buskerStage(){
     /* 2026-09-15 第四次搬家(kc):東和街內側、南街廓東邊那塊空地,跟 game.html
-       BUSKER_POS 同步。同日 kc「應該要在更裡面角落」→ 退到自強巷東牆跟第四棟
-       背牆夾的角落 (60,51),面朝東北;麥克風架放他面前(沿 rot 方向 .9)。 */
-    const bx = 60, bz = 51, R = 2.6, rot = Math.PI*.77;
+       BUSKER_POS 同步。同日 kc「應該要在更裡面角落」、再截圖「是牆壁的夾角」
+       → 自強巷東牆(斜)跟中華路南排店背牆(z=27)夾的 40° 尖角,舞台沿平分線
+       離角頂 9.5 個單位 (36,30),面朝平分線往外;麥克風架放他面前(沿 rot .9)。 */
+    const bx = 36, bz = 30, R = 2.6, rot = Math.PI*.39;
     add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, .3, 24), M.stallTop),
         bx, .15, bz, false, true);
     add(new THREE.Mesh(new THREE.CylinderGeometry(R+.12, R+.12, .12, 24), M.curb),
