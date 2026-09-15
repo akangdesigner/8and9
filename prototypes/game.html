@@ -855,6 +855,11 @@
   #keys { position:fixed; left:16px; bottom:12px; z-index:6; font-size:11.5px; color:#6a727f; letter-spacing:.08em; }
   #keys b { color:#9aa3b0; }
   #fps { position:fixed; right:14px; bottom:12px; z-index:6; font-size:11px; color:#5c6470; }
+  /* 2026-09-15 kc:「幫我開座標,我跟你講會比較清楚」——街上永遠顯示主角 (x, z),
+     討論地圖哪裡有洞時直接報數字。跟 fps 同一角、字大一點看得到。 */
+  #coord { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:6;
+    font:15px/1 ui-monospace, Menlo, monospace; color:#e8e2d4; background:rgba(20,18,14,.72);
+    padding:5px 12px; border-radius:4px; letter-spacing:.04em; pointer-events:none; }
 
   /* ============================================================
      紙感主題(2026-09-14)——第一版是「乾淨的公文紙」;同日 kc 拿 GPT 畫的兩張
@@ -1392,6 +1397,7 @@
 </div></div>
 <details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
+<div id="coord">x 0, z 0</div>
 
 <script src="lib/character.js"></script>
 <script src="lib/scene-store-front.js"></script>
@@ -15681,6 +15687,7 @@ function fit(){
 }
 
 const fpsEl = document.getElementById('fps');
+const coordEl = document.getElementById('coord');
 let last = performance.now(), acc = 0, frames = 0;
 renderer.setAnimationLoop(now => {
   if(gameOver) return;   // 失敗結局蓋上之後整個模擬凍結,見 triggerGameOver()
@@ -15690,6 +15697,7 @@ renderer.setAnimationLoop(now => {
   else { updateIndoor(dt); renderIndoor3D(dt); renderIndoorForeground(); }
   acc += dt; frames++;
   if(acc > 500){ fpsEl.textContent = Math.round(frames*1000/acc)+' fps'; acc=0; frames=0; }
+  coordEl.textContent = 'x ' + hero.group.position.x.toFixed(1) + ', z ' + hero.group.position.z.toFixed(1);
 });
 
 /* ===== 存檔(2026-09-09,kc:「我這個是要讓別人玩的 所以他會需要在本地紀錄
