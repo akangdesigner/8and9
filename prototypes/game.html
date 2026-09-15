@@ -3401,10 +3401,20 @@ function updateWorldLabels(){
    圍得比較緊,不會穿牆。 */
 /* 2026-09-15 第四次搬家(kc:「第三個開口可以把街頭藝人搬過來」)——南街廓
    東邊、東和街內側人行道旁那塊沒封的空地(見 DESIGN_NOTES「巷子收邊」還沒
-   封的開口那段)。舞台放 (62,42),東邊 3.4 個單位就是人行道內緣 x=68;
-   街在東邊,所以 rotationY 改成 π/2 面朝 +x。圍觀路人偏移量還是沒動。
+   封的開口那段)。第一版放 (62,42) 貼著人行道,kc:「街頭藝人應該要在更裡面
+   角落,然後三個人站在一定距離看他」——改到 (60,51),那是自強巷東牆(斜的)
+   跟第四棟大樓背牆夾出來的角落,離人行道內緣 x=68 有 8 個單位;人面朝東北
+   (往人行道方向,rotationY π*.77)。圍觀路人這次不再用凹室那組緊貼的偏移量,
+   改站在他東北側 5~6 個單位遠的弧線上,rotationY 各自用 atan2 算成面對他。
    舞台/麥克風架在 scene-city3d.js buskerStage() 同步改了,不要只改這裡。 */
-const BUSKER_POS = { x: 62, z: 42 };
+const BUSKER_POS = { x: 60, z: 51 };
+const BUSKER_ROT = Math.PI*.77;
+/* 三個圍觀路人:相對舞台的偏移(在他面前那個方向 5~6 個單位遠),面向用 atan2 對著他 */
+const BUSKER_AUDIENCE = [
+  { dx: 4.5, dz:-4.0 },
+  { dx: 1.0, dz:-6.0 },
+  { dx: 6.0, dz: -.5 }
+].map(o => ({ x:BUSKER_POS.x+o.dx, z:BUSKER_POS.z+o.dz, rotationY:Math.atan2(-o.dx, -o.dz) }));
 
 /* 阿姨挪去顧鴨頭攤(2026-08-20,kc:「把阿姨調整過來」)——她原本是廟埕
    一個獨立站點(x:6,z:-86),人設是「鹹酥雞攤」,但鹹酥雞那個 3D 攤位
@@ -4021,7 +4031,7 @@ function syncMiscQuestPanel(){
  * 舞台/麥克風架是靜態幾何,見 scene-city3d.js 的 buskerStage()——那邊
  * 決定「地方長什麼樣」,這裡只決定「人跟吉他」。 */
 const buskerNPC = buildNPC(THREE, scene, {
-  x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:Math.PI*.5, rig:'m2',   // 2026-09-15 面朝東和街(+x)
+  x:BUSKER_POS.x, z:BUSKER_POS.z, rotationY:BUSKER_ROT, rig:'m2',   // 2026-09-15 面朝東北、往人行道那邊
   skin:'#b98a63', hair:'#3a3128',
   hood:'#2e4a3a', pants:'#26241f', shoe:'#4a4038'
 });
@@ -4717,11 +4727,11 @@ const PEDESTRIANS = [
      2026-08-26 搬進中華路那個窄凹室(見上面 BUSKER_POS 第二次搬家筆記)後
      等比縮小:凹室兩側只有 ±3 個單位淨空,原本最大到 ±3.2/3.5 的偏移量
      會直接疊進牆裡,三組都乘 0.6875(取最大分量 3.2→2.2,留 0.8 緩衝)。 */
-  buildNPC(THREE, scene, { x:BUSKER_POS.x+2.2, z:BUSKER_POS.z-1.0, rotationY:-Math.PI*.3605, rig:'f',
+  buildNPC(THREE, scene, { ...BUSKER_AUDIENCE[0], rig:'f',   // 2026-09-15 偏移/面向改由 BUSKER_AUDIENCE 算
     skin:'#c9a077', hair:'#241f1c', hood:'#5c4a3a', pants:'#333333', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:BUSKER_POS.x-1.0, z:BUSKER_POS.z-2.2, rotationY:Math.PI*.1395, rig:'m3',
+  buildNPC(THREE, scene, { ...BUSKER_AUDIENCE[1], rig:'m3',   // 2026-09-15 偏移/面向改由 BUSKER_AUDIENCE 算
     skin:'#c2a17e', hood:'#4a4a5c', pants:'#2b2b2b', shoe:'#4a4038' }),
-  buildNPC(THREE, scene, { x:BUSKER_POS.x+0.7, z:BUSKER_POS.z+2.4, rotationY:-Math.PI*.9114, rig:'f2',
+  buildNPC(THREE, scene, { ...BUSKER_AUDIENCE[2], rig:'f2',   // 2026-09-15 偏移/面向改由 BUSKER_AUDIENCE 算
     skin:'#c9976e', hair:'#3a2e26', hood:'#5c4a3a', pants:'#232323', shoe:'#3a3430' }),
   /* 公車亭等公車的路人(2026-09-01,kc:「幫我排幾個路人在等公車」)——
      3 隻站定不動,散在兩排柱子中間的走道上(z=104,介於前排 frontRowZ
