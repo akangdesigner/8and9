@@ -1336,6 +1336,26 @@ export function buildCity(THREE, scene){
     S.sh, S.food(), S.sh, S.net(), S.gap,
     {kind:'tattoo',id:'tattoo',label:'刺青店',sign:0xff4a5a,signKey:'tattoo'}, S.arcade(), S.gap, S.betel(),
     S.sh, S.sh, S.food(0xe8b52c), S.sh ]});
+  /* ===== 街廓外側的基本住宅(2026-09-15,kc:「其他往外部的開口就是放基本
+     住宅呀」)=====
+     街廓內部是裸地,原本從廟口路人行道、西園街/東和街內側人行道都走得進去、
+     繞到店面背後(見 DESIGN_NOTES「巷子收邊」)。用一排排鐵捲門街屋(S.sh,
+     跟中華路那兩排同一套 row())把面向街道的邊封起來,牆本身就是碰撞。
+     - 廟口路南側:11 格從 x=-60 到 60(-65.8~65.8,兩端離側街人行道內緣 68
+       各留 2.2,不像中華路那兩排伸進側街路面),x=-24 那格留空給光明巷。
+       這排 2026-08-21 曾整組刪掉(從廟埕裡看會探出頭),這次 kc 明講要放,
+       高度沿用 row() 的 2~4 層。
+     - 西園街東側/東和街西側:各 3 格,z 中心 -51/-39/-27 跟 27/39/51,剛好
+       從中華路那排店的背牆線(±27)排到廟口路那排/永安街大樓的線(±57),
+       兩端各差 0.2,靠 blocked() 的 .55 緩衝封死。兩端會各插進隔壁建築
+       2~6 個單位,面不共面,不會閃爍。
+     - 東和街西側只做北街廓:南街廓那段是街頭藝人的空地(kc 指定),留開口。 */
+  const OUTER_AT = ROAD_HW + WALK_W + DEPTH/2;   // 21.5:人行道內緣再進 DEPTH/2
+  row({ axis:'x', at:H_ROADS[0].z + OUTER_AT, face:-1, from:-60,
+    shops:[ S.sh,S.sh,S.sh,S.gap, S.sh,S.sh,S.sh,S.sh,S.sh,S.sh,S.sh ]});           // 廟口路南側,x=-24 留給光明巷
+  row({ axis:'z', at:V_ROADS[0].x + OUTER_AT, face:-1, from:-51, shops:[ S.sh,S.sh,S.sh ]});   // 西園街東側,北街廓
+  row({ axis:'z', at:V_ROADS[0].x + OUTER_AT, face:-1, from: 27, shops:[ S.sh,S.sh,S.sh ]});   // 西園街東側,南街廓
+  row({ axis:'z', at:V_ROADS[1].x - OUTER_AT, face: 1, from:-51, shops:[ S.sh,S.sh,S.sh ]});   // 東和街西側,北街廓
   /* 廟口路那排店整組刪掉了(2026-08-21,kc:「外面那些實體下城建築刪掉」)
      ——上一輪才剛把 at 從寫死的舊路口(-78)修成跟著新路口(-84+B_LINE)
      走,結果 kc 從廟埕裡看,這排真建築(有窗戶/冷氣機/真貼圖)還是從矮牆
