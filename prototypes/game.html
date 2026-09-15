@@ -347,6 +347,8 @@
     transition:all .13s; display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
   #menu button:hover { background:rgba(32,40,53,.98); border-left-color:#d8b24a; color:#fff; transform:translateX(3px); }
   #menu button .cost { font-size:12.5px; color:#8d96a4; white-space:nowrap; }
+  /* 2026-09-15 見 menuCostWarnings():這個選項會把某一格扣到見底的紅字 */
+  #menu button .cost .warn { color:#b8382a; font-weight:600; margin-left:8px; }
   #menu button.bad { color:#8c7a72; } #menu button.bad .cost { color:#a2564c; }
   /* 2026-09-01,kc:「知識不夠會無法選該選項」——cls:'bad' 原本只是變色,
      按鈕還是能點(其他地方靠 run() 裡的 if(blocked) return 擋,體力不夠
@@ -3015,6 +3017,31 @@ let busy = false;
    day 比對,不用另外歸零,換一天 day 本身就變了。 */
 let pendingTheft = 0, stealCaughtDay = -1;
 function closeMenu(){ menuEl.classList.remove('on'); menuEl.innerHTML = ''; busy = false; }
+/* 選項會把哪一格扣到見底,先用紅字講(2026-09-15,kc:「不只是考試還有其他
+   動作也會 感覺如果會扣超過的話應該是如果超過的話會紅字提示會太餓之類」)
+   ——五條會直接輸掉的指標(飽足/體力/情緒/歸屬感/帥潮,見 chg() 裡歸零
+   失敗那段)任何一格會被這個選項扣到 0,cost 後面補一句紅字。
+   扣多少怎麼知道:①選項物件上有 full/stamina/mood/calm/cool 數字欄位的
+   (story-*.js 那批 menu 走 applyStoryChoice(),欄位齊)直接讀;②沒有的
+   就從 cost 那串字裡抓「體力 −20」這種寫法——全專案的 cost 字串本來就
+   照「指標名 ±數字」的慣例在寫(見 CLAUDE.md/記憶「對話要標數值變化」),
+   抓得到。③體力扣多少飽足同步扣多少(chg() 裡那條 1:1 連動),所以 kc 看到
+   的「考完餓死」其實是體力扣分連帶把飽足扣光,這裡也照 1:1 一起算進去。
+   只提示不擋——要不要冒這個險是玩家的事。 */
+const MENU_WARN = { full:'會太餓', stamina:'會累倒', mood:'會崩潰', calm:'會撐不住', cool:'帥潮會見底' };
+const MENU_STAT_CN = { 飽足:'full', 體力:'stamina', 情緒:'mood', 歸屬感:'calm', 帥潮:'cool' };
+function menuCostWarnings(it){
+  const drain = { full:0, stamina:0, mood:0, calm:0, cool:0 };
+  for(const k in drain) if(typeof it[k] === 'number' && it[k] < 0) drain[k] += it[k];
+  if(it.cost){
+    const re = /(飽足|體力|情緒|歸屬感|帥潮)\s*[−\-–]\s*(\d+)/g;
+    let m; while((m = re.exec(it.cost))){ const k = MENU_STAT_CN[m[1]]; if(typeof it[k] !== 'number') drain[k] -= +m[2]; }
+  }
+  if(drain.stamina < 0) drain.full += drain.stamina;   // 扣體力同步扣飽足,見 chg()
+  const out = [];
+  for(const k in drain) if(drain[k] < 0 && ST[k] + drain[k] <= 0) out.push(MENU_WARN[k]);
+  return out;
+}
 function openMenu(cap, items){
   busy = true;
   menuEl.innerHTML = '<div class="cap">'+cap+'</div>';
@@ -3025,7 +3052,9 @@ function openMenu(cap, items){
        (`undefined` 不會設 disabled 屬性)。真的擋掉點擊,不是只變色,見上面
        CSS `#menu button:disabled` 那則筆記。 */
     if(it.disabled) b.disabled = true;
-    b.innerHTML = '<span>'+it.label+'</span><span class="cost">'+(it.cost||'')+'</span>';
+    const warns = menuCostWarnings(it);
+    const warnHtml = warns.length ? '<span class="warn">' + warns.join('、') + '</span>' : '';
+    b.innerHTML = '<span>'+it.label+'</span><span class="cost">'+(it.cost||'')+warnHtml+'</span>';
     b.onclick = () => { closeMenu(); it.run(); };
     menuEl.appendChild(b);
   });
@@ -16866,7 +16895,7 @@ window.__dbg = {
      就是靠暴露 scene 才能直接把材質暫時換成高強度發光色現場驗證,查出
      幾何/材質/貼圖其實都是對的,是巷子環境光真的太暗才讀不出來,不是
      哪裡漏接。留著這兩個當永久除錯工具,以後同類問題不用再繞。 */
-  scene, city, PEDESTRIANS,
+  scene, city, PEDESTRIANS, ST, openMenu, closeMenu,   // ST/openMenu/closeMenu 2026-09-15 補,測選單紅字警示用
   goto(id){
     const d = city.doors.find(x => x.id === id);
     if(!d) return '沒有這個門：' + city.doors.map(x=>x.id).join(', ');
