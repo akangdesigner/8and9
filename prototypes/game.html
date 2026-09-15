@@ -11941,10 +11941,10 @@ function midtermArcadeScene(){
     { who:'kai', text:'「一個人在家很無聊欸，才找你出來。」' },
     { who:'pc',  text:'那一局他很快就輸了。' }
   ], 0, () => {
-    chg('calm', 10); chg('mood', 12); chg('stamina', -6);
-    advanceTime(3);
+    chg('calm', 10); chg('mood', 12);
+    advanceTime(180);   // 一個上午(分鐘)
     busy = false;
-    toast('你們在遊藝場耗掉了一個上午。（歸屬感 +10，情緒 +12，體力 −6）', 4200);
+    toast('你們在遊藝場耗掉了一個上午。（歸屬感 +10，情緒 +12）', 4200);
     logDay('今天沒去考試，跟阿凱去遊藝場。他說他媽又沒回來，一個人在家很無聊。');
   });
 }
@@ -11957,11 +11957,18 @@ function startMidtermExam(){
   let qi = 0, correct = 0;
   busy = true;
   clearTodayCard();
-  coFade('期中考', async () => {
+  /* 2026-09-15 kc:「考試前後要有一點過渡句吧 比如來吧這週要期中考了 然後期中考
+     不用黑幕畫面啊 老師會開場」——原本 coFade('期中考') 黑一下再切考卷特寫,
+     改成老師先講兩句,講完直接換成考卷那張圖開始出題,中間不黑。 */
+  playBeats([
+    { who:'teacher', text:'「來，這週要期中考了，桌上的東西收一收。」' },
+    { who:'teacher', text:'「考卷發下去，先寫名字，寫完再翻。」' },
+    { who:'pc',      text:'考卷傳到你這排的時候，你才發現自己連筆都要跟旁邊借。' }
+  ], 0, async () => {
     studyTakeover = true;
     await imgReady(SCHOOL_STUDY_IMG);
     paintSchoolStudyBackdrop();
-    setTimeout(askRound, 1000);
+    setTimeout(askRound, 500);
   });
   function askRound(){
     if(qi >= qs.length){ explain(); return; }
@@ -11988,7 +11995,8 @@ function startMidtermExam(){
     studyTakeover = false;
     paintSchoolBackdrop();
     const beats = [
-      { who:'teacher', text:'「考卷收一收，我們對一下。」' }
+      { who:'pc',      text:'下一節上課，考卷改好發回來了。' },
+      { who:'teacher', text:'「我們對一下答案，錯的自己看一下。」' }
     ];
     if(!wrong.length){
       beats.push({ who:'teacher', text:'「……全對。」' });
@@ -12006,8 +12014,11 @@ function startMidtermExam(){
     MIDTERM.score = correct;
     MIDTERM.settled = true;
     const pass = correct >= MIDTERM_PASS;
-    advanceTime(4);
-    chg('stamina', -12);
+    /* 2026-09-15 kc:「為啥考完突然就餓死了」——原本這裡 chg('stamina', -12),
+       體力剩 10 的存檔一考完就見底直接輸掉。考試的代價就是一整天的時間,
+       不另外扣體力;時間跟 finishSchoolDay() 同一套推到放學。 */
+    if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
+    logDay('放學。');
     if(pass){
       DISCIPLINE.merits++;
       chg('star', 8); chg('mood', 8);
@@ -12046,7 +12057,7 @@ function startMidtermExam(){
         { who:'pc',      text:'分數寫在右上角，你把它折進書包裡。' }
       ], 0, () => {
         busy = false;
-        toast(`期中考 ${correct}/${MIDTERM_QN}。（體力 −12）`, 3600);
+        toast(`期中考 ${correct}/${MIDTERM_QN}。放學了。`, 3600);
         logDay(`期中考考了 ${correct} 題。沒有人特別說什麼。`);
       });
     }
