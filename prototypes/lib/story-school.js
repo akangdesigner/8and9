@@ -35,7 +35,11 @@
        game.html 的 KAI_RUN——要判斷玩家有沒有真的走過去、有沒有偷開袋子,
        資料檔做不到。完整理由見 DESIGN_NOTES「day5:阿凱帶你去做灰色地帶的事」。 */
     {
-      day: 13,
+      /* 2026-09-15 從 day13 挪到 day22(kc:「不同事情分開」)——day13 整天
+         讓給期中考那場戲(game.html MIDTERM),送袋子這條跟它不合併。
+         接線的兩處也一起改了:game.html 的 SCHOOL_ACTIVE_DAYS 跟 'outside'
+         那個 schoolStorySource([22])。 */
+      day: 22,
       title: '放學後',
       /* 播完把早上那張「今天」的卡換成放學的指示,見 game.html
          maybeTriggerStoryNode() 裡 node.questAfter 那段。 */

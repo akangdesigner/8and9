@@ -1395,7 +1395,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -1569,7 +1569,7 @@ function payAidNow(){
   TEACHER_STATE.aidPaid = true;
   /* 三支警告,操行送不過(2026-09-11 跟 kc 定案:清寒補助那一千不會因為記過
      扣錢,但記滿三次整筆沒了)。 */
-  if(DISCIPLINE.warnings.length >= 3){
+  if(warnCount() >= 3){
     playBeats([
       { who:'teacher', text:'「欸，你過來一下。」' },
       { who:'teacher', text:'「補助的事。你這學期三支警告，操行那關送不過。」' },
@@ -1976,8 +1976,11 @@ const invOverlay = document.getElementById('invOverlay');
  * `owned`,開局都沒穿,穿脫時即時改 ST.cool。 */
 /* tattoo 是獨立的第六個槽位(2026-08-28 加,見下面 WEAR_ITEMS 'tattoo'
    那筆)——不跟 top/bottom 那些衣物搶格子,永遠只有這一件東西會佔用它。 */
-const WEAR_SLOTS = ['hat','top','bottom','shoes','neck','tattoo'];
-const WEAR_SLOT_NAME = { hat:'帽子', top:'上衣', bottom:'褲子', shoes:'鞋子', neck:'項鍊', tattoo:'刺青' };
+/* 2026-09-15 補第七格「口袋」——期中考考好老師給的筆掛在這格(見 MIDTERM
+   那則長筆記)。新增槽位要一起動的有四處:WEAR_SLOTS、WEAR_SLOT_NAME、
+   equipped 初值、EQUIP_BADGE_LEFT/RIGHT 的左右分配(本來是 3/3,現在 4/3)。 */
+const WEAR_SLOTS = ['hat','top','bottom','shoes','neck','tattoo','pocket'];
+const WEAR_SLOT_NAME = { hat:'帽子', top:'上衣', bottom:'褲子', shoes:'鞋子', neck:'項鍊', tattoo:'刺青', pocket:'口袋' };
 /* icon 是 emoji 佔位(2026-08-19 第二輪,照 kc 丟的參考截圖改成圖示格子)——
  * 這遊戲沒做過物品圖示素材,先用 emoji 頂著看版面,之後真的要換圖再整批
  * 換掉,見 DESIGN_NOTES「角色面板改三欄」底下的補記。 */
@@ -1994,6 +1997,12 @@ const WEAR_ITEMS = [
      cool/star 兩個效果,是這批衣物裡第一件會動風評的,見下面
      toggleWear() 那則筆記。 */
   { id:'uniform', slot:'top', name:'超商制服', cool:-10, star:6, icon:'👔', locked:true },
+  /* 老師給的筆(2026-09-15,kc:「小禮物可以裝備加風評」)——期中考對 8 題
+     以上老師叫你過去拿,跟一盒立可白一起給。風評 +7 是因為胸前別著老師的
+     筆,別人看你的眼神會不一樣;帥潮 −3 是同一件事的另一面,那看起來
+     就是不酷。跟超商制服同一個結構(cool/star 都有),locked 不會一開局
+     就在 owned 裡。 */
+  { id:'pen', slot:'pocket', name:'老師給的筆', cool:-3, star:7, icon:'🖊️', locked:true },
   /* 刺青(2026-08-28,kc 糾正兩輪):第一輪「刺完是拿不下來的裝備,帥潮+10」
      ——走這套穿搭系統,不是一次性 chg('cool', cool)。第二輪 kc 再糾正
      「帥潮效果要不同啊,然後也要新增洗掉刺青的選項」——六款刺青(見
@@ -2011,13 +2020,13 @@ const WEAR_ITEMS = [
   { id:'tattoo-dragon', slot:'tattoo', name:'刺青・整片背後龍', cool:25, icon:'🐉', locked:true, removable:false }
 ];
 const owned = WEAR_ITEMS.filter(w => !w.locked).map(w => w.id);
-const equipped = { hat:null, top:null, bottom:null, shoes:null, neck:null, tattoo:null };
+const equipped = { hat:null, top:null, bottom:null, shoes:null, neck:null, tattoo:null, pocket:null };
 /* 角色欄兩側的裝備小圖示(2026-08-19 第二輪)怎麼分左右純粹是排版好看,
  * 沒有特別意義,3/2 只是配平衡,不喜歡可以直接改這兩個陣列。 */
 /* 刺青補進裝備欄右側(2026-08-28,kc:「拔不掉的刺青要顯示在裝備欄」)——
    3/2 配平衡改成 3/3,不是隨便塞,刺青放右側跟項鍊同排,理由只是排版
    好看,沒有特別意義,跟這兩個陣列原本的分法一致。 */
-const EQUIP_BADGE_LEFT = ['hat','top','bottom'], EQUIP_BADGE_RIGHT = ['shoes','neck','tattoo'];
+const EQUIP_BADGE_LEFT = ['hat','top','bottom','pocket'], EQUIP_BADGE_RIGHT = ['shoes','neck','tattoo'];
 
 /* toggleWear() 改成算「這次穿脫的差量」直接 chg(),不是重算一個絕對值
    再跟 ST.cool 做差(舊版 recomputeCool()/COOL_BASE 那套,2026-08-28
@@ -2410,6 +2419,21 @@ function debugDailyDraw(){
   say('pc', `（${debugDailyIdx}/${DAILY_EVENTS.length}）` + e.line, () => { busy = false; });
 }
 window.debugDailyDraw = debugDailyDraw;
+/* 期中考測試鈕(2026-09-15)——把日子調到 MIDTERM_DAY、清掉狀態,再把人
+   丟到校門口外面幾步,按空白鍵就會遇到阿凱。 */
+function debugMidterm(){
+  day = MIDTERM_DAY;
+  MIDTERM.chose = ''; MIDTERM.settled = false; MIDTERM.score = -1;
+  MIDTERM.gift = false; MIDTERM.arcadePending = false;
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(-36, .3, 74);
+  syncHUD();
+  toast('第 ' + MIDTERM_DAY + ' 天，期中考。走到校門口按空白鍵。', 4000);
+}
+window.debugMidterm = debugMidterm;
 function kaiRunArm(){
   MODE = 'city';
   document.getElementById('indoor').classList.remove('on');
@@ -7987,7 +8011,7 @@ function openIndoorSpot(id){
     /* story-school.js day13(排氣管,「放學,校門口那排車」)——這節本身就是
        離校那一刻的場景,所以節點播完(或這輪沒輪到)才真的 leaveIndoor(),
        不能兩個一起做,不然對話開著人已經淡出離開學校了(2026-09-01)。 */
-    else if(id === 'outside'){ maybeTriggerStoryNode([['school', schoolStorySource([13])]], leaveIndoor); return; }
+    else if(id === 'outside'){ maybeTriggerStoryNode([['school', schoolStorySource([22])]], leaveIndoor); return; }   // 2026-09-15 送袋子那條從 day13 挪到 day22(day13 讓給期中考,kc:「不同事情分開」)
     else if(id === 'kiosk'){ openTuitionKiosk(); return; }
     else if(id === 'jiaoguan'){ talkToJiaoguanCorridor(); return; }
     /* 公佈欄(2026-09-11)——先只掛「別人的」獎懲名單(虛構名字,層級拉開),
@@ -9736,7 +9760,10 @@ function hasStoryOn(d){
      發生」的空白日)。校外教學那天走 checkFieldTrip() 自己那條路,要另外算。 */
   const school = (SCHOOL_ACTIVE_DAYS.includes(d) || d === 52)
     && !seenStoryDays.has('school-' + d) && !CLASSFUND.tripStarted;
-  return home || school || (d === GRANDMA_CALL_DAY && !hospitalCallFired);
+  /* 期中考那天不是 story-school 的節點,走 MIDTERM 自己那條路(跟校外教學
+     day18 同一個結構),要另外算進「有事的日子」,不然睡覺會直接跳過去。 */
+  const midterm = d === MIDTERM_DAY && !MIDTERM.settled;
+  return home || school || midterm || (d === GRANDMA_CALL_DAY && !hospitalCallFired);
 }
 function hasStoryToday(){ return hasStoryOn(day); }
 /* ===== 行動天(2026-09-10,kc:「3個月是虛擬90天 實際我們會跳天啊 所以才叫
@@ -10459,13 +10486,17 @@ function warpIntoPlace(door){
        兩階段都要靠「進教室」這個動作觸發,跟 day5/21 那套 day-based
        節點是平行的兩套機制,不要合併。撞到的話(回傳 true)就不要再檢查
        下面那批,一次進場只彈一段。 */
-    if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
+    /* 期中考(2026-09-15)跟班費一樣是「進教室就開始」的獨立一條,排在最前面。 */
+    if(day === MIDTERM_DAY && !MIDTERM.settled){ startMidtermExam(); }
+    else if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
   } else if(PLACE === 'arcade'){
     /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
        scene-arcade.js 門畫在左邊那則筆記),面朝 'F' 轉身往機台那側走。 */
     IN.px = ARCADE.spots.find(s=>s.id==='door').x + 30; IN.py = ARCADE.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '遊藝場';
     paintArcadeBackdrop();
+    /* 期中考那天翹課,阿凱帶你來這裡(2026-09-15,見 MIDTERM 那則長筆記)。 */
+    if(MIDTERM.arcadePending) setTimeout(midtermArcadeScene, 700);
   } else if(PLACE === 'tattoo'){
     /* 刺青店(2026-08-28)——照 school/arcade 同一套「站在門口正中央,
        面朝 'F' 轉身往店裡走」先例。門在畫面左側(SceneTattoo.SPOTS
@@ -10493,6 +10524,9 @@ function enterIndoor(door){
      另外走電話自動觸發——2026-09-04 推翻,見上面「醫院探望+續命」長
      筆記:阿嬤本來就住院,大門本來就能探望,改接 visitGrandma()。 */
   if(door.id === 'hospital'){ visitGrandma(); return; }
+  /* 期中考那天的校門口(2026-09-15)——阿凱在門外等你決定,見 MIDTERM 那則
+     長筆記。攔在最前面,回傳 true 就整個接走,連 returnTo 都還沒記。 */
+  if(door.id === 'school' && midtermGate(door)) return;
   if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
     toast(door.name + ' 的室內場景還沒做。', 3600);
     return;
@@ -10902,7 +10936,9 @@ function leaveCorridorToClassroom(){
     IN.px = SCHOOL.spots.find(s=>s.id==='door').x + 30; IN.py = SCHOOL.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
-    if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
+    /* 期中考(2026-09-15)跟班費一樣是「進教室就開始」的獨立一條,排在最前面。 */
+    if(day === MIDTERM_DAY && !MIDTERM.settled){ startMidtermExam(); }
+    else if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
     checkGrandmaCall();
   });
 }
@@ -11707,7 +11743,192 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
    家庭線一樣:寫好了但沒定案,不要讓沒確認過的內容在玩家面前跑。
    day18(班費)不在這個清單裡是因為它走 checkFieldTrip() 自己那條路,不經過
    schoolStorySource()。 */
-const SCHOOL_ACTIVE_DAYS = [13, 37];
+const SCHOOL_ACTIVE_DAYS = [22, 37];   // 2026-09-15 13→22:day13 整天讓給期中考(見 MIDTERM),送袋子那條往後挪
+/* ===== 期中考那一天(2026-09-15)=====================================
+ * kc 一路給的規格:
+ *   「1. 就是到學校後阿凱會邀請你翹課 從這個繼續發想」
+ *   「不同事情分開」——送袋子那條(KAI_RUN)原本也掛在 day13,整條挪到 day22,
+ *     這一天只有期中考,兩件事不合併。
+ *   「你進校門之前就會在旁邊遇到阿凱了 你如果不去那阿凱也不去 你去了就
+ *     你們一起翹課去玩」——所以這場戲在**校門外**,不在教室;而且阿凱是
+ *     跟著你的決定走的,他不是在拉你下水,他是在等你決定。你進去,他也
+ *     進去,然後你會在考場看到他趴著,考卷幾乎空白。
+ *   「考試就是基本的考試 10題 考完後老師會在課堂上講解錯的題目 考得好會有
+ *     額外獎勵比如嘉獎之類的甚至是老師的小禮物 他會叫你過去拿」
+ *
+ * 講解那段直接用 lib/quiz.js 每一題的 `note` 欄位,不另外寫文案——那些解說
+ * 本來就寫得很正常、不挖苦人(見 quiz.js 開頭那條「答錯的回饋絕對不可以
+ * 嘲笑角色」)。只講你錯的,答對的跳過,所以錯越多這一段坐得越久。
+ *
+ * 門檻 8/10(kc 點頭)。過了拿一支嘉獎(抵一次警告,見 warnCount())+ 老師
+ * 給的筆(WEAR_ITEMS 'pen',口袋槽)。沒過不扣風評,只是什麼都沒有——這一天
+ * 的懲罰是「你也沒得到什麼」,不是再踩一腳。
+ *
+ * 翹課那條的獎勵是真的:歸屬感/情緒都會上去。曠課的警告不用在這裡記,
+ * sleep() 本來就靠 lastSchoolDay 判斷今天有沒有進過學校(見 skippedSchool),
+ * 走了就自然會多一筆。但選了翹課之後這一天就不能再回頭進學校,不然警告
+ * 會被洗掉,校門口會擋下來。 */
+const MIDTERM_DAY = 13, MIDTERM_PASS = 8, MIDTERM_QN = 10;
+const MIDTERM = { chose:'', settled:false, score:-1, gift:false, arcadePending:false };
+
+/* 校門口攔截。回傳 true = 這次按空白鍵被這場戲接走了,enterIndoor() 不要再往下跑。 */
+function midtermGate(door){
+  if(day !== MIDTERM_DAY || MIDTERM.settled) return false;
+  if(MIDTERM.chose === 'out'){
+    toast('你今天沒有要進去。', 2600);
+    return true;
+  }
+  if(MIDTERM.chose === 'in') return false;      // 已經選過進去,正常進場
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'校門口前面幾步，阿凱靠在圍牆邊，書包丟在腳邊。' },
+    { who:'pc',  text:'他手上轉著機車鑰匙，沒有要進去的意思。' },
+    { who:'kai', text:'「反正你也不會寫。」' },
+    { who:'kai', text:'「……你要進去喔？」' }
+  ], 0, () => {
+    openMenu('校門口', [
+      { label:'進去。', run(){
+          MIDTERM.chose = 'in';
+          playBeats([
+            { who:'pc',  text:'阿凱看了你一眼，把書包從地上撈起來。' },
+            { who:'kai', text:'「……那我也進去好了。」' },
+            { who:'pc',  text:'他走在你後面半步，一路沒有再說話。' }
+          ], 0, () => { busy = false; enterIndoor(door); });
+        } },
+      { label:'走啦。', cost:'歸屬感 +10　情緒 +12　曠課一次', run(){
+          MIDTERM.chose = 'out';
+          midtermSkip();
+        } }
+    ]);
+  });
+  return true;
+}
+
+/* 翹課:一起去遊藝場(kc 選的地點)。真正的對話掛在遊藝場場景那邊,靠
+   MIDTERM.arcadePending 這個旗標接,跟班費任務進教室那套同一個做法。 */
+function midtermSkip(){
+  clearTodayCard();
+  playBeats([
+    { who:'kai', text:'「走走走。」' },
+    { who:'pc',  text:'他把書包甩上肩，走在前面，沒有回頭確認你有沒有跟上。' },
+    { who:'pc',  text:'你們沿著圍牆走到底，轉出去的時候上課鐘剛好響。' }
+  ], 0, () => {
+    busy = false;
+    MIDTERM.arcadePending = true;
+    const d = city.doors.find(x => x.id === 'arcade');
+    if(d) enterIndoor(d); else midtermArcadeScene();
+  });
+}
+function midtermArcadeScene(){
+  MIDTERM.arcadePending = false;
+  MIDTERM.settled = true;
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'早上的遊藝場幾乎沒有人，機台的音樂空空地響著。' },
+    { who:'kai', text:'「我媽昨天沒回來。」' },
+    { who:'pc',  text:'他一邊投幣一邊講，眼睛沒有離開螢幕。' },
+    { who:'kai', text:'「我不是不敢自己來。」' },
+    { who:'kai', text:'「我是不想一個人待一整天。」' },
+    { who:'pc',  text:'他沒有再講下去，那局也很快就結束了。' }
+  ], 0, () => {
+    chg('calm', 10); chg('mood', 12); chg('stamina', -6);
+    advanceTime(3);
+    busy = false;
+    toast('你們在遊藝場耗掉了一個上午。（歸屬感 +10，情緒 +12，體力 −6）', 4200);
+    logDay('今天沒去考試。阿凱說他不是不敢自己來，是不想一個人待一整天。');
+  });
+}
+
+/* 考試本體。UI 沿用 askMakeupExam() 那一套(coFade/coShowOptions + 讀書背景),
+   規則不同:固定 10 題、不會提前結束、答錯的留著給老師講解。 */
+function startMidtermExam(){
+  const qs = coShuffle(Quiz.BANK.slice()).slice(0, MIDTERM_QN);
+  const wrong = [];
+  let qi = 0, correct = 0;
+  busy = true;
+  clearTodayCard();
+  coFade('期中考', async () => {
+    studyTakeover = true;
+    await imgReady(SCHOOL_STUDY_IMG);
+    paintSchoolStudyBackdrop();
+    setTimeout(askRound, 1000);
+  });
+  function askRound(){
+    if(qi >= qs.length){ explain(); return; }
+    const n = qi + 1, q = qs[qi++];
+    drawPortrait('pc');
+    dName.textContent = `期中考 (${n}/${MIDTERM_QN})`;
+    dTx.textContent = `【${q.subj}】${q.q}`;
+    dCaret.classList.remove('on');
+    dlgEl.classList.add('on');
+    coShowOptions(q.opts.map((opt, oi) => ({
+      label: opt,
+      run(){
+        document.getElementById('coOpts').innerHTML = '';
+        if(oi === q.a) correct++; else wrong.push({ n, q });
+        askRound();
+      }
+    })));
+  }
+  /* 考完老師在台上對答案。只講錯的那幾題,一題一句,用題庫自己的 note。
+     全對的話他會愣一下——那一句是這場戲裡唯一一個笑點,而且笑點朝的是
+     「沒有人預期你會考好」,不是朝你。 */
+  function explain(){
+    dlgEl.classList.remove('on');
+    studyTakeover = false;
+    paintSchoolBackdrop();
+    const beats = [
+      { who:'teacher', text:'「考卷收一收，我們對一下。」' }
+    ];
+    if(!wrong.length){
+      beats.push({ who:'teacher', text:'「……全對。」' });
+      beats.push({ who:'pc',      text:'他把你的考卷翻來翻去，像是要找出哪裡不對。' });
+    } else {
+      wrong.forEach(({ n, q }) => beats.push({ who:'teacher', text:`「第 ${n} 題。${q.note}」` }));
+      beats.push({ who:'pc', text:'他講得很慢，你聽著自己不會的東西，一節課就這樣過去了。' });
+    }
+    if(MIDTERM.chose === 'in'){
+      beats.push({ who:'pc', text:'斜前方的阿凱從頭到尾趴著，考卷交上去的時候幾乎是空白的。' });
+    }
+    playBeats(beats, 0, settle);
+  }
+  function settle(){
+    MIDTERM.score = correct;
+    MIDTERM.settled = true;
+    const pass = correct >= MIDTERM_PASS;
+    advanceTime(4);
+    chg('stamina', -12);
+    if(pass){
+      DISCIPLINE.merits++;
+      chg('star', 8); chg('mood', 8);
+      const gift = !owned.includes('pen');
+      if(gift){ owned.push('pen'); MIDTERM.gift = true; }
+      playBeats([
+        { who:'teacher', text:`「${PLAYER_NAME || '欸'}。」` },
+        { who:'pc',      text:'全班還沒走完，他在講台上叫你的名字，你不知道要幹嘛。' },
+        { who:'teacher', text:`「${correct} 題。你這次考得不錯。」` },
+        { who:'teacher', text:'「我幫你報一支嘉獎。」' },
+        { who:'pc',      text:'他拉開抽屜，翻了一下，拿出一盒立可白跟一支筆。' },
+        { who:'teacher', text:'「多的，你拿去。」' },
+        { who:'pc',      text:'他沒有多講什麼，就低頭改別人的考卷了。' }
+      ], 0, () => {
+        busy = false;
+        toast(`期中考 ${correct}/${MIDTERM_QN}。嘉獎一支，抵掉一次警告。\n老師給了你一支筆（風評 +8，情緒 +8）`, 5200);
+        logDay(`期中考考了 ${correct} 題。老師報了我一支嘉獎，還給我一支筆，說是多的。`);
+      });
+    } else {
+      playBeats([
+        { who:'pc',      text:'考卷發回來的時候他沒有特別看你。' },
+        { who:'pc',      text:'分數寫在右上角，你把它折進書包裡。' }
+      ], 0, () => {
+        busy = false;
+        toast(`期中考 ${correct}/${MIDTERM_QN}。（體力 −12）`, 3600);
+        logDay(`期中考考了 ${correct} 題。沒有人特別說什麼。`);
+      });
+    }
+  }
+}
+
 function schoolStorySource(days){
   return { NODES: StorySchool.NODES.filter(n => days.includes(n.day)) };
 }
@@ -13595,7 +13816,13 @@ function chatWithMeiClassroom(){
    直接寫「警告 N 次」。三次:隔天進教室導師找你(story-school day82 那段劇本)、
    清寒補助送不過(payAidNow());獎學金扣錢等期中考做好一起接。
    主角名字是 PLAYER_NAME(開新遊戲時玩家自己輸入),舊存檔沒有就退回「（你）」。 */
-const DISCIPLINE = { warnings:[], phoneHeld:false, counseled:false };
+const DISCIPLINE = { warnings:[], phoneHeld:false, counseled:false, merits:0 };
+/* 嘉獎抵警告(2026-09-15,kc 點頭)——期中考考好拿一支嘉獎,`merits` 直接
+   從警告數裡扣掉。三處判定全部改吃 warnCount():清寒補助送不送得過
+   (payAidNow)、導師找不找你(maybeCounsel)、公佈欄要不要標送輔導室
+   (readBoard)。原始的 warnings 陣列不動,公佈欄還是照實印出每一筆,
+   抵掉的部分另外印一行——學校不會把記錄擦掉,只會在後面加一行。 */
+function warnCount(){ return Math.max(0, DISCIPLINE.warnings.length - (DISCIPLINE.merits || 0)); }
 let PLAYER_NAME = '';   // 開新遊戲時問(見 bootFresh 那段),舊存檔沒有這個欄位就空字串 → 公佈欄退回「（你）」
 /* 年齡/性別(2026-09-11,kc:「應該填姓名跟年齡性別就好 後面才會接分發」)——先只
    存起來,遊戲裡還沒有任何地方吃這兩個值(3D 主角只有男生模型,選女不會換模;
@@ -13609,9 +13836,10 @@ function readBoard(){
   const posted = DISCIPLINE.warnings.filter(w => w.day < day);
   const phone = posted.filter(w => w.kind === 'phone').length, absent = posted.filter(w => w.kind === 'absent').length;
   const mine = posted.length
-    ? `一年三班　${PLAYER_NAME || '（你）'}　　警告 ${posted.length} 次` + (posted.length >= 3 ? '　（送輔導室）' : '') +
-      `\n　　　　　　　　　　（上課使用手機 ×${phone}、曠課 ×${absent}）\n`
-    : '';
+    ? `一年三班　${PLAYER_NAME || '（你）'}　　警告 ${posted.length} 次` + (warnCount() >= 3 ? '　（送輔導室）' : '') +
+      `\n　　　　　　　　　　（上課使用手機 ×${phone}、曠課 ×${absent}）\n` +
+      (DISCIPLINE.merits ? `一年三班　${PLAYER_NAME || '（你）'}　　嘉獎 ${DISCIPLINE.merits} 次　（功過相抵）\n` : '')
+    : (DISCIPLINE.merits ? `一年三班　${PLAYER_NAME || '（你）'}　　嘉獎 ${DISCIPLINE.merits} 次\n` : '');
   const others = '一年一班　陳○宏　曠課累計　記大過乙次\n二年二班　林○翔　校外鬥毆　記大過兩次\n三年五班　黃○安　　　　　　退學\n一年三班　阿仁　　上課使用手機　警告乙次';
   const tail = posted.length ? '' : '\n\n你在名單上找了一下自己的名字，還沒有被貼上去。';
   readNotice('【本學期獎懲公告】\n\n' + mine + others + tail);
@@ -13620,7 +13848,7 @@ function readBoard(){
    (封存的節點,這裡不經過 schoolStorySource() 的日期篩選,直接拿 day:82 那筆
    來播),不改劇本一個字。 */
 function maybeCounsel(after){
-  if(DISCIPLINE.warnings.length < 3 || DISCIPLINE.counseled){ if(after) after(); return false; }
+  if(warnCount() < 3 || DISCIPLINE.counseled){ if(after) after(); return false; }
   const node = StorySchool.NODES.find(n => n.day === 82);
   if(!node){ if(after) after(); return false; }
   DISCIPLINE.counseled = true;
@@ -15761,7 +15989,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
