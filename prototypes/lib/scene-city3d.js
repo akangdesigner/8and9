@@ -266,7 +266,10 @@ export function buildCity(THREE, scene){
        低 roughness 讓路燈的光沿走道拉出長長一條反光,參考圖那種濕潤柏油感
        主要就是這個效果撐出來的,不是貼圖本身多細緻。原本的 alleyWet(兩塊
        獨立矩形積水)整塊拿掉,改成地板材質本身統一濕,不用再算積水位置。 */
-    alleyFloor: new THREE.MeshPhysicalMaterial({ map:T.walk, roughness:.5, metalness:.12, clearcoat:1, clearcoatRoughness:.1 }),
+    /* 2026-09-15 kc:「地板材質很怪 巷子的部分」——環境貼圖進來之後 clearcoat 1
+       把整片地變成一面灰鏡,磁磚全糊掉。clearcoat 壓到 .3、粗一點、環境光 .12,
+       留一點「濕濕的巷子地」的感覺就好。 */
+    alleyFloor: new THREE.MeshPhysicalMaterial({ map:T.walk, roughness:.7, metalness:0, clearcoat:.3, clearcoatRoughness:.4, envMapIntensity:.12 }),
     /* 巷子牆面(同一輪):原本沿用 M.wallC——跟全城建築外牆共用同一顆材質,
        貼圖重複率也跟大馬路店面一樣稀疏,讀起來像放大的建築外牆,不是窄巷
        磁磚牆。開一顆獨立材質,同一張 wall.png 但重複率抓密一截(磁磚縫更
@@ -5080,8 +5083,13 @@ function attachPlayerFace(THREE, model, FACE){
   /* CircleGeometry 不是 PlaneGeometry——第一版用方形 plane,高解析度特寫
      渲染出來就是兩塊黑方塊糊在眼睛上(2026-09-09 kc 要求在超商裡看清楚才
      抓到的,遊戲鏡頭下頭只有 30 px 根本看不出方的圓的)。 */
+  /* polygonOffset(2026-09-15,kc:「有些人有眼睛有些沒有」)——NPC 的黑眼球/眼白
+     只推出眼皮表面 .005,跟臉皮那層在深度上打架,某些角度贏某些角度輸,就變成
+     有的人有眼睛有的人沒有。polygonOffset 負值把這兩片在深度測試裡往鏡頭拉一點,
+     臉皮蓋不住它們,但頭轉過去還是會被後腦杓正常擋掉(不是 depthTest:false)。 */
+  const EYE_PO = { polygonOffset:true, polygonOffsetFactor:-3, polygonOffsetUnits:-3 };
   const mk = () => new THREE.Mesh(new THREE.CircleGeometry(.5, 24),
-                                  new THREE.MeshBasicMaterial({ color:F.iris }));
+                                  new THREE.MeshBasicMaterial(Object.assign({ color:F.iris }, EYE_PO)));
   const P = { irisL:mk(), irisR:mk() };
   P.irisL.renderOrder = 5; boneL.add(P.irisL);
   P.irisR.renderOrder = 5; boneR.add(P.irisR);
@@ -5089,7 +5097,7 @@ function attachPlayerFace(THREE, model, FACE){
      當眼白(2026-09-11,kc:「其他人能給眼白嗎」)——比黑眼球大 2.6 倍、往臉內
      退一點點,黑眼球疊在上面。用 Standard 材質跟皮膚一起吃光,不會在暗處發亮。 */
   const mkW = () => new THREE.Mesh(new THREE.CircleGeometry(.5, 24),
-                                   new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.75, envMapIntensity:.08 }));
+                                   new THREE.MeshStandardMaterial(Object.assign({ color:F.sclera, roughness:.75, envMapIntensity:.08 }, EYE_PO)));
   if(!sclera){
     P.whiteL = mkW(); P.whiteR = mkW();
     P.whiteL.renderOrder = 4; boneL.add(P.whiteL);
