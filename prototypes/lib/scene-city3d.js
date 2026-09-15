@@ -4230,10 +4230,12 @@ export function buildCity(THREE, scene){
    * 拉),拉定後再把數字寫回這裡。 */
   const backdropRef = {};
   (function skylineBackdrop(){
-    /* 預設值怎麼算出來的:可見帶是 y 0~11.3。要讓圖裡「樓頂剪影+一點天空」
-       那段(從圖上緣往下 25%~60%)剛好落在這條帶上,圖的上緣就要放在
-       y≈21,所以高度 40 的話底邊在 y=-19(圖的下半截埋在地面下,看不到)。 */
-    const cfg = { w:300, h:40, y:-19, z:124 };
+    /* 這四個數字是 kc 2026-09-15 自己拉滑桿定的,不要憑感覺改回去。
+       tint/bright 是同一輪補的調色:原圖是暖橘紫的夜景,街上是冷調深藍,
+       直接貼會跳色——material.color 乘在貼圖上,tint 往冷藍拉、bright 壓暗,
+       讓它退進 scene.fog(0x0d141e)那個色溫裡。 */
+    const cfg = { w:235, h:17, y:-1, z:118, tint:.55, bright:.8 };
+    const COOL = { r:.62, g:.76, b:1.0 };      // 冷藍端,tint=1 時完全走這個色
     const mat = new THREE.MeshBasicMaterial({ color:0x5a5a68, fog:true, side:THREE.DoubleSide });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);
     mesh.rotation.y = Math.PI;                 // 正面朝 -z(城市這側)
@@ -4244,6 +4246,10 @@ export function buildCity(THREE, scene){
       mesh.position.set(0, cfg.y + cfg.h/2, cfg.z);
       mesh.scale.set(cfg.w, cfg.h, 1);
       if(tex){ tex.repeat.set(cfg.w / (cfg.h * 3), 1); tex.needsUpdate = true; }   // 3 是圖的長寬比
+      if(mat.map) mat.color.setRGB(
+        (1 + (COOL.r-1)*cfg.tint) * cfg.bright,
+        (1 + (COOL.g-1)*cfg.tint) * cfg.bright,
+        (1 + (COOL.b-1)*cfg.tint) * cfg.bright);
     };
     apply();
     loader.load(TEX_DIR + 'skyline-temple.png', img => {
@@ -4251,7 +4257,7 @@ export function buildCity(THREE, scene){
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
       tex.wrapS = THREE.MirroredRepeatWrapping; tex.wrapT = THREE.ClampToEdgeWrapping;
       tex.needsUpdate = true;
-      mat.map = tex; mat.color.setHex(0xffffff); mat.needsUpdate = true;
+      mat.map = tex; mat.needsUpdate = true;
       apply();
     }, undefined, () => {});
     backdropRef.mesh = mesh; backdropRef.cfg = cfg; backdropRef.apply = apply;
