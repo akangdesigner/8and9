@@ -1389,14 +1389,22 @@ export function buildCity(THREE, scene){
   };
 
   /* 中華路:你家、超商在這條 */
+  /* 兩排最外側那格(x=±72,-77.8~-66.2 / 66.2~77.8)伸進西園街/東和街的人行道跟
+     路面——2026-08-21 骨架收緊那輪明講「位置不動,之後再談」,2026-09-15 kc 截圖
+     「這邊店面怎麼凸出來了」拿來談了。四格都是鐵捲門空店,直接改成 S.gap,剩下
+     ±65.8~±68 那 2.2 寬的縫用窄牆面補齊到人行道內緣,跟廟口路那排同一招。 */
   row({ axis:'x', at:-B_LINE, face:1, from:-72, shops:[
-    S.sh, {kind:'home',id:'home',label:'你家'}, S.food(undefined,true), S.betel(), S.gap,
+    S.gap, {kind:'home',id:'home',label:'你家'}, S.food(undefined,true), S.betel(), S.gap,
     {kind:'store',id:'store',label:'超商',sign:0xf2efe4,signKey:'store'}, S.moto(), S.drug(), S.sh,
-    S.food(0xe8b52c), S.gap, S.gap, S.sh ]});
+    S.food(0xe8b52c), S.gap, S.gap, S.gap ]});
   row({ axis:'x', at:B_LINE, face:-1, from:-72, shops:[
-    S.sh, S.food(), S.sh, S.net(), S.gap,
+    S.gap, S.food(), S.sh, S.net(), S.gap,
     {kind:'tattoo',id:'tattoo',label:'刺青店',sign:0xff4a5a,signKey:'tattoo'}, S.arcade(), S.gap, S.betel(),
-    S.sh, S.sh, S.food(0xe8b52c), S.sh ]});
+    S.sh, S.sh, S.food(0xe8b52c), S.gap ]});
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx, sz]) => {
+    add(box(2.2, 17, DEPTH, M.wallC), sx*66.9, 8.5, sz*B_LINE);
+    solid(sx*66.9, sz*B_LINE, 1.1, DEPTH/2);
+  });
   /* ===== 街廓外側的基本住宅(2026-09-15,kc:「其他往外部的開口就是放基本
      住宅呀」)=====
      街廓內部是裸地,原本從廟口路人行道、西園街/東和街內側人行道都走得進去、
@@ -5067,7 +5075,7 @@ function attachPlayerFace(THREE, model, FACE){
      Basic 不吃光——臉在陰影裡的時候眼睛還讀得出來,跟越式按摩那個黑洞
      「Basic 不吃光」同一個材質理由,只是方向相反。 */
   const sclera = model.getObjectByName('Eyes');
-  if(sclera) sclera.material = new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.35 });
+  if(sclera) sclera.material = new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.75, envMapIntensity:.08 });   // 2026-09-15 環境貼圖進來之後 .35 的眼白會抓到一顆反光亮點,遠看整顆眼睛變成亮點、黑眼球被吃掉(kc:「眼睛怎不見了」);壓成霧面、幾乎不吃環境光
 
   /* CircleGeometry 不是 PlaneGeometry——第一版用方形 plane,高解析度特寫
      渲染出來就是兩塊黑方塊糊在眼睛上(2026-09-09 kc 要求在超商裡看清楚才
@@ -5081,7 +5089,7 @@ function attachPlayerFace(THREE, model, FACE){
      當眼白(2026-09-11,kc:「其他人能給眼白嗎」)——比黑眼球大 2.6 倍、往臉內
      退一點點,黑眼球疊在上面。用 Standard 材質跟皮膚一起吃光,不會在暗處發亮。 */
   const mkW = () => new THREE.Mesh(new THREE.CircleGeometry(.5, 24),
-                                   new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.35 }));
+                                   new THREE.MeshStandardMaterial({ color:F.sclera, roughness:.75, envMapIntensity:.08 }));
   if(!sclera){
     P.whiteL = mkW(); P.whiteR = mkW();
     P.whiteL.renderOrder = 4; boneL.add(P.whiteL);
