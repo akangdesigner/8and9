@@ -3965,107 +3965,12 @@ export function buildCity(THREE, scene){
        不要看到舊註解就自動接回這批 tower。 */
   })();
 
-  /* ===== 街廓內部收邊(2026-09-15,kc:巷子「直接穿到房子的背後」、
-   * 「有些地區做不了」)=====
-   * 街廓是 2×2 骨架,但房子只沿中華路兩側跟永安街南側蓋;北街廓
-   * (z -68~-27)跟南街廓(z 27~57)的內部、還有西園街/東和街內側整條,
-   * 都是沒鋪過的裸地,巷子的牆就是兩片獨立立在空地上的牆,俯視鏡頭一眼
-   * 看穿。這裡不蓋新的「店」,用台灣街屋後面那種後院加蓋把內部鋪滿:
-   * 一格一格的低矮鐵皮屋頂(4.5~6.5 高,比店面 17+、巷牆 13 都矮,俯視
-   * 讀成一片高低不齊的鐵皮,不會跟正面的店搶戲),外圍面向街道那幾邊
-   * 再圍一圈 2.6 高的圍牆。格子碰到既有碰撞箱(店、巷牆、斜巷的旋轉牆)
-   * 或巷子走道就跳過,所以巷子兩側自然留出來,不用手算每一段。
-   * 高度/屋頂顏色用 (col,row) 索引錯開,不用亂數(kc:不要亂數)。
-   * 長篇理由見 DESIGN_NOTES「巷子收邊」。 */
-  (function backyardFill(){
-    const tinTex = (base, dark) => {
-      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-      const x = c.getContext('2d');
-      x.fillStyle = base; x.fillRect(0,0,64,64);
-      x.fillStyle = dark;
-      for(let i=0;i<64;i+=8) x.fillRect(i,0,3,64);          // 浪板稜線
-      x.fillStyle = 'rgba(0,0,0,.18)';
-      for(let i=0;i<64;i+=8) x.fillRect(i+3,0,1,64);
-      const t = new THREE.CanvasTexture(c);
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3,2);
-      return t;
-    };
-    const ROOFS = [
-      std({ map:tinTex('#7d8a8f','#5e6a70'), roughness:.55, metalness:.25 }),   // 鍍鋅灰
-      std({ map:tinTex('#8f5a42','#6b3f2c'), roughness:.7,  metalness:.15 }),   // 鏽紅
-      std({ map:tinTex('#5c6e78','#44525b'), roughness:.6,  metalness:.2  })    // 藍灰
-    ];
-    const SIDES = [M.wallB, M.wallC, M.wall, M.wallD];
-    const H = [4.5, 6.5, 5.5];
-
-    const ALLEY_HW = 3.2, DIAG_HW = 3.6;
-    /* 一個點有沒有壓到「不能蓋」的東西:既有碰撞箱(含斜巷旋轉牆)或
-       巷子走道。跟 blocked() 同一套旋轉判斷,但不加 .55 的走路緩衝。 */
-    const snapshot = colliders.slice();   // 這批加蓋自己也會 solid(),不要拿自己當障礙
-    function occupied(x, z){
-      for(const c of snapshot){
-        const dx = x-c.x, dz = z-c.z;
-        if(Math.abs(dx) >= c.hw || Math.abs(dz) >= c.hd) continue;
-        if(c.angle !== undefined){
-          const cs = Math.cos(c.angle), sn = Math.sin(c.angle);
-          if(Math.abs(dx*cs-dz*sn) >= c.localHW || Math.abs(dx*sn+dz*cs) >= c.localHD) continue;
-        }
-        return true;
-      }
-      for(const a of alleys)
-        if(Math.abs(x-a.x) < ALLEY_HW+.5 && z > Math.min(a.z0,a.z1)-.5 && z < Math.max(a.z0,a.z1)+.5) return true;
-      for(const a of diagAlleys){
-        const dx = a.x1-a.x0, dz = a.z1-a.z0, len = Math.hypot(dx,dz), ux = dx/len, uz = dz/len;
-        const px = x-a.x0, pz = z-a.z0, along = px*ux+pz*uz, side = px*uz-pz*ux;
-        if(along > -.5 && along < len+.5 && Math.abs(side) < DIAG_HW+.5) return true;
-      }
-      return false;
-    }
-    function cellFree(x0, z0, x1, z1){
-      const xs = [x0, (x0+x1)/2, x1], zs = [z0, (z0+z1)/2, z1];
-      for(const x of xs) for(const z of zs) if(occupied(x, z)) return false;
-      return true;
-    }
-    function fill(x0, z0, x1, z1, cols, rows){
-      const cw = (x1-x0)/cols, cd = (z1-z0)/rows, GAP = .5;
-      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
-        const ax = x0+c*cw+GAP/2, az = z0+r*cd+GAP/2, bx = ax+cw-GAP, bz = az+cd-GAP;
-        if(!cellFree(ax, az, bx, bz)) continue;
-        const k = (c*7+r*3)%3, h = H[(c+r*2)%3];
-        const side = SIDES[(c+r)%4];
-        add(box(bx-ax, h, bz-az, [side,side,ROOFS[k],side,side,side]), (ax+bx)/2, h/2, (az+bz)/2);
-        solid((ax+bx)/2, (az+bz)/2, (bx-ax)/2, (bz-az)/2);
-      }
-    }
-    /* 外圍圍牆:面向街道那幾邊(北街廓的廟口路邊、兩個街廓的西園街/東和街
-       邊、南街廓在永安街上那塊原火車站空地)。巷口那段自動讓開(alleys
-       走道範圍內不放)。 */
-    function ringWall(axis, at, from, to){
-      const SEG = 4;
-      for(let a=from; a<to; a+=SEG){
-        const b = Math.min(to, a+SEG), m = (a+b)/2;
-        const x = axis==='x' ? m : at, z = axis==='x' ? at : m;
-        if(occupied(x, z)) continue;
-        if(axis==='x') { add(box(b-a, 2.6, .6, M.wallB), m, 1.3, at); solid(m, at, (b-a)/2, .3); }
-        else           { add(box(.6, 2.6, b-a, M.wallB), at, 1.3, m); solid(at, m, .3, (b-a)/2); }
-      }
-    }
-    const INNER_X = V_ROADS[1].x - ROAD_HW - WALK_W;   // 68:東和街人行道內緣(西邊對稱 -68)
-    // 北街廓:z -68(廟口路人行道邊)~ -27(中華路北排店背)
-    ringWall('x', -84 + ROAD_HW + WALK_W + .8, -INNER_X, INNER_X);
-    ringWall('z', -INNER_X + .8, -84 + ROAD_HW + WALK_W + 1.4, -B_LINE - DEPTH/2);
-    ringWall('z',  INNER_X - .8, -84 + ROAD_HW + WALK_W + 1.4, -B_LINE - DEPTH/2);
-    fill(-INNER_X + 1.6, -84 + ROAD_HW + WALK_W + 1.6, INNER_X - 1.6, -B_LINE - DEPTH/2, 11, 5);
-    // 南街廓:z 27(中華路南排店背)~ 57(永安街南排建築線)
-    ringWall('z', -INNER_X + .8, B_LINE + DEPTH/2, 84 - B_LINE - DEPTH/2);
-    ringWall('z',  INNER_X - .8, B_LINE + DEPTH/2, 84 - B_LINE - DEPTH/2);
-    ringWall('x', 84 - B_LINE - DEPTH/2 + .6, -9, 19);   // 原火車站那格空地,先圍起來(見 DESIGN_NOTES「巷子收邊」待決)
-    fill(-INNER_X + 1.6, B_LINE + DEPTH/2, INNER_X - 1.6, 84 - B_LINE - DEPTH/2 - 1.2, 11, 4);
-    // 自強巷在永安街的巷口(第三、四棟大樓之間 x 42~52):斜巷地面只鋪到
-    // 建築線 z 57,巷口到人行道那段補一塊,不然又是一塊裸地。
-    add(box(10, .28, DEPTH, M.alleyFloor), 47, .14, 84 - B_LINE, false, true);
-  })();
+  /* 自強巷在永安街的巷口(第三、四棟大樓之間 x 42~52,2026-09-15):斜巷地面
+     只鋪到建築線 z 57,巷口到人行道那段補一塊,不然是一塊裸地。
+     同一輪曾把兩個街廓內部整片鋪滿「後院加蓋」+ 圍牆,kc 看到當場打回
+     (「我不會俯視啊 到底在幹嘛」)——鏡頭是斜的、從街上看,街廓內部只有
+     從幾個開口看得到,整片鋪滿沒意義,已整段刪掉。見 DESIGN_NOTES「巷子收邊」。 */
+  add(box(10, .28, DEPTH, M.alleyFloor), 47, .14, 84 - B_LINE, false, true);
 
   /* spawnMoto:parkMoto() 本體直接掛出去(2026-09-03,配合「不要有展示車」
      那輪——買車現在要現生一台,見上面 forSale 那段長筆記),回傳新 entry
