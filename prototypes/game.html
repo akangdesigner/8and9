@@ -1397,7 +1397,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2522,6 +2522,17 @@ window.debugJumpTemple = debugJumpTemple;
    阿正主動開口;這顆把門檻跳過(SNITCH_QUEST.armed)、補上「認識阿源」,人丟到
    警局阿正面前,走近他就會播揭露那三句。之後兩條路:回警局跟阿正報(「跳廟口」
    旁邊那顆就是這顆)、或「跳廟口」去跟阿源通風報信。 */
+/* 停水測試鈕(2026-09-16)——不換天,直接把今天變成停水那天:掛單子、掛洗澡卡、
+   媽那句話。 */
+function debugWaterCut(){
+  const e = DAILY_EVENTS.find(x => x.id === 'water-cut');
+  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = true; DAILY.dueDay = day + e.days;
+  e.instant();
+  dailyCard(e);
+  busy = true;
+  say('pc', e.line, () => { busy = false; });
+}
+window.debugWaterCut = debugWaterCut;
 function debugSnitchArm(){
   /* 每按一次都從頭來(kc 2026-09-14:「我要重新跑一次任務」)——已報/已警告/
      過期的狀態跟阿源那邊的翻臉旗標一起清掉,不然 resolved 卡住第二次跑不了。 */
@@ -8270,6 +8281,15 @@ function openIndoorSpot(id){
       label:'繳' + b.name + (b.late ? '（已經過期）' : ''),
       cost: ST.money < b.amount ? '身上不夠' : '−$' + b.amount,
       cls: ST.money < b.amount ? 'bad' : '', run(){ payBill(b); } }));
+    /* 停水那天借廁所洗一下(2026-09-16,見 WATER_CUT)。 */
+    if(WATER_CUT.active && !WATER_CUT.washed)
+      items.push({ label:'借廁所洗一下', cost:'歸屬感 −3', run(){
+        chg('calm', -3);
+        waterCutWashed('store');
+        say('pc', IN.hired
+          ? '你跟店員說家裡停水。他往店長辦公室看了一眼，「快一點。」\n你用洗手台的水沖了頭跟脖子。（歸屬感 −3）'
+          : '你問店員能不能借廁所。他指了指後面，「不要用太久。」\n你用洗手台的水沖了頭跟脖子，出來的時候他看著你。（歸屬感 −3）');
+      } });
     items.push({ label:'看店員在幹嘛', cost:'', run:() =>
       toast(IN.clerkFace === 'B' ? '他背對著你在補菸。' : '他站在收銀機前面，眼睛掃過店裡。', 2400) });
     items.push({ label:'離開', cls:'back', run(){} });
@@ -9967,6 +9987,15 @@ const DAILY_EVENTS = [
     doc:{ name:'水費單', icon:'🧾' },
     line:'信箱裡有一張水費單，跟三張廣告傳單夾在一起。\n$120。',
     hint:'去超商櫃台繳水費（$120）' },
+  /* 停水那天(2026-09-16,kc:「繳水電可能會遇到插曲然後幾乎貫穿一整天」→「先做水費
+     這樣任務除了繳費還有洗澡 當然可以不洗但會扣帥潮跟情緒」)——水費那張變成一整天:
+     早上沒水、媽叫你去繳、繳完復水要明天,所以今天要自己找地方洗澡。三條路寫在
+     WATER_CUT 那段。只排在 day50 那一次(day20/83 還是普通水費單),不要每次都停水。 */
+  { id:'water-cut', cat:'money', name:'停水', bill:120, days:3, via:'home',
+    doc:{ name:'水費單', icon:'🧾' },
+    instant(){ const e = DAILY_EVENTS.find(x => x.id === 'water-cut'); addBill(e); startWaterCut(); },
+    line:'你扭開水龍頭，只有空氣的聲音。\n媽站在門口：「水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」\n單子在桌上，$120。',
+    hint:'去超商櫃台繳水費（$120）', note:'家裡沒水，今天要找地方洗澡' },
   { id:'mom-ask', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
   /* 阿嬤那袋(2026-09-11,kc:「第二個行動天要是媽媽請你拿東西給阿嬤之類的 這樣主角
@@ -10066,7 +10095,7 @@ const DAILY_SCHEDULE = {
   2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 13:'co-extra',   // 2026-09-16 代班 12→13:day12 讓給期中考(週六代班也合理)   // day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3
   15:'moto-dead', 17:'rain', 20:'water', 23:'loan', 26:'yuan-call',
   29:'pocket', 30:'kai-hang', 31:'ayi-food',   // 2026-09-16 阿凱找你 22→30:day22 是學校線主線日,主線日不抽日常事件,排在那裡永遠不會出現 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
-  47:'acheng-hand', 50:'water', 51:'loan', 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
+  47:'acheng-hand', 50:'water-cut', 51:'loan',   // 2026-09-16 day50 的水費改成停水那天(見 WATER_CUT) 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
   61:'hospital-bill', 62:'site-work', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
   74:'site-work', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'site-work',
   87:'tuition-remind', 89:'kai-fast', 90:'mom-ask'
@@ -10309,6 +10338,11 @@ function payBill(b){
   logDay('去超商繳了' + b.name + '，$' + b.amount + '。這個家的單子都是我在繳。');
   syncMiscQuestPanel();
   toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + b.amount + '）', 3400);
+  /* 停水那天繳的是這張:繳完在店門口打電話,對方說最快明天早上(見 WATER_CUT)。 */
+  if(b.id === 'water-cut' && WATER_CUT.active){
+    WATER_CUT.paid = true;
+    setTimeout(() => say('pc', '你在店門口打了單子上的電話。\n對方說最快明天早上派人來開，今天先這樣。'), 3200);
+  }
 }
 /* 逾期:睡覺時收一次帳,單子不消失(kc:「繳完後才消失」)。 */
 function tickBillsOverdue(){
@@ -10319,6 +10353,48 @@ function tickBillsOverdue(){
     toast(b.name + '過期了。\n（風評 −1　情緒 −3）', 3600);
   });
   syncMiscQuestPanel();
+}
+
+/* ===== 停水那天(2026-09-16)=====================================================
+ * 水費單那天的插曲,貫穿一整天:早上沒水 → 去超商繳 → 櫃台說復水要明天 → 今天要
+ * 找地方洗澡。三條路:
+ *   超商借廁所  → 店員讓你用洗手台,但他看到了(歸屬感 −3)
+ *   阿姨家      → 要認識她(AYI.visits > 0),「來就來,講什麼」(歸屬感 +6、飽足 +6)
+ *   不洗        → 睡前結算帥潮 −6、情緒 −6;白天校門口教官會講一句(帥潮 −3)
+ * 沒繳的話隔天照樣沒水,洗澡那張卡每天重掛,直到繳掉之後睡一覺水才會來。 */
+const WATER_CUT = { active:false, washed:false, paid:false, smelled:false };
+function startWaterCut(){
+  WATER_CUT.active = true; WATER_CUT.washed = false; WATER_CUT.paid = false; WATER_CUT.smelled = false;
+  syncWashQuest();
+}
+function syncWashQuest(){
+  const i = ACTIVE_QUESTS.findIndex(q => q.id === 'wash');
+  const need = WATER_CUT.active && !WATER_CUT.washed;
+  if(need && i < 0) ACTIVE_QUESTS.push({ id:'wash', title:'找地方洗澡', hint:'家裡停水。超商借廁所、阿姨家，或者不洗。<br><span class="qpNote">不洗的話睡前帥潮 −6、情緒 −6</span>' });
+  if(!need && i >= 0) ACTIVE_QUESTS.splice(i, 1);
+  renderQuestPanel();
+}
+function waterCutWashed(where){
+  WATER_CUT.washed = true;
+  syncWashQuest();
+  logDay(where === 'ayi' ? '家裡停水，去阿姨家洗澡，她還熱了一碗湯。' : '家裡停水，在超商借洗手台沖了頭跟脖子。');
+}
+/* 睡前結算——沒洗就扣;水費繳了的話睡一覺水就來了。掛在 sleep() 最前面,日記那頁
+   才印得到這一句。 */
+function tickWaterCut(){
+  if(!WATER_CUT.active) return;
+  if(!WATER_CUT.washed){
+    chg('cool', -6); chg('mood', -6);
+    logDay('今天沒洗澡。');
+    toast('今天沒洗澡。（帥潮 −6　情緒 −6）', 3400);
+  }
+  if(WATER_CUT.paid){
+    WATER_CUT.active = false;
+    dayLogPending = (dayLogPending ? dayLogPending + '\n' : '') + '水來了。';
+  } else {
+    WATER_CUT.washed = false;   // 隔天還是沒水,洗澡那張卡再掛一次
+  }
+  syncWashQuest();
 }
 
 /* 「有就更新、沒有才新增」——跟 updateGrandmaQuestHint() 同一套慣例。
@@ -10392,6 +10468,7 @@ function maybeIdleDay(){
 }
 function sleep(){
   busy = true;
+  tickWaterCut();          // 停水那天沒洗澡的結算,要在日記頁之前(見 WATER_CUT)
   const skippedSchool = lastSchoolDay !== day;   // 結算今天(睡覺當下的 day,還沒 ++)有沒有去學校
   const skippedDay = day;                        // 曠課那一天的日期,給 addWarning 記(wake 那時 day 已經跳過去了)
   /* 先蓋上過渡頁做今天的結算(見 showSleepPage()),關掉之後才走原本那套
@@ -13248,6 +13325,15 @@ function talkToAyi(){
       extra.push({ label:'「旁邊那隻貓,你有空幫我顧一下嗎?」', cls:'',
         run(){ q.active = true; toast('「謝謝啊,牠認生,你去摸摸牠就好。」', 2400); } });
     }
+    /* 停水那天借洗澡(2026-09-16,見 WATER_CUT)——要認識她才會有這個選項。 */
+    if(WATER_CUT.active && !WATER_CUT.washed && AYI.visits > 0){
+      extra.push({ label:'「阿姨，我家停水，可以借洗個澡嗎？」', cost:'歸屬感 +6　飽足 +6',
+        run(){
+          chg('calm', 6); chg('full', 6);
+          waterCutWashed('ayi');
+          say('ayi', '「來就來，講什麼。」\n她把攤子先交給隔壁顧著，帶你回去，還熱了一碗湯。（歸屬感 +6　飽足 +6）');
+        } });
+    }
     openStallMenu('阿姨的攤子', '阿姨', 50, 18, '「來,趁熱。」', '「自己人,算你便宜。」', extra);
   });
 }
@@ -14249,6 +14335,13 @@ function talkToJiaoguan(){
           { label:'不講', cls:'', run(){ say('pc', '他低頭寫，什麼都沒有說。'); } }
         ]);
       });
+      return;
+    }
+    /* 停水那天沒洗澡走到校門口(2026-09-16,見 WATER_CUT)——講一次就好。 */
+    if(WATER_CUT.active && !WATER_CUT.washed && !WATER_CUT.smelled){
+      WATER_CUT.smelled = true;
+      chg('cool', -3);
+      say('jiaoguan', '「你身上什麼味道。昨天沒洗澡喔。」（帥潮 −3）');
       return;
     }
     if(minute < SCHOOL_IN_MINUTE){
@@ -16404,7 +16497,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
