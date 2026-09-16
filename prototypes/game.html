@@ -14147,7 +14147,7 @@ function talkToYuan(){
   /* 2026-09-16 kc:「阿源好怪 為何我第一次找他他就叫我顧場 這件事要放在 30 天後才可以觸發」——
      原本只看歸屬感 ≥80,開局存檔歸屬感就滿,第一次講話就被叫去顧場。加 day ≥ 31 的門檻;
      day46 阿嬤那天他早上打電話約的那條走上面自己的路,不受這裡影響。 */
-  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && day >= WATCHJOB_MIN_DAY && day >= (WATCHJOB.refusedDay ?? -99) + 3 && ST.calm >= 80){
+  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && day >= WATCHJOB_MIN_DAY && day >= (WATCHJOB.refusedDay ?? -99) + 3 && ST.star < NpcTemple.TROUPE.need.repMax){   // 2026-09-16 同一條規矩:風評低於 20 才算自己人(原本看歸屬感 ≥80)
     say('yuan', NpcTemple.WATCH_JOB.hookText, () => {
       openMenu('阿源', [
         { label:'好', run(){ startWatchJob(); } },
@@ -14224,10 +14224,10 @@ function tryJoinTroupe(){
     });
     return;
   }
-  if(ST.star < gate.repMin){
+  if(ST.star >= gate.repMax){
     const r = NpcTemple.TROUPE.rejectRep;
     playBeats(r.beats, 0, () => {
-      toast(r.quiet + '\n（風評要到 ' + gate.repMin + ' 以上，廟方才會收——目前 ' + ST.star + '）', 3400);
+      toast(r.quiet + '\n（風評要低於 ' + gate.repMax + '，他們才會把你當自己人——目前 ' + ST.star + '）', 3400);
     });
     return;
   }
