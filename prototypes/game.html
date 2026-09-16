@@ -2512,7 +2512,7 @@ function debugDailyMorning(id, toDay){
   e.instant();
   dailyCard(e);
   busy = true;
-  setTimeout(() => say('pc', e.line, () => { busy = false; }), 700);
+  setTimeout(() => sayDaily(e, () => { busy = false; }), 700);
 }
 function debugBlood(){
   hospitalCallFired = true;   // 事件的 need() 要阿嬤那通電話打過
@@ -2821,6 +2821,11 @@ const HP = SceneHome.P;
 const WHO = {
   pc:    { name:'你',   opt:{ face:'F', skin:P2.pcSkin, hair:P2.pcHair, top:P2.pcHood, topD:P2.pcHoodD, pants:P2.pcPants, shoe:P2.pcShoe, hood:true } },
   clerk: { name:'店員', opt:{ face:'F', skin:P2.clSkin, hair:P2.clHair, top:P2.clVest, topD:P2.clShirt, pants:'#2c3340' } },
+  /* 護理師/店長(2026-09-16,kc:「旁白跟母親說話要分開吧 母親說話要有頭像」)——日常事件裡
+     打電話來的人也要有自己的名牌跟頭像,不能塞在旁白裡。還沒有真人照片,先用像素小人
+     fallback,kc 生了圖再進 PORTRAIT_IMGS。 */
+  nurse: { name:'護理師', opt:{ face:'F', skin:'#d9b797', hair:'#2a2420', top:'#e9f0f4', topD:'#c9d4da', pants:'#dfe6ea' } },
+  manager: { name:'店長', opt:{ face:'F', skin:'#c9a077', hair:'#1a1a1a', top:'#2f6f4f', topD:'#24553d', pants:'#2c3340' } },
   mom:   { name:'媽',   opt:{ face:'F', skin:HP.momSkin, hair:HP.momHair, top:HP.momTop, topD:HP.momTopD, pants:HP.momPants } },
   dad:   { name:'爸',   opt:{ face:'F', skin:HP.dadSkin, hair:HP.dadHair, top:HP.dadTop, topD:HP.dadTopD, pants:HP.dadPants } },
   worker:{ name:'她',   opt:{ face:'F', skin:'#c9a077', hair:'#241f1c', top:'#7a2f45', topD:'#5c2436', pants:'#232323' } },
@@ -8280,9 +8285,16 @@ function openIndoorSpot(id){
       items.push({ label:'借廁所洗一下', cost:'歸屬感 −3', run(){
         chg('calm', -3);
         waterCutWashed('store');
-        say('pc', IN.hired
-          ? '你跟店員說家裡停水。他往店長辦公室看了一眼，「快一點。」\n你用洗手台的水沖了頭跟脖子。（歸屬感 −3）'
-          : '你問店員能不能借廁所。他指了指後面，「不要用太久。」\n你用洗手台的水沖了頭跟脖子，出來的時候他看著你。（歸屬感 −3）');
+        busy = true;
+        playBeats(IN.hired ? [
+          { who:'pc',    text:'你跟店員說家裡停水。他往店長辦公室看了一眼。' },
+          { who:'clerk', text:'「快一點。」' },
+          { who:'pc',    text:'你用洗手台的水沖了頭跟脖子。（歸屬感 −3）' }
+        ] : [
+          { who:'pc',    text:'你問店員能不能借廁所。他指了指後面。' },
+          { who:'clerk', text:'「不要用太久。」' },
+          { who:'pc',    text:'你用洗手台的水沖了頭跟脖子，出來的時候他看著你。（歸屬感 −3）' }
+        ], 0, () => { busy = false; });
       } });
     items.push({ label:'看店員在幹嘛', cost:'', run:() =>
       toast(IN.clerkFace === 'B' ? '他背對著你在補菸。' : '他站在收銀機前面，眼睛掃過店裡。', 2400) });
@@ -9988,7 +10000,12 @@ const DAILY_EVENTS = [
   { id:'water-cut', cat:'money', name:'停水', bill:120, days:3, via:'home',
     doc:{ name:'水費單', icon:'🧾' },
     instant(){ const e = DAILY_EVENTS.find(x => x.id === 'water-cut'); addBill(e); startWaterCut(); },
-    line:'你扭開水龍頭，只有空氣的聲音。\n媽站在門口：「水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」\n單子在桌上，$120。',
+    line:'你扭開水龍頭，只有空氣的聲音。',
+    beats:[
+      { who:'pc',  text:'你扭開水龍頭，只有空氣的聲音。' },
+      { who:'pc',  text:'媽站在門口。' },
+      { who:'mom', text:'「水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」' },
+      { who:'pc',  text:'單子在桌上，$120。' } ],
     hint:'去超商櫃台繳水費（$120）', note:'家裡沒水，今天要找地方洗澡' },
   /* 捐血那天(2026-09-16,kc:「走投無路四處求人的感覺 比如要求人捐血給阿嬤 那就要到處
      去問人阿源阿凱阿仁老闆之類的 最後發現算命老闆符合」,參考下一站幸福「光晞不能捐」
@@ -9997,7 +10014,11 @@ const DAILY_EVENTS = [
   { id:'blood', name:'捐血', cat:'people', via:'living',
     need:() => hospitalCallFired && !GRANDMA.dead,
     instant(){ startBloodQuest(); },
-    line:'你走出房門。沙發上沒有人，電視開著沒人看，她的拖鞋不在門口。\n手機響了，是醫院。\n「阿嬤早上昏過去了，現在在加護病房。你們家屬過來一趟。」',
+    line:'你走出房門。沙發上沒有人。',
+    beats:[
+      { who:'pc',    text:'你走出房門。沙發上沒有人，電視開著沒人看，她的拖鞋不在門口。' },
+      { who:'pc',    text:'手機響了，是醫院。' },
+      { who:'nurse', text:'「阿嬤早上昏過去了，現在在加護病房。你們家屬過來一趟。」' } ],
     hint:'去醫院', hint2:'今天之內找一個 O 型的人去醫院捐血' },
   { id:'mom-ask', name:'媽要錢', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
@@ -10012,20 +10033,33 @@ const DAILY_EVENTS = [
   /* ── 要人的 ── */
   { id:'kai-hang', name:'阿凱找你', cat:'people', goto:'kai', need:() => KAI.talked, diary:'跟阿凱在車行外面站了半小時，沒講什麼。',
     via:'phone',
-    line:'手機震了，是阿凱。\n「今天有空嗎。」他沒等你回答就掛了。',
+    line:'手機震了，是阿凱。',
+    beats:[
+      { who:'pc',  text:'手機震了，是阿凱。' },
+      { who:'kai', text:'「今天有空嗎。」' },
+      { who:'pc',  text:'他沒等你回答就掛了。' } ],
     hint:'去中華路機車行那邊找阿凱' },
   { id:'yuan-call', name:'阿源叫你去廟口', cat:'people', goto:'yuan', need:() => YUAN.visits > 0, diary:'去廟口，阿源講了半小時工地的事。他說我還在讀書不要學他。',
     via:'msg',
-    line:'阿源傳了一則訊息。\n「晚點過來廟口一趟。」', hint:'去廟口找阿源' },
+    line:'阿源傳了一則訊息。',
+    beats:[
+      { who:'pc',   text:'阿源傳了一則訊息。' },
+      { who:'yuan', text:'「晚點過來廟口一趟。」' } ], hint:'去廟口找阿源' },
   { id:'acheng-hand', name:'阿成缺人手', cat:'people', goto:'acheng', need:() => ACHENG.visits > 0, diary:'幫麵攤老闆端了兩小時的麵。有人問我是不是他兒子。',
     via:'phone',
     /* ⚠ 不能只寫「阿成」(2026-09-10,kc:「阿成 別人不知道是誰啊 應該要講廟口
        面癱老闆」)——玩家記得的是那個人的樣子跟他的攤子,不是名字。 */
-    line:'廟口麵攤那個老闆打來，就是那個從來不笑的。\n背景是抽油煙機的聲音。\n「你今天有沒有空？我一個人顧不來。」',
+    line:'廟口麵攤那個老闆打來，就是那個從來不笑的。',
+    beats:[
+      { who:'pc',     text:'廟口麵攤那個老闆打來，就是那個從來不笑的。\n背景是抽油煙機的聲音。' },
+      { who:'acheng', text:'「你今天有沒有空？我一個人顧不來。」' } ],
     hint:'去廟口找麵攤老闆' },
   { id:'ayi-food', name:'阿姨叫你拿東西吃', cat:'people', goto:'ayi', need:() => AYI.visits > 0, diary:'阿姨塞了一包鴨頭給我，說賣不完也是丟掉。才不是。',
     via:'msg',
-    line:'阿姨傳訊息，只有五個字。\n「過來拿東西吃。」', hint:'去廟口找阿姨' },
+    line:'阿姨傳訊息，只有五個字。',
+    beats:[
+      { who:'pc',  text:'阿姨傳訊息，只有五個字。' },
+      { who:'ayi', text:'「過來拿東西吃。」' } ], hint:'去廟口找阿姨' },
   { id:'mei-ask', name:'小美問題目', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。她說了謝謝。',
     via:'msg',
     line:'小美傳訊息問你昨天那題怎麼寫的。', hint:'去學校教室找小美' },
@@ -10046,17 +10080,26 @@ const DAILY_EVENTS = [
   { id:'hospital-bill', name:'看護費', cat:'money', bill:800, days:5, via:'phone',
     doc:{ name:'醫院繳費單', icon:'🏥' },
     need:() => GRANDMA.critical && !GRANDMA.dead,
-    line:'醫院打來，語氣很客氣。\n「阿嬤這個月的看護費，方便的話這幾天過來繳一下。」',
+    line:'醫院打來，語氣很客氣。',
+    beats:[
+      { who:'pc',    text:'醫院打來，語氣很客氣。' },
+      { who:'nurse', text:'「阿嬤這個月的看護費，方便的話這幾天過來繳一下。」' } ],
     hint:'去超商櫃台繳看護費（$800）' },
   { id:'kai-fast', name:'阿凱有東西要送', cat:'people', goto:'kai', via:'phone',
     need:() => KAI.talked && TUITION_QUEST && !TUITION_QUEST.paid,
     diary:'又幫阿凱送了一趟。錢比上次多。我數的時候手有點抖。',
-    line:'手機震了，是阿凱。\n「有個東西要送，錢比上次多。」',
+    line:'手機震了，是阿凱。',
+    beats:[
+      { who:'pc',  text:'手機震了，是阿凱。' },
+      { who:'kai', text:'「有個東西要送，錢比上次多。」' } ],
     hint:'去中華路機車行那邊找阿凱' },
   { id:'tuition-remind', name:'導師催註冊費', cat:'money', via:'msg',
     need:() => TUITION_QUEST && !TUITION_QUEST.paid,
     instant:() => {}, instantDiary:'導師傳訊息催註冊費，說再不繳要往上報。',
-    line:'導師傳訊息。\n「註冊費那個，你再不繳我就要往上報了。」',
+    line:'導師傳訊息。',
+    beats:[
+      { who:'pc',      text:'導師傳訊息。' },
+      { who:'teacher', text:'「註冊費那個，你再不繳我就要往上報了。」' } ],
     hint:'學校走廊的繳費機' },
   /* ⚠ **不能假設主角有打工**(2026-09-10,kc:「超商代班 的部分有點怪 因為主角
      不一定會去打工啊」)——超商那件要先應徵過(`IN.hired`)才成立,但玩家可能整局
@@ -10064,10 +10107,16 @@ const DAILY_EVENTS = [
      那幾個「錢從哪來」的日子改用它,誰都接得到。 */
   { id:'site-work', name:'工地缺人', cat:'money', goto:'foreman', via:'phone',
     diary:'去工地扛了一天磚，肩膀到現在還在痛。',
-    line:'工地那個大哥打來，講話很大聲。\n「今天缺人，你來不來？來就六點到。」',
+    line:'工地那個大哥打來，講話很大聲。',
+    beats:[
+      { who:'pc',      text:'工地那個大哥打來，講話很大聲。' },
+      { who:'foreman', text:'「今天缺人，你來不來？來就六點到。」' } ],
     hint:'去永安街工地上工（今天工資加五成）' },
   { id:'co-extra', name:'超商代班', cat:'trouble', need:() => IN.hired, via:'phone',
-    line:'超商店長打來。\n「今天有人請假，你來不來？算你多一點。」', hint:'今天去超商上班，工資加五成' }
+    line:'超商店長打來。',
+    beats:[
+      { who:'pc',      text:'超商店長打來。' },
+      { who:'manager', text:'「今天有人請假，你來不來？算你多一點。」' } ], hint:'今天去超商上班，工資加五成' }
 ];
 function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id) : null; }
 /* ⚠ **一天一天排死的行事曆**(2026-09-10,kc:「不用抽啊你排好就好」→「你直接排好
@@ -10153,7 +10202,7 @@ function checkDailyLiving(){
   if(PLACE === 'home') paintHomeBackdrop();   // instant() 之後才知道媽不在(momAway),客廳要重畫成空沙發那張
   dailyCard(e);
   busy = true;
-  say('pc', e.line, () => { busy = false; });
+  sayDaily(e, () => { busy = false; });
   return true;
 }
 /* 走出家門那一刻才發生的事——掛在 leaveIndoor() 回到街上那一步。 */
@@ -10169,7 +10218,13 @@ function checkDailyDoor(){
      同一套,進物品欄的「文件」分頁,繳掉或逾期才拿掉,見 renderDailyDoc()。 */
   if(e.doc){ addBill(e); logDay('信箱裡有' + e.doc.name + '。'); }
   busy = true;
-  say('pc', e.line, () => { busy = false; });
+  sayDaily(e, () => { busy = false; });
+}
+/* 日常事件的早上那段:有 beats 就一句一句播(旁白跟講話的人分開,講話的人有自己的頭像,
+   2026-09-16 kc:「旁白跟母親說話要分開吧 母親說話要有頭像」),沒有才退回單句旁白。 */
+function sayDaily(e, done){
+  if(e.beats) playBeats(e.beats, 0, done);
+  else say('pc', e.line, done);
 }
 function dailyCard(e){
   setTodayCard(e.hint + (e.note ? '<br><span class="qpNote">' + e.note + '</span>' : ''), e.name);
@@ -10181,7 +10236,7 @@ function dailyBriefing(){
      才會有字卡跟任務卡,見 checkDailyDoor()。 */
   if(e.via === 'door' || e.via === 'living'){ busy = false; return; }
   dailyCard(e);
-  say('pc', e.line, () => { busy = false; });
+  sayDaily(e, () => { busy = false; });
 }
 /* goto 型的完成入口——掛在各自 NPC 既有的對話函式最前面,跟 kaiReportDue() 同一招。 */
 function dailyGotoReady(who){
@@ -10487,11 +10542,11 @@ function bloodBriefing(){
   BLOOD.briefed = true;
   paintHospitalBackdrop(false);
   playBeats([
-    { who:'pc', text:'護理站的人看到你，先確認你是家屬。' },
-    { who:'pc', text:'「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」' },
-    { who:'pc', text:'你說你去。' },
-    { who:'pc', text:'「你不行，直系血親不能捐，你媽也不行。找別人。」' },
-    { who:'pc', text:'她把一張單子塞給你，上面寫著血型跟時間。' },
+    { who:'pc',    text:'護理站的人看到你，先確認你是家屬。' },
+    { who:'nurse', text:'「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」' },
+    { who:'pc',    text:'你說你去。' },
+    { who:'nurse', text:'「你不行，直系血親不能捐，你媽也不行。找別人。」' },
+    { who:'pc',    text:'她把一張單子塞給你，上面寫著血型跟時間。' },
     { who:'pc', text:'你往病房裡看了一眼，她躺著，沒有醒。你轉身走出去。' }
   ], 0, () => {
     syncBloodCard();
@@ -13460,7 +13515,11 @@ function talkToAyi(){
         run(){
           chg('calm', 6); chg('full', 6);
           waterCutWashed('ayi');
-          say('ayi', '「來就來，講什麼。」\n她把攤子先交給隔壁顧著，帶你回去，還熱了一碗湯。（歸屬感 +6　飽足 +6）');
+          busy = true;
+          playBeats([
+            { who:'ayi', text:'「來就來，講什麼。」' },
+            { who:'pc',  text:'她把攤子先交給隔壁顧著，帶你回去，還熱了一碗湯。（歸屬感 +6　飽足 +6）' }
+          ], 0, () => { busy = false; });
         } });
     }
     openStallMenu('阿姨的攤子', '阿姨', 50, 18, '「來,趁熱。」', '「自己人,算你便宜。」', extra);
