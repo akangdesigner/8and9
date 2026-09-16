@@ -210,7 +210,7 @@
       beats: [
         { who:'pc',  text:'他把你叫到走廊。' },
         { who:'pc',  text:'他是那種還在試的老師。\n學校裡剩沒幾個了。' },
-        { who:'pc',  text:'「你不要跟他們一起。」' }
+        { who:'teacher', text:'「你不要跟他們一起。」' }
       ],
       menu: [
         {
@@ -272,10 +272,11 @@
           cost: '−$58　飽足 +26　歸屬感 −6',
           money: -58, full: +26, calm: -6,
           beats: [
-            { who:'pc',  text:'「欸。」他認出你了。' },
-            { who:'pc',  text:'「你現在讀哪？」' },
+            { who:'teacher', text:'「欸。」' },
+            { who:'pc',  text:'他認出你了。' },
+            { who:'teacher', text:'「你現在讀哪？」' },
             { who:'pc',  text:'你講了學校的名字。' },
-            { who:'pc',  text:'「喔——」' },
+            { who:'teacher', text:'「喔——」' },
             { who:'pc',  text:'那個「喔」拉得有一點長。\n然後他的視線落到你手上。' },
             { toast:'他什麼都沒有說。「那先這樣」，他拿著便當去結帳了。', ms:4800 }
           ]

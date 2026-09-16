@@ -3006,7 +3006,37 @@ let dlg = { on:false, full:'', shown:0, timer:0, done:false, after:null };
 function isNarrationLine(who, text){
   return who === 'pc' && !text.trim().startsWith('「');
 }
+/* 旁白跟講話的人分開(2026-09-16,kc:「我之前講過很多次了情境劇跟人物說話要分開 你從頭到尾
+   檢查一次」)——全遊戲掃出來 130 多句是「『台詞』她問。你說有。她說那就好。」這種一句裡
+   台詞跟旁白混著、掛在角色頭像下面的。不逐句改資料(story-*.js/npc-*.js 都有),改在 say()
+   這個唯一出口拆:引號裡的歸講話的人(有頭像),引號外的歸旁白(pc,無頭像),照原順序一句
+   一句播。括號的數值提示(情緒 +3)黏在前一段後面。who 是 pc 的只有引號句尾有標點才拆
+   (「違規停車告知單」這種當標題用的引號不動)。以後寫新台詞還是要分開寫,這裡是保險。 */
+function splitSpeech(who, text){
+  if(typeof text !== 'string' || !text.includes('「')) return null;
+  const re = /「[^」]*」/g;
+  const segs = [];
+  let last = 0, m;
+  const pushNarr = t => {
+    t = t.replace(/^[\s\n]+|[\s\n]+$/g, '');
+    if(!t) return;
+    if(/^[\s（(]/.test(t) && /[）)]$/.test(t) && segs.length){ segs[segs.length-1].text += '\n' + t; return; }   // 數值提示黏前一段
+    if(/^[、。，,！!？?…—\-：:\s]+$/.test(t)){ if(segs.length) segs[segs.length-1].text += t; return; }   // 只剩標點就併回去
+    segs.push({ who:'pc', text:t });
+  };
+  while((m = re.exec(text))){
+    pushNarr(text.slice(last, m.index));
+    segs.push({ who, text:m[0] });
+    last = m.index + m[0].length;
+  }
+  pushNarr(text.slice(last));
+  if(segs.length < 2) return null;
+  if(who === 'pc' && !segs.some(sg => /[。！？…]」$/.test(sg.text) && sg.text.startsWith('「'))) return null;
+  return segs;
+}
 function say(who, text, after){
+  const parts = splitSpeech(who, text);
+  if(parts){ playBeats(parts, 0, after); return; }
   drawPortrait(who);
   dlgEl.classList.toggle('narration', isNarrationLine(who, text));
   dlg = { on:true, full:text, shown:0, timer:0, done:false, after:after||null };
