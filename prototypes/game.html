@@ -1397,7 +1397,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugMidtermMail()">成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2436,29 +2436,31 @@ function debugClock(){
   toast('時鐘撥到 ' + String(Math.floor(minute/60)).padStart(2,'0') + ':' + String(minute%60).padStart(2,'0'), 2200);
 }
 window.debugClock = debugClock;
-function debugMidtermMail(){
-  MIDTERM.settled = true; MIDTERM.chose = 'in'; MIDTERM.score = 8;
-  MIDTERM.mailed = false; MIDTERM.shown = false;
-  const i = TRASH.findIndex(t => t.midtermReport); if(i >= 0) TRASH.splice(i, 1);
-  day = MIDTERM_DAY + MIDTERM_MAIL_DELAY;
+function debugExamMail(key){
+  const ex = examByKey(key || 'mid'), st = ex.st;
+  st.settled = true; st.chose = 'in'; st.score = 8;
+  st.mailed = false; st.shown = false;
+  const i = TRASH.findIndex(t => t[ex.flag]); if(i >= 0) TRASH.splice(i, 1);
+  day = ex.day + MIDTERM_MAIL_DELAY;
   syncHUD();
-  checkMidtermReport();
-  toast('成績單已經放進雜物了。回家找媽拿給她看。', 4000);
+  checkExamReport(ex);
+  toast(ex.name + '成績單已經放進雜物了。回家找媽拿給她看。', 4000);
 }
-window.debugMidtermMail = debugMidtermMail;
-function debugMidterm(){
-  day = MIDTERM_DAY;
-  MIDTERM.chose = ''; MIDTERM.settled = false; MIDTERM.score = -1;
-  MIDTERM.gift = false; MIDTERM.arcadePending = false;
+window.debugExamMail = debugExamMail;
+function debugExam(key){
+  const ex = examByKey(key || 'mid'), st = ex.st;
+  day = ex.day;
+  st.chose = ''; st.settled = false; st.score = -1;
+  st.gift = false; st.arcadePending = false;
   MODE = 'city';
   document.getElementById('indoor').classList.remove('on');
   document.getElementById('city').style.display = '';
   wlabelsEl.style.display = '';
   hero.group.position.set(-36, .3, 74);
   syncHUD();
-  toast('第 ' + MIDTERM_DAY + ' 天，期中考。走到校門口按空白鍵。', 4000);
+  toast('第 ' + ex.day + ' 天，' + ex.name + '。走到校門口按空白鍵。', 4000);
 }
-window.debugMidterm = debugMidterm;
+window.debugExam = debugExam;
 /* 校外教學測試鈕(2026-09-16)——日子調到 FIELD_TRIP_DAY、班費狀態清掉,人丟到
    校門口,走進教室老師就宣布出發。 */
 function debugFieldTrip(){
@@ -7871,9 +7873,10 @@ function openIndoorSpot(id){
       }
       /* 期中考成績單(2026-09-15,kc:「拿給你媽會有獎勵」)——手上有那張紙
          而且還沒給她看過,就先問要不要拿出來,不是自動演。 */
-      if(!MIDTERM.shown && TRASH.some(t => t.midtermReport)){
+      const unshown = EXAMS.find(e => !e.st.shown && TRASH.some(t => t[e.flag]));   // 期中/期末各一張,一次拿一張
+      if(unshown){
         openMenu('媽媽', [
-          { label:'把成績單拿給她看', run(){ busy = true; showMidtermReportToMom(); } },
+          { label:`把${unshown.name}成績單拿給她看`, run(){ busy = true; showExamReportToMom(unshown); } },
           { label:'先收著', run(){ toast('你把成績單塞回書包。', 2400); } }
         ]);
         return;
@@ -9427,8 +9430,8 @@ const SPAN_EVENTS = [
       { label:'去超商上班，順便用店裡的熱水', cost:'+$260　體力 −15', fx:{ money:260, stamina:-15 },
         result:'你連上了幾天班，下班前在店裡後面的水槽用熱水沖一沖再回家。' }
     ] },
-  { from:65, title:'期末考週',   // 2026-09-16 kc:「day65 改期末考」——跟 day12 那次真的考的期中考是兩次考試
-    text:'期末考週，班上每個人都在補作業、借筆記，連阿凱都拿出課本了。',
+  { from:63, title:'期末考前',   // 2026-09-16 kc:「期末考做成真的考試」——day65 變成真的考試日(FINAL_DAY,會醒來),這張考前卡挪到 62→64 之間的空日
+    text:'期末考就在這幾天，班上每個人都在補作業、借筆記，連阿凱都拿出課本了。',
     opts:[
       { label:'熬夜讀書', cost:'略懂知識 +1　體力 −15', fx:{ rough:1, stamina:-15 },
         result:'你讀到半夜，有些地方好像看懂了，有些還是不懂。' },
@@ -9854,8 +9857,8 @@ function hasStoryOn(d){
     && !seenStoryDays.has('school-' + d) && !CLASSFUND.tripStarted;
   /* 期中考那天不是 story-school 的節點,走 MIDTERM 自己那條路(跟校外教學
      day18 同一個結構),要另外算進「有事的日子」,不然睡覺會直接跳過去。 */
-  const midterm = d === MIDTERM_DAY && !MIDTERM.settled;
-  return home || school || midterm || (d === GRANDMA_CALL_DAY && !hospitalCallFired);
+  const exam = EXAMS.some(e => d === e.day && !e.st.settled);   // 期中(12)+期末(65),見 EXAMS
+  return home || school || exam || (d === GRANDMA_CALL_DAY && !hospitalCallFired);
 }
 function hasStoryToday(){ return hasStoryOn(day); }
 /* ===== 行動天(2026-09-10,kc:「3個月是虛擬90天 實際我們會跳天啊 所以才叫
@@ -9919,6 +9922,7 @@ const DAY_TODO = {
      讓你知道要去學校」)——早上這張卡的功能是**告訴玩家今天要去學校**,不是抒情
      的位置。以後補 DAY_TODO 的句子照這條寫。 */
   12: { line:'今天好像要期中考。', quest:'到學校考期中考' },   // 2026-09-16 13→12(週六改週五),要跟下面 MIDTERM_DAY 一致(它宣告在後面,這裡不能用 const 當 key)
+  65: { line:'今天期末考。', quest:'到學校考期末考' },   // 2026-09-16 kc:「期末考做成真的考試」,要跟 FINAL_DAY 一致
   [FIELD_TRIP_DAY]: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }   // 2026-09-16 52→57:day52 原本疊了母・賭「她不來了」+校外教學,拆開
 };
 /* ===== 每天都有一件事(2026-09-10,kc:「每一天都是為了活下去而努力的日子
@@ -10020,7 +10024,7 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
    為何要抽?」)——中間試過「亂數抽」跟「用天數取模輪」,兩個都被打掉:他要的是
    **這一天就是這件事**,寫在表上看得到,不是任何形式的程序產生。
    下面這張 `DAILY_SCHEDULE` 就是全部:key 是第幾天,value 是事件 id。
-   - **主線有節點的日子留空**(1/10/12/22/25/28/37/40/43/46/52/57/58/64/76;2026-09-16 期中考 13→12、校外教學 52→57),
+   - **主線有節點的日子留空**(1/10/12/22/25/28/37/40/43/46/52/57/58/64/65/76;2026-09-16 期中考 13→12、校外教學 52→57、期末考 65),
      那些天走 DAY_TODO / story-*.js。
    - 水電費排在月初/月中(5/12、35/42、65/72),機車分期兩週一次(9/23/36/50/63/77)
      ——**月週期是刻意的**,玩家會開始記得「月初要繳電費」。
@@ -10579,7 +10583,7 @@ function warpIntoPlace(door){
        節點是平行的兩套機制,不要合併。撞到的話(回傳 true)就不要再檢查
        下面那批,一次進場只彈一段。 */
     /* 期中考(2026-09-15)跟班費一樣是「進教室就開始」的獨立一條,排在最前面。 */
-    if(day === MIDTERM_DAY && !MIDTERM.settled){ startMidtermExam(); }
+    if(examToday()){ startExam(examToday()); }
     else if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
   } else if(PLACE === 'arcade'){
     /* 一進門站在門口(ARCADE.spots id:'door',在畫面左側,見
@@ -10588,7 +10592,8 @@ function warpIntoPlace(door){
     document.getElementById('where').textContent = '遊藝場';
     paintArcadeBackdrop();
     /* 期中考那天翹課,阿凱帶你來這裡(2026-09-15,見 MIDTERM 那則長筆記)。 */
-    if(MIDTERM.arcadePending) setTimeout(midtermArcadeScene, 700);
+    const arcEx = EXAMS.find(e => e.st.arcadePending);
+    if(arcEx) setTimeout(() => examArcadeScene(arcEx), 700);
   } else if(PLACE === 'tattoo'){
     /* 刺青店(2026-08-28)——照 school/arcade 同一套「站在門口正中央,
        面朝 'F' 轉身往店裡走」先例。門在畫面左側(SceneTattoo.SPOTS
@@ -10618,7 +10623,7 @@ function enterIndoor(door){
   if(door.id === 'hospital'){ visitGrandma(); return; }
   /* 期中考那天的校門口(2026-09-15)——阿凱在門外等你決定,見 MIDTERM 那則
      長筆記。攔在最前面,回傳 true 就整個接走,連 returnTo 都還沒記。 */
-  if(door.id === 'school' && midtermGate(door)) return;
+  if(door.id === 'school' && examGate(door)) return;
   if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
     toast(door.name + ' 的室內場景還沒做。', 3600);
     return;
@@ -10653,7 +10658,7 @@ function leaveIndoor(){
     checkGrandmaCall();
     /* 走出家門才發現的事(口袋破了、車發不動)——只在從「家」走出去那次,
        見 checkDailyDoor()/DAILY_EVENTS 的 via:'door'。 */
-    if(wasHome){ setTimeout(checkDailyDoor, 900); setTimeout(checkMidtermReport, 2600); }   // 成績單自己一條,撞到日常事件就下次出門再發(見 checkMidtermReport)
+    if(wasHome){ setTimeout(checkDailyDoor, 900); setTimeout(checkExamReports, 2600); }   // 成績單自己一條,撞到日常事件就下次出門再發(見 checkExamReport)
   });
 }
 /* 約小美出去公園(2026-08-26,kc:「約他出去玩，直接跳轉到公園」)——跟
@@ -11029,7 +11034,7 @@ function leaveCorridorToClassroom(){
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
     /* 期中考(2026-09-15)跟班費一樣是「進教室就開始」的獨立一條,排在最前面。 */
-    if(day === MIDTERM_DAY && !MIDTERM.settled){ startMidtermExam(); }
+    if(examToday()){ startExam(examToday()); }
     else if(!checkFieldTrip() && !maybeCounsel()) maybeTriggerStoryNode([['school', schoolStorySource([5])]], maybeAnnounceExam);   // 三支警告的導師找你(maybeCounsel)插在班費跟 day5 之間,一次進場只彈一段
     checkGrandmaCall();
   });
@@ -11569,9 +11574,10 @@ function grandmaVisitLine(){
     ];
     /* 期中考考得好的成績單可以拿給她看(2026-09-15)——她不會給錢,只說一句好,
        把紙放在枕頭邊。一次就好,看過就不再出現。 */
-    if(awake && MIDTERM.settled && MIDTERM.chose === 'in' && MIDTERM.score >= MIDTERM_PASS && !MIDTERM.shownGranny && TRASH.some(t => t.midtermReport)){
-      opts.push({ label:'把成績單拿給她看', run(){
-        MIDTERM.shownGranny = true;
+    const gEx = awake && EXAMS.find(e => e.st.settled && e.st.chose === 'in' && e.st.score >= MIDTERM_PASS && !e.st.shownGranny && TRASH.some(t => t[e.flag]));   // 期中/期末各一次
+    if(gEx){
+      opts.push({ label:`把${gEx.name}成績單拿給她看`, run(){
+        gEx.st.shownGranny = true;
         playBeats([
           { who:'pc',     text:'你把成績單拿出來，攤在她面前。' },
           { who:'pc',     text:'她看了很久，不知道有沒有看清楚上面的字。' },
@@ -11899,6 +11905,28 @@ const SCHOOL_ACTIVE_DAYS = [22, 37];   // 2026-09-15 13→22:day13 整天讓給�
  * 會被洗掉,校門口會擋下來。 */
 const MIDTERM_DAY = 12, MIDTERM_PASS = 8, MIDTERM_QN = 10;   // 2026-09-16 13→12:day13 是遊戲曆的週六(kc:「處理」),考試改週五
 const MIDTERM = { chose:'', settled:false, score:-1, gift:false, arcadePending:false, mailed:false, shown:false };
+/* ===== 期末考(2026-09-16,kc:「期末考做成真的考試」)=====================
+ * 原本 day65 只是一張跨天卡「期中考週」(熬夜讀書/照常睡)。kc 先定案那是另一次
+ * 考試(改名期末考),再要求做成跟 day12 一樣真的坐下來寫十題。整套機制沿用
+ * 期中考:校門口阿凱、十題、老師只講錯的、8 題以上嘉獎+當眾誇、成績單三個行動
+ * 天後寄到家、拿給媽/阿嬤看。所以把期中考那批函式改成吃一個 `ex` 描述物件
+ * (EXAMS 那兩筆),MIDTERM/FINAL 各自一個狀態物件(都要在 SAVE_OBJECTS)。
+ * 兩次考試的差別只在台詞跟禮物:
+ *   - 校門口阿凱記得上次:期中考你們一起翹掉的話他說「跟上次一樣啦」,不然說
+ *     「又要考喔」。
+ *   - 考卷發下來:期中考你連筆都要借;期末考你口袋有老師上次給的筆的話就拿出來。
+ *   - 誇你那段:兩次都過他說「兩次了」;期中沒過他說「期中那次不算」。
+ *   - 禮物:筆只給一次(owned 已經有就不給),期末考另外給一張獎狀(雜物,純紀念)。
+ * 排程上 day65 原本那張跨天卡改成 from:63「期末考前」(62→64 之間的空日),
+ * 熬夜讀書那個選項留著;day65 本身變成會醒來的主線日。 */
+const FINAL_DAY = 65;
+const FINAL = { chose:'', settled:false, score:-1, gift:false, arcadePending:false, mailed:false, shown:false };
+const EXAMS = [
+  { key:'mid', name:'期中考', day: MIDTERM_DAY, st: MIDTERM, flag:'midtermReport' },
+  { key:'fin', name:'期末考', day: FINAL_DAY,   st: FINAL,   flag:'finalReport' }
+];
+function examToday(){ return EXAMS.find(e => e.day === day && !e.st.settled) || null; }
+function examByKey(k){ return EXAMS.find(e => e.key === k); }
 
 /* 成績單寄到家裡(2026-09-15,kc:「成績單可以寄到家裡 你考得好的話拿給你媽
    會有獎勵 他會給你幾百塊」)——考完三個行動天以後,第一次走出家門開信箱
@@ -11906,22 +11934,26 @@ const MIDTERM = { chose:'', settled:false, score:-1, gift:false, arcadePending:f
    DAILY_EVENTS 的一筆,是自己一條獨立的檢查,跟班費/期中考本身同一個結構,
    不去動 kc 一天一天排死的 DAILY_SCHEDULE。
    撞到當天的日常事件就先不發,下次出門再發——寧可晚一天,也不要兩段對話
-   疊在一起搶畫面。
+   疊在一起搶畫面。一次出門只發一張(兩張都到期的話下次再發另一張)。
    翹課那條也會收到,上面那欄寫的是缺考。 */
 const MIDTERM_MAIL_DELAY = 3;
-function checkMidtermReport(){
-  if(!MIDTERM.settled || MIDTERM.mailed) return;
-  if(day - MIDTERM_DAY < MIDTERM_MAIL_DELAY) return;
-  if(busy || dlg.on || gameOver) return;
-  MIDTERM.mailed = true;
-  const skipped = MIDTERM.chose === 'out';
-  const good = !skipped && MIDTERM.score >= MIDTERM_PASS;
+function checkExamReports(){
+  for(const ex of EXAMS){ if(checkExamReport(ex)) return; }
+}
+function checkExamReport(ex){
+  const st = ex.st;
+  if(!st.settled || st.mailed) return false;
+  if(day - ex.day < MIDTERM_MAIL_DELAY) return false;
+  if(busy || dlg.on || gameOver) return false;
+  st.mailed = true;
+  const skipped = st.chose === 'out';
+  const good = !skipped && st.score >= MIDTERM_PASS;
   TRASH.push({
-    name:'期中考成績單', icon:'📄', midtermReport:true,
+    name: ex.name + '成績單', icon:'📄', [ex.flag]:true,
     star: good ? 8 : 0, active: good,
     detail: skipped
       ? '那天你沒去。<br>名次那一欄印著「缺考」。'
-      : `期中考 ${MIDTERM.score}／${MIDTERM_QN}。<br>` + (good
+      : `${ex.name} ${st.score}／${MIDTERM_QN}。<br>` + (good
           ? '學校寄到家裡的那一張，媽還沒看過。'
           : '學校寄到家裡的那一張。分數印在右上角。')
   });
@@ -11932,15 +11964,17 @@ function checkMidtermReport(){
     : '出門的時候你順手開了信箱。\n學校寄來的成績單躺在裡面，還沒有人拆過。',
     () => { busy = false; });
   setTodayCard('成績單寄到家裡了。<br><span class="qpNote">可以拿給媽看</span>');
-  logDay(skipped ? '成績單寄來了，缺考。' : `成績單寄來了，${MIDTERM.score} 題。`);
+  logDay(skipped ? `${ex.name}成績單寄來了，缺考。` : `${ex.name}成績單寄來了，${st.score} 題。`);
+  return true;
 }
 /* 拿給媽看。好成績她真的會給錢(kc 說幾百塊)——8/9/10 題分別是 $300/$400/$500。
    錢從哪裡來這件事不明講,只留最後那一句。她在賭,見 story-bet.js。 */
-function showMidtermReportToMom(){
-  MIDTERM.shown = true;
-  const card = TRASH.find(t => t.midtermReport);
-  const skipped = MIDTERM.chose === 'out';
-  const n = MIDTERM.score;
+function showExamReportToMom(ex){
+  const st = ex.st;
+  st.shown = true;
+  const card = TRASH.find(t => t[ex.flag]);
+  const skipped = st.chose === 'out';
+  const n = st.score;
   clearTodayCard();
   if(skipped){
     playBeats([
@@ -11990,33 +12024,41 @@ function showMidtermReportToMom(){
 }
 
 /* 校門口攔截。回傳 true = 這次按空白鍵被這場戲接走了,enterIndoor() 不要再往下跑。 */
-function midtermGate(door){
-  if(day !== MIDTERM_DAY || MIDTERM.settled) return false;
-  if(MIDTERM.chose === 'out'){
+function examGate(door){
+  const ex = examToday();
+  if(!ex) return false;
+  const st = ex.st;
+  if(st.chose === 'out'){
     toast('你今天沒有要進去。', 2600);
     return true;
   }
-  if(MIDTERM.chose === 'in') return false;      // 已經選過進去,正常進場
+  if(st.chose === 'in') return false;      // 已經選過進去,正常進場
   busy = true;
   /* 2026-09-15 kc 抓 AI 味:原本有轉鑰匙、停頓、「……你要進去喔?」那種欲言
      又止,他說阿凱就是直接講「反正你也不會寫」「不要考了啦陪我出去玩」。
-     十六歲的人講話不繞。 */
-  playBeats([
-    { who:'pc',  text:'校門口旁邊，阿凱靠在圍牆上。' },
+     十六歲的人講話不繞。期末考他記得上次的事。 */
+  const lines = ex.key === 'mid' ? [
     { who:'kai', text:'「反正你也不會寫。」' },
     { who:'kai', text:'「不要考了啦，陪我出去玩。」' }
-  ], 0, () => {
+  ] : MIDTERM.chose === 'out' ? [
+    { who:'kai', text:'「跟上次一樣啦。」' },
+    { who:'kai', text:'「走，去打電動。」' }
+  ] : [
+    { who:'kai', text:'「又要考喔。」' },
+    { who:'kai', text:'「上次考完你有變怎樣嗎？沒有嘛。走啦。」' }
+  ];
+  playBeats([{ who:'pc', text:'校門口旁邊，阿凱靠在圍牆上。' }, ...lines], 0, () => {
     openMenu('校門口', [
       { label:'進去。', run(){
-          MIDTERM.chose = 'in';
+          st.chose = 'in';
           playBeats([
-            { who:'kai', text:'「蛤，真的要考喔。」' },
+            { who:'kai', text: ex.key === 'mid' ? '「蛤，真的要考喔。」' : '「蛤，又要考喔。」' },
             { who:'kai', text:'「好啦好啦，那我也進去。」' }
           ], 0, () => { busy = false; enterIndoor(door); });
         } },
       { label:'走啦。', cost:'歸屬感 +10　情緒 +12　曠課一次', run(){
-          MIDTERM.chose = 'out';
-          midtermSkip();
+          st.chose = 'out';
+          examSkip(ex);
         } }
     ]);
   });
@@ -12024,41 +12066,52 @@ function midtermGate(door){
 }
 
 /* 翹課:一起去遊藝場(kc 選的地點)。真正的對話掛在遊藝場場景那邊,靠
-   MIDTERM.arcadePending 這個旗標接,跟班費任務進教室那套同一個做法。 */
-function midtermSkip(){
+   st.arcadePending 這個旗標接,跟班費任務進教室那套同一個做法。 */
+function examSkip(ex){
   clearTodayCard();
   playBeats([
     { who:'kai', text:'「走走走。」' },
     { who:'pc',  text:'你們沿著圍牆走出去，上課鐘在後面響了。' }
   ], 0, () => {
     busy = false;
-    MIDTERM.arcadePending = true;
+    ex.st.arcadePending = true;
     const d = city.doors.find(x => x.id === 'arcade');
-    if(d) enterIndoor(d); else midtermArcadeScene();
+    if(d) enterIndoor(d); else examArcadeScene(ex);
   });
 }
-function midtermArcadeScene(){
-  MIDTERM.arcadePending = false;
-  MIDTERM.settled = true;
+function examArcadeScene(ex){
+  const st = ex.st;
+  st.arcadePending = false;
+  st.settled = true;
   busy = true;
-  playBeats([
+  const beats = ex.key === 'mid' ? [
     { who:'pc',  text:'早上的遊藝場沒什麼人。' },
     { who:'kai', text:'「我媽昨天又沒回來。」' },
     { who:'pc',  text:'他一邊投幣一邊講。' },
     { who:'kai', text:'「一個人在家很無聊欸，才找你出來。」' },
     { who:'pc',  text:'那一局他很快就輸了。' }
-  ], 0, () => {
+  ] : [
+    { who:'pc',  text:'早上的遊藝場還是沒什麼人。' },
+    { who:'kai', text:'「考完就放假了，放假你要幹嘛。」' },
+    { who:'pc',  text:'你說不知道。' },
+    { who:'kai', text:'「我也不知道。」' },
+    { who:'pc',  text:'他投了幣，這一局玩得比上次久。' }
+  ];
+  playBeats(beats, 0, () => {
     chg('calm', 10); chg('mood', 12);
     advanceTime(180);   // 一個上午(分鐘)
     busy = false;
     toast('你們在遊藝場耗掉了一個上午。（歸屬感 +10，情緒 +12）', 4200);
-    logDay('今天沒去考試，跟阿凱去遊藝場。他說他媽又沒回來，一個人在家很無聊。');
+    logDay(ex.key === 'mid'
+      ? '今天沒去考試，跟阿凱去遊藝場。他說他媽又沒回來，一個人在家很無聊。'
+      : '期末考沒去，跟阿凱去遊藝場。他問我放假要幹嘛，我說不知道。');
   });
 }
 
 /* 考試本體。UI 沿用 askMakeupExam() 那一套(coFade/coShowOptions + 讀書背景),
    規則不同:固定 10 題、不會提前結束、答錯的留著給老師講解。 */
-function startMidtermExam(){
+function startExam(ex){
+  const st = ex.st;
   const qs = coShuffle(Quiz.BANK.slice()).slice(0, MIDTERM_QN);
   const wrong = [];
   let qi = 0, correct = 0;
@@ -12067,10 +12120,15 @@ function startMidtermExam(){
   /* 2026-09-15 kc:「考試前後要有一點過渡句吧 比如來吧這週要期中考了 然後期中考
      不用黑幕畫面啊 老師會開場」——原本 coFade('期中考') 黑一下再切考卷特寫,
      改成老師先講兩句,講完直接換成考卷那張圖開始出題,中間不黑。 */
+  const penLine = ex.key === 'mid'
+    ? '考卷傳到你這排的時候，你才發現自己連筆都要跟旁邊借。'
+    : owned.includes('pen')
+      ? '考卷傳到你這排的時候，你從口袋拿出老師上次給的那支筆。'
+      : '考卷傳到你這排的時候，你又跟旁邊借了筆。';
   playBeats([
-    { who:'teacher', text:'「來，這週要期中考了，桌上的東西收一收。」' },
+    { who:'teacher', text: ex.key === 'mid' ? '「來，這週要期中考了，桌上的東西收一收。」' : '「來，期末考，桌上的東西收一收。」' },
     { who:'teacher', text:'「考卷發下去，先寫名字，寫完再翻。」' },
-    { who:'pc',      text:'考卷傳到你這排的時候，你才發現自己連筆都要跟旁邊借。' }
+    { who:'pc',      text: penLine }
   ], 0, async () => {
     studyTakeover = true;
     await imgReady(SCHOOL_STUDY_IMG);
@@ -12081,7 +12139,7 @@ function startMidtermExam(){
     if(qi >= qs.length){ explain(); return; }
     const n = qi + 1, q = qs[qi++];
     drawPortrait('pc');
-    dName.textContent = `期中考 (${n}/${MIDTERM_QN})`;
+    dName.textContent = `${ex.name} (${n}/${MIDTERM_QN})`;
     dTx.textContent = `【${q.subj}】${q.q}`;
     dCaret.classList.remove('on');
     dlgEl.classList.add('on');
@@ -12112,14 +12170,14 @@ function startMidtermExam(){
       wrong.forEach(({ n, q }) => beats.push({ who:'teacher', text:`「第 ${n} 題。${q.note}」` }));
       beats.push({ who:'pc', text:'他講得很慢，你聽著自己不會的東西，一節課就這樣過去了。' });
     }
-    if(MIDTERM.chose === 'in'){
+    if(st.chose === 'in'){
       beats.push({ who:'pc', text:'斜前方的阿凱從頭到尾趴著，考卷交上去的時候幾乎是空白的。' });
     }
     playBeats(beats, 0, settle);
   }
   function settle(){
-    MIDTERM.score = correct;
-    MIDTERM.settled = true;
+    st.score = correct;
+    st.settled = true;
     const pass = correct >= MIDTERM_PASS;
     /* 2026-09-15 kc:「為啥考完突然就餓死了」——原本這裡 chg('stamina', -12),
        體力剩 10 的存檔一考完就見底直接輸掉。考試的代價就是一整天的時間,
@@ -12130,33 +12188,61 @@ function startMidtermExam(){
       DISCIPLINE.merits++;
       chg('star', 8); chg('mood', 8);
       const gift = !owned.includes('pen');
-      if(gift){ owned.push('pen'); MIDTERM.gift = true; }
+      if(gift){ owned.push('pen'); st.gift = true; }
       /* 2026-09-15 kc 糾正:原本老師那句是「多的,你拿去」,他說「不對,就是
          真的稱讚他當乖寶寶」——改成老師是真心在誇你,而且誇的內容是「乖」。
          獎勵一支筆,條件是你要繼續乖下去、不要跟那些人混在一起。阿凱如果
          是跟著你進來的,他就坐在後面聽完這整段。笑點朝的是學校怎麼看待
          這群人,不是朝角色,見 CLAUDE.md 基準線。 */
+      const midPassed = MIDTERM.chose === 'in' && MIDTERM.score >= MIDTERM_PASS;
+      const praise = ex.key === 'mid' ? [
+        { who:'teacher', text:'「我就說嘛，你認真起來根本沒問題。」' },
+        { who:'teacher', text:'「以後就這樣，乖乖的。」' },
+        { who:'teacher', text:'「不要再跟那些人混在一起，你跟他們不一樣。」' }
+      ] : midPassed ? [
+        { who:'teacher', text:'「兩次了。」' },
+        { who:'teacher', text:'「你看，你做得到。」' },
+        { who:'teacher', text:'「下學期也這樣，知道嗎。」' }
+      ] : [
+        { who:'teacher', text:'「期中那次不算，這次才是你。」' },
+        { who:'teacher', text:'「以後就這樣，乖乖的。」' },
+        { who:'teacher', text:'「不要再跟那些人混在一起。」' }
+      ];
       const giftBeats = [
         { who:'teacher', text:`「${PLAYER_NAME || '欸'}，你過來一下。」` },
         { who:'pc',      text:'全班還沒走完，他在講台上叫你的名字。' },
         { who:'teacher', text:`「${correct} 題。」` },
-        { who:'teacher', text:'「我就說嘛，你認真起來根本沒問題。」' },
-        { who:'teacher', text:'「以後就這樣，乖乖的。」' },
-        { who:'teacher', text:'「不要再跟那些人混在一起，你跟他們不一樣。」' }
+        ...praise
       ];
-      if(MIDTERM.chose === 'in'){
+      if(st.chose === 'in'){
         giftBeats.push({ who:'pc', text:'阿凱還在後面收書包。你不知道他有沒有聽到。' });
       }
+      if(gift){
+        giftBeats.push(
+          { who:'pc',      text:'老師拉開抽屜，拿出一盒立可白跟一支筆，塞到你手上。' },
+          { who:'teacher', text:'「這個給你，好好用。」' }
+        );
+      }
+      if(ex.key === 'fin'){
+        /* 期末考另外一張獎狀——雜物裡的紀念品,沒有用途。筆只給一次。 */
+        TRASH.push({ name:'獎狀', icon:'🏅', award:true, star:0, active:false,
+          detail:'期末考成績優良。<br>老師當著全班給你的，上面有你的名字跟學校的章。' });
+        giftBeats.push(
+          { who:'pc',      text:'他從講桌下面抽出一張獎狀，把你的名字唸了一遍。' },
+          { who:'teacher', text:'「拿回去給你家人看。」' }
+        );
+      }
       giftBeats.push(
-        { who:'pc',      text:'老師拉開抽屜，拿出一盒立可白跟一支筆，塞到你手上。' },
-        { who:'teacher', text:'「這個給你，好好用。」' },
         { who:'teacher', text:'「老師看好你。」' },
         { who:'pc',      text:'還沒走的幾個同學回頭看了一眼。' }
       );
       playBeats(giftBeats, 0, () => {
         busy = false;
-        toast(`期中考 ${correct}/${MIDTERM_QN}。嘉獎一支，抵掉一次警告。\n老師給了你一支筆（風評 +8，情緒 +8）`, 5200);
-        logDay(`期中考考了 ${correct} 題。老師當著全班誇我，說我跟他們不一樣，還給了我一支筆。`);
+        const got = gift ? '老師給了你一支筆' : ex.key === 'fin' ? '老師給了你一張獎狀' : '老師當著全班誇你';
+        toast(`${ex.name} ${correct}/${MIDTERM_QN}。嘉獎一支，抵掉一次警告。\n${got}（風評 +8，情緒 +8）`, 5200);
+        logDay(ex.key === 'mid'
+          ? `期中考考了 ${correct} 題。老師當著全班誇我，說我跟他們不一樣，還給了我一支筆。`
+          : `期末考考了 ${correct} 題。老師當著全班唸我的名字，給了我一張獎狀。`);
       });
     } else {
       playBeats([
@@ -12164,13 +12250,12 @@ function startMidtermExam(){
         { who:'pc',      text:'分數寫在右上角，你把它折進書包裡。' }
       ], 0, () => {
         busy = false;
-        toast(`期中考 ${correct}/${MIDTERM_QN}。放學了。`, 3600);
-        logDay(`期中考考了 ${correct} 題。沒有人特別說什麼。`);
+        toast(`${ex.name} ${correct}/${MIDTERM_QN}。放學了。`, 3600);
+        logDay(`${ex.name}考了 ${correct} 題。沒有人特別說什麼。`);
       });
     }
   }
 }
-
 function schoolStorySource(days){
   return { NODES: StorySchool.NODES.filter(n => days.includes(n.day)) };
 }
@@ -16279,7 +16364,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
