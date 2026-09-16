@@ -10439,7 +10439,8 @@ function syncBloodCard(){
   setTodayCard(e.hint2 + (asked ? '<br><span class="qpNote">問過：' + asked + '</span>' : ''), e.name);
 }
 /* 回傳 true = 這次對話被捐血那段接走了。 */
-/* 到了醫院,護士才講要捐血——掛在 visitGrandma() 進場那一步。講完接一般探望(她昏迷)。 */
+/* 到了醫院,護士才講要捐血——掛在 visitGrandma() 進場那一步。講完直接回到街上,接下來
+   就是自由去找人(kc:「電話後 去醫院 然後就是自由到大街找人問」——不進探望選單)。 */
 function bloodBriefing(){
   BLOOD.briefed = true;
   paintHospitalBackdrop(false);
@@ -10448,11 +10449,12 @@ function bloodBriefing(){
     { who:'pc', text:'「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」' },
     { who:'pc', text:'你說你去。' },
     { who:'pc', text:'「你不行，直系血親不能捐，你媽也不行。找別人。」' },
-    { who:'pc', text:'她把一張單子塞給你，上面寫著血型跟時間。' }
+    { who:'pc', text:'她把一張單子塞給你，上面寫著血型跟時間。' },
+    { who:'pc', text:'你往病房裡看了一眼，她躺著，沒有醒。你轉身走出去。' }
   ], 0, () => {
     syncBloodCard();
     logDay('阿嬤昏過去了，明天要開刀。護士說要找一個 O 型的人來捐血，我跟媽都不行。');
-    grandmaVisitLine();
+    leaveIndoor();
   });
 }
 function bloodAsk(who){
