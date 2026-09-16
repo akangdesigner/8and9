@@ -2490,11 +2490,25 @@ window.debugWaterCut = debugWaterCut;
 function debugDailyMorning(id, toDay){
   const e = DAILY_EVENTS.find(x => x.id === id);
   day = toDay; minute = 7*60;
-  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = true; DAILY.dueDay = e.bill ? day + e.days : -1;
+  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = false; DAILY.dueDay = e.bill ? day + e.days : -1;
   clearTodayCard();
   const d = city.doors.find(x => x.id === 'home');
-  if(d){ returnTo.x = d.x; returnTo.z = d.z + 3; warpIntoPlace(d); }
+  if(d){ returnTo.x = d.x; returnTo.z = d.z + 3; }
   syncHUD(); syncMiscQuestPanel();
+  if(e.via === 'living'){
+    /* 走出房門才發生的:人放在房間床邊,走出房門那一步會接 checkDailyLiving()。 */
+    MODE = 'indoor'; PLACE = 'bedroom';
+    document.getElementById('city').style.display = 'none';
+    wlabelsEl.style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    IN.px = (BEDROOM_WALK_TWEAK.minPx + BEDROOM_WALK_TWEAK.maxPx) / 2; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
+    document.getElementById('where').textContent = '房間';
+    paintBedroomBackdrop();
+    toast('第 ' + day + ' 天早上。走出房門。', 3000);
+    return;
+  }
+  DAILY.told = true;
+  if(d) warpIntoPlace(d);
   e.instant();
   dailyCard(e);
   busy = true;
@@ -5641,6 +5655,12 @@ homeLivingImg.onload = () => {
   paintHomeBackdrop();
 };
 homeLivingImg.src = '../assets/bg/home-living.png?v=4';
+/* 沒有媽媽的客廳(2026-09-16,捐血那天:kc「走出房門後發現媽媽不在沙發上 這時候才收到
+   電話」)——原照片媽媽是烤進去的,這張是用 PIL 把左邊乾淨坐墊鏡射蓋過去做的,近看有
+   接縫,遊戲縮到 0.383 看不太出來。之後 kc 用 GPT 生一張正式的直接換檔名同一個。 */
+const homeLivingEmptyImg = new Image();
+homeLivingEmptyImg.src = '../assets/bg/home-living-empty.png?v=1';
+function momAway(){ return BLOOD.active && BLOOD.day === day; }   // 捐血那天她一早就在醫院
 const homeBedroomImg = new Image();
 homeBedroomImg.onload = () => {
   if(homeBedroomImg.naturalWidth){ BEDROOM = BEDROOM_PHOTO; BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_PHOTO; }
@@ -5895,7 +5915,8 @@ function paintHomeBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(homeLivingImg.complete && homeLivingImg.naturalWidth){
     gbg.imageSmoothingEnabled = true;
-    gbg.drawImage(homeLivingImg, 0,0,1280,720);
+    const img = (momAway() && homeLivingEmptyImg.complete && homeLivingEmptyImg.naturalWidth) ? homeLivingEmptyImg : homeLivingImg;
+    gbg.drawImage(img, 0,0,1280,720);
   } else {
     gbg.save(); gbg.scale(SC,SC);
     SceneHome.renderBackground(gbg, { tvOn:true, godLamp:true, vignette:true, sofaFront:true });
@@ -7824,6 +7845,7 @@ function openIndoorSpot(id){
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
     else if(id === 'mom'){
+      if(momAway()){ toast('沙發上沒有人。', 2000); return; }   // 捐血那天她在醫院(見 momAway)
       if(dailyGotoReady('mom')){ runDailyGoto('mom'); return; }   // 今天的事正好是媽開口(見 DAILY_EVENTS)
       /* 遊藝場迴響(2026-08-26,kc:「觸發這句話後下次跟媽媽講話,媽媽會說
          怎麼,你最近也去遊藝場嗎?是不是很上頭啊?這樣,然後你會有回話的
@@ -9972,10 +9994,10 @@ const DAILY_EVENTS = [
      去問人阿源阿凱阿仁老闆之類的 最後發現算命老闆符合」,參考下一站幸福「光晞不能捐」
      那段:一條規則把最想捐的人擋在外面)——直系血親不能捐,你跟媽都被踢出去,只能去街上
      一個一個問。誰能誰不能全排死,見 BLOOD 那段。 */
-  { id:'blood', name:'捐血', cat:'people', via:'phone',
+  { id:'blood', name:'捐血', cat:'people', via:'living',
     need:() => hospitalCallFired && !GRANDMA.dead,
     instant(){ startBloodQuest(); },
-    line:'醫院打來。\n「阿嬤早上昏過去了，現在在加護病房。你們家屬過來一趟。」',
+    line:'你走出房門。沙發上沒有人，電視開著沒人看，她的拖鞋不在門口。\n手機響了，是醫院。\n「阿嬤早上昏過去了，現在在加護病房。你們家屬過來一趟。」',
     hint:'去醫院', hint2:'今天之內找一個 O 型的人去醫院捐血' },
   { id:'mom-ask', name:'媽要錢', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
@@ -10073,11 +10095,16 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
      喘息。最後一天(day90)是媽開口要錢——註冊費到期的前一天。
    要改哪一天就直接改這張表。 */
 const DAILY_SCHEDULE = {
-  2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 13:'co-extra',   // 2026-09-16 代班 12→13:day12 讓給期中考(週六代班也合理)   // day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3
+  /* 2026-09-16 這輪改的格子(⚠ 註解不要寫在資料行尾巴,之前一行尾註解把後面幾格吃掉過):
+       代班 12→13(day12 讓給期中考,週六代班也合理)
+       阿凱找你 22→30(day22 是學校線主線日,主線日不抽日常事件,排在那裡永遠不會出現)
+       day50 水費改成停水那天(見 WATER_CUT)
+       day55 阿嬤開刀要人捐血,到處問人(見 BLOOD),阿嬤那 30 天(46~76)裡面
+     day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3 */
+  2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 13:'co-extra',
   15:'moto-dead', 17:'rain', 20:'water', 23:'loan', 26:'yuan-call',
-  29:'pocket', 30:'kai-hang', 31:'ayi-food',   // 2026-09-16 阿凱找你 22→30:day22 是學校線主線日,主線日不抽日常事件,排在那裡永遠不會出現 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
-  47:'acheng-hand', 50:'water-cut', 51:'loan',   // 2026-09-16 day50 的水費改成停水那天(見 WATER_CUT)
-  55:'blood',   // 2026-09-16 阿嬤開刀要人捐血,到處問人(見 BLOOD);阿嬤那 30 天(46~76)裡面 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
+  29:'pocket', 30:'kai-hang', 31:'ayi-food', 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
+  47:'acheng-hand', 50:'water-cut', 51:'loan', 53:'co-extra', 55:'blood', 56:'mei-ask', 59:'kai-hang',
   61:'hospital-bill', 62:'site-work', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
   74:'site-work', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'site-work',
   87:'tuition-remind', 89:'kai-fast', 90:'mom-ask'
@@ -10107,12 +10134,27 @@ function drawDailyEvent(){
                留到玩家真的離開家(checkDailyDoor(),見 leaveIndoor())。
      `instant`(下雨扣情緒、口袋破洞扣錢)跟著它的 via 走:home/phone/msg 在早上
      結算,door 等到出門那一刻才扣,不然人還躺在床上錢就掉了。 */
-  if(e.via !== 'door'){
+  if(e.via !== 'door' && e.via !== 'living'){
     if(e.instant) e.instant();
     if(e.instantDiary) logDay(e.instantDiary);
     DAILY.told = true;
   }
   return e;
+}
+/* via:'living'——走出房門到客廳才發生(2026-09-16,捐血那天:媽不在沙發上,這時候手機才響)。
+   掛在 leaveBedroom() 淡入客廳之後,跟 checkDailyDoor() 同一個結構。 */
+function checkDailyLiving(){
+  const e = dailyDef();
+  if(!e || e.via !== 'living' || DAILY.told || DAILY.day !== day) return false;
+  if(gameOver) return false;
+  DAILY.told = true;
+  if(e.instant) e.instant();
+  if(e.instantDiary) logDay(e.instantDiary);
+  if(PLACE === 'home') paintHomeBackdrop();   // instant() 之後才知道媽不在(momAway),客廳要重畫成空沙發那張
+  dailyCard(e);
+  busy = true;
+  say('pc', e.line, () => { busy = false; });
+  return true;
 }
 /* 走出家門那一刻才發生的事——掛在 leaveIndoor() 回到街上那一步。 */
 function checkDailyDoor(){
@@ -10137,7 +10179,7 @@ function dailyBriefing(){
   if(!e){ busy = false; return; }
   /* door 型的早上不講、卡也不掛(人還在家裡,那件事還沒發生)——出門發現了
      才會有字卡跟任務卡,見 checkDailyDoor()。 */
-  if(e.via === 'door'){ busy = false; return; }
+  if(e.via === 'door' || e.via === 'living'){ busy = false; return; }
   dailyCard(e);
   say('pc', e.line, () => { busy = false; });
 }
@@ -11103,7 +11145,8 @@ function leaveBedroom(){
        會檢查劇情節點,從房間走出來不會。開場第一幕是「房間起床→走出房門→
        客廳接母親線」,不補這行整段接不上。seenStoryDays 本來就會擋重複,
        多一個觸發點沒有副作用。 */
-    if(dailyGotoReady('momBag') && !GRANDMA.bagGiven) runMomBag();
+    if(checkDailyLiving()){}                                    // 捐血那天:媽不在沙發上,電話才響(見 checkDailyLiving)
+    else if(dailyGotoReady('momBag') && !GRANDMA.bagGiven) runMomBag();
     else maybeTriggerStoryNode();
     checkGrandmaCall();
   });
@@ -17340,7 +17383,7 @@ window.__dbg = {
     get busy(){ return busy; }, set busy(v){ busy = v; }, get MODE(){ return MODE; }, get PLACE(){ return PLACE; },
     cancelWalkIn(){ walkIn = null; busy = false; },
     get lastSchoolDay(){ return lastSchoolDay; }, set lastSchoolDay(v){ lastSchoolDay = v; },
-    ST, GRANDMA, BLOOD, DAILY, BILLS, WATER_CUT, MIDTERM, FINAL, ACTIVE_QUESTS, TRASH, FORTUNE, YUAN, KAI, AYI, ACHENG, MEI, AREN, hero,
+    ST, GRANDMA, BLOOD, DAILY, BILLS, WATER_CUT, MIDTERM, FINAL, ACTIVE_QUESTS, TRASH, FORTUNE, YUAN, KAI, AYI, ACHENG, MEI, AREN, hero, IN,
     get dlgOn(){ return dlg.on; }, get dlgText(){ return dTx.textContent; }, get dlgName(){ return dName.textContent; },
     sleep, chg, setSaveOff(v){ saveOff = v; }
   },
