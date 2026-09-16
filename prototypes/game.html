@@ -1397,7 +1397,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2533,6 +2533,15 @@ function debugWaterCut(){
   say('pc', e.line, () => { busy = false; });
 }
 window.debugWaterCut = debugWaterCut;
+/* 捐血測試鈕(2026-09-16)——不換天,直接把今天變成捐血那天。 */
+function debugBlood(){
+  const e = DAILY_EVENTS.find(x => x.id === 'blood');
+  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = true; DAILY.dueDay = -1;
+  e.instant();
+  busy = true;
+  say('pc', e.line, () => { busy = false; });
+}
+window.debugBlood = debugBlood;
 function debugSnitchArm(){
   /* 每按一次都從頭來(kc 2026-09-14:「我要重新跑一次任務」)——已報/已警告/
      過期的狀態跟阿源那邊的翻臉旗標一起清掉,不然 resolved 卡住第二次跑不了。 */
@@ -9996,6 +10005,15 @@ const DAILY_EVENTS = [
     instant(){ const e = DAILY_EVENTS.find(x => x.id === 'water-cut'); addBill(e); startWaterCut(); },
     line:'你扭開水龍頭，只有空氣的聲音。\n媽站在門口：「水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」\n單子在桌上，$120。',
     hint:'去超商櫃台繳水費（$120）', note:'家裡沒水，今天要找地方洗澡' },
+  /* 捐血那天(2026-09-16,kc:「走投無路四處求人的感覺 比如要求人捐血給阿嬤 那就要到處
+     去問人阿源阿凱阿仁老闆之類的 最後發現算命老闆符合」,參考下一站幸福「光晞不能捐」
+     那段:一條規則把最想捐的人擋在外面)——直系血親不能捐,你跟媽都被踢出去,只能去街上
+     一個一個問。誰能誰不能全排死,見 BLOOD 那段。 */
+  { id:'blood', name:'捐血', cat:'people', via:'phone',
+    need:() => hospitalCallFired && !GRANDMA.dead,
+    instant(){ startBloodQuest(); },
+    line:'醫院打來。\n「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」\n你說你去。「你不行，直系血親不能捐，你媽也不行。找別人。」',
+    hint:'今天之內找一個 O 型的人去醫院捐血' },
   { id:'mom-ask', name:'媽要錢', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
   /* 阿嬤那袋(2026-09-11,kc:「第二個行動天要是媽媽請你拿東西給阿嬤之類的 這樣主角
@@ -10095,7 +10113,8 @@ const DAILY_SCHEDULE = {
   2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 13:'co-extra',   // 2026-09-16 代班 12→13:day12 讓給期中考(週六代班也合理)   // day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3
   15:'moto-dead', 17:'rain', 20:'water', 23:'loan', 26:'yuan-call',
   29:'pocket', 30:'kai-hang', 31:'ayi-food',   // 2026-09-16 阿凱找你 22→30:day22 是學校線主線日,主線日不抽日常事件,排在那裡永遠不會出現 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
-  47:'acheng-hand', 50:'water-cut', 51:'loan',   // 2026-09-16 day50 的水費改成停水那天(見 WATER_CUT) 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
+  47:'acheng-hand', 50:'water-cut', 51:'loan',   // 2026-09-16 day50 的水費改成停水那天(見 WATER_CUT)
+  55:'blood',   // 2026-09-16 阿嬤開刀要人捐血,到處問人(見 BLOOD);阿嬤那 30 天(46~76)裡面 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
   61:'hospital-bill', 62:'site-work', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
   74:'site-work', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'site-work',
   87:'tuition-remind', 89:'kai-fast', 90:'mom-ask'
@@ -10397,6 +10416,98 @@ function tickWaterCut(){
   syncWashQuest();
 }
 
+/* ===== 捐血那天(2026-09-16,見 DAILY_EVENTS 'blood')===============================
+ * 規則先把你踢出去(直系血親、未滿十七),剩下只能去街上問。每個人的答案排死:
+ * 他為什麼不行就是他這個人。問一個時鐘走 20 分鐘、被拒情緒 −3。算命老闆是 O 型,
+ * 你問到他就成了——他不特別,只是你沒想到(kc:「不用這麼特別 就只要有個很驚喜發現
+ * 他能捐即可」)。掛法跟 dailyGotoReady() 一樣,插在每個人對話函式的最前面。 */
+const BLOOD = { active:false, day:-1, asked:[], found:false };
+const BLOOD_ANSWERS = {
+  yuan:     { name:'阿源',   ok:false, beats:[
+    { who:'yuan', text:'「我 O 型欸。」' },
+    { who:'pc',   text:'他低頭看自己的手臂。' },
+    { who:'yuan', text:'「有刺青的一年內不能捐，護士會退。」' } ] },
+  kai:      { name:'阿凱',   ok:false, beats:[
+    { who:'kai',  text:'「我跟你同年啊，十六。」' },
+    { who:'kai',  text:'「你自己都不行了還問我。」' } ] },
+  aren:     { name:'阿仁',   ok:false, beats:[
+    { who:'aren', text:'「好，我去！」' },
+    { who:'pc',   text:'他真的跟你跑了一趟醫院。驗完護士說 A 型，不合，他比你還失望。' } ] },
+  mei:      { name:'小美',   ok:false, beats:[
+    { who:'mei',  text:'「我 O 型，可是我未滿十七要家長同意書。」' },
+    { who:'mei',  text:'「我媽不會簽的。」' } ] },
+  acheng:   { name:'阿成',   ok:false, beats:[
+    { who:'pc',     text:'他沒講話，把圍裙脫下來跟你走。' },
+    { who:'pc',     text:'到了醫院驗出來是 B 型。他站在走廊上，還是沒講話。' } ] },
+  ayi:      { name:'阿姨',   ok:false, beats:[
+    { who:'ayi',  text:'「我貧血，上次去捐被退回來。」' },
+    { who:'ayi',  text:'「你去問問看廟口那幾個男的。」' } ] },
+  motoboss: { name:'旺鴻',   ok:false, beats:[
+    { who:'motoboss', text:'「我血壓高，醫生不讓我捐。」' },
+    { who:'motoboss', text:'「不然我早就去了。」' } ] },
+  foreman:  { name:'工頭',   ok:false, beats:[
+    { who:'foreman', text:'「捐完要休息一天，明天誰扛磚？」' },
+    { who:'foreman', text:'「你去找別人。」' } ] },
+  jiaoguan: { name:'教官',   ok:false, beats:[
+    { who:'jiaoguan', text:'「AB。」' },
+    { who:'pc',       text:'他停了一下，把手機拿出來翻了翻，又收回去。' } ] },
+  teacher:  { name:'老師',   ok:false, beats:[
+    { who:'teacher', text:'「我 A 型。」' },
+    { who:'teacher', text:'「我幫你問問看辦公室有沒有人 O 型。」' },
+    { who:'pc',      text:'放學前他跟你說沒有。' } ] },
+  brother:  { name:'阿正',   ok:false, beats:[
+    { who:'brother', text:'「我值班。」' },
+    { who:'brother', text:'「你去問問看外面那些人。」' } ] },
+  fortune:  { name:'算命的', ok:true,  beats:[
+    { who:'fortune', text:'「O 型。」' },
+    { who:'pc',      text:'他把籤筒放進抽屜，拉下攤子的布。' },
+    { who:'fortune', text:'「年輕的時候捐過三十幾次。你去忙你的，我自己去。」' },
+    { who:'pc',      text:'你從來沒想到要問他。' } ] }
+};
+function startBloodQuest(){
+  BLOOD.active = true; BLOOD.day = day; BLOOD.asked = []; BLOOD.found = false;
+  syncBloodCard();
+}
+function syncBloodCard(){
+  if(!BLOOD.active) return;
+  const e = DAILY_EVENTS.find(x => x.id === 'blood');
+  const asked = BLOOD.asked.map(k => BLOOD_ANSWERS[k].name).join('、');
+  setTodayCard(e.hint + (asked ? '<br><span class="qpNote">問過：' + asked + '</span>' : ''), e.name);
+}
+/* 回傳 true = 這次對話被捐血那段接走了。 */
+function bloodAsk(who){
+  if(!BLOOD.active || BLOOD.found || BLOOD.day !== day) return false;
+  const a = BLOOD_ANSWERS[who];
+  if(!a || BLOOD.asked.includes(who)) return false;
+  BLOOD.asked.push(who);
+  busy = true;
+  playBeats([{ who:'pc', text:'你把阿嬤的事講了一遍，問他是不是 O 型。' }, ...a.beats], 0, () => {
+    advanceTime(20);
+    if(a.ok){
+      BLOOD.found = true;
+      dailyDone();
+      chg('calm', 12); chg('mood', 12);
+      toast('找到了。他自己去醫院了。（歸屬感 +12　情緒 +12）', 4200);
+      logDay('阿嬤要開刀，我問了 ' + BLOOD.asked.length + ' 個人。最後是算命的，他 O 型。');
+    } else {
+      chg('mood', -3);
+      toast('（情緒 −3）', 1800);
+      syncBloodCard();
+    }
+    busy = false;
+  });
+  return true;
+}
+/* 睡前結算:今天沒找到人,醫院自己調到了,但拖到晚上。 */
+function tickBlood(){
+  if(!BLOOD.active) return;
+  BLOOD.active = false;
+  if(BLOOD.found) return;
+  chg('mood', -12); chg('calm', -6);
+  logDay('阿嬤要開刀，我問了 ' + BLOOD.asked.length + ' 個人，沒有一個可以。醫院晚上自己調到血了。');
+  toast('沒有找到人。醫院晚上自己調到血了。（情緒 −12　歸屬感 −6）', 4200);
+}
+
 /* 「有就更新、沒有才新增」——跟 updateGrandmaQuestHint() 同一套慣例。
    直接 push 會疊卡:前一天的「今天」如果沒被收掉(例如那天的事沒有 expire
    機制),隔天再 push 就會出現兩張 id 一樣的卡(實測踩到)。 */
@@ -10471,6 +10582,7 @@ function maybeIdleDay(){
 function sleep(){
   busy = true;
   tickWaterCut();          // 停水那天沒洗澡的結算,要在日記頁之前(見 WATER_CUT)
+  tickBlood();             // 捐血那天沒找到人的結算(見 BLOOD)
   const skippedSchool = lastSchoolDay !== day;   // 結算今天(睡覺當下的 day,還沒 ++)有沒有去學校
   const skippedDay = day;                        // 曠課那一天的日期,給 addWarning 記(wake 那時 day 已經跳過去了)
   /* 先蓋上過渡頁做今天的結算(見 showSleepPage()),關掉之後才走原本那套
@@ -13312,6 +13424,7 @@ function talkToStallVendor(state, data, whoKey, onBuyMenu, opts){
 }
 function talkToAyi(){
   logTalk('阿姨');
+  if(bloodAsk('ayi')) return;   // 捐血那天(見 BLOOD)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('ayi')){ runDailyGoto('ayi'); return; }
   talkToStallVendor(AYI, AYI_DATA, 'ayi', () => {
@@ -13341,6 +13454,7 @@ function talkToAyi(){
 }
 function talkToAcheng(){
   logTalk('阿成');
+  if(bloodAsk('acheng')) return;   // 捐血那天(見 BLOOD)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('acheng')){ runDailyGoto('acheng'); return; }
   talkToStallVendor(ACHENG, ACHENG_DATA, 'acheng', () => {
@@ -13683,6 +13797,7 @@ function openFortuneMenu(){
 }
 function talkToFortune(){
   logTalk('算命的');
+  if(bloodAsk('fortune')) return;   // 捐血那天(見 BLOOD)
   /* 任務進行中優先攔在最前面:做完了(quest.done)先讓他交貨、指標真的
      加值,還沒做完就提醒你東西還沒拿到——兩種情況都不進正常的算命
      選單(那天多半也已經抽過籤了,選單本來就沒什麼好點的)。 */
@@ -13733,6 +13848,7 @@ const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
    不用再靠 fall through 假裝沒發生。 */
 function talkToYuan(){
   logTalk('阿源');
+  if(bloodAsk('yuan')) return;   // 捐血那天(見 BLOOD)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('yuan')){ runDailyGoto('yuan'); return; }
   /* 出賣後的翻臉(2026-09-01,kc:「他會咒罵出賣他的人 你會心虛的應對
@@ -14070,6 +14186,7 @@ function yuanCasualTalk(){
    branch),沒有硬套同一個共用函式。 */
 function talkToMei(){
   logTalk('小美');
+  if(bloodAsk('mei')) return;   // 捐血那天(見 BLOOD)
   /* 跟同學培養感情(見 checkFieldTrip() 附近 CLASSMATE_QUEST 那則長筆記)
      ——擋在最前面,校外教學這趟第一次找她講話只播這句、不進平常 met/
      dated 那套判斷,避免這次的溫馨閒聊被帥潮門檻擋掉或誤觸發約會流程。 */
@@ -14317,6 +14434,7 @@ function maybeCounsel(after){
 }
 function talkToJiaoguan(){
   logTalk('教官');
+  if(bloodAsk('jiaoguan')) return;   // 捐血那天(見 BLOOD)
   const D = NpcSchool.JIAOGUAN;
   if(!YUAN.hasTattoo || JIAOGUAN.confronted){
     /* 校門口的教官認得上下課時間(2026-09-11,kc 定案,見 SCHOOL_IN_MINUTE):
@@ -14651,6 +14769,7 @@ function removeTattoo(){
    只剩閒聊),跟阿姨貓咪任務同一個簡化幅度,見 npc-school.js 開頭筆記。 */
 function talkToAren(){
   logTalk('阿仁');
+  if(bloodAsk('aren')) return;   // 捐血那天(見 BLOOD)
   /* 跟同學培養感情(見 CLASSMATE_QUEST 那則長筆記)——同一招擋在最前面。 */
   if(CLASSMATE_QUEST.active && !CLASSMATE_QUEST.talkedAren){
     CLASSMATE_QUEST.talkedAren = true;
@@ -14702,6 +14821,7 @@ function talkToAren(){
  * 演,之後要做的話是在 id==='door' 那支插一個 day===28 攔截,不是這裡。 */
 function talkToTeacher(){
   logTalk('老師');
+  if(bloodAsk('teacher')) return;   // 捐血那天(見 BLOOD)
   const D = NpcSchool.TEACHER;
   /* 班費・還給老師(2026-09-02,見 talkToWorker() CLASSFUND 那則長筆記
      第④點)——攔在最前面,比清寒補助優先權更高(玩家手上正拿著要還的
@@ -14901,6 +15021,7 @@ function syncBrotherArcPanel(){
 }
 function talkToBrother(){
   logTalk('小美哥');
+  if(bloodAsk('brother')) return;   // 捐血那天(見 BLOOD)
   const D = NpcSchool.BROTHER;
   /* 班費失竊(2026-09-02)——攔在最前面,跳過下面 MEI.together 那道門檻。
      阿正原本的登場邏輯綁在跟小美交往之後(見 BROTHER 那則舊筆記,「他
@@ -15137,6 +15258,7 @@ function kaiCheckinLines(){
 }
 function talkToKai(){
   logTalk('阿凱');
+  if(bloodAsk('kai')) return;   // 捐血那天(見 BLOOD)
   /* day5 跑腿(2026-09-10,見 KAI_RUN 那段)——擋在最前面,優先於閒聊。
      他說的是「放學」過來,所以今天要真的上完課(deskActionDay===day,跟
      finishSchoolDay() 同一個判斷)才給袋子,不然他只會叫你放學再說。 */
@@ -15201,6 +15323,7 @@ function foremanDogItem(){
 }
 function talkToForeman(){
   logTalk('工地老闆');
+  if(bloodAsk('foreman')) return;   // 捐血那天(見 BLOOD)
   /* 今天的事正好是工地缺工(見 DAILY_EVENTS site-work)——擋在最前面。
      ⚠ 體力不夠先擋掉、**任務不消耗**(不叫 runDailyGoto,DAILY 還是未完成),
      休息完再來還接得到;直接開工會變成體力 0 也能扛磚,跟上工那個選項的門檻
@@ -15786,6 +15909,7 @@ function finishTroupeGame(){
    才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
 function talkToMotoBoss(){
   logTalk('旺鴻');
+  if(bloodAsk('motoboss')) return;   // 捐血那天(見 BLOOD)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('motoboss')){ runDailyGoto('motoboss'); return; }
   /* 算命攤跑腿任務(2026-08-27)——攔在最前面,跟這裡原本的劇情/買車邏輯
@@ -16499,7 +16623,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
