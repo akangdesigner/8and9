@@ -7891,7 +7891,25 @@ function openIndoorSpot(id){
        不然可以無限刷歸屬感/情緒。 */
     else if(id === 'altar'){
       if(!GRANDMA.dead){ toast('小茶几上空空的。', 2000); return; }
+      const altarOpts = [];
+      /* 她沒等到的話,獎狀放牌位前(2026-09-16,跟醫院那條共用 FINAL.awardShown,一次)。 */
+      if(!FINAL.awardShown && TRASH.some(t => t.award)){
+        altarOpts.push({ label:'把獎狀放在牌位前', run(){
+          FINAL.awardShown = true;
+          const card = TRASH.find(t => t.award); if(card) card.detail += '<br>放在阿嬤牌位前給她看過了。';
+          playBeats([
+            { who:'pc', text:'你把獎狀攤開，壓在香爐旁邊。' },
+            { who:'pc', text:'「還不是畢業證書，先給你看這個。」' },
+            { who:'pc', text:'你站了一下，把獎狀收回書包。' }
+          ], 0, () => {
+            chg('calm', 6);
+            toast('（歸屬感 +6）', 2200);
+            logDay('把獎狀拿去牌位前給阿嬤看。還不是畢業證書。');
+          });
+        } });
+      }
       openMenu('阿嬤的牌位', [
+        ...altarOpts,
         { label:'跟阿嬤說說話',
           cost: altarTalkDay === day ? '今天已經說過了' : '',
           cls: altarTalkDay === day ? 'bad' : '',
@@ -11587,6 +11605,28 @@ function grandmaVisitLine(){
           chg('calm', 8); chg('mood', 6);
           toast('（歸屬感 +8、情緒 +6）', 2400);
           logDay('把成績單拿給阿嬤看。她說好，然後放在枕頭邊。');
+          grandmaVisitLine();
+        });
+      } });
+    }
+    /* 期末考的獎狀也可以拿給她看(2026-09-16,kc:「可以給阿嬤看」)——接的是 day2
+       「畢業的時候,證書拿來給我看」那個承諾:她認得出這不是畢業證書,說她等。
+       一次就好,醫院/牌位兩邊共用 FINAL.awardShown。 */
+    if(awake && !FINAL.awardShown && TRASH.some(t => t.award)){
+      opts.push({ label:'把獎狀拿給她看', run(){
+        FINAL.awardShown = true;
+        const card = TRASH.find(t => t.award); if(card) card.detail += '<br>阿嬤看過了。';
+        playBeats([
+          { who:'pc',     text:'你把獎狀拿出來，攤在她面前。' },
+          { who:'pc',     text:'她看了很久，手指在你的名字上面摸了一下。' },
+          { who:'granny', text:'「這不是畢業證書。」' },
+          { who:'pc',     text:'「還沒。」' },
+          { who:'granny', text:'「好。我等。」' },
+          { who:'pc',     text:'她把獎狀折好，跟枕頭邊那張成績單疊在一起。' }
+        ], 0, () => {
+          chg('calm', 12); chg('mood', 6);
+          toast('（歸屬感 +12、情緒 +6）', 2400);
+          logDay('把獎狀拿給阿嬤看。她說這不是畢業證書，她等。');
           grandmaVisitLine();
         });
       } });
