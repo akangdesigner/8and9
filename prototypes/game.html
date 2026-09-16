@@ -7867,7 +7867,10 @@ function openIndoorSpot(id){
           { who:'mom', text:'「你昨天跑去哪了。」' },
           { who:'pc',  text:'你說你問了一整天。她看了你一下，把電視轉回去。' }
         ], 0, () => {
-          if(BLOOD.found){ chg('calm', 6); toast('（歸屬感 +6）', 2000); logDay('媽說阿嬤開完刀了，還好。她叫我去謝謝算命的。'); }
+          if(BLOOD.found){
+            chg('calm', 6); toast('（歸屬感 +6）', 2000); logDay('媽說阿嬤開完刀了，還好。她叫我去謝謝算命的。');
+            if(!ACTIVE_QUESTS.some(q => q.id === 'thank-fortune')){ ACTIVE_QUESTS.push({ id:'thank-fortune', title:'去謝謝算命的', hint:'廟口那個算命攤。<br><span class="qpNote">他說回來記得抽一支籤，不收錢</span>' }); renderQuestPanel(); }
+          }
           else { chg('mood', -3); toast('（情緒 −3）', 2000); logDay('媽說阿嬤開完刀了，血是醫院晚上自己調到的。她問我昨天跑去哪。'); }
           busy = false;
         });
@@ -10503,7 +10506,7 @@ function tickWaterCut(){
  * 他為什麼不行就是他這個人。問一個時鐘走 20 分鐘、被拒情緒 −3。算命老闆是 O 型,
  * 你問到他就成了——他不特別,只是你沒想到(kc:「不用這麼特別 就只要有個很驚喜發現
  * 他能捐即可」)。掛法跟 dailyGotoReady() 一樣,插在每個人對話函式的最前面。 */
-const BLOOD = { active:false, day:-1, asked:[], found:false, briefed:false, momTalked:false };   // briefed:到了醫院護士才講要捐血(kc:「醫院打來就會說阿嬤昏迷了叫我們過來 我們到醫院的時候他才會說要捐血」)
+const BLOOD = { active:false, day:-1, asked:[], found:false, briefed:false, momTalked:false, thanked:false };   // briefed:到了醫院護士才講要捐血(kc:「醫院打來就會說阿嬤昏迷了叫我們過來 我們到醫院的時候他才會說要捐血」)
 const BLOOD_ANSWERS = {
   yuan:     { name:'阿源',   ok:false, beats:[
     { who:'yuan', text:'「我 O 型欸。」' },
@@ -13781,10 +13784,13 @@ function coldReadPick(){
   const lines = tier === 'high' ? content.lines : stat.lines;
   return { k:stat.k, tier, grade, no:stat.no, lines, meaning:content.meaning, followUp:content.followUp, grid:stat.grid };
 }
-function drawFortuneSlip(){
-  if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
-  chg('money', -20);
-  FORTUNE.lastDrawDay = day;   // 每天限抽一次(kc:「每天只能抽一次籤」),見 openFortuneMenu()
+function drawFortuneSlip(free){
+  /* free:捐血之後他請的那一支(見 talkToFortune 裡 BLOOD.thanked 那段),不收錢、不佔今天的額度。 */
+  if(!free){
+    if(ST.money < 20){ toast('你身上不夠二十。', 2000); return; }
+    chg('money', -20);
+    FORTUNE.lastDrawDay = day;   // 每天限抽一次(kc:「每天只能抽一次籤」),見 openFortuneMenu()
+  }
   busy = true;
   fpStageEl.style.display = ''; fpResultEl.style.display = 'none';
   fpStageEl.classList.add('shaking');
@@ -13906,6 +13912,28 @@ function openFortuneMenu(){
 function talkToFortune(){
   logTalk('算命的');
   if(bloodAsk('fortune')) return;   // 捐血那天(見 BLOOD)
+  /* 捐血之後去謝謝他(2026-09-16,kc:「做吧 比較完善」)——媽說「你去謝謝人家」之後掛的支線,
+     來了他先問阿嬤怎樣,再兌現那句「回來記得來抽一支籤,不收你錢」,抽完自己去。 */
+  if(BLOOD.found && BLOOD.momTalked && !BLOOD.thanked){
+    BLOOD.thanked = true;
+    { const i = ACTIVE_QUESTS.findIndex(q => q.id === 'thank-fortune'); if(i >= 0){ ACTIVE_QUESTS.splice(i, 1); renderQuestPanel(); } }
+    busy = true;
+    playBeats([
+      { who:'pc',      text:'你走到攤子前面，還沒開口他就抬頭。' },
+      { who:'fortune', text:'「你阿嬤怎麼樣？」' },
+      { who:'pc',      text:'你說開完了，醫生說還好。你說謝謝。' },
+      { who:'fortune', text:'「謝什麼，血本來就會再長。」' },
+      { who:'fortune', text:'「來，說好的，抽一支。不收你錢。」' },
+      { who:'pc',      text:'他把籤筒推到你面前。' }
+    ], 0, () => {
+      chg('calm', 6);
+      toast('（歸屬感 +6）', 2000);
+      logDay('去廟口跟算命的說謝謝。他請我抽了一支籤。');
+      busy = false;
+      drawFortuneSlip(true);
+    });
+    return;
+  }
   /* 任務進行中優先攔在最前面:做完了(quest.done)先讓他交貨、指標真的
      加值,還沒做完就提醒你東西還沒拿到——兩種情況都不進正常的算命
      選單(那天多半也已經抽過籤了,選單本來就沒什麼好點的)。 */
