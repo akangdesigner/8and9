@@ -2485,7 +2485,7 @@ function kaiRunArm(){
   KAI_RUN.done = false; KAI_RUN.delivered = false; KAI_RUN.missed = false;
   deskActionDay = day;                       // 假裝今天的課已經上完(= 放學了)
   if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
-  setTodayCard('放學去機車行那邊找阿凱');
+  setTodayCard('放學去機車行那邊找阿凱', '阿凱');
   hero.group.position.set(KAI.x + 2, .3, KAI.z + 2);
   toast('阿凱就在旁邊，按空白鍵跟他拿袋子。', 3200);
 }
@@ -9628,7 +9628,7 @@ function giveKaiBag(){
       name:'打結的塑膠袋', icon:'🛍️', bag:true,
       detail:'阿凱給的。他說送到遊藝場側門就好，<b>不要打開</b>。<br>袋子有點重，形狀不規則。'
     });
-    setTodayCard('把袋子送到遊藝場側門' + KAI_RUN_NOTE);
+    setTodayCard('把袋子送到遊藝場側門' + KAI_RUN_NOTE, '幫阿凱送袋子');
     syncRunmen();                     // 三個人這時候才出現在巷口
     toast('你把袋子塞進外套裡。\n（雜物欄裡點它可以打開來看）', 3600);
   });
@@ -9741,7 +9741,7 @@ function checkKaiRunDrop(){
   if(Math.hypot(p.x - KAI_RUN_DROP.x, p.z - KAI_RUN_DROP.z) > KAI_RUN_RANGE) return;
   KAI_RUN.arrived = true;
   busy = true;
-  setTodayCard('側門那邊站了三個人，不知道要交給哪一個。' + KAI_RUN_NOTE);
+  setTodayCard('側門那邊站了三個人，不知道要交給哪一個。' + KAI_RUN_NOTE, '幫阿凱送袋子');
   playBeats(KAI_DROP_INTRO, 0, () => { busy = false; });
 }
 function talkToRunman(ref){
@@ -9795,7 +9795,7 @@ function handOverBag(ref){
      ——歸屬感也移到回報那一步發,錢是收貨的人給的、歸屬感是阿凱給的,兩件事
      分開。⚠ 給錯人的時候阿凱**當下也不知道**,回報那段一樣是「謝啦」,兩天後
      才翻出來(見 kaiWrongDue()),不要在回報就報錯。 */
-  setTodayCard('回去跟阿凱回報');
+  setTodayCard('回去跟阿凱回報', '幫阿凱送袋子');
   playBeats(ref.right ? RUNMAN_TAKE_RIGHT : RUNMAN_TAKE_WRONG, 0, () => {
     const pay = ref.right ? KAI_RUN_PAY : KAI_RUN_PAY_WRONG;
     chg('money', pay); chg('star', -3);
@@ -9856,7 +9856,7 @@ function checkKaiWrongCall(){
     { who:'pc',  text:'手機震了，是阿凱。' },
     { who:'kai', text:'「你過來一下。」他沒等你回答就掛了。' }
   ], 0, () => {
-    setTodayCard('去中華路機車行那邊找阿凱');
+    setTodayCard('去中華路機車行那邊找阿凱', '阿凱');
     busy = false;
   });
 }
@@ -9959,9 +9959,9 @@ const DAY_TODO = {
      ⚠ **這句就一句話,不要加感想**(kc:「你不記得範圍到哪裡。 這三小屁話 這只是
      讓你知道要去學校」)——早上這張卡的功能是**告訴玩家今天要去學校**,不是抒情
      的位置。以後補 DAY_TODO 的句子照這條寫。 */
-  12: { line:'今天好像要期中考。', quest:'到學校考期中考' },   // 2026-09-16 13→12(週六改週五),要跟下面 MIDTERM_DAY 一致(它宣告在後面,這裡不能用 const 當 key)
-  65: { line:'今天期末考。', quest:'到學校考期末考' },   // 2026-09-16 kc:「期末考做成真的考試」,要跟 FINAL_DAY 一致
-  [FIELD_TRIP_DAY]: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }   // 2026-09-16 52→57:day52 原本疊了母・賭「她不來了」+校外教學,拆開
+  12: { title:'期中考', line:'今天好像要期中考。', quest:'到學校考期中考' },   // 2026-09-16 13→12(週六改週五),要跟下面 MIDTERM_DAY 一致(它宣告在後面,這裡不能用 const 當 key)
+  65: { title:'期末考', line:'今天期末考。', quest:'到學校考期末考' },   // 2026-09-16 kc:「期末考做成真的考試」,要跟 FINAL_DAY 一致
+  [FIELD_TRIP_DAY]: { title:'校外教學', line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }   // 2026-09-16 52→57:day52 原本疊了母・賭「她不來了」+校外教學,拆開
 };
 /* ===== 每天都有一件事(2026-09-10,kc:「每一天都是為了活下去而努力的日子
  * 只是每個日子都有任務或事件罷了」)==========================================
@@ -9996,61 +9996,61 @@ const DAILY_EVENTS = [
     instant(){ const e = DAILY_EVENTS.find(x => x.id === 'water-cut'); addBill(e); startWaterCut(); },
     line:'你扭開水龍頭，只有空氣的聲音。\n媽站在門口：「水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」\n單子在桌上，$120。',
     hint:'去超商櫃台繳水費（$120）', note:'家裡沒水，今天要找地方洗澡' },
-  { id:'mom-ask', cat:'money', goto:'mom', via:'home',
+  { id:'mom-ask', name:'媽要錢', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
   /* 阿嬤那袋(2026-09-11,kc:「第二個行動天要是媽媽請你拿東西給阿嬤之類的 這樣主角
      才知道自己有個病床上的阿嬤」)——之前阿嬤是 day16 電話才憑空冒出來。走到客廳
      媽把袋子塞給你(leaveBedroom() 那段),拿去醫院第一次進去有專用的一段
      (visitGrandma())。沒去不扣分,袋子留在雜物欄;代價是 day16 才第一次見到她。 */
-  { id:'grandma-bag', cat:'people', goto:'momBag', via:'home',
+  { id:'grandma-bag', name:'送東西給阿嬤', cat:'people', goto:'momBag', via:'home',
     line:'媽在客廳，手上拎著一個袋子。', hint:'去客廳看媽要幹嘛' },
-  { id:'loan', cat:'money', need:() => MOTO_LOAN.active, instant:() => {}, via:'msg',
+  { id:'loan', name:'機車分期', cat:'money', need:() => MOTO_LOAN.active, instant:() => {}, via:'msg',
     line:'機車行傳訊息：這期分期到了。', hint:'回家睡覺會自動扣款' },
   /* ── 要人的 ── */
-  { id:'kai-hang', cat:'people', goto:'kai', need:() => KAI.talked, diary:'跟阿凱在車行外面站了半小時，沒講什麼。',
+  { id:'kai-hang', name:'阿凱找你', cat:'people', goto:'kai', need:() => KAI.talked, diary:'跟阿凱在車行外面站了半小時，沒講什麼。',
     via:'phone',
     line:'手機震了，是阿凱。\n「今天有空嗎。」他沒等你回答就掛了。',
     hint:'去中華路機車行那邊找阿凱' },
-  { id:'yuan-call', cat:'people', goto:'yuan', need:() => YUAN.visits > 0, diary:'去廟口，阿源講了半小時工地的事。他說我還在讀書不要學他。',
+  { id:'yuan-call', name:'阿源叫你去廟口', cat:'people', goto:'yuan', need:() => YUAN.visits > 0, diary:'去廟口，阿源講了半小時工地的事。他說我還在讀書不要學他。',
     via:'msg',
     line:'阿源傳了一則訊息。\n「晚點過來廟口一趟。」', hint:'去廟口找阿源' },
-  { id:'acheng-hand', cat:'people', goto:'acheng', need:() => ACHENG.visits > 0, diary:'幫麵攤老闆端了兩小時的麵。有人問我是不是他兒子。',
+  { id:'acheng-hand', name:'阿成缺人手', cat:'people', goto:'acheng', need:() => ACHENG.visits > 0, diary:'幫麵攤老闆端了兩小時的麵。有人問我是不是他兒子。',
     via:'phone',
     /* ⚠ 不能只寫「阿成」(2026-09-10,kc:「阿成 別人不知道是誰啊 應該要講廟口
        面癱老闆」)——玩家記得的是那個人的樣子跟他的攤子,不是名字。 */
     line:'廟口麵攤那個老闆打來，就是那個從來不笑的。\n背景是抽油煙機的聲音。\n「你今天有沒有空？我一個人顧不來。」',
     hint:'去廟口找麵攤老闆' },
-  { id:'ayi-food', cat:'people', goto:'ayi', need:() => AYI.visits > 0, diary:'阿姨塞了一包鴨頭給我，說賣不完也是丟掉。才不是。',
+  { id:'ayi-food', name:'阿姨叫你拿東西吃', cat:'people', goto:'ayi', need:() => AYI.visits > 0, diary:'阿姨塞了一包鴨頭給我，說賣不完也是丟掉。才不是。',
     via:'msg',
     line:'阿姨傳訊息，只有五個字。\n「過來拿東西吃。」', hint:'去廟口找阿姨' },
-  { id:'mei-ask', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。她說了謝謝。',
+  { id:'mei-ask', name:'小美問題目', cat:'people', goto:'mei', need:() => MEI.met, diary:'教小美那題怎麼算。她說了謝謝。',
     via:'msg',
     line:'小美傳訊息問你昨天那題怎麼寫的。', hint:'去學校教室找小美' },
   /* ── 意外 ── */
-  { id:'rain', cat:'trouble', instant:() => chg('mood', -3), instantDiary:'早上下雨，外套濕了一路。我只有那一件。',
+  { id:'rain', name:'下雨', cat:'trouble', instant:() => chg('mood', -3), instantDiary:'早上下雨，外套濕了一路。我只有那一件。',
     via:'home',
     line:'窗戶外面在下雨，聲音很大。\n你只有那件外套。', hint:'今天什麼都比較麻煩', note:'（情緒 −3）' },
-  { id:'pocket', cat:'trouble', instant:() => chg('money', -100), instantDiary:'口袋破了，零錢不知道掉在哪一段路上。',
+  { id:'pocket', name:'口袋破洞', cat:'trouble', instant:() => chg('money', -100), instantDiary:'口袋破了，零錢不知道掉在哪一段路上。',
     via:'door',
     line:'走到巷口你才發現外套口袋破了一個洞。\n零錢不知道掉在哪一段路上。',
     hint:'今天要省一點', note:'（金錢 −100）' },
-  { id:'moto-dead', cat:'trouble', goto:'motoboss', need:() => city.motos.some(m => m.owned),
+  { id:'moto-dead', name:'車發不動', cat:'trouble', goto:'motoboss', need:() => city.motos.some(m => m.owned),
     diary:'車發不動，牽去給旺鴻看。他說化油器積碳。', via:'door',
     line:'你踩了十幾下，車就是不發動。', hint:'牽去機車行給旺鴻看（$150）' },
   /* ── 後段(阿嬤那條線開始之後)專用 ── 2026-09-10,kc:「後段重排 阿嬤跟註冊費
      一起壓」:最後一個月不要再輪一次「下雨/口袋破洞」,要讓錢跟時間同時被兩件事
      拉扯。這三件都有 need(),前段不會冒出來。 */
-  { id:'hospital-bill', cat:'money', name:'看護費', bill:800, days:5, via:'phone',
+  { id:'hospital-bill', name:'看護費', cat:'money', bill:800, days:5, via:'phone',
     doc:{ name:'醫院繳費單', icon:'🏥' },
     need:() => GRANDMA.critical && !GRANDMA.dead,
     line:'醫院打來，語氣很客氣。\n「阿嬤這個月的看護費，方便的話這幾天過來繳一下。」',
     hint:'去超商櫃台繳看護費（$800）' },
-  { id:'kai-fast', cat:'people', goto:'kai', via:'phone',
+  { id:'kai-fast', name:'阿凱有東西要送', cat:'people', goto:'kai', via:'phone',
     need:() => KAI.talked && TUITION_QUEST && !TUITION_QUEST.paid,
     diary:'又幫阿凱送了一趟。錢比上次多。我數的時候手有點抖。',
     line:'手機震了，是阿凱。\n「有個東西要送，錢比上次多。」',
     hint:'去中華路機車行那邊找阿凱' },
-  { id:'tuition-remind', cat:'money', via:'msg',
+  { id:'tuition-remind', name:'導師催註冊費', cat:'money', via:'msg',
     need:() => TUITION_QUEST && !TUITION_QUEST.paid,
     instant:() => {}, instantDiary:'導師傳訊息催註冊費，說再不繳要往上報。',
     line:'導師傳訊息。\n「註冊費那個，你再不繳我就要往上報了。」',
@@ -10059,11 +10059,11 @@ const DAILY_EVENTS = [
      不一定會去打工啊」)——超商那件要先應徵過(`IN.hired`)才成立,但玩家可能整局
      都沒去問過。工地這條是「隨到隨做、不用被錄用」(見 talkToForeman()),所以後段
      那幾個「錢從哪來」的日子改用它,誰都接得到。 */
-  { id:'site-work', cat:'money', goto:'foreman', via:'phone',
+  { id:'site-work', name:'工地缺人', cat:'money', goto:'foreman', via:'phone',
     diary:'去工地扛了一天磚，肩膀到現在還在痛。',
     line:'工地那個大哥打來，講話很大聲。\n「今天缺人，你來不來？來就六點到。」',
     hint:'去永安街工地上工（今天工資加五成）' },
-  { id:'co-extra', cat:'trouble', need:() => IN.hired, via:'phone',
+  { id:'co-extra', name:'超商代班', cat:'trouble', need:() => IN.hired, via:'phone',
     line:'超商店長打來。\n「今天有人請假，你來不來？算你多一點。」', hint:'今天去超商上班，工資加五成' }
 ];
 function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id) : null; }
@@ -10148,7 +10148,7 @@ function checkDailyDoor(){
   say('pc', e.line, () => { busy = false; });
 }
 function dailyCard(e){
-  setTodayCard(e.hint + (e.note ? '<br><span class="qpNote">' + e.note + '</span>' : ''));
+  setTodayCard(e.hint + (e.note ? '<br><span class="qpNote">' + e.note + '</span>' : ''), e.name);
 }
 function dailyBriefing(){
   const e = drawDailyEvent();
@@ -10400,16 +10400,18 @@ function tickWaterCut(){
 /* 「有就更新、沒有才新增」——跟 updateGrandmaQuestHint() 同一套慣例。
    直接 push 會疊卡:前一天的「今天」如果沒被收掉(例如那天的事沒有 expire
    機制),隔天再 push 就會出現兩張 id 一樣的卡(實測踩到)。 */
-function setTodayCard(hint){
+/* 標題寫這件事叫什麼(2026-09-16 kc 看到「今天」問「為啥標題是今天」)——原本固定印
+   「今天」兩個字,現在傳事件的 name / DAY_TODO 的 title,沒給才退回「今天」。 */
+function setTodayCard(hint, title){
   const q = ACTIVE_QUESTS.find(x => x.id === 'today');
-  if(q) q.hint = hint;
-  else ACTIVE_QUESTS.push({ id:'today', title:'今天', hint });
+  if(q){ q.hint = hint; q.title = title || '今天'; }
+  else ACTIVE_QUESTS.push({ id:'today', title: title || '今天', hint });
   renderQuestPanel();
 }
 function todayBriefing(){
   const todo = DAY_TODO[day];
   if(!todo) return;
-  setTodayCard(todo.quest);
+  setTodayCard(todo.quest, todo.title);
   say('pc', todo.line, () => { busy = false; });
 }
 /* 事情真的發生了就把「今天」那張卡收掉——不收的話玩家做完了卡還掛在面板上。
@@ -11023,7 +11025,7 @@ function runMomBag(){
     { who:'pc',  text:'她把袋子塞給你就出門了。' }
   ], 0, () => {
     TRASH.push({ name:'給阿嬤的袋子', icon:'🛍️', grandmaBag:true, detail:'換洗衣服跟一罐麥片。<br>媽說拿去醫院給她。' });
-    setTodayCard('拿東西去醫院給阿嬤');
+    setTodayCard('拿東西去醫院給阿嬤', '送東西給阿嬤');
     logDay('媽叫我拿東西去醫院給阿嬤。上禮拜住院的，我今天才知道。');
     busy = false;
   });
@@ -12080,7 +12082,7 @@ function checkExamReport(ex){
     ? '出門的時候你順手開了信箱。\n學校寄來的成績單躺在裡面，缺考那兩個字印得很清楚。'
     : '出門的時候你順手開了信箱。\n學校寄來的成績單躺在裡面，還沒有人拆過。',
     () => { busy = false; });
-  setTodayCard('成績單寄到家裡了。<br><span class="qpNote">可以拿給媽看</span>');
+  setTodayCard('成績單寄到家裡了。<br><span class="qpNote">可以拿給媽看</span>', ex.name + '成績單');
   logDay(skipped ? `${ex.name}成績單寄來了，缺考。` : `${ex.name}成績單寄來了，${st.score} 題。`);
   return true;
 }
