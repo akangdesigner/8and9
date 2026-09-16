@@ -2481,22 +2481,28 @@ window.debugJumpTemple = debugJumpTemple;
    旁邊那顆就是這顆)、或「跳廟口」去跟阿源通風報信。 */
 /* 停水測試鈕(2026-09-16)——不換天,直接把今天變成停水那天:掛單子、掛洗澡卡、
    媽那句話。 */
-function debugWaterCut(){
-  const e = DAILY_EVENTS.find(x => x.id === 'water-cut');
-  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = true; DAILY.dueDay = day + e.days;
+function debugWaterCut(){ debugDailyMorning('water-cut', 50); }
+window.debugWaterCut = debugWaterCut;
+/* 捐血測試鈕(2026-09-16)——不換天,直接把今天變成捐血那天。 */
+/* 日常事件型的測試鈕共用(2026-09-16,kc:「捐血要跳回早上啊」)——日子撥到那一天、
+   時鐘撥回 07:00、人放回家裡客廳,跟真的睡醒一樣從早上開始,不是把當下那一刻硬變成
+   那件事。 */
+function debugDailyMorning(id, toDay){
+  const e = DAILY_EVENTS.find(x => x.id === id);
+  day = toDay; minute = 7*60;
+  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = true; DAILY.dueDay = e.bill ? day + e.days : -1;
+  clearTodayCard();
+  const d = city.doors.find(x => x.id === 'home');
+  if(d){ returnTo.x = d.x; returnTo.z = d.z + 3; warpIntoPlace(d); }
+  syncHUD(); syncMiscQuestPanel();
   e.instant();
   dailyCard(e);
   busy = true;
-  say('pc', e.line, () => { busy = false; });
+  setTimeout(() => say('pc', e.line, () => { busy = false; }), 700);
 }
-window.debugWaterCut = debugWaterCut;
-/* 捐血測試鈕(2026-09-16)——不換天,直接把今天變成捐血那天。 */
 function debugBlood(){
-  const e = DAILY_EVENTS.find(x => x.id === 'blood');
-  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = true; DAILY.dueDay = -1;
-  e.instant();
-  busy = true;
-  say('pc', e.line, () => { busy = false; });
+  hospitalCallFired = true;   // 事件的 need() 要阿嬤那通電話打過
+  debugDailyMorning('blood', 55);
 }
 window.debugBlood = debugBlood;
 function debugSnitchArm(){
