@@ -89,7 +89,8 @@
     dateBeats:[
       { who:'pc',  text:'你載她去河堤，然後去吃鹽酥雞。' },
       { who:'pc',  text:'六百五。' },
-      { who:'mei', text:'她要付一半，你說不用。' },
+      { who:'mei', text:'「我付一半。」' },
+      { who:'pc',  text:'「不用。」' },
       { who:'pc',  text:'回程她抓著你的外套。' }
     ],
     dateQuiet:'六百五是你站一個晚班八個小時的錢，但你覺得值得。',
@@ -145,7 +146,7 @@
       beats:[
         { who:'mei', text:'「那我們算什麼。」' },
         { who:'pc',  text:'你看著那行字看了很久。' },
-        { who:'pc',  text:'你回「你想算什麼」。' },
+        { who:'pc',  text:'「你想算什麼？」' },
         { who:'mei', text:'她回了一個貼圖。' }
       ],
       quiet:'在一起之後，麻煩的是接下來每一次她約你，你都要先想時間跟錢夠不夠。'
@@ -283,12 +284,15 @@
       { who:'brother', text:'「這個年紀弄這個，你是想幹嘛。」' }
     ],
     knowledgeGoodBeats:[
-      { who:'brother', text:'他隨口問你最近在看什麼書，你答了一下。' },
-      { who:'brother', text:'他愣了一下。「還不錯，有在讀東西。」' }
+      { who:'brother', text:'「最近在看什麼書？」' },
+      { who:'pc',      text:'你講了一本書的名字。' },
+      { who:'pc',      text:'他愣了一下。' },
+      { who:'brother', text:'「還不錯，有在讀東西。」' }
     ],
     knowledgeBadBeats:[
-      { who:'brother', text:'他隨口問你最近在看什麼書，你答不出來。' },
-      { who:'brother', text:'他沒再說話，只是搖了搖頭。' }
+      { who:'brother', text:'「最近在看什麼書？」' },
+      { who:'pc',      text:'你答不出來。' },
+      { who:'pc',      text:'他沒再說話，只是搖了搖頭。' }
     ],
     closeBeats:[
       { who:'pc', text:'你沒有再說什麼，只是點了點頭。' }

@@ -7895,7 +7895,8 @@ function openIndoorSpot(id){
         ] : [
           { who:'mom', text:'「開完了。醫院晚上自己調到血，拖到十點多。」' },
           { who:'mom', text:'「你昨天跑去哪了。」' },
-          { who:'pc',  text:'你說你問了一整天。她看了你一下，把電視轉回去。' }
+          { who:'pc',  text:'「我問了一整天。」' },
+          { who:'pc',  text:'她看了你一下，把電視轉回去。' }
         ], 0, () => {
           if(BLOOD.found){
             chg('calm', 6); toast('（歸屬感 +6）', 2000); logDay('媽說阿嬤開完刀了，還好。她叫我去謝謝算命的。');
@@ -8346,7 +8347,8 @@ function openIndoorSpot(id){
           { who:'clerk', text:'「快一點。」' },
           { who:'pc',    text:'你用洗手台的水沖了頭跟脖子。（歸屬感 −3）' }
         ] : [
-          { who:'pc',    text:'你問店員能不能借廁所。他指了指後面。' },
+          { who:'pc',    text:'「我家停水，可以借一下廁所嗎？」' },
+          { who:'pc',    text:'他指了指後面。' },
           { who:'clerk', text:'「不要用太久。」' },
           { who:'pc',    text:'你用洗手台的水沖了頭跟脖子，出來的時候他看著你。（歸屬感 −3）' }
         ], 0, () => { busy = false; });
@@ -9847,7 +9849,7 @@ const RUNMAN_TAKE_WRONG = [
 function handOverBag(ref){
   logDay('幫阿凱送了一個袋子去遊藝場側門。他說五分鐘的事。');
   KAI_RUN.done = true; KAI_RUN.delivered = true;
-  KAI_RUN.wrong = !ref.right;
+  KAI_RUN.wrong = !ref.right; KAI_RUN.gaveTo = ref.id;   // 給了誰,兩天後回報那句用(2026-09-16)
   KAI_RUN.dropDay = day;
   const i = TRASH.findIndex(t => t.bag);
   if(i >= 0) TRASH.splice(i, 1);
@@ -9891,11 +9893,11 @@ function kaiReportRun(){
 }
 /* 給錯人兩天後阿凱來問(掛在 talkToKai() 最前面)——不是當場報錯,「你以為做完了」
    跟「兩天後才知道」是這一幕的重點。 */
-const KAI_WRONG_BEATS = [
+const KAI_WRONG_BEATS = () => [
   { who:'kai', text:'「欸，那天那個袋子。」' },
   { who:'pc',  text:'他沒有像平常那樣靠在車上。' },
   { who:'kai', text:'「你給誰了？」' },
-  { who:'pc',  text:'你講了那個人的樣子。' },
+  { who:'pc',  text: KAI_RUN.gaveTo === 'squat' ? '「側門那邊蹲在地上滑手機的那個。」' : '「側門那邊靠牆抽菸的那個。」' },
   { who:'kai', text:'「⋯⋯那不是他。」' },
   { who:'pc',  text:'他把安全帽的扣環扣起來，又解開。' },
   { who:'kai', text:'「算了。下次我自己去。」' }
@@ -9925,7 +9927,7 @@ function kaiConfrontWrong(){
   KAI_RUN.confronted = true; KAI_RUN.reported = true;   // 這段一旦播了就不用再回報
   clearTodayCard();
   busy = true;
-  playBeats(KAI_WRONG_BEATS, 0, () => {
+  playBeats(KAI_WRONG_BEATS(), 0, () => {
     chg('calm', -6);
     toast('「下次我自己去。」他沒有罵你，把安全帽戴上就走了。\n（歸屬感 −6）', 4400);
     busy = false;
@@ -10569,7 +10571,8 @@ const BLOOD_ANSWERS = {
   teacher:  { name:'老師',   ok:false, beats:[
     { who:'teacher', text:'「我 A 型。」' },
     { who:'teacher', text:'「我幫你問問看辦公室有沒有人 O 型。」' },
-    { who:'pc',      text:'放學前他跟你說沒有。' } ] },
+    { who:'pc',      text:'放學前他到走廊找你。' },
+    { who:'teacher', text:'「問過了，沒有。」' } ] },
   brother:  { name:'阿正',   ok:false, beats:[
     { who:'brother', text:'「我值班。」' },
     { who:'brother', text:'「你去問問看外面那些人。」' } ] },
@@ -10578,7 +10581,8 @@ const BLOOD_ANSWERS = {
      不收錢」是他的方式,不是煽情。 */
   fortune:  { name:'算命的', ok:true,  beats:[
     { who:'fortune', text:'「你阿嬤幾歲？」' },
-    { who:'pc',      text:'你說了。他沒有回話，從抽屜裡翻出自己的健保卡，看了一下背面。' },
+    { who:'pc',      text:'「七十八。」' },
+    { who:'pc',      text:'他沒有回話，從抽屜裡翻出自己的健保卡，看了一下背面。' },
     { who:'fortune', text:'「O 型。」' },
     { who:'fortune', text:'「我年輕的時候在部隊捐過三十幾次，那時候一包血換一天假。」' },
     { who:'pc',      text:'他把籤筒收進抽屜，把攤子的布拉下來，用夾子夾好。' },
@@ -10610,7 +10614,7 @@ function bloodBriefing(){
     { who:'mom',   text:'「你怎麼現在才來。」' },
     { who:'pc',    text:'護理站的人看到你，先確認你是家屬。' },
     { who:'nurse', text:'「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」' },
-    { who:'pc',    text:'你說你去。' },
+    { who:'pc',    text:'「我去。」' },
     { who:'nurse', text:'「你不行，直系血親不能捐，你媽也不行。找別人。」' },
     { who:'mom',   text:'「我剛剛也說要捐，她就是這樣講。」' },
     { who:'mom',   text:'「你去外面找，我在這裡顧著。」' },
@@ -10628,7 +10632,10 @@ function bloodAsk(who){
   if(!a || BLOOD.asked.includes(who)) return false;
   BLOOD.asked.push(who);
   busy = true;
-  playBeats([{ who:'pc', text:'你把阿嬤的事講了一遍，問他是不是 O 型。' }, ...a.beats], 0, () => {
+  playBeats([
+    { who:'pc', text:'「我阿嬤明天要開刀，血庫沒有 O 型的血，要家屬自己找人。」' },
+    { who:'pc', text:'「你是 O 型嗎？」' },
+    ...a.beats], 0, () => {
     advanceTime(20);
     if(a.ok){
       BLOOD.found = true;
@@ -11656,8 +11663,9 @@ const HOSPITAL_GO_BEATS = [
   { who:'pc',    text:'阿嬤還醒著,躺在那張床上,比你記憶裡小了一圈。' },
   { who:'granny',text:'「你來了啊。」她的聲音很小,但認得出你。' },
   { who:'pc',    text:'你在床邊坐下,握住她的手——很輕,幾乎沒什麼重量。' },
-  { who:'granny',text:'「有沒有吃飽。」她問的還是這句。' },
-  { who:'pc',    text:'你說有。' },
+  { who:'granny',text:'「有沒有吃飽。」' },
+  { who:'pc',    text:'她問的還是這句。' },
+  { who:'pc',    text:'「有。」' },
   /* 2026-09-02 第十三輪,kc:「很尬 應該要是第三人稱敘述 他一直咳嗽
      講不清話」——原本讓阿嬤自己開口要水,講出來的台詞太乾淨、不像真的
      虛弱的人講話。改成第三人稱旁白(who:'pc',這個檔案裡旁白/場景描述
@@ -11671,8 +11679,9 @@ const HOSPITAL_GO_BEATS = [
       { who:'pc',     text:'她喝完,靠回枕頭上,眼睛閉了一下。' }
     ] } ] },
   { who:'granny',text:'「你小時候很挑食,現在還會不會這樣。」' },
-  { who:'pc',    text:'你說不會了。' },
-  { who:'granny',text:'她笑了一下,眼睛瞇起來。「那就好。」' },
+  { who:'pc',    text:'「不會了。」' },
+  { who:'pc',    text:'她笑了一下,眼睛瞇起來。' },
+  { who:'granny',text:'「那就好。」' },
   /* 2026-09-02 第十二輪,kc:「啊罵會塞給你五百元 叫你要好好念書之類的」
      ——塞錢+念書那句是台灣阿嬤的經典動作,錢的金額直接照 kc 給的數字,
      實際 chg('money',500) 放在 enterHospital() 最後那個 chg('calm', 12)
@@ -11808,13 +11817,15 @@ function eatFood(id){
    部分時間昏迷,偶爾清醒會回應——kc 原話「他平常會昏迷 只會斷斷續續的
    回應你」,昏迷/清醒各自一組句子池隨機挑一句,不是固定台詞。 */
 const GRANDMA_AWAKE_CHANCE = .35;
+/* 2026-09-16 改成 beats(kc:「為何不要 阿嬤:『書有沒有在讀』 你:『有』 阿嬤:『那就好』」)——她問、你答、
+   她回,各一句各自的頭像,不用旁白轉述。 */
 const GRANDMA_AWAKE_LINES = [
-  '「你來啦。」她的聲音很小，但看得出來是高興的。',
-  '「有沒有吃飽。」她問，跟以前一樣。',
-  '她拉著你的手，沒說什麼，只是笑了一下。',
-  '「乖，常回來看阿嬤。」',
-  '「外面是不是很冷。」她望向窗外，窗簾其實是拉著的。',
-  '「書有沒有在讀。」她問。你說有。她說那就好。'   // 2026-09-15 畢業證書那條,偶爾提一下,不天天念
+  [ { who:'granny', text:'「你來啦。」' }, { who:'pc', text:'她的聲音很小，但看得出來是高興的。' } ],
+  [ { who:'granny', text:'「有沒有吃飽。」' }, { who:'pc', text:'跟以前一樣。' }, { who:'pc', text:'「有。」' } ],
+  [ { who:'pc', text:'她拉著你的手，沒說什麼，只是笑了一下。' } ],
+  [ { who:'granny', text:'「乖，常回來看阿嬤。」' }, { who:'pc', text:'「嗯。」' } ],
+  [ { who:'granny', text:'「外面是不是很冷。」' }, { who:'pc', text:'她望向窗外，窗簾其實是拉著的。' }, { who:'pc', text:'「還好。」' } ],
+  [ { who:'granny', text:'「書有沒有在讀。」' }, { who:'pc', text:'「有。」' }, { who:'granny', text:'「那就好。」' } ]   // 2026-09-15 畢業證書那條,偶爾提一下,不天天念
 ];
 const GRANDMA_ASLEEP_LINES = [
   '阿嬤睡著了，呼吸很輕。你在床邊坐了一會兒就走了。',
@@ -11909,7 +11920,9 @@ function grandmaVisitLine(){
   const awake = (BLOOD.active && BLOOD.day === day) ? false : Math.random() < GRANDMA_AWAKE_CHANCE;
   paintHospitalBackdrop(awake);   // 清醒/昏迷各換一張背景照片，見上面 hospitalRoomAwakeImg 那則筆記
   const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
-  say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
+  const pick = pool[Math.floor(Math.random()*pool.length)];
+  const beats = Array.isArray(pick) ? pick : [{ who:'pc', text:pick }];
+  playBeats(beats, 0, () => {
     /* 2026-09-07,kc 再次推翻:「如果沒食物還是要跳餵食選項 只是點下去
        會說 你翻了翻背包沒有食物可以給啊罵」——選項本身永遠顯示,空庫存
        不是隱藏選項,是點下去之後在 openGrandmaFoodMenu() 裡用一句話擋。
@@ -12461,7 +12474,7 @@ function examArcadeScene(ex){
   ] : [
     { who:'pc',  text:'早上的遊藝場還是沒什麼人。' },
     { who:'kai', text:'「考完就放假了，放假你要幹嘛。」' },
-    { who:'pc',  text:'你說不知道。' },
+    { who:'pc',  text:'「不知道。」' },
     { who:'kai', text:'「我也不知道。」' },
     { who:'pc',  text:'他投了幣，這一局玩得比上次久。' }
   ];
@@ -13951,7 +13964,8 @@ function talkToFortune(){
     playBeats([
       { who:'pc',      text:'你走到攤子前面，還沒開口他就抬頭。' },
       { who:'fortune', text:'「你阿嬤怎麼樣？」' },
-      { who:'pc',      text:'你說開完了，醫生說還好。你說謝謝。' },
+      { who:'pc',      text:'「開完了，醫生說還好。」' },
+      { who:'pc',      text:'「謝謝。」' },
       { who:'fortune', text:'「謝什麼，血本來就會再長。」' },
       { who:'fortune', text:'「來，說好的，抽一支。不收你錢。」' },
       { who:'pc',      text:'他把籤筒推到你面前。' }
@@ -14058,7 +14072,8 @@ function talkToYuan(){
     renderQuestPanel();
     playBeats([
       { who:'pc', text:'他看你一眼,沒多問,只是往旁邊挪了挪。' },
-      { who:'pc',   text:'你在他旁邊坐下,把阿嬤的事說了。' },
+      { who:'pc',   text:'你在他旁邊坐下。' },
+      { who:'pc',   text:'「我阿嬤走了。」' },
       { who:'pc', text:'他沒有說什麼安慰的話，就這樣陪你坐著。' },
       { who:'pc',   text:'你們兩個誰都沒有再開口,坐了很久。' }
     ], 0, () => {
@@ -14616,8 +14631,16 @@ function talkToJiaoguan(){
       logDay('校門口被教官攔下來問昨天去哪。警告第 ' + n + ' 次。');
       say('jiaoguan', `「${dayToDate(ab.day)}沒來。記警告，目前 ${n} 次。」`, () => {
         openMenu('教官', [
-          { label:'「生病。」', cls:'', run(){ say('jiaoguan', '「有假單嗎？」你沒有假單，他在你回答之前就已經寫好了。'); } },
-          { label:'「打工。」', cls:'', run(){ say('jiaoguan', '他把筆放下，問你「幾點到幾點」，你老實說了。他看了你一下，還是寫了下去。'); } },
+          { label:'「生病。」', cls:'', run(){ playBeats([
+              { who:'pc',       text:'「生病。」' },
+              { who:'jiaoguan', text:'「有假單嗎？」' },
+              { who:'pc',       text:'你沒有假單，他在你回答之前就已經寫好了。' } ], 0, () => {}); } },
+          { label:'「打工。」', cls:'', run(){ playBeats([
+              { who:'pc',       text:'「打工。」' },
+              { who:'pc',       text:'他把筆放下。' },
+              { who:'jiaoguan', text:'「幾點到幾點？」' },
+              { who:'pc',       text:'「早上六點到下午。」' },
+              { who:'pc',       text:'他看了你一下，還是寫了下去。' } ], 0, () => {}); } },
           { label:'不講', cls:'', run(){ say('pc', '他低頭寫，什麼都沒有說。'); } }
         ]);
       });
@@ -15310,7 +15333,8 @@ function talkToBrother(){
                  的句子不要字已為文筆很好」)——旁白不要用斷句裝氣氛,一句話把事情講完。 */
               playBeats([
                 { who:'brother', text:'「你聽到什麼？說吧。」' },
-                { who:'pc', text:'你把在阿源那邊聽到的事情講了一遍：是哪一天、東西是誰載來的、現在放在哪裡。講到一半你突然聽見自己的聲音，停了一下才繼續講。' },
+                { who:'pc', text:'「上禮拜，阿源那邊。東西是他們用小貨車載來的，現在還放在廟後面那間鐵皮屋。」' },
+                { who:'pc', text:'講到一半你突然聽見自己的聲音，停了一下才繼續講。' },
                 { who:'pc', text:'阿正沒有拿筆記下來，只是站在那裡聽你講完。' },
                 { who:'brother', text:'「好，我知道了。」' },
                 { who:'pc', text:'他轉身從櫃台後面的抽屜拿出一個信封，推到你面前。' },
@@ -17305,8 +17329,8 @@ function openingWakeUp(){
   /* 拆兩段:她喊的那句掛她的頭像,「門外你媽在叫你」是敘述,走旁白格式
      (who:'pc' + 非「開頭,見 isNarrationLine())。 */
   playBeats([
-    { who:'mom', text:'「起來了沒——」' },
-    { who:'pc',  text:'門外你媽在叫你。' }
+    { who:'pc',  text:'門外你媽在叫你。' },
+    { who:'mom', text:'「起來了沒——」' }
   ], 0, () => {});
 }
 window.finishSchoolPick = finishSchoolPick;

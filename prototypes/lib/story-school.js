@@ -182,7 +182,8 @@
           beats: [
             { who:'pc',  text:'這局你輸了三百。' },
             { who:'pc',  text:'「明天再贏回來啦。」' },
-            { who:'pc',  text:'你笑著說好。' },
+            { who:'pc',  text:'「好啦。」' },
+            { who:'pc',  text:'你笑著說的。' },
             { who:'pc',  text:'然後你想到你媽也是這樣講的。' },
             { toast:'你把牌放下來，可是你沒有站起來。', ms:4600 }
           ]
@@ -275,7 +276,7 @@
             { who:'teacher', text:'「欸。」' },
             { who:'pc',  text:'他認出你了。' },
             { who:'teacher', text:'「你現在讀哪？」' },
-            { who:'pc',  text:'你講了學校的名字。' },
+            { who:'pc',  text:'「永安。」' },
             { who:'teacher', text:'「喔——」' },
             { who:'pc',  text:'那個「喔」拉得有一點長。\n然後他的視線落到你手上。' },
             { toast:'他什麼都沒有說。「那先這樣」，他拿著便當去結帳了。', ms:4800 }
