@@ -17359,6 +17359,20 @@ syncHUD();
 
 /* 除錯用:主控台可以直接把角色傳到某個門口，省得走一分鐘 */
 window.__dbg = {
+  /* 模擬測試用的狀態把手(2026-09-16)——主腳本是 ES module,let/const 不掛 window,
+     從外面(claude-in-chrome)要「從早上醒來開始模擬」得有地方讀寫 day/minute 跟那幾個
+     狀態物件。只給 Claude 測試用,kc 用的是 #bar 那排按鈕。 */
+  vars: {
+    get day(){ return day; }, set day(v){ day = v; syncHUD(); },
+    get minute(){ return minute; }, set minute(v){ minute = v; syncHUD(); },
+    get hospitalCallFired(){ return hospitalCallFired; }, set hospitalCallFired(v){ hospitalCallFired = v; },
+    get busy(){ return busy; }, set busy(v){ busy = v; }, get MODE(){ return MODE; }, get PLACE(){ return PLACE; },
+    cancelWalkIn(){ walkIn = null; busy = false; },
+    get lastSchoolDay(){ return lastSchoolDay; }, set lastSchoolDay(v){ lastSchoolDay = v; },
+    ST, GRANDMA, BLOOD, DAILY, BILLS, WATER_CUT, MIDTERM, FINAL, ACTIVE_QUESTS, TRASH, FORTUNE, YUAN, KAI, AYI, ACHENG, MEI, AREN, hero,
+    get dlgOn(){ return dlg.on; }, get dlgText(){ return dTx.textContent; }, get dlgName(){ return dName.textContent; },
+    sleep, chg, setSaveOff(v){ saveOff = v; }
+  },
   /* scene/city(2026-08-18):之前 __dbg 沒有直接暴露 3D 場景本身,要查某顆
      mesh 的材質/貼圖有沒有真的套上去,只能用 near() 那組間接資訊(位置/
      尺寸),沒法驗證材質——巷子冷氣機箱體那次(kc 說「根本沒有方塊啊」)
