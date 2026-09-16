@@ -7853,6 +7853,26 @@ function openIndoorSpot(id){
     }
     else if(id === 'mom'){
       if(momAway()){ toast('沙發上沒有人。', 2000); return; }   // 捐血那天她在醫院(見 momAway)
+      /* 捐血那天之後第一次跟她講話(2026-09-16)——手術結果從她嘴裡出來,找到/沒找到兩版。 */
+      if(BLOOD.day >= 0 && day > BLOOD.day && !BLOOD.momTalked){
+        BLOOD.momTalked = true;
+        busy = true;
+        playBeats(BLOOD.found ? [
+          { who:'mom', text:'「開完了。醫生說還好。」' },
+          { who:'mom', text:'「那個算命的，我在醫院看到他，抽完血自己坐公車回去。」' },
+          { who:'pc',  text:'她把電視轉小聲，沒有再說什麼。' },
+          { who:'mom', text:'「你去謝謝人家。」' }
+        ] : [
+          { who:'mom', text:'「開完了。醫院晚上自己調到血，拖到十點多。」' },
+          { who:'mom', text:'「你昨天跑去哪了。」' },
+          { who:'pc',  text:'你說你問了一整天。她看了你一下，把電視轉回去。' }
+        ], 0, () => {
+          if(BLOOD.found){ chg('calm', 6); toast('（歸屬感 +6）', 2000); logDay('媽說阿嬤開完刀了，還好。她叫我去謝謝算命的。'); }
+          else { chg('mood', -3); toast('（情緒 −3）', 2000); logDay('媽說阿嬤開完刀了，血是醫院晚上自己調到的。她問我昨天跑去哪。'); }
+          busy = false;
+        });
+        return;
+      }
       if(dailyGotoReady('mom')){ runDailyGoto('mom'); return; }   // 今天的事正好是媽開口(見 DAILY_EVENTS)
       /* 遊藝場迴響(2026-08-26,kc:「觸發這句話後下次跟媽媽講話,媽媽會說
          怎麼,你最近也去遊藝場嗎?是不是很上頭啊?這樣,然後你會有回話的
@@ -10483,7 +10503,7 @@ function tickWaterCut(){
  * 他為什麼不行就是他這個人。問一個時鐘走 20 分鐘、被拒情緒 −3。算命老闆是 O 型,
  * 你問到他就成了——他不特別,只是你沒想到(kc:「不用這麼特別 就只要有個很驚喜發現
  * 他能捐即可」)。掛法跟 dailyGotoReady() 一樣,插在每個人對話函式的最前面。 */
-const BLOOD = { active:false, day:-1, asked:[], found:false, briefed:false };   // briefed:到了醫院護士才講要捐血(kc:「醫院打來就會說阿嬤昏迷了叫我們過來 我們到醫院的時候他才會說要捐血」)
+const BLOOD = { active:false, day:-1, asked:[], found:false, briefed:false, momTalked:false };   // briefed:到了醫院護士才講要捐血(kc:「醫院打來就會說阿嬤昏迷了叫我們過來 我們到醫院的時候他才會說要捐血」)
 const BLOOD_ANSWERS = {
   yuan:     { name:'阿源',   ok:false, beats:[
     { who:'yuan', text:'「我 O 型欸。」' },
@@ -10550,13 +10570,19 @@ function syncBloodCard(){
 function bloodBriefing(){
   BLOOD.briefed = true;
   paintHospitalBackdrop(false);
+  /* 媽比你早到,在護理站前面(2026-09-16 kc:「怎麼沒有媽媽的戲份」)——她已經被擋過一次,
+     那句「她就是這樣講」是她的;叫你去外面找、她留下來顧,是她這天唯一能做的事。 */
   playBeats([
+    { who:'pc',    text:'護理站前面站著媽，她比你早到，手上還拿著早餐店的袋子。' },
+    { who:'mom',   text:'「你怎麼現在才來。」' },
     { who:'pc',    text:'護理站的人看到你，先確認你是家屬。' },
     { who:'nurse', text:'「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」' },
     { who:'pc',    text:'你說你去。' },
     { who:'nurse', text:'「你不行，直系血親不能捐，你媽也不行。找別人。」' },
-    { who:'pc',    text:'她把一張單子塞給你，上面寫著血型跟時間。' },
-    { who:'pc', text:'你往病房裡看了一眼，她躺著，沒有醒。你轉身走出去。' }
+    { who:'mom',   text:'「我剛剛也說要捐，她就是這樣講。」' },
+    { who:'mom',   text:'「你去外面找，我在這裡顧著。」' },
+    { who:'pc',    text:'護理師把一張單子塞給你，上面寫著血型跟時間。' },
+    { who:'pc',    text:'你往病房裡看了一眼，她躺著，沒有醒。媽在門口坐下來，你轉身走出去。' }
   ], 0, () => {
     syncBloodCard();
     logDay('阿嬤昏過去了，明天要開刀。護士說要找一個 O 型的人來捐血，我跟媽都不行。');
