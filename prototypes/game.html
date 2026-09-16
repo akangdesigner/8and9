@@ -2821,11 +2821,11 @@ const HP = SceneHome.P;
 const WHO = {
   pc:    { name:'你',   opt:{ face:'F', skin:P2.pcSkin, hair:P2.pcHair, top:P2.pcHood, topD:P2.pcHoodD, pants:P2.pcPants, shoe:P2.pcShoe, hood:true } },
   clerk: { name:'店員', opt:{ face:'F', skin:P2.clSkin, hair:P2.clHair, top:P2.clVest, topD:P2.clShirt, pants:'#2c3340' } },
-  /* 護理師/店長(2026-09-16,kc:「旁白跟母親說話要分開吧 母親說話要有頭像」)——日常事件裡
+  /* 護理師(2026-09-16,kc:「旁白跟母親說話要分開吧 母親說話要有頭像」)——日常事件裡
      打電話來的人也要有自己的名牌跟頭像,不能塞在旁白裡。還沒有真人照片,先用像素小人
-     fallback,kc 生了圖再進 PORTRAIT_IMGS。 */
+     fallback,kc 生了圖再進 PORTRAIT_IMGS。⚠ 超商「店長」就是那個店員(kc:「店長就是
+     超商店員」),打電話來用 clerk,不另開角色。 */
   nurse: { name:'護理師', opt:{ face:'F', skin:'#d9b797', hair:'#2a2420', top:'#e9f0f4', topD:'#c9d4da', pants:'#dfe6ea' } },
-  manager: { name:'店長', opt:{ face:'F', skin:'#c9a077', hair:'#1a1a1a', top:'#2f6f4f', topD:'#24553d', pants:'#2c3340' } },
   mom:   { name:'媽',   opt:{ face:'F', skin:HP.momSkin, hair:HP.momHair, top:HP.momTop, topD:HP.momTopD, pants:HP.momPants } },
   dad:   { name:'爸',   opt:{ face:'F', skin:HP.dadSkin, hair:HP.dadHair, top:HP.dadTop, topD:HP.dadTopD, pants:HP.dadPants } },
   worker:{ name:'她',   opt:{ face:'F', skin:'#c9a077', hair:'#241f1c', top:'#7a2f45', topD:'#5c2436', pants:'#232323' } },
@@ -8287,7 +8287,7 @@ function openIndoorSpot(id){
         waterCutWashed('store');
         busy = true;
         playBeats(IN.hired ? [
-          { who:'pc',    text:'你跟店員說家裡停水。他往店長辦公室看了一眼。' },
+          { who:'pc',    text:'你跟店員說家裡停水。他看了一眼監視器。' },
           { who:'clerk', text:'「快一點。」' },
           { who:'pc',    text:'你用洗手台的水沖了頭跟脖子。（歸屬感 −3）' }
         ] : [
@@ -10115,8 +10115,8 @@ const DAILY_EVENTS = [
   { id:'co-extra', name:'超商代班', cat:'trouble', need:() => IN.hired, via:'phone',
     line:'超商店長打來。',
     beats:[
-      { who:'pc',      text:'超商店長打來。' },
-      { who:'manager', text:'「今天有人請假，你來不來？算你多一點。」' } ], hint:'今天去超商上班，工資加五成' }
+      { who:'pc',    text:'超商打來，是店員。' },
+      { who:'clerk', text:'「今天有人請假，你來不來？算你多一點。」' } ], hint:'今天去超商上班，工資加五成' }
 ];
 function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id) : null; }
 /* ⚠ **一天一天排死的行事曆**(2026-09-10,kc:「不用抽啊你排好就好」→「你直接排好
