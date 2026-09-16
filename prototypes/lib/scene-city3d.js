@@ -4697,6 +4697,13 @@ const MODELS = {
      Lewis 原本是黑人,膚色在遊戲裡是程式給的,跟其他 NPC 一樣。 */
   m8: { idle:'base-human-m8-idle.glb', walk:'base-human-m8-walk.glb',
         parts: { Ch12_body:'skin', Ch12_hair:'hair' } },
+  /* 阿伯(2026-09-16,kc:「廟口現在是不是沒有阿北」→「去找」→「b」)——Mixamo 免費庫
+     108 個角色沒有一個是老人男性(唯一長得老的 Peasant Man 是中世紀農夫),照小胖那招
+     拿正常骨架「弄老」:Adam(灰色連帽運動套裝,有獨立 Beard mesh 剛好染成灰白鬍子),
+     身高壓到 .9、頭髮鬍子灰白。分件乾淨:Body/Hoodie/Pants/Sneakers/Hair/Beard/Eyelashes。 */
+  m9: { idle:'base-human-m9-idle.glb', walk:'base-human-m9-walk.glb',
+        parts: { Ch08_Body:'skin', Ch08_Hoodie:'hood', Ch08_Pants:'pants', Ch08_Sneakers:'shoe',
+                  Ch08_Hair:'hair', Ch08_Beard:'hair', Ch08_Eyelashes:'eyes' } },
   f3: { idle:'base-human-f3-idle.glb', walk:'base-human-f3-walk.glb',
         /* Jody——kc 挑的是頭髮色調最接近既有 worker-portrait.png 大頭貼
            的一個(深色短髮,其餘兩個 Elizabeth 捲髮/Kate 金髮色差更大)。

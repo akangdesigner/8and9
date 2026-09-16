@@ -3839,6 +3839,16 @@ function checkClassmateQuestProgress(){
 const FAT = { x:-7, z:-102.8, seenAsk:false, seenWound:false, questActive:false, questStartDay:-1,
               reminded:false, hasMedicine:false, resolved:false, gone:false };
 const FAT_DATA = NpcTemple.NPCS.find(n => n.id === 'fat');
+/* 阿伯(2026-09-16)——8/21 起一直只有對話框頭像沒有人,這輪補真身(MODELS.m9,Adam 弄老,
+   見 scene-city3d.js 那則)。站在廟門另一側柱子旁掃地(跟小胖對稱),對話走
+   talkToStallVendor() 那套 events(at:3/at:6)+talk[] 隨機句,資料在 npc-temple.js。 */
+const BO = { x:8, z:-102.8, visits:0, seenEvents:{} };
+const BO_DATA = NpcTemple.NPCS.find(n => n.id === 'bo');
+function talkToBo(){
+  logTalk('阿伯');
+  if(bloodAsk('bo')) return;   // 捐血那天(見 BLOOD)
+  talkToStallVendor(BO, BO_DATA, 'bo', () => {}, { talkGivesCalm: 1 });
+}
 /* 回傳值(2026-09-02 第八輪,kc:「對話不了欸」——原本沒有手動互動入口,
    純靠自動觸發,但沒進度可推的時候玩家走過去按空白鍵完全沒反應,像壞掉。
    補一個回傳值,讓下面新的 talkToFat() 知道這次呼叫有沒有真的推進劇情,
@@ -4239,6 +4249,11 @@ const NPCS = [
     pants:'#2b2b2b', shoe:'#e8e4d8',                    // 藍白拖的白色調子先用鞋子顏色代
     tex:{ hood:'char-yuan-shirt.png' },                 // 真的花襯衫材質
     tattoo:{ texFile:'tattoo-dragon-koi.png' }          // 前臂刺青,位置是目前肉眼調的最佳猜測,還沒最終確認
+  }),
+  buildNPC(THREE, scene, {                             // 阿伯・70幾・顧廟,廟門另一側柱子旁(見 BO 那則筆記)
+    x:BO.x, z:BO.z, rotationY:Math.PI, rig:'m9',
+    height: PLAYER.height * .9,
+    skin:'#b98a63', hair:'#cfcfc8', hood:'#5f6f66', pants:'#3d4247', shoe:'#4a4744'
   }),
   buildNPC(THREE, scene, {                             // 小胖・國二・站在廟正門柱子旁(見上面 FAT 那則筆記)
     /* rig 'm7'(James)——Ch06_body 是「皮膚+上衣+褲子」全部黏在同一塊
@@ -10580,6 +10595,9 @@ const BLOOD_ANSWERS = {
   /* 2026-09-16 kc:「算命先生對話太草率」——第一版三句就收。他是靠看人吃飯的,先問阿嬤
      幾歲、翻自己的健保卡確認血型,講一句當兵捐血的來歷,再收攤;最後那句「回來記得抽一支籤,
      不收錢」是他的方式,不是煽情。 */
+  bo:       { name:'阿伯',   ok:false, beats:[
+    { who:'bo', text:'「我七十幾了，人家不收。」' },
+    { who:'bo', text:'「你去問年輕的。」' } ] },
   fortune:  { name:'算命的', ok:true,  beats:[
     { who:'fortune', text:'「你阿嬤幾歲？」' },
     { who:'pc',      text:'「七十八。」' },
@@ -13084,6 +13102,8 @@ function updateCity(dt){
        提示」精神。 */
     if(!nearProp && !FAT.gone && Math.hypot(pos.x-FAT.x, pos.z-FAT.z) < 3.2)
       nearProp = { type:'fat', ref:FAT };
+    if(!nearProp && Math.hypot(pos.x-BO.x, pos.z-BO.z) < 3.2)
+      nearProp = { type:'bo', ref:BO };
     /* 學校三人(2026-08-21)——固定站點,跟阿姨/阿成/阿源同一套,半徑用
        3.2(站在開闊草地上,不像攤位需要放寬)。 */
     if(!nearProp && Math.hypot(pos.x-MEI.x, pos.z-MEI.z) < 3.2)
@@ -13195,6 +13215,7 @@ function updateCity(dt){
                       : nearProp.type === 'motoboss' ? '按 <b>空白鍵</b> 找老闆'
                       : nearProp.type === 'yuan' ? '按 <b>空白鍵</b> 找阿源'
                       : nearProp.type === 'fat' ? '按 <b>空白鍵</b> 找小胖'
+                      : nearProp.type === 'bo' ? '按 <b>空白鍵</b> 找阿伯'
                       : nearProp.type === 'mei' ? '按 <b>空白鍵</b> 找小美'
                       : nearProp.type === 'jiaoguan' ? '按 <b>空白鍵</b> 找教官'
                       : nearProp.type === 'aren' ? '按 <b>空白鍵</b> 找阿仁'
@@ -16539,6 +16560,7 @@ function interactProp(prop){
   if(prop.type === 'motoboss'){ talkToMotoBoss(); return; }
   if(prop.type === 'yuan'){ talkToYuan(); return; }
   if(prop.type === 'fat'){ talkToFat(); return; }
+  if(prop.type === 'bo'){ talkToBo(); return; }
   if(prop.type === 'mei'){ talkToMei(); return; }
   if(prop.type === 'jiaoguan'){ talkToJiaoguan(); return; }
   if(prop.type === 'aren'){ talkToAren(); return; }
@@ -16817,7 +16839,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
