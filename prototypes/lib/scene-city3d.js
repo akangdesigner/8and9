@@ -1035,6 +1035,19 @@ export function buildCity(THREE, scene){
     hedgeSeg(sideW, .4, x0+sideW/2, z1);                            // 入口左半
     hedgeSeg(sideW, .4, x1-sideW/2, z1);                            // 入口右半
 
+    /* 公園背後(2026-09-16,kc 截圖「這裡怎空掉」):南邊矮籬後面就是街廓內部的裸地,鏡頭從
+       公園裡往南看,越過矮籬一整片沒鋪的地。9/15 那輪 kc 已經說過街廓內部不要整片鋪,這裡
+       是少數真的看得進去的開口,所以只在矮籬後面立一棟公寓背面(13 高、6 深,跟遠景
+       placeTower 同一套牆磚+鐵窗貼圖),把裸地擋掉;缺角那一段照 L 形跟著退。 */
+    { const h = 13, d = 6;
+      const back = (bx0, bx1, bz) => {
+        const w = bx1 - bx0, x = (bx0 + bx1) / 2, z = bz - d/2 - .5;
+        add(box(w, h, d, M.wallC), x, h/2, z, false, false);
+        add(box(w, h-5.9, .14, facadeMat(FACADES[1], w/(h-5.9), M.wallC)), x, 5.9+(h-5.9)/2, z + d/2 + .1, false, false);
+      };
+      back(x0, cutX, z0);      // 主體南邊
+      back(cutX, x1, cutZ);    // 缺角那段(往北退 NOTCH)
+    }
     bushLine(x0, z0, cutX, z0);                                     // 南邊
     bushLine(cutX, z0, cutX, cutZ);                                 // 缺角內側:縱段
     bushLine(cutX, cutZ, x1, cutZ);                                 // 缺角內側:橫段
