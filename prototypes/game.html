@@ -6614,7 +6614,7 @@ function tweakBackdropPanel(){
   rows.forEach(([k]) => document.getElementById('bd_' + k).addEventListener('input', e => {
     c[k] = +e.target.value;
     document.getElementById('bd_' + k + '_v').textContent = c[k];
-    b.apply();
+    b.apply(); if(b.applyNorth) b.applyNorth();   // 廟口那面跟著同一組數字(2026-09-16)
   }));
 }
 function tweakBusStopWallPanel(){
@@ -10519,10 +10519,17 @@ const BLOOD_ANSWERS = {
   brother:  { name:'阿正',   ok:false, beats:[
     { who:'brother', text:'「我值班。」' },
     { who:'brother', text:'「你去問問看外面那些人。」' } ] },
+  /* 2026-09-16 kc:「算命先生對話太草率」——第一版三句就收。他是靠看人吃飯的,先問阿嬤
+     幾歲、翻自己的健保卡確認血型,講一句當兵捐血的來歷,再收攤;最後那句「回來記得抽一支籤,
+     不收錢」是他的方式,不是煽情。 */
   fortune:  { name:'算命的', ok:true,  beats:[
+    { who:'fortune', text:'「你阿嬤幾歲？」' },
+    { who:'pc',      text:'你說了。他沒有回話，從抽屜裡翻出自己的健保卡，看了一下背面。' },
     { who:'fortune', text:'「O 型。」' },
-    { who:'pc',      text:'他把籤筒放進抽屜，拉下攤子的布。' },
-    { who:'fortune', text:'「年輕的時候捐過三十幾次。你去忙你的，我自己去。」' },
+    { who:'fortune', text:'「我年輕的時候在部隊捐過三十幾次，那時候一包血換一天假。」' },
+    { who:'pc',      text:'他把籤筒收進抽屜，把攤子的布拉下來，用夾子夾好。' },
+    { who:'fortune', text:'「醫院在哪裡我知道，你去忙你的。」' },
+    { who:'fortune', text:'「回來記得來抽一支籤，不收你錢。」' },
     { who:'pc',      text:'你從來沒想到要問他。' } ] }
 };
 function startBloodQuest(){

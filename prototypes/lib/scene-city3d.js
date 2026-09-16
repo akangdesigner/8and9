@@ -219,6 +219,7 @@ export function buildCity(THREE, scene){
     }
     emMats.forEach(emApply);
     if(backdropRef.mesh) backdropRef.mesh.material.opacity = 1 - k * .8;   // 夜景遠景圖白天退成淡淡的剪影,等有白天那張再換
+    if(backdropRef.north) backdropRef.north.material.opacity = 1 - k * .8;
   }
   const glow = (c,i) => std({ color:c, emissive:c, emissiveIntensity:i||1.6, roughness:.5 });
   const M = {
@@ -4343,6 +4344,18 @@ export function buildCity(THREE, scene){
       apply();
     }, undefined, () => {});
     backdropRef.mesh = mesh; backdropRef.cfg = cfg; backdropRef.apply = apply;
+
+    /* 廟口那一面(2026-09-16,kc 截圖廟埕西角:「廟口這邊怎沒補好」)——9/15 只貼了
+       公車亭那面,廟埕北牆只有 3 高,牆上面就是 fog 色一片空。同一張圖再立一片在
+       地圖北緣外面(z=-150,朝 +z),尺寸/高度/調色跟南面同一組,不另開滑桿。
+       8/21「廟城區域以上不要有任何其他建築房子」講的是貼著廟後面 50 高的方塊樓,
+       這片是地平線上的窄帶,跟公車亭那面同一個做法。 */
+    const north = new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);   // 共用材質,調色/白天退淡一起走
+    north.renderOrder = -1;
+    scene.add(north);
+    const applyNorth = () => { north.position.set(0, cfg.y + cfg.h/2, -150); north.scale.set(cfg.w, cfg.h, 1); };
+    applyNorth();
+    backdropRef.north = north; backdropRef.applyNorth = applyNorth;
   })();
 
   return { backdrop:backdropRef, setDaylight, colliders, doors, alleys, diagAlleys, pets, litter, play, motos, lampSpots, landmarks, stallValance, fortuneStall:{ cfg:FORTUNE_STALL, rebuild:buildFortuneStall }, hospital:{ cfg:HOSPITAL, rebuild:buildHospital }, hospitalWall:{ front:hospitalFrontM }, hospitalProps:hospitalPropRef, updateLights, updateBushBillboards, whereAmI, blocked, materials:M, policeWall, policeCar:policeCarRef, construction:constructionRef, busStop:busStopRef, massageDoor:massageDoorRef, spawnMoto:parkMoto };
