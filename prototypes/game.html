@@ -1397,7 +1397,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2375,12 +2375,6 @@ function debugSleepNight(){
   sleep();
 }
 window.debugSleepNight = debugSleepNight;
-/* 睡覺過渡頁的測試入口(2026-09-10)——只把頁面叫出來看版面,不真的過一天。 */
-function debugSleepPage(){
-  if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
-  showSleepPage(() => {});
-}
-window.debugSleepPage = debugSleepPage;
 /* 跨天事件的測試入口(2026-09-14,kc:「我要模擬在床邊按睡覺之後的流程」)——
    每按一次把日期設成下一件跨天事件的前一天、時間晚上十點、人放到房間床邊,
    然後照真的流程去床邊按睡覺:日記 → 跨天那頁 → 醒來。14 件輪一圈。 */
@@ -2403,25 +2397,6 @@ function debugSpanPage(){
   toast(`已跳到 ${dayToDate(day)} 晚上，明天起是「${ev.title}」。去床邊按空白鍵睡覺。`, 3600);
 }
 window.debugSpanPage = debugSpanPage;
-let debugDailyIdx = 0;
-function debugDailyDraw(){
-  if(busy || dlg.on){ toast('現在有東西在播,等一下再按。', 2000); return; }
-  /* 按一次跳一件,照 DAILY_EVENTS 的順序輪過去(不管 need()),方便一次看完
-     13 件的文案跟獎懲。正式的排程是 DAILY_FIXED/DAILY_ROTATION,不是這個。 */
-  const e = DAILY_EVENTS[debugDailyIdx % DAILY_EVENTS.length];
-  debugDailyIdx++;
-  DAILY.id = e.id; DAILY.day = day; DAILY.done = false;
-  DAILY.dueDay = e.bill ? day + e.days : -1;
-  DAILY.told = true;
-  if(e.instant) e.instant();
-  /* 帳單型要真的開單(2026-09-11,kc 用這顆按鈕抽到電費,去櫃台沒有「繳電費」
-     選項——正式路徑 checkDailyDoor() 有 addBill(),這裡漏了)。 */
-  if(e.doc) addBill(e);
-  busy = true;
-  dailyCard(e);
-  say('pc', `（${debugDailyIdx}/${DAILY_EVENTS.length}）` + e.line, () => { busy = false; });
-}
-window.debugDailyDraw = debugDailyDraw;
 /* 期中考測試鈕(2026-09-15)——把日子調到 MIDTERM_DAY、清掉狀態,再把人
    丟到校門口外面幾步,按空白鍵就會遇到阿凱。 */
 /* 成績單測試鈕(2026-09-15)——假裝考完 8 題、日子推到寄達那天,直接把信
@@ -2497,24 +2472,6 @@ function debugJumpTemple(){
   wlabelsEl.style.display = '';
   hero.group.position.set(-17, .3, -90);
 }
-/* 2026-09-15 巷子收邊:三段還沒封的街廓開口(廟口路南側、西園街內側、東和街
-   內側),kc 要親自去看。一顆按鈕輪流跳,省得開三顆。封完之後可以拔掉。 */
-const OPEN_EDGE_SPOTS = [
-  { x:-48, z:-71, name:'廟口路南側(光明巷西邊的裸地)' },
-  { x:-71, z:-48, name:'西園街內側(北街廓西邊)' },
-  { x: 71, z: 42, name:'東和街內側(南街廓東邊)' }
-];
-let openEdgeIdx = 0;
-function debugJumpOpenEdge(){
-  const p = OPEN_EDGE_SPOTS[openEdgeIdx++ % OPEN_EDGE_SPOTS.length];
-  MODE = 'city';
-  document.getElementById('indoor').classList.remove('on');
-  document.getElementById('city').style.display = '';
-  wlabelsEl.style.display = '';
-  hero.group.position.set(p.x, .3, p.z);
-  toast(p.name);
-}
-window.debugJumpOpenEdge = debugJumpOpenEdge;
 window.debugJumpHome = debugJumpHome;
 window.debugJumpSchool = debugJumpSchool;
 window.debugJumpTemple = debugJumpTemple;
@@ -11161,20 +11118,6 @@ function enterCorridor(){
     checkGrandmaCall();
   });
 }
-/* 直接傳送到走廊(2026-09-11,給我自己在瀏覽器裡把畫面切給 kc 看用,不掛
-   #bar 按鈕——他要的話再加)。 */
-function debugJumpCorridor(){
-  const d = city.doors.find(x => x.id === 'school');
-  if(d){ returnTo.x = d.x; returnTo.z = d.z + 3.5; }
-  MODE = 'indoor'; PLACE = 'corridor';
-  document.getElementById('city').style.display = 'none';
-  document.getElementById('indoor').classList.add('on');
-  wlabelsEl.style.display = 'none';
-  IN.px = 70; IN.py = CORRIDOR.standY ?? CORRIDOR.walkS; IN.face = 'B';
-  document.getElementById('where').textContent = '走廊';
-  paintCorridorBackdrop();
-}
-window.debugJumpCorridor = debugJumpCorridor;
 /* 走廊滑桿(2026-09-11,kc:「開滑桿」)——照片版接上後主角比照片裡的教官矮
    一截,開兩組:近/遠透視大小(CORRIDOR_HERO_TWEAK,corridorHeroPx() 每幀讀)、
    走道帶 walkN/walkS。
