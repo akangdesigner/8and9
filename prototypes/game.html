@@ -9975,8 +9975,8 @@ const DAILY_EVENTS = [
   { id:'blood', name:'捐血', cat:'people', via:'phone',
     need:() => hospitalCallFired && !GRANDMA.dead,
     instant(){ startBloodQuest(); },
-    line:'醫院打來。\n「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」\n你說你去。「你不行，直系血親不能捐，你媽也不行。找別人。」',
-    hint:'今天之內找一個 O 型的人去醫院捐血' },
+    line:'醫院打來。\n「阿嬤早上昏過去了，現在在加護病房。你們家屬過來一趟。」',
+    hint:'去醫院', hint2:'今天之內找一個 O 型的人去醫院捐血' },
   { id:'mom-ask', name:'媽要錢', cat:'money', goto:'mom', via:'home',
     line:'媽站在你房門口，沒有進來。', hint:'回家聽媽要說什麼' },
   /* 阿嬤那袋(2026-09-11,kc:「第二個行動天要是媽媽請你拿東西給阿嬤之類的 這樣主角
@@ -10384,7 +10384,7 @@ function tickWaterCut(){
  * 他為什麼不行就是他這個人。問一個時鐘走 20 分鐘、被拒情緒 −3。算命老闆是 O 型,
  * 你問到他就成了——他不特別,只是你沒想到(kc:「不用這麼特別 就只要有個很驚喜發現
  * 他能捐即可」)。掛法跟 dailyGotoReady() 一樣,插在每個人對話函式的最前面。 */
-const BLOOD = { active:false, day:-1, asked:[], found:false };
+const BLOOD = { active:false, day:-1, asked:[], found:false, briefed:false };   // briefed:到了醫院護士才講要捐血(kc:「醫院打來就會說阿嬤昏迷了叫我們過來 我們到醫院的時候他才會說要捐血」)
 const BLOOD_ANSWERS = {
   yuan:     { name:'阿源',   ok:false, beats:[
     { who:'yuan', text:'「我 O 型欸。」' },
@@ -10428,18 +10428,35 @@ const BLOOD_ANSWERS = {
     { who:'pc',      text:'你從來沒想到要問他。' } ] }
 };
 function startBloodQuest(){
-  BLOOD.active = true; BLOOD.day = day; BLOOD.asked = []; BLOOD.found = false;
+  BLOOD.active = true; BLOOD.day = day; BLOOD.asked = []; BLOOD.found = false; BLOOD.briefed = false;
   syncBloodCard();
 }
 function syncBloodCard(){
   if(!BLOOD.active) return;
   const e = DAILY_EVENTS.find(x => x.id === 'blood');
+  if(!BLOOD.briefed){ setTodayCard(e.hint, e.name); return; }
   const asked = BLOOD.asked.map(k => BLOOD_ANSWERS[k].name).join('、');
-  setTodayCard(e.hint + (asked ? '<br><span class="qpNote">問過：' + asked + '</span>' : ''), e.name);
+  setTodayCard(e.hint2 + (asked ? '<br><span class="qpNote">問過：' + asked + '</span>' : ''), e.name);
 }
 /* 回傳 true = 這次對話被捐血那段接走了。 */
+/* 到了醫院,護士才講要捐血——掛在 visitGrandma() 進場那一步。講完接一般探望(她昏迷)。 */
+function bloodBriefing(){
+  BLOOD.briefed = true;
+  paintHospitalBackdrop(false);
+  playBeats([
+    { who:'pc', text:'護理站的人看到你，先確認你是家屬。' },
+    { who:'pc', text:'「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」' },
+    { who:'pc', text:'你說你去。' },
+    { who:'pc', text:'「你不行，直系血親不能捐，你媽也不行。找別人。」' },
+    { who:'pc', text:'她把一張單子塞給你，上面寫著血型跟時間。' }
+  ], 0, () => {
+    syncBloodCard();
+    logDay('阿嬤昏過去了，明天要開刀。護士說要找一個 O 型的人來捐血，我跟媽都不行。');
+    grandmaVisitLine();
+  });
+}
 function bloodAsk(who){
-  if(!BLOOD.active || BLOOD.found || BLOOD.day !== day) return false;
+  if(!BLOOD.active || !BLOOD.briefed || BLOOD.found || BLOOD.day !== day) return false;
   const a = BLOOD_ANSWERS[who];
   if(!a || BLOOD.asked.includes(who)) return false;
   BLOOD.asked.push(who);
@@ -11674,6 +11691,8 @@ function visitGrandma(){
        為 false 時這裡不累加，見 checkGrandmaMonthly()。只在真正走進來
        那一刻算一次，「陪她坐一下」重覆聊天不會疊加。 */
     if(GRANDMA.critical){ GRANDMA.visits++; updateGrandmaQuestHint(); }
+    /* 捐血那天第一次到醫院,護士先講(見 BLOOD)。 */
+    if(BLOOD.active && !BLOOD.briefed && BLOOD.day === day){ bloodBriefing(); return; }
     /* day2 那袋還在身上:第一次進來走專用的一段,交完才接一般探望。 */
     if(GRANDMA.bagGiven && !GRANDMA.bagDelivered){ deliverGrandmaBag(); return; }
     grandmaVisitLine();
@@ -11718,7 +11737,8 @@ function deliverGrandmaBag(){
    （不計入 visits，那個只在真正走進來那一刻算），讓玩家有事可做，不是
    進來看一句就只能走。 */
 function grandmaVisitLine(){
-  const awake = Math.random() < GRANDMA_AWAKE_CHANCE;
+  /* 捐血那天她整天昏迷(kc:「醫院打來就會說阿嬤昏迷了」),不抽清醒。 */
+  const awake = (BLOOD.active && BLOOD.day === day) ? false : Math.random() < GRANDMA_AWAKE_CHANCE;
   paintHospitalBackdrop(awake);   // 清醒/昏迷各換一張背景照片，見上面 hospitalRoomAwakeImg 那則筆記
   const pool = awake ? GRANDMA_AWAKE_LINES : GRANDMA_ASLEEP_LINES;
   say(awake ? 'granny' : 'pc', pool[Math.floor(Math.random()*pool.length)], () => {
