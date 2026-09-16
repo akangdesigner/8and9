@@ -1397,7 +1397,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugMidtermMail()">成績單</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugMidterm()">期中考</button><button class="tool" onclick="debugMidtermMail()">成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="debugJumpOpenEdge()">跳開口</button><button class="tool" onclick="__dbg.tweakBackdrop()">遠景滑桿</button><button class="tool" onclick="kaiRunArm()">day5 跑腿</button><button class="tool" onclick="debugDailyDraw()">抽今天的事</button><button class="tool" onclick="debugSleepPage()">睡覺頁</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugJumpCorridor()">跳走廊</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2459,6 +2459,21 @@ function debugMidterm(){
   toast('第 ' + MIDTERM_DAY + ' 天，期中考。走到校門口按空白鍵。', 4000);
 }
 window.debugMidterm = debugMidterm;
+/* 校外教學測試鈕(2026-09-16)——日子調到 FIELD_TRIP_DAY、班費狀態清掉,人丟到
+   校門口,走進教室老師就宣布出發。 */
+function debugFieldTrip(){
+  day = FIELD_TRIP_DAY;
+  CLASSFUND.tripStarted = false; CLASSFUND.active = false;
+  seenStoryDays.delete('school-' + FIELD_TRIP_DAY);
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(-36, .3, 74);
+  syncHUD();
+  toast('第 ' + FIELD_TRIP_DAY + ' 天，校外教學。走進學校教室。', 4000);
+}
+window.debugFieldTrip = debugFieldTrip;
 function kaiRunArm(){
   MODE = 'city';
   document.getElementById('indoor').classList.remove('on');
@@ -3656,8 +3671,12 @@ const CLASSFUND = { tripStarted:false, active:false, askedBrother:false, foundEv
    書包確認、幹事先看向你那整段(story-school.js day18 節點的內容,
    `classFundQuest` 標記還在,但這裡直接讀節點資料手動播,不透過
    maybeTriggerStoryNode())。 */
+/* ⚠ 2026-09-16 抓到:這裡原本寫死 `day !== 18`,是 2026-09-10「主線拉成三個月」
+   換算前的舊值,沒跟著 ×3——hasStoryOn()/DAY_TODO 都已經是 52,但真的進教室永遠
+   不會出發,校外教學在正常流程裡從來沒觸發過。統一改走 FIELD_TRIP_DAY。 */
+const FIELD_TRIP_DAY = 57;   // 2026-09-16 52→57:跟母・賭「她不來了」拆開(kc:「不同事情分開」那條規矩)
 function checkFieldTrip(){
-  if(day !== 18) return false;
+  if(day !== FIELD_TRIP_DAY) return false;
   if(!CLASSFUND.tripStarted){
     CLASSFUND.tripStarted = true;
     clearTodayCard();            // day18 走自己這條路,不經過 maybeTriggerStoryNode(),要自己收卡
@@ -3690,7 +3709,7 @@ function checkFieldTrip(){
     }
     ACTIVE_QUESTS.push({ id:'classfund', title:'班費不見了', hint:'老師叫你放學後去警察局做筆錄' });
     renderQuestPanel();
-    const node = StorySchool.NODES.find(n => n.day === 52);
+    const node = StorySchool.NODES.find(n => n.day === FIELD_TRIP_DAY);
     playBeats(node.beats, 0, () => {
       openMenu(node.title, node.menu.map(item => ({
         label: item.label, cost: item.cost,
@@ -9340,7 +9359,7 @@ const SPAN_EVENTS = [
       { label:'去超商問有沒有班', cost:'+$260　體力 −20', fx:{ money:260, stamina:-20 },
         result:'店長說剛好有人請假，你站了一整天的班。' }
     ] },
-  { from:16, title:'轉涼',
+  { from:39, title:'轉涼',   // 2026-09-16 16→39:day16 是母・賭主線日一定會醒來,跨天事件排在那裡永遠不會播;39 是 38→40 之間的空日
     text:'這幾天天氣突然轉涼，早上騎車的時候風很冷，你那件外套已經不夠了。',
     opts:[
       { label:'去夜市買一件二手外套', cost:'−$250　帥潮 +3', fx:{ money:-250, cool:3 },
@@ -9408,8 +9427,8 @@ const SPAN_EVENTS = [
       { label:'去超商上班，順便用店裡的熱水', cost:'+$260　體力 −15', fx:{ money:260, stamina:-15 },
         result:'你連上了幾天班，下班前在店裡後面的水槽用熱水沖一沖再回家。' }
     ] },
-  { from:65, title:'期中考週',
-    text:'期中考週，班上每個人都在補作業、借筆記，連阿凱都拿出課本了。',
+  { from:65, title:'期末考週',   // 2026-09-16 kc:「day65 改期末考」——跟 day12 那次真的考的期中考是兩次考試
+    text:'期末考週，班上每個人都在補作業、借筆記，連阿凱都拿出課本了。',
     opts:[
       { label:'熬夜讀書', cost:'略懂知識 +1　體力 −15', fx:{ rough:1, stamina:-15 },
         result:'你讀到半夜，有些地方好像看懂了，有些還是不懂。' },
@@ -9831,7 +9850,7 @@ function hasStoryOn(d){
     .some(([key, src]) => src.NODES.some(n => n.day === d) && !seenStoryDays.has(key + '-' + d));
   /* 學校線只算還在用的那幾天(封存的那幾天不算,不然會變成「有事但什麼都不會
      發生」的空白日)。校外教學那天走 checkFieldTrip() 自己那條路,要另外算。 */
-  const school = (SCHOOL_ACTIVE_DAYS.includes(d) || d === 52)
+  const school = (SCHOOL_ACTIVE_DAYS.includes(d) || d === FIELD_TRIP_DAY)
     && !seenStoryDays.has('school-' + d) && !CLASSFUND.tripStarted;
   /* 期中考那天不是 story-school 的節點,走 MIDTERM 自己那條路(跟校外教學
      day18 同一個結構),要另外算進「有事的日子」,不然睡覺會直接跳過去。 */
@@ -9899,8 +9918,8 @@ const DAY_TODO = {
      ⚠ **這句就一句話,不要加感想**(kc:「你不記得範圍到哪裡。 這三小屁話 這只是
      讓你知道要去學校」)——早上這張卡的功能是**告訴玩家今天要去學校**,不是抒情
      的位置。以後補 DAY_TODO 的句子照這條寫。 */
-  13: { line:'今天好像要期中考。', quest:'到學校考期中考' },
-  52: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }
+  12: { line:'今天好像要期中考。', quest:'到學校考期中考' },   // 2026-09-16 13→12(週六改週五),要跟下面 MIDTERM_DAY 一致(它宣告在後面,這裡不能用 const 當 key)
+  [FIELD_TRIP_DAY]: { line:'你突然想到，今天要去校外教學。', quest:'到學校集合' }   // 2026-09-16 52→57:day52 原本疊了母・賭「她不來了」+校外教學,拆開
 };
 /* ===== 每天都有一件事(2026-09-10,kc:「每一天都是為了活下去而努力的日子
  * 只是每個日子都有任務或事件罷了」)==========================================
@@ -10001,7 +10020,7 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
    為何要抽?」)——中間試過「亂數抽」跟「用天數取模輪」,兩個都被打掉:他要的是
    **這一天就是這件事**,寫在表上看得到,不是任何形式的程序產生。
    下面這張 `DAILY_SCHEDULE` 就是全部:key 是第幾天,value 是事件 id。
-   - **主線有節點的日子留空**(1/10/13/25/28/34/37/40/43/46/52/58/61/64/76/82),
+   - **主線有節點的日子留空**(1/10/12/22/25/28/37/40/43/46/52/57/58/64/76;2026-09-16 期中考 13→12、校外教學 52→57),
      那些天走 DAY_TODO / story-*.js。
    - 水電費排在月初/月中(5/12、35/42、65/72),機車分期兩週一次(9/23/36/50/63/77)
      ——**月週期是刻意的**,玩家會開始記得「月初要繳電費」。
@@ -10022,9 +10041,9 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
      喘息。最後一天(day90)是媽開口要錢——註冊費到期的前一天。
    要改哪一天就直接改這張表。 */
 const DAILY_SCHEDULE = {
-  2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 12:'co-extra',   // day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3
-  15:'moto-dead', 17:'rain', 20:'water', 22:'kai-hang', 23:'loan', 26:'yuan-call',
-  29:'pocket', 31:'ayi-food', 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
+  2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 13:'co-extra',   // 2026-09-16 代班 12→13:day12 讓給期中考(週六代班也合理)   // day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3
+  15:'moto-dead', 17:'rain', 20:'water', 23:'loan', 26:'yuan-call',
+  29:'pocket', 30:'kai-hang', 31:'ayi-food',   // 2026-09-16 阿凱找你 22→30:day22 是學校線主線日,主線日不抽日常事件,排在那裡永遠不會出現 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
   47:'acheng-hand', 50:'water', 51:'loan', 53:'co-extra', 56:'mei-ask', 59:'kai-hang',
   61:'hospital-bill', 62:'site-work', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
   74:'site-work', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'site-work',
@@ -11878,7 +11897,7 @@ const SCHOOL_ACTIVE_DAYS = [22, 37];   // 2026-09-15 13→22:day13 整天讓給�
  * sleep() 本來就靠 lastSchoolDay 判斷今天有沒有進過學校(見 skippedSchool),
  * 走了就自然會多一筆。但選了翹課之後這一天就不能再回頭進學校,不然警告
  * 會被洗掉,校門口會擋下來。 */
-const MIDTERM_DAY = 13, MIDTERM_PASS = 8, MIDTERM_QN = 10;
+const MIDTERM_DAY = 12, MIDTERM_PASS = 8, MIDTERM_QN = 10;   // 2026-09-16 13→12:day13 是遊戲曆的週六(kc:「處理」),考試改週五
 const MIDTERM = { chose:'', settled:false, score:-1, gift:false, arcadePending:false, mailed:false, shown:false };
 
 /* 成績單寄到家裡(2026-09-15,kc:「成績單可以寄到家裡 你考得好的話拿給你媽
