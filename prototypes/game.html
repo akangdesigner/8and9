@@ -4466,6 +4466,7 @@ const WATCHJOB_PATH = [[60, 10], [0, 10], [0, 15]];
    方向的視野。沒有實測過確切落點卡不卡東西,玩起來覺得怪跟我說要往哪調。 */
 const WATCHJOB_STAKEOUT = { x:10, z:14 };
 const WATCHJOB = { active:false, spotted:false, resolved:false, walker:null, lastDay:-1, exclaim:null, refusedDay:-99 };
+const WATCHJOB_MIN_DAY = 31;   // 阿源自己開口叫你顧場,第 31 天起(kc:「放在 30 天後」)
 function startWatchJob(){
   /* 接任務當下的位置(2026-09-03,kc:「顧場臨時去找阿嬤 回來會回到當初
      接任務的地方」)——下面 fade() 會把玩家瞬移到固定的盯梢點
@@ -14143,7 +14144,10 @@ function talkToYuan(){
   /* 拒絕過就記天數(kc 2026-09-14:「阿源叫你顧場我都拒絕了為何他還一直叫」——
      原本拒絕沒記 lastDay,同一天每講一次話就再問一次)。拒絕後隔 3 天才會再開口,
      3 這個數字是我抓的。 */
-  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && day >= (WATCHJOB.refusedDay ?? -99) + 3 && ST.calm >= 80){
+  /* 2026-09-16 kc:「阿源好怪 為何我第一次找他他就叫我顧場 這件事要放在 30 天後才可以觸發」——
+     原本只看歸屬感 ≥80,開局存檔歸屬感就滿,第一次講話就被叫去顧場。加 day ≥ 31 的門檻;
+     day46 阿嬤那天他早上打電話約的那條走上面自己的路,不受這裡影響。 */
+  if(!WATCHJOB.active && WATCHJOB.lastDay !== day && day >= WATCHJOB_MIN_DAY && day >= (WATCHJOB.refusedDay ?? -99) + 3 && ST.calm >= 80){
     say('yuan', NpcTemple.WATCH_JOB.hookText, () => {
       openMenu('阿源', [
         { label:'好', run(){ startWatchJob(); } },
