@@ -2869,6 +2869,8 @@ const WHO = {
      出陣那幾段他開口),沒有 3D 模型(體型跟現有骨架差太多,見 DESIGN_NOTES
      「3D 街上的角色」),跟 mom/dad 同一套「沒有模型只有 WHO 頭像」做法。
      灰髮示意年紀。 */
+  /* 自來水公司(2026-09-17,停水那天店門口那通電話,見 METER)——沒有臉,電話裡的聲音。 */
+  water:    { name:'自來水公司', opt:{ face:'F', skin:'#c9a077', hair:'#3a3a3a', top:'#4a6a8a', topD:'#3a5570', pants:'#2b2b2b' } },
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
   /* 阿凱(2026-08-24)——見上面 KAI 那則筆記,染髮跟 kaiNPC 那組 buildNPC 顏色同步。 */
   kai:      { name:'阿凱', opt:{ face:'F', skin:'#c9976e', hair:'#d4a03c', top:'#1c1c1c', topD:'#141414', pants:'#2b2b2b' } },
@@ -3847,6 +3849,7 @@ const BO_DATA = NpcTemple.NPCS.find(n => n.id === 'bo');
 function talkToBo(){
   logTalk('阿伯');
   if(bloodAsk('bo')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('bo')) return;   // 水表去哪了(見 METER)
   talkToStallVendor(BO, BO_DATA, 'bo', () => {}, { talkGivesCalm: 1 });
 }
 /* 回傳值(2026-09-02 第八輪,kc:「對話不了欸」——原本沒有手動互動入口,
@@ -4554,9 +4557,12 @@ function resolveWatchJob(success){
   renderQuestPanel();
   const D = success ? NpcTemple.WATCH_JOB.success : NpcTemple.WATCH_JOB.fail;
   playBeats(D.beats, 0, () => {
-    if(success){ chg('money', 1000); chg('calm', 6); chg('mood', 6); }
-    else { chg('money', -300); chg('calm', -6); chg('mood', -6); }
-    toast(D.quiet, 3200);
+    /* 水表那次欠阿源的三百(2026-09-17,見 METER)——這次少領。 */
+    const owe = METER.owe ? 300 : 0;
+    if(owe) METER.owe = false;
+    if(success){ chg('money', 1000 - owe); chg('calm', 6); chg('mood', 6); }
+    else { chg('money', -300 - owe); chg('calm', -6); chg('mood', -6); }
+    toast(D.quiet + (owe ? '\n阿源：「水表那三百，這次扣掉。」' : ''), 3200);
     /* 阿嬤那天(day16)回報後的專屬收尾(2026-09-02,kc:「應該是回報任務後
        阿源要獎勵我帶我去吃飯 突然接到電話」+「失敗他會罵你 然後阿嬤電話
        打來」)——成功/失敗都接,只是內容不同(請吃飯 vs 罵一頓),接完都
@@ -7894,11 +7900,13 @@ function openIndoorSpot(id){
     /* 爸媽的近況(2026-08-19 kc:「不用說看看他現在怎樣，空白鍵就直接觸發
        對話了」)——按空白鍵直接跳 toast,不用先開一層選單問「要不要看」。 */
     else if(id === 'dad'){
+      if(meterFound() && !METER.dadDone){ meterDadScene(); return; }   // 水表那天晚上(見 METER)
       const lines = dadCheckinLines();
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
     else if(id === 'mom'){
       if(momAway()){ toast('沙發上沒有人。', 2000); return; }   // 捐血那天她在醫院(見 momAway)
+      if(meterFound() && !METER.momTold){ meterMomScene(); return; }   // 水表是爸賣的,跟她講(見 METER)
       /* 捐血那天之後第一次跟她講話(2026-09-16)——手術結果從她嘴裡出來,找到/沒找到兩版。 */
       if(BLOOD.day >= 0 && day > BLOOD.day && !BLOOD.momTalked){
         BLOOD.momTalked = true;
@@ -10066,10 +10074,10 @@ const DAILY_EVENTS = [
     doc:{ name:'水費單', icon:'🧾' },
     line:'信箱裡有一張水費單，跟三張廣告傳單夾在一起。\n$120。',
     hint:'去超商櫃台繳水費（$120）' },
-  /* 停水那天(2026-09-16,kc:「繳水電可能會遇到插曲然後幾乎貫穿一整天」→「先做水費
-     這樣任務除了繳費還有洗澡 當然可以不洗但會扣帥潮跟情緒」)——水費那張變成一整天:
-     早上沒水、媽叫你去繳、繳完復水要明天,所以今天要自己找地方洗澡。三條路寫在
-     WATER_CUT 那段。只排在 day50 那一次(day20/83 還是普通水費單),不要每次都停水。 */
+  /* 停水那天(2026-09-16 第一版是繳費+三選一洗澡,kc:「遊戲性很差」;2026-09-17 重做成
+     「水表不見了」,見 METER 那段跟 DESIGN_NOTES「停水那天重做:水表不見了」)——早上沒水、
+     媽叫你去繳,繳完水公司說水表根本不見了,接下來一整天是查它去哪了。只排 day50 那一次
+     (day20/83 還是普通水費單)。 */
   { id:'water-cut', cat:'money', name:'停水', bill:120, days:3, via:'home',
     doc:{ name:'水費單', icon:'🧾' },
     instant(){ const e = DAILY_EVENTS.find(x => x.id === 'water-cut'); addBill(e); startWaterCut(); },
@@ -10079,7 +10087,7 @@ const DAILY_EVENTS = [
       { who:'pc',  text:'媽站在門口。' },
       { who:'mom', text:'「水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」' },
       { who:'pc',  text:'單子在桌上，$120。' } ],
-    hint:'去超商櫃台繳水費（$120）', note:'家裡沒水，今天要找地方洗澡' },
+    hint:'去超商櫃台繳水費（$120）', note:'家裡沒水' },
   /* 捐血那天(2026-09-16,kc:「走投無路四處求人的感覺 比如要求人捐血給阿嬤 那就要到處
      去問人阿源阿凱阿仁老闆之類的 最後發現算命老闆符合」,參考下一站幸福「光晞不能捐」
      那段:一條規則把最想捐的人擋在外面)——直系血親不能捐,你跟媽都被踢出去,只能去街上
@@ -10490,10 +10498,10 @@ function payBill(b){
   logDay('去超商繳了' + b.name + '，$' + b.amount + '。這個家的單子都是我在繳。');
   syncMiscQuestPanel();
   toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + b.amount + '）', 3400);
-  /* 停水那天繳的是這張:繳完在店門口打電話,對方說最快明天早上(見 WATER_CUT)。 */
+  /* 停水那天繳的是這張:繳完在店門口打電話,水公司說水表不見了(見 METER)。 */
   if(b.id === 'water-cut' && WATER_CUT.active){
     WATER_CUT.paid = true;
-    setTimeout(() => say('pc', '你在店門口打了單子上的電話。\n對方說最快明天早上派人來開，今天先這樣。'), 3200);
+    setTimeout(meterPhoneCall, 3200);
   }
 }
 /* 逾期:睡覺時收一次帳,單子不消失(kc:「繳完後才消失」)。 */
@@ -10507,32 +10515,36 @@ function tickBillsOverdue(){
   syncMiscQuestPanel();
 }
 
-/* ===== 停水那天(2026-09-16)=====================================================
- * 水費單那天的插曲,貫穿一整天:早上沒水 → 去超商繳 → 櫃台說復水要明天 → 今天要
- * 找地方洗澡。三條路:
- *   超商借廁所  → 店員讓你用洗手台,但他看到了(歸屬感 −3)
- *   阿姨家      → 要認識她(AYI.visits > 0),「來就來,講什麼」(歸屬感 +6、飽足 +6)
- *   不洗        → 睡前結算帥潮 −6、情緒 −6;白天校門口教官會講一句(帥潮 −3)
- * 沒繳的話隔天照樣沒水,洗澡那張卡每天重掛,直到繳掉之後睡一覺水才會來。 */
-const WATER_CUT = { active:false, washed:false, paid:false, smelled:false };
+/* ===== 停水那天(2026-09-16 第一版;2026-09-17 重做)========================
+ * 第一版是繳費+三選一洗澡,kc:「停水這天的任務有啥好玩的 遊戲性很差」。重做成一天的
+ * 懸案:繳完水費水還是沒來,水公司說**水表上個月就不見了**,要查它去哪。查的路線跟每個人
+ * 的回答見下面 METER_FIND/METER_INSTALL,理由見 DESIGN_NOTES「停水那天重做:水表不見了」。
+ * 這裡的 WATER_CUT 只管「家裡有沒有水/今天洗了沒」:
+ *   沒洗   → 睡前帥潮 −6、情緒 −6;白天校門口教官講一句(帥潮 −3)
+ *   備案   → 超商借洗手台(店員看到,歸屬感 −3)、阿姨家(要認識她,歸屬感 +6、飽足 +6)
+ *   水回來 → 水表裝回去那一刻(METER 'done'),或三天後水公司自己來裝(lostDays ≥ 3)。 */
+const WATER_CUT = { active:false, washed:false, paid:false, smelled:false, lostDays:0 };
 function startWaterCut(){
-  WATER_CUT.active = true; WATER_CUT.washed = false; WATER_CUT.paid = false; WATER_CUT.smelled = false;
+  WATER_CUT.active = true; WATER_CUT.washed = false; WATER_CUT.paid = false; WATER_CUT.smelled = false; WATER_CUT.lostDays = 0;
+  METER.phase = 'bill'; METER.day = day; METER.asked = []; METER.askedInstall = []; METER.clueYuan = false; METER.revealed = false; METER.waitDad = false;
+  METER.owe = false; METER.momTold = false; METER.dadDone = false; METER.sealLeft = false;
   syncWashQuest();
 }
+/* 這張不是選單,是狀態:家裡沒水這件事一直掛著,直到水回來。 */
 function syncWashQuest(){
   const i = ACTIVE_QUESTS.findIndex(q => q.id === 'wash');
   const need = WATER_CUT.active && !WATER_CUT.washed;
-  if(need && i < 0) ACTIVE_QUESTS.push({ id:'wash', title:'找地方洗澡', hint:'家裡停水。超商借廁所、阿姨家，或者不洗。<br><span class="qpNote">不洗的話睡前帥潮 −6、情緒 −6</span>' });
+  if(need && i < 0) ACTIVE_QUESTS.push({ id:'wash', title:'家裡沒水', hint:'今天沒地方洗澡。<br><span class="qpNote">不洗的話睡前帥潮 −6、情緒 −6</span>' });
   if(!need && i >= 0) ACTIVE_QUESTS.splice(i, 1);
   renderQuestPanel();
 }
 function waterCutWashed(where){
   WATER_CUT.washed = true;
   syncWashQuest();
-  logDay(where === 'ayi' ? '家裡停水，去阿姨家洗澡，她還熱了一碗湯。' : '家裡停水，在超商借洗手台沖了頭跟脖子。');
+  logDay(where === 'ayi' ? '家裡停水，去阿姨家洗澡，她還熱了一碗湯。' : where === 'home' ? '水來了。我洗了今天第一次澡。' : '家裡停水，在超商借洗手台沖了頭跟脖子。');
 }
-/* 睡前結算——沒洗就扣;水費繳了的話睡一覺水就來了。掛在 sleep() 最前面,日記那頁
-   才印得到這一句。 */
+/* 睡前結算——沒洗就扣。水表沒裝回去的話隔天還是沒水,拖滿三天水公司自己來裝新的。
+   掛在 sleep() 最前面,日記那頁才印得到這一句。 */
 function tickWaterCut(){
   if(!WATER_CUT.active) return;
   if(!WATER_CUT.washed){
@@ -10540,13 +10552,334 @@ function tickWaterCut(){
     logDay('今天沒洗澡。');
     toast('今天沒洗澡。（帥潮 −6　情緒 −6）', 3400);
   }
-  if(WATER_CUT.paid){
-    WATER_CUT.active = false;
-    dayLogPending = (dayLogPending ? dayLogPending + '\n' : '') + '水來了。';
-  } else {
-    WATER_CUT.washed = false;   // 隔天還是沒水,洗澡那張卡再掛一次
+  if(METER.phase === 'done'){ WATER_CUT.active = false; }
+  else {
+    WATER_CUT.lostDays++;
+    if(WATER_CUT.lostDays >= 3){
+      WATER_CUT.active = false; METER.phase = 'done';
+      { const i = ACTIVE_QUESTS.findIndex(q => q.id === 'meter'); if(i >= 0) ACTIVE_QUESTS.splice(i, 1); }
+      { const i = TRASH.findIndex(t => t.meter); if(i >= 0) TRASH.splice(i, 1); }   // 手上那顆沒裝上的舊表,新的裝了就沒用了
+      dayLogPending = (dayLogPending ? dayLogPending + '\n' : '') + '水公司來裝了新的水表，水來了。六百塊媽從哪裡生出來的，我沒有問。';
+    } else {
+      WATER_CUT.washed = false;   // 隔天還是沒水
+    }
   }
   syncWashQuest();
+}
+
+/* ===== 水表去哪了(2026-09-17,停水那天的本體)====================================
+ * phase:bill(去繳)→ box(回家看水表箱)→ find(街上查)→ have(水表在手上,找人裝)→ done。
+ * 查的路線不是問到底,是有幾條線會把你推到同一個地方:
+ *   旺鴻 → 半夜聽到你們樓下有人敲東西(他其實已經說出答案了,你這時候聽不出來)
+ *   阿凱 → 叫你去問阿成;阿成/阿伯 → 收銅的都拿去廟口阿源那邊(clueYuan)
+ *   阿源 → 沒被指過路他不認;被指過路才拿出來:「你爸拿來的,我給他三百。」
+ *          三百你現在給、欠他一次(下次顧場少領三百;顧過場的直接抵)、或叫你爸來(等他醒)
+ *   阿伯 → 以前做水電的,跟你回去裝,鉛封剪過了用鐵絲綁一綁
+ * 晚上:爸在沙發上,那截鉛封放他桌上/丟掉/問他——他真的不記得(爸線的核心);
+ * 跟媽講 → 「他又拿去賣了。上次是電鍋。」
+ * 問一個人時鐘走 15 分鐘,查東西不扣情緒;阿源那句扣 6,是你爸。 */
+const METER = { phase:'none', day:-1, asked:[], askedInstall:[], clueYuan:false, revealed:false, waitDad:false, owe:false, momTold:false, dadDone:false, sealLeft:false };
+function meterFound(){ return METER.phase === 'have' || METER.phase === 'done'; }
+function meterCard(hint){
+  const q = ACTIVE_QUESTS.find(x => x.id === 'meter');
+  if(hint === null){ const i = ACTIVE_QUESTS.indexOf(q); if(i >= 0) ACTIVE_QUESTS.splice(i, 1); }
+  else if(q) q.hint = hint;
+  else ACTIVE_QUESTS.push({ id:'meter', title:'水表去哪了', hint });
+  renderQuestPanel();
+}
+function meterHintFind(){
+  const clues = [];
+  if(METER.asked.includes('motoboss')) clues.push('旺鴻：前幾天半夜你們樓下有人在敲東西');
+  if(METER.clueYuan) clues.push('收銅的都拿去廟口阿源那邊');
+  if(METER.waitDad) clues.push('阿源那裡有你家的水表，他要三百，或者叫爸去');
+  return '你家那格是空的，鉛封被剪斷。去問問街上有沒有人看到。' + (clues.length ? '<br><span class="qpNote">' + clues.join('<br>') + '</span>' : '');
+}
+/* 繳完在店門口打電話——水公司翻了一下,說那戶的水表上個月抄表就不見了。 */
+function meterPhoneCall(){
+  busy = true;
+  playBeats([
+    { who:'pc',    text:'你在店門口打了單子上的電話，報了地址。對方翻了一下。' },
+    { who:'water', text:'「你們那戶沒有被停水。單子繳不繳，水都在。」' },
+    { who:'water', text:'「你們的水表上個月抄表就不見了，抄表員以為是空屋。」' },
+    { who:'pc',    text:'「不見了是什麼意思。」' },
+    { who:'water', text:'「就是箱子裡沒有那顆表。水表是住戶自己要顧的，補裝一顆六百，排到三天後。」' },
+    { who:'water', text:'「你先回去看一下水表箱，一樓鐵門旁邊那個。」' },
+    { who:'pc',    text:'你剛把身上的錢繳掉，六百你沒有。' }
+  ], 0, () => {
+    METER.phase = 'box';
+    dailyDone();
+    meterCard('水公司說水表不見了，補裝要六百、等三天。回家看一下鐵門旁邊的水表箱。');
+    logDay('繳了水費，水公司說我家的水表上個月就不見了。補裝要六百。');
+    busy = false;
+  });
+}
+/* 走到家門口那一步(enterIndoor 'home' 攔住)——沒有樓梯間場景,箱子就在鐵門邊,一段旁白。 */
+function meterBoxCheck(door){
+  if(METER.phase !== 'box') return false;
+  busy = true;
+  playBeats([
+    { who:'pc', text:'鐵門旁邊那個鐵箱子你每天經過，從來沒有打開過。' },
+    { who:'pc', text:'你家那格是空的。接水管的地方剪得很乾淨，鉛封斷成兩截掛在旁邊，兩顆螺絲還在箱底。' },
+    { who:'pc', text:'不是掉的，是人拆的。' },
+    { who:'pc', text:'你把那截鉛封放進口袋。' }
+  ], 0, () => {
+    METER.phase = 'find';
+    meterCard(meterHintFind());
+    busy = false;
+    enterIndoor(door);
+  });
+  return true;
+}
+/* 查的時候每個人怎麼回——他為什麼幫不上就是他這個人。clue:'yuan' 會把阿源那條線打開。 */
+const METER_FIND = {
+  motoboss: { beats:[
+    { who:'motoboss', text:'「水表？那是銅的，回收一顆三百多。」' },
+    { who:'motoboss', text:'「前幾天半夜你們那棟樓下有人在敲東西，敲很久。我以為是哪個喝醉的。」' },
+    { who:'pc',       text:'你點點頭。他其實已經講完了，你沒有聽出來。' } ] },
+  kai: { beats:[
+    { who:'kai', text:'「幹，誰這麼衰偷水表。」' },
+    { who:'kai', text:'「收破銅爛鐵的……你先去問滷味阿成，那條街的事他都知道。」' } ] },
+  acheng: { clue:'yuan', beats:[
+    { who:'pc',     text:'他看了你一眼，繼續切滷味。' },
+    { who:'acheng', text:'「收銅的都拿去廟後面。阿源他們在收。」' } ] },
+  bo: { clue:'yuan', beats:[
+    { who:'bo', text:'「你家的水表喔。」' },
+    { who:'pc', text:'他看著廟埕，沒有看你。' },
+    { who:'bo', text:'「這條街誰家的水表不見，是誰拆的，我大概知道。」' },
+    { who:'pc', text:'「是誰。」' },
+    { who:'bo', text:'「你自己去問阿源。」' } ] },
+  aren: { beats:[
+    { who:'aren', text:'「水表？我們店的水表也在外面，會不會哪天也被拆。」' },
+    { who:'aren', text:'「我不知道欸，你問問看別人。」' } ] },
+  mei: { beats:[
+    { who:'mei', text:'「我家這種事是找管理員。」' },
+    { who:'mei', text:'「……你們沒有管理員喔？」' } ] },
+  ayi: { beats:[
+    { who:'ayi', text:'「我攤子的水是隔壁借的，誰要偷水表啊。」' },
+    { who:'ayi', text:'「找到了要裝回去，你去問廟口那個阿伯，他以前做水電的。」' } ] },
+  foreman: { beats:[
+    { who:'foreman', text:'「工地的水表也被幹過。」' },
+    { who:'foreman', text:'「後來就抓不到人，換一顆算了。」' } ] },
+  jiaoguan: { beats:[
+    { who:'jiaoguan', text:'「這種事去報案，不是你一個學生在處理的。」' },
+    { who:'jiaoguan', text:'「你家沒有大人嗎？」' },
+    { who:'pc',       text:'「有。」' },
+    { who:'pc',       text:'他沒有再問。' } ] },
+  teacher: { beats:[
+    { who:'teacher', text:'「水表不見了？」' },
+    { who:'teacher', text:'「這我沒遇過。你要不要先跟房東講。」' } ] },
+  brother: { beats:[
+    { who:'brother', text:'「報案可以，三天後有人受理，跟水公司一樣。」' },
+    { who:'brother', text:'「銅的東西被拆，你去問收的人比較快。」' } ] },
+  fortune: { beats:[
+    { who:'fortune', text:'「我看的是命，不是水。」' },
+    { who:'fortune', text:'「水的事，你去問常在夜裡走動的人。」' } ] }
+};
+/* 水表在手上之後——找人裝。阿伯以前做水電,其他人各推一次。 */
+const METER_INSTALL = {
+  motoboss: { beats:[
+    { who:'motoboss', text:'「裝？那要拆鉛封，我不碰。」' },
+    { who:'motoboss', text:'「廟口那個阿伯以前做水電的，你去問他。」' } ] },
+  ayi: { beats:[
+    { who:'ayi', text:'「找到了喔。廟口阿伯，我不是跟你講過。」' } ] },
+  kai: { beats:[
+    { who:'kai', text:'「這個簡單，我看過影片。」' },
+    { who:'pc',  text:'他真的跟你回去，蹲在鐵門邊弄了一個小時。裝上去了，水表倒著轉。' },
+    { who:'kai', text:'「……你去問別人。」' } ], mood:-3, time:60 },
+  acheng: { beats:[
+    { who:'acheng', text:'「我會切滷味。」' } ] },
+  yuan: { beats:[
+    { who:'yuan', text:'「我只收，不裝。」' } ] },
+  aren: { beats:[
+    { who:'aren', text:'「我連我家的都不會裝。」' } ] },
+  foreman: { beats:[
+    { who:'foreman', text:'「水電班明天才進場。」' } ] },
+  brother: { beats:[
+    { who:'brother', text:'「你拿回來了？」' },
+    { who:'brother', text:'「裝的事我不能幫你，那是水公司的鉛封。」' } ] },
+  mei: { beats:[ { who:'mei', text:'「你在講什麼，我聽不懂。」' } ] },
+  jiaoguan: { beats:[ { who:'jiaoguan', text:'「這種事去找大人。」' } ] },
+  teacher: { beats:[ { who:'teacher', text:'「這我真的不會。」' } ] },
+  fortune: { beats:[ { who:'fortune', text:'「今天不用抽籤，你已經找到了。」' } ] }
+};
+/* 回傳 true = 這次對話被水表那段接走了。掛在每個人對話函式最前面,緊接 bloodAsk()。 */
+function meterAsk(who){
+  if(who === 'yuan' && (METER.phase === 'find')) return meterYuan();
+  if(who === 'bo' && METER.phase === 'have') return meterInstall();
+  const table = METER.phase === 'find' ? METER_FIND : METER.phase === 'have' ? METER_INSTALL : null;
+  const list  = METER.phase === 'find' ? METER.asked : METER.askedInstall;
+  if(!table || !table[who] || list.includes(who)) return false;
+  const a = table[who];
+  list.push(who);
+  busy = true;
+  const ask = METER.phase === 'find'
+    ? [{ who:'pc', text:'「我家的水表被人拆走了，你有看到什麼嗎？」' }]
+    : [{ who:'pc', text:'「水表我拿回來了，你會裝嗎？」' }];
+  playBeats([...ask, ...a.beats], 0, () => {
+    advanceTime(a.time || 15);
+    if(a.clue === 'yuan') METER.clueYuan = true;
+    if(a.mood){ chg('mood', a.mood); toast('（情緒 ' + a.mood + '）', 1800); }
+    if(METER.phase === 'find') meterCard(meterHintFind());
+    busy = false;
+  });
+  return true;
+}
+/* 阿源:沒被指過路他不認;被指過路才拿出來。 */
+function meterYuan(){
+  if(METER.asked.includes('yuan') && !METER.clueYuan) return false;
+  busy = true;
+  if(!METER.clueYuan){
+    METER.asked.push('yuan');
+    playBeats([
+      { who:'pc',   text:'「我家的水表被人拆走了，你有看到什麼嗎？」' },
+      { who:'yuan', text:'「水表？」' },
+      { who:'yuan', text:'「我看起來像水公司的嗎。」' }
+    ], 0, () => { advanceTime(15); meterCard(meterHintFind()); busy = false; });
+    return true;
+  }
+  const again = METER.revealed;
+  const reveal = METER.waitDad ? [
+    { who:'yuan', text:'「你爸來了嗎？」' },
+    { who:'pc',   text:'「還在睡。」' },
+    { who:'yuan', text:'「那還是一樣，三百。」' }
+  ] : again ? [
+    { who:'yuan', text:'「錢帶來了？」' }
+  ] : [
+    { who:'pc',   text:'「阿成說收銅的都拿來你這裡。我家的水表。」' },
+    { who:'yuan', text:'「……誰跟你說的。」' },
+    { who:'pc',   text:'他看了你幾秒，走到後面，拿出一顆水表放在桌上。鉛封剪過的那頭還掛著。' },
+    { who:'yuan', text:'「你爸拿來的。我給他三百。」' },
+    { who:'yuan', text:'「他說是別人家的。」' },
+    { who:'pc',   text:'你看著那顆表，上面的號碼你今天早上才在單子上看過。' },
+    { who:'yuan', text:'「三百。你現在給，還是叫你爸來拿？」' }
+  ];
+  playBeats(reveal, 0, () => {
+    if(!again){ METER.revealed = true; chg('mood', -6); toast('（情緒 −6）', 1800); }
+    const watched = WATCHJOB.lastDay >= 0;
+    openMenu('阿源', [
+      { label:'給他三百', cost: ST.money < 300 ? '身上不夠' : '−$300', cls: ST.money < 300 ? 'bad' : '',
+        run(){
+          if(ST.money < 300){ say('yuan', '「你身上沒有三百還跟我講價。」', () => { busy = false; }); return; }
+          chg('money', -300);
+          meterTake([{ who:'pc', text:'你把三百塊放在桌上，把水表拿起來。很重。' }]);
+        } },
+      { label: watched ? '「上次我幫你顧場。」' : '「我欠你一次。」', cost: watched ? '抵了' : '下次顧場少領 $300',
+        run(){
+          if(watched) meterTake([{ who:'yuan', text:'「上次你顧場，算抵了。拿去。」' }]);
+          else { METER.owe = true; meterTake([{ who:'yuan', text:'「你欠我一次。我記著。」' }, { who:'pc', text:'他把水表推過來。' }]); }
+        } },
+      { label:'「我叫他來拿。」', cost:'今天拿不到',
+        run(){
+          METER.waitDad = true;
+          playBeats([
+            { who:'yuan', text:'「那你等他醒。」' },
+            { who:'pc',   text:'他把水表收回後面去。' }
+          ], 0, () => { meterCard(meterHintFind()); busy = false; });
+        } }
+    ]);
+  });
+  return true;
+}
+function meterTake(tail){
+  playBeats([...tail, { who:'yuan', text:'「下次叫他不要拿家裡的東西來。」' }], 0, () => {
+    METER.phase = 'have'; METER.waitDad = false;
+    if(!TRASH.some(t => t.meter)) TRASH.push({ name:'水表', icon:'🔩', meter:true, detail:'你家的。鉛封剪過的那頭還掛著。<br>阿源說是爸拿去賣他的。' });
+    meterCard('水表拿回來了，你不會裝。找一個會裝的人。' + (METER.asked.includes('ayi') ? '<br><span class="qpNote">阿姨：廟口那個阿伯以前做水電的</span>' : ''));
+    logDay('水表在阿源那裡。是爸拿去賣的，三百塊。');
+    busy = false;
+  });
+}
+/* 阿伯跟你回去裝——鉛封剪過了,他用鐵絲綁一綁。裝完直接在家裡,水來了,洗澡。 */
+function meterInstall(){
+  busy = true;
+  playBeats([
+    { who:'pc', text:'「水表我拿回來了，你會裝嗎？」' },
+    { who:'bo', text:'「幾樓？表在一樓箱子裡？」' },
+    { who:'pc', text:'「對。」' },
+    { who:'bo', text:'「那簡單。」' },
+    { who:'pc', text:'他把手上的燈籠放在供桌上，從桌子底下拿出一個帆布袋，跟你走。' }
+  ], 0, () => {
+    const d = city.doors.find(x => x.id === 'home');
+    if(d){ returnTo.x = d.x; returnTo.z = d.z + 3; }
+    fade('家', () => {
+      warpIntoPlace(d);
+      setTimeout(() => playBeats([
+        { who:'pc', text:'他蹲在鐵門邊，二十分鐘沒講話。你在旁邊拿手機照。' },
+        { who:'bo', text:'「鉛封剪過了，我用鐵絲綁一綁。」' },
+        { who:'bo', text:'「抄表的來，你就說本來就這樣。」' },
+        { who:'pc', text:'你跟一個七十歲的人一起，做了一件小小的、犯規的事。' },
+        { who:'bo', text:'「上去開水龍頭。」' },
+        { who:'pc', text:'你扭開水龍頭，先是一陣咳嗽一樣的空氣聲，然後水衝出來。' },
+        { who:'pc', text:'你要拿錢給他，他把袋子背上，擺擺手。' },
+        { who:'bo', text:'「明天來廟口幫我換燈籠。」' }
+      ], 0, () => {
+        METER.phase = 'done';
+        { const i = TRASH.findIndex(t => t.meter); if(i >= 0) TRASH.splice(i, 1); }
+        meterCard(null);
+        chg('calm', 6); chg('mood', 6); chg('cool', 3);
+        toast('水來了。（歸屬感 +6　情緒 +6　帥潮 +3）', 3600);
+        waterCutWashed('home');
+        logDay('阿伯來幫我把水表裝回去，鐵絲綁的。他不收錢，叫我明天去換燈籠。');
+        advanceTime(45);
+        busy = false;
+      }), 700);
+    });
+  });
+  return true;
+}
+/* 晚上家裡——爸在沙發上,你口袋裡那截鉛封。 */
+function meterDadScene(){
+  METER.dadDone = true;
+  busy = true;
+  say('pc', '爸在沙發上，電視開著。你口袋裡有那截剪斷的鉛封。', () => {
+    openMenu('爸', [
+      { label:'放在他桌上', cost:'',
+        run(){
+          METER.sealLeft = true;
+          say('pc', '你把鉛封放在他桌上的菸灰缸旁邊，沒有講話。他沒有看。', () => {
+            chg('mood', -3); toast('（情緒 −3）', 1800);
+            logDay('我把鉛封放在爸桌上。');
+            busy = false;
+          });
+        } },
+      { label:'丟掉', cost:'',
+        run(){
+          say('pc', '你走到廚房，把鉛封丟進垃圾桶，跟今天一起。', () => {
+            logDay('鉛封我丟了。');
+            busy = false;
+          });
+        } },
+      { label:'「水表是你拿去賣的？」', cost:'',
+        run(){
+          playBeats([
+            { who:'dad', text:'「什麼水表。」' },
+            { who:'pc',  text:'「我們家的水表。阿源說你拿去賣他三百。」' },
+            { who:'dad', text:'「你在講什麼。」' },
+            { who:'pc',  text:'他轉頭看你，眼睛裡沒有心虛，只有不耐煩。' },
+            { who:'pc',  text:'他不是在騙你。他是真的不記得。' }
+          ], 0, () => {
+            chg('mood', -6); toast('（情緒 −6）', 1800);
+            logDay('我問爸水表的事。他說什麼水表。他真的不記得。');
+            busy = false;
+          });
+        } }
+    ]);
+  });
+}
+function meterMomScene(){
+  METER.momTold = true;
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'「水表是爸拿去賣的。阿源那邊，三百塊。」' },
+    { who:'pc',  text:'她沒有轉頭，看著電視。' },
+    { who:'mom', text:'「他又拿去賣了。」' },
+    { who:'mom', text:'「上次是電鍋。」' },
+    { who:'pc',  text:'你不知道有上次。' }
+  ], 0, () => {
+    chg('calm', -3); toast('（歸屬感 −3）', 1800);
+    logDay('媽說上次是電鍋。我不知道有上次。');
+    busy = false;
+  });
 }
 
 /* ===== 捐血那天(2026-09-16,見 DAILY_EVENTS 'blood')===============================
@@ -11006,6 +11339,8 @@ function enterIndoor(door){
   /* 期中考那天的校門口(2026-09-15)——阿凱在門外等你決定,見 MIDTERM 那則
      長筆記。攔在最前面,回傳 true 就整個接走,連 returnTo 都還沒記。 */
   if(door.id === 'school' && examGate(door)) return;
+  /* 停水那天回家看水表箱(2026-09-17,見 METER)——沒有樓梯間場景,箱子就在鐵門邊,一段旁白。 */
+  if(door.id === 'home' && meterBoxCheck(door)) return;
   if(door.id !== 'store' && door.id !== 'home' && door.id !== 'school' && door.id !== 'arcade' && door.id !== 'tattoo'){
     toast(door.name + ' 的室內場景還沒做。', 3600);
     return;
@@ -13597,6 +13932,7 @@ function talkToStallVendor(state, data, whoKey, onBuyMenu, opts){
 function talkToAyi(){
   logTalk('阿姨');
   if(bloodAsk('ayi')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('ayi')) return;   // 水表去哪了(見 METER)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('ayi')){ runDailyGoto('ayi'); return; }
   talkToStallVendor(AYI, AYI_DATA, 'ayi', () => {
@@ -13631,6 +13967,7 @@ function talkToAyi(){
 function talkToAcheng(){
   logTalk('阿成');
   if(bloodAsk('acheng')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('acheng')) return;   // 水表去哪了(見 METER)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('acheng')){ runDailyGoto('acheng'); return; }
   talkToStallVendor(ACHENG, ACHENG_DATA, 'acheng', () => {
@@ -13977,6 +14314,7 @@ function openFortuneMenu(){
 function talkToFortune(){
   logTalk('算命的');
   if(bloodAsk('fortune')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('fortune')) return;   // 水表去哪了(見 METER)
   /* 捐血之後去謝謝他(2026-09-16,kc:「做吧 比較完善」)——媽說「你去謝謝人家」之後掛的支線,
      來了他先問阿嬤怎樣,再兌現那句「回來記得來抽一支籤,不收你錢」,抽完自己去。 */
   if(BLOOD.found && BLOOD.momTalked && !BLOOD.thanked){
@@ -14051,6 +14389,7 @@ const YUAN_DATA = NpcTemple.NPCS.find(n => n.id === 'yuan');
 function talkToYuan(){
   logTalk('阿源');
   if(bloodAsk('yuan')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('yuan')) return;   // 水表去哪了(見 METER)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('yuan')){ runDailyGoto('yuan'); return; }
   /* 出賣後的翻臉(2026-09-01,kc:「他會咒罵出賣他的人 你會心虛的應對
@@ -14393,6 +14732,7 @@ function yuanCasualTalk(){
 function talkToMei(){
   logTalk('小美');
   if(bloodAsk('mei')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('mei')) return;   // 水表去哪了(見 METER)
   /* 跟同學培養感情(見 checkFieldTrip() 附近 CLASSMATE_QUEST 那則長筆記)
      ——擋在最前面,校外教學這趟第一次找她講話只播這句、不進平常 met/
      dated 那套判斷,避免這次的溫馨閒聊被帥潮門檻擋掉或誤觸發約會流程。 */
@@ -14641,6 +14981,7 @@ function maybeCounsel(after){
 function talkToJiaoguan(){
   logTalk('教官');
   if(bloodAsk('jiaoguan')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('jiaoguan')) return;   // 水表去哪了(見 METER)
   const D = NpcSchool.JIAOGUAN;
   if(!YUAN.hasTattoo || JIAOGUAN.confronted){
     /* 校門口的教官認得上下課時間(2026-09-11,kc 定案,見 SCHOOL_IN_MINUTE):
@@ -14984,6 +15325,7 @@ function removeTattoo(){
 function talkToAren(){
   logTalk('阿仁');
   if(bloodAsk('aren')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('aren')) return;   // 水表去哪了(見 METER)
   /* 跟同學培養感情(見 CLASSMATE_QUEST 那則長筆記)——同一招擋在最前面。 */
   if(CLASSMATE_QUEST.active && !CLASSMATE_QUEST.talkedAren){
     CLASSMATE_QUEST.talkedAren = true;
@@ -15036,6 +15378,7 @@ function talkToAren(){
 function talkToTeacher(){
   logTalk('老師');
   if(bloodAsk('teacher')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('teacher')) return;   // 水表去哪了(見 METER)
   const D = NpcSchool.TEACHER;
   /* 班費・還給老師(2026-09-02,見 talkToWorker() CLASSFUND 那則長筆記
      第④點)——攔在最前面,比清寒補助優先權更高(玩家手上正拿著要還的
@@ -15236,6 +15579,7 @@ function syncBrotherArcPanel(){
 function talkToBrother(){
   logTalk('小美哥');
   if(bloodAsk('brother')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('brother')) return;   // 水表去哪了(見 METER)
   const D = NpcSchool.BROTHER;
   /* 班費失竊(2026-09-02)——攔在最前面,跳過下面 MEI.together 那道門檻。
      阿正原本的登場邏輯綁在跟小美交往之後(見 BROTHER 那則舊筆記,「他
@@ -15474,6 +15818,7 @@ function kaiCheckinLines(){
 function talkToKai(){
   logTalk('阿凱');
   if(bloodAsk('kai')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('kai')) return;   // 水表去哪了(見 METER)
   /* day5 跑腿(2026-09-10,見 KAI_RUN 那段)——擋在最前面,優先於閒聊。
      他說的是「放學」過來,所以今天要真的上完課(deskActionDay===day,跟
      finishSchoolDay() 同一個判斷)才給袋子,不然他只會叫你放學再說。 */
@@ -15539,6 +15884,7 @@ function foremanDogItem(){
 function talkToForeman(){
   logTalk('工地老闆');
   if(bloodAsk('foreman')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('foreman')) return;   // 水表去哪了(見 METER)
   /* 今天的事正好是工地缺工(見 DAILY_EVENTS site-work)——擋在最前面。
      ⚠ 體力不夠先擋掉、**任務不消耗**(不叫 runDailyGoto,DAILY 還是未完成),
      休息完再來還接得到;直接開工會變成體力 0 也能扛磚,跟上工那個選項的門檻
@@ -16125,6 +16471,7 @@ function finishTroupeGame(){
 function talkToMotoBoss(){
   logTalk('旺鴻');
   if(bloodAsk('motoboss')) return;   // 捐血那天(見 BLOOD)
+  if(meterAsk('motoboss')) return;   // 水表去哪了(見 METER)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('motoboss')){ runDailyGoto('motoboss'); return; }
   /* 算命攤跑腿任務(2026-08-27)——攔在最前面,跟這裡原本的劇情/買車邏輯
@@ -16839,7 +17186,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
