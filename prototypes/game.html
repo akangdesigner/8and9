@@ -10555,8 +10555,15 @@ function dailyGotoReady(who){
   const e = dailyDef();
   return !!e && e.goto === who && !DAILY.done && DAILY.day === day;
 }
+/* 今天的事做完之後那張卡(2026-09-17 kc:「當我解完阿嬤的任務之後我突然不知道要幹嘛也沒有提示」)——
+   不是收掉,是換成「做完了,接下來可以幹嘛」。前兩天多一句床在哪。 */
+function todayFreeCard(){
+  const early = day <= 2 ? '<br><span class="qpNote">要睡覺就回家進房間，走到床邊按空白鍵。</span>' : '';
+  const money = ST.money < 300 ? '身上的錢不多了，' : '';
+  setTodayCard('今天的事做完了。' + money + '想賺錢去超商或工地打工，想休息就回家睡覺，明天再說。' + early, '今天');
+}
 function dailyDone(){
-  DAILY.done = true; clearTodayCard();
+  DAILY.done = true; todayFreeCard();
   const e = dailyDef();
   if(e && e.diary) logDay(e.diary);
 }
@@ -10728,6 +10735,7 @@ function payBill(b){
   if(i >= 0) BILLS.splice(i, 1);
   logDay('去超商繳了' + b.name + '，$' + b.amount + '。這個家的單子都是我在繳。');
   syncMiscQuestPanel();
+  if(DAILY.id === b.id && DAILY.day === day && !DAILY.done && b.id !== 'water-cut') dailyDone();   // 今天的事就是這張單,繳完換「做完了」那張卡(2026-09-17)
   toast('繳完了。店員把收據撕下來給你。\n（金錢 −' + b.amount + '）', 3400);
   /* 停水那天繳的是這張:繳完在店門口打電話,水公司說水表不見了(見 METER)。 */
   if(b.id === 'water-cut' && WATER_CUT.active){
@@ -12837,7 +12845,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
       /* 事情發生了就收掉早上那張提醒卡——**除非這個節點自己要換掉卡的內容**
          (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
          要留到那件事真的做完。 */
-      if(!node.questAfter) clearTodayCard();
+      if(!node.questAfter) todayFreeCard();   // 做完了換成「接下來可以幹嘛」,不是收掉(2026-09-17)
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
