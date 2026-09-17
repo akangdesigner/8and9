@@ -3842,7 +3842,7 @@ const FAT_DATA = NpcTemple.NPCS.find(n => n.id === 'fat');
 /* 阿伯(2026-09-16)——8/21 起一直只有對話框頭像沒有人,這輪補真身(MODELS.m9,Adam 弄老,
    見 scene-city3d.js 那則)。站在廟門另一側柱子旁掃地(跟小胖對稱),對話走
    talkToStallVendor() 那套 events(at:3/at:6)+talk[] 隨機句,資料在 npc-temple.js。 */
-const BO = { x:8, z:-102.8, visits:0, seenEvents:{} };
+const BO = { x:4.4, z:-91.6, visits:0, seenEvents:{} };   // 2026-09-17 kc:「阿北要站在功德香桌子旁邊」——供桌在 (0,-92) 6×4.4,站桌子東側
 const BO_DATA = NpcTemple.NPCS.find(n => n.id === 'bo');
 function talkToBo(){
   logTalk('阿伯');
@@ -4251,7 +4251,7 @@ const NPCS = [
     tattoo:{ texFile:'tattoo-dragon-koi.png' }          // 前臂刺青,位置是目前肉眼調的最佳猜測,還沒最終確認
   }),
   buildNPC(THREE, scene, {                             // 阿伯・70幾・顧廟,廟門另一側柱子旁(見 BO 那則筆記)
-    x:BO.x, z:BO.z, rotationY:0, rig:'m9',   // 0 = 面向廟埕(π 是背對,截圖核過)
+    x:BO.x, z:BO.z, rotationY:-Math.PI/2, rig:'m9',   // 0 = 面向廟埕、π 背對(截圖核過);站供桌東側,−π/2 側身朝桌子(+π/2 是背對桌子,也核過)
     height: PLAYER.height * .9,
     skin:'#b98a63', hair:'#cfcfc8', hood:'#5f6f66', pants:'#3d4247', shoe:'#4a4744'
   }),
