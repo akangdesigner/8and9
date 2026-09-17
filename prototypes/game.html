@@ -1423,7 +1423,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2522,8 +2522,23 @@ window.debugWaterCut = debugWaterCut;
    時鐘 07:00、人躺在房間床邊,然後走 maybeIdleDay() 那條正常的早上流程(抽當天的日常事件、
    該在房間播的就在房間播、該出房門/出家門才發生的就等玩家自己走)。id 只是保險:那天表上
    排的不是它就臨時把那格改成它。 */
-function debugDailyMorning(id, toDay){
-  if(DAILY_SCHEDULE[toDay] !== id) DAILY_SCHEDULE[toDay] = id;
+/* 跳到任何一天的早上(2026-09-17,kc:「從第二天開始測試給我按鈕」)——跟 debugDailyMorning 同一條
+   睡醒流程,但不指定事件,那天表上排什麼就播什麼(主線節點走出房門/進客廳才觸發,跟平常一樣)。
+   那天要是會被跳過的空白日,就改跳到下一個有事的日子並講一聲。 */
+function debugJumpDay(){
+  const want = Math.max(1, parseInt(document.getElementById('dbgDay').value, 10) || 1);
+  const to = dayHasSomething(want) ? want : nextActiveDay(want - 1);
+  if(to !== want) toast('第 ' + want + ' 天沒事會被跳過，改跳第 ' + to + ' 天。', 3000);
+  document.getElementById('dbgDay').value = to;
+  wakeAtMorning(to);
+}
+function debugNextDay(){
+  const to = nextActiveDay(day);
+  document.getElementById('dbgDay').value = to;
+  wakeAtMorning(to);
+}
+window.debugJumpDay = debugJumpDay; window.debugNextDay = debugNextDay;
+function wakeAtMorning(toDay){
   day = toDay; minute = 7*60;
   DAILY.id = null; DAILY.day = -1; DAILY.done = false; DAILY.told = false; DAILY.dueDay = -1;
   clearTodayCard();
@@ -2541,6 +2556,10 @@ function debugDailyMorning(id, toDay){
   busy = false;
   toast('第 ' + day + ' 天早上。', 2400);
   maybeIdleDay();
+}
+function debugDailyMorning(id, toDay){
+  if(DAILY_SCHEDULE[toDay] !== id) DAILY_SCHEDULE[toDay] = id;
+  wakeAtMorning(toDay);
 }
 function debugBlood(){
   hospitalCallFired = true;   // 事件的 need() 要阿嬤那通電話打過
