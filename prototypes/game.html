@@ -1397,7 +1397,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2329,6 +2329,12 @@ window.debugSkipDays = debugSkipDays;
    飽足感(見 chg() 那條「扣體力同步扣飽足感」),重複測同一段劇情容易把
    飽足感磨低,見底會直接遊戲結束(GAME_OVER_TEXT.full)。跟其他 __dbg
    按鈕同一套,不用叫 kc 自己打 console 指令。 */
+/* 補錢(2026-09-17 kc:「幫我補錢」)——測試用,一次 +$1000。 */
+function debugFillMoney(){
+  chg('money', 1000);
+  toast('補了 $1000。', 2000);
+}
+window.debugFillMoney = debugFillMoney;
 function debugFillFull(){
   ST.full = ST_MAX.full ?? 100;
   syncHUD();
