@@ -2494,35 +2494,30 @@ window.debugJumpTemple = debugJumpTemple;
 function debugWaterCut(){ debugDailyMorning('water-cut', 50); }
 window.debugWaterCut = debugWaterCut;
 /* 捐血測試鈕(2026-09-16)——不換天,直接把今天變成捐血那天。 */
-/* 日常事件型的測試鈕共用(2026-09-16,kc:「捐血要跳回早上啊」)——日子撥到那一天、
-   時鐘撥回 07:00、人放回家裡客廳,跟真的睡醒一樣從早上開始,不是把當下那一刻硬變成
-   那件事。 */
+/* 日常事件型的測試鈕共用(2026-09-16,kc:「捐血要跳回早上啊」;2026-09-17 kc:「我之前講過了
+   任務是要從睡醒開始」)——不是把人放到客廳直接播,是**跟真的睡醒一樣**:日子撥到那天、
+   時鐘 07:00、人躺在房間床邊,然後走 maybeIdleDay() 那條正常的早上流程(抽當天的日常事件、
+   該在房間播的就在房間播、該出房門/出家門才發生的就等玩家自己走)。id 只是保險:那天表上
+   排的不是它就臨時把那格改成它。 */
 function debugDailyMorning(id, toDay){
-  const e = DAILY_EVENTS.find(x => x.id === id);
+  if(DAILY_SCHEDULE[toDay] !== id) DAILY_SCHEDULE[toDay] = id;
   day = toDay; minute = 7*60;
-  DAILY.id = e.id; DAILY.day = day; DAILY.done = false; DAILY.told = false; DAILY.dueDay = e.bill ? day + e.days : -1;
+  DAILY.id = null; DAILY.day = -1; DAILY.done = false; DAILY.told = false; DAILY.dueDay = -1;
   clearTodayCard();
   const d = city.doors.find(x => x.id === 'home');
   if(d){ returnTo.x = d.x; returnTo.z = d.z + 3; }
+  MODE = 'indoor'; PLACE = 'bedroom';
+  document.getElementById('city').style.display = 'none';
+  wlabelsEl.style.display = 'none';
+  document.getElementById('indoor').classList.add('on');
+  IN.px = (BEDROOM_WALK_TWEAK.minPx + BEDROOM_WALK_TWEAK.maxPx) / 2; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
+  document.getElementById('where').textContent = '房間';
+  paintBedroomBackdrop();
   syncHUD(); syncMiscQuestPanel();
-  if(e.via === 'living'){
-    /* 走出房門才發生的:人放在房間床邊,走出房門那一步會接 checkDailyLiving()。 */
-    MODE = 'indoor'; PLACE = 'bedroom';
-    document.getElementById('city').style.display = 'none';
-    wlabelsEl.style.display = 'none';
-    document.getElementById('indoor').classList.add('on');
-    IN.px = (BEDROOM_WALK_TWEAK.minPx + BEDROOM_WALK_TWEAK.maxPx) / 2; IN.py = BEDROOM.walkS - 10; IN.face = 'F'; IN.near = null;
-    document.getElementById('where').textContent = '房間';
-    paintBedroomBackdrop();
-    toast('第 ' + day + ' 天早上。走出房門。', 3000);
-    return;
-  }
-  DAILY.told = true;
-  if(d) warpIntoPlace(d);
-  e.instant();
-  dailyCard(e);
-  busy = true;
-  setTimeout(() => sayDaily(e, () => { busy = false; }), 700);
+  snapDay();
+  busy = false;
+  toast('第 ' + day + ' 天早上。', 2400);
+  maybeIdleDay();
 }
 function debugBlood(){
   hospitalCallFired = true;   // 事件的 need() 要阿嬤那通電話打過
