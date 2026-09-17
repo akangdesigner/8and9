@@ -2770,6 +2770,7 @@ function centerFloat(k, d, el){
 }
 const toastEl = document.getElementById('toast');
 function toast(txt, ms){
+  txt = withName(txt);
   toastEl.textContent = txt; toastEl.classList.add('on');
   clearTimeout(toast._t);
   toast._t = setTimeout(() => toastEl.classList.remove('on'), ms || 2800);
@@ -2940,6 +2941,7 @@ const PORTRAIT_IMGS = {
   yuan:   loadPortraitImg('../assets/bg/yuan-portrait.png?v=3'),
   nurse:  loadPortraitImg('../assets/bg/nurse-portrait.png?v=1'),   // 2026-09-16 kc 用 GPT 生的,已去背
   fortune: loadPortraitImg('../assets/bg/fortune-portrait.png?v=1'),   // 2026-09-16 同上
+  bo:      loadPortraitImg('../assets/bg/bo-portrait.png?v=1'),   // 2026-09-17 kc 用 GPT 生的,已去背
   /* 學校三人(2026-08-24)——先試過拿 3D 模型近拍當大頭貼,kc 抓到「沒有
      眼球」(骨架轉檔時原廠臉部貼圖被剝掉,只剩 Eyelashes 那個獨立 mesh,
      見跟 kc 的對話紀錄),改回跟店員/爸媽同一套 AI 生真人照片。阿仁刻意
@@ -3041,7 +3043,13 @@ function splitSpeech(who, text){
   if(who === 'pc' && !segs.some(sg => /[。！？…]」$/.test(sg.text) && sg.text.startsWith('「'))) return null;
   return segs;
 }
+/* 台詞裡帶主角名字(2026-09-17,kc:「可不可以有一些對話是帶到主角名字的」)——資料寫 {name},
+   在 say()/toast() 出口換成 PLAYER_NAME(沒取名退回「小傑」)。資料多半是載入時就建好的常數,
+   那時候名字還沒輸入,所以只能在播的時候換。 */
+function pcName(){ return PLAYER_NAME || '小傑'; }
+function withName(t){ return (typeof t === 'string' && t.includes('{name}')) ? t.replace(/\{name\}/g, pcName()) : t; }
 function say(who, text, after){
+  text = withName(text);
   const parts = splitSpeech(who, text);
   if(parts){ playBeats(parts, 0, after); return; }
   drawPortrait(who);
@@ -7954,7 +7962,7 @@ function openIndoorSpot(id){
           { who:'mom', text:'「你去謝謝人家。」' }
         ] : [
           { who:'mom', text:'「開完了。醫院晚上自己調到血，拖到十點多。」' },
-          { who:'mom', text:'「你昨天跑去哪了。」' },
+          { who:'mom', text:'「{name}，你昨天跑去哪了。」' },
           { who:'pc',  text:'「我問了一整天。」' },
           { who:'pc',  text:'她看了你一下，把電視轉回去。' }
         ], 0, () => {
@@ -9728,7 +9736,7 @@ const KAI_RUN_PAY = 400;
 function kaiRunReady(){ return KAI_RUN.pending && !KAI_RUN.gotBag && !KAI_RUN.done; }
 const KAI_RUN_HANDOFF = [
   { who:'pc',  text:'機車行外面那排車，阿凱靠在其中一台上。' },
-  { who:'kai', text:'「來了喔。」' },
+  { who:'kai', text:'「{name}，來了喔。」' },
   { who:'pc',  text:'他從腳踏墊那邊拎起一個打結的塑膠袋，塞到你手上。' },
   { who:'kai', text:'「遊藝場側門，有人在那邊等。」' },
   { who:'pc',  text:'「裡面是什麼。」' },
@@ -10121,7 +10129,7 @@ const DAILY_EVENTS = [
     beats:[
       { who:'pc',  text:'你扭開水龍頭，只有空氣的聲音。' },
       { who:'pc',  text:'媽站在門口。' },
-      { who:'mom', text:'「水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」' },
+      { who:'mom', text:'「{name}，水費沒繳，被停了。你去繳，繳完打電話叫他們來開。」' },
       { who:'pc',  text:'單子在桌上，$120。' } ],
     hint:'去超商櫃台繳水費（$120）', note:'家裡沒水' },
   /* 捐血那天(2026-09-16,kc:「走投無路四處求人的感覺 比如要求人捐血給阿嬤 那就要到處
@@ -10371,7 +10379,7 @@ function runDailyGoto(who){
   if(who === 'mom'){
     dailyDone();
     playBeats([
-      { who:'mom', text:'「你身上還有錢嗎。」' },
+      { who:'mom', text:'「{name}，你身上還有錢嗎。」' },
       { who:'pc',  text:'她沒有看你，看的是你桌上那個袋子。' },
       { who:'mom', text:'「五百就好，朋友那邊周轉一下。」' }
     ], 0, () => openMenu('', [
@@ -10765,7 +10773,7 @@ function meterYuan(){
     playBeats([
       { who:'pc',   text:'「我家的水表被人拆走了，你有看到什麼嗎？」' },
       { who:'yuan', text:'「水表？」' },
-      { who:'yuan', text:'「我看起來像水公司的嗎。」' }
+      { who:'yuan', text:'「{name}，我看起來像水公司的嗎。」' }
     ], 0, () => { advanceTime(15); meterCard(meterHintFind()); busy = false; });
     return true;
   }
@@ -10844,7 +10852,7 @@ function meterInstall(){
         { who:'pc', text:'他蹲在你家鐵門邊的水表箱前面，二十分鐘沒講話。你在旁邊拿手機照。' },
         { who:'bo', text:'「鉛封剪過了，我用鐵絲綁一綁。」' },
         { who:'bo', text:'「抄表的來，你就說本來就這樣。」' },
-        { who:'bo', text:'「上去開水龍頭試試。」' },
+        { who:'bo', text:'「{name}，上去開水龍頭試試。」' },
         { who:'pc', text:'你跑上去扭開水龍頭，空氣聲響了一陣，然後水衝出來。' },
         { who:'pc', text:'你再下來的時候他已經把袋子背上了。你要拿錢給他，他擺擺手。' },
         { who:'bo', text:'「明天來廟口幫我換燈籠。」' }
@@ -11002,7 +11010,7 @@ function bloodBriefing(){
      那句「她就是這樣講」是她的;叫你去外面找、她留下來顧,是她這天唯一能做的事。 */
   playBeats([
     { who:'pc',    text:'護理站前面站著媽，她比你早到，手上還拿著早餐店的袋子。' },
-    { who:'mom',   text:'「你怎麼現在才來。」' },
+    { who:'mom',   text:'「{name}，你怎麼現在才來。」' },
     { who:'pc',    text:'護理站的人看到你，先確認你是家屬。' },
     { who:'nurse', text:'「阿嬤明天早上要開刀，血庫 O 型不夠，家屬今天要自己找一個 O 型的人來捐。」' },
     { who:'pc',    text:'「我去。」' },
@@ -12213,7 +12221,7 @@ const GRANDMA_AWAKE_CHANCE = .35;
 /* 2026-09-16 改成 beats(kc:「為何不要 阿嬤:『書有沒有在讀』 你:『有』 阿嬤:『那就好』」)——她問、你答、
    她回,各一句各自的頭像,不用旁白轉述。 */
 const GRANDMA_AWAKE_LINES = [
-  [ { who:'granny', text:'「你來啦。」' }, { who:'pc', text:'她的聲音很小，但看得出來是高興的。' } ],
+  [ { who:'granny', text:'「{name}，你來啦。」' }, { who:'pc', text:'她的聲音很小，但看得出來是高興的。' } ],
   [ { who:'granny', text:'「有沒有吃飽。」' }, { who:'pc', text:'跟以前一樣。' }, { who:'pc', text:'「有。」' } ],
   [ { who:'pc', text:'她拉著你的手，沒說什麼，只是笑了一下。' } ],
   [ { who:'granny', text:'「乖，常回來看阿嬤。」' }, { who:'pc', text:'「嗯。」' } ],
@@ -12290,7 +12298,7 @@ function deliverGrandmaBag(){
     { who:'granny', text:'「註冊單你媽給你了沒。」' },
     { who:'pc',     text:'「給了。」' },
     { who:'granny', text:'「那就好好念，不要學你媽。」' },
-    { who:'granny', text:'「畢業的時候，證書拿來給我看。」' },
+    { who:'granny', text:'「{name}，畢業的時候，證書拿來給我看。」' },
     { who:'pc',     text:'「嗯。」' },
     { who:'granny', text:'「我等你。」' }
   ], 0, () => {
@@ -14041,7 +14049,7 @@ function talkToAcheng(){
           chg('star', 3);
           const first = q.times === 1;
           if(first) chg('calm', 6);
-          const line = first ? '「你人真好。」' : q.times === 2 ? '「今天怎麼又來。」' : q.times === 3 ? '「廟口這幾天比較乾淨了，阿伯有講。」' : '「習慣了喔。」';
+          const line = first ? '「你人真好。」' : q.times === 2 ? '「{name}，今天怎麼又來。」' : q.times === 3 ? '「廟口這幾天比較乾淨了，阿伯有講。」' : '「習慣了喔。」';
           toast(line + '阿成塞給你一包滷味。（滷味 ×1，風評 +3' + (first ? '，歸屬感 +6' : '') + '）', 2600);
         } });
     } else if(!q.active && q.lastDay !== day){
@@ -15078,11 +15086,11 @@ function talkToJiaoguan(){
       return;
     }
     if(minute < SCHOOL_IN_MINUTE){
-      say('jiaoguan', '「早。進去吧。」');
+      say('jiaoguan', '「{name}，早，進去。」');
       return;
     }
     if(minute < SCHOOL_OUT_MINUTE && lastSchoolDay !== day){
-      say('jiaoguan', '「現在幾點了？還在外面晃。」');
+      say('jiaoguan', '「{name}，現在幾點了？還在外面晃。」');
       return;
     }
     /* 放學後/今天上過了:用 gateTalk(校門口專用),不用 idleTalk——那組有
@@ -15845,7 +15853,7 @@ function talkToBrother(){
       playBeats([
         { who:'pc',      text:'「貼好了。」' },
         { who:'brother', text: t === 0 ? '「好。這種事沒人要做，謝了。」' : t === 1 ? '「公車亭那張昨天被撕了，你貼的位置太低。」' : t === 2 ? '「里長有看到，問我是哪個學生在貼。」' : '「好，放著吧。」' },
-        ...(t === 2 ? [{ who:'pc', text:'「你怎麼說。」' }, { who:'brother', text:'「我說是我朋友。」' }] : [])
+        ...(t === 2 ? [{ who:'pc', text:'「你怎麼說。」' }, { who:'brother', text:'「我說{name}，我朋友。」' }] : [])
       ], 0, () => {
         finishNoticeJob();
         toast('（風評 +3）', 1800);
