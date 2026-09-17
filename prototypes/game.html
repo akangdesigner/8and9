@@ -10821,37 +10821,42 @@ function meterTake(tail){
     busy = false;
   });
 }
-/* 阿伯跟你回去裝——鉛封剪過了,他用鐵絲綁一綁。裝完直接在家裡,水來了,洗澡。 */
+/* 阿伯跟你回去裝——水表箱在一樓鐵門邊,整段在**家門口的街上**演(2026-09-17 kc:「阿北裝水表會在
+   家門口啊 怎會在家裡」),不進屋。鉛封剪過了,他用鐵絲綁一綁;你跑上去開水龍頭再下來。 */
 function meterInstall(){
   busy = true;
   playBeats([
     { who:'pc', text:'「水表我拿回來了，你會裝嗎？」' },
-    { who:'bo', text:'「幾樓？表在一樓箱子裡？」' },
+    { who:'bo', text:'「表在一樓箱子裡？」' },
     { who:'pc', text:'「對。」' },
     { who:'bo', text:'「那簡單。」' },
     { who:'pc', text:'他把手上的燈籠放在供桌上，從桌子底下拿出一個帆布袋，跟你走。' }
   ], 0, () => {
     const d = city.doors.find(x => x.id === 'home');
-    if(d){ returnTo.x = d.x; returnTo.z = d.z + 3; }
-    fade('家', () => {
-      warpIntoPlace(d);
+    fade(city.whereAmI(d.x, d.z + 3), () => {
+      MODE = 'city';
+      document.getElementById('indoor').classList.remove('on');
+      document.getElementById('city').style.display = '';
+      wlabelsEl.style.display = '';
+      hero.group.position.set(d.x, .3, d.z + 3);
+      advanceTime(20);
       setTimeout(() => playBeats([
-        { who:'pc', text:'他蹲在鐵門邊，二十分鐘沒講話。你在旁邊拿手機照。' },
+        { who:'pc', text:'他蹲在你家鐵門邊的水表箱前面，二十分鐘沒講話。你在旁邊拿手機照。' },
         { who:'bo', text:'「鉛封剪過了，我用鐵絲綁一綁。」' },
         { who:'bo', text:'「抄表的來，你就說本來就這樣。」' },
-        { who:'bo', text:'「上去開水龍頭。」' },
-        { who:'pc', text:'你扭開水龍頭，空氣聲響了一陣，然後水衝出來。' },
-        { who:'pc', text:'你要拿錢給他，他把袋子背上，擺擺手。' },
+        { who:'bo', text:'「上去開水龍頭試試。」' },
+        { who:'pc', text:'你跑上去扭開水龍頭，空氣聲響了一陣，然後水衝出來。' },
+        { who:'pc', text:'你再下來的時候他已經把袋子背上了。你要拿錢給他，他擺擺手。' },
         { who:'bo', text:'「明天來廟口幫我換燈籠。」' }
       ], 0, () => {
         METER.phase = 'done';
         { const i = TRASH.findIndex(t => t.meter); if(i >= 0) TRASH.splice(i, 1); }
         meterCard(null);
-        chg('calm', 6); chg('mood', 6); chg('cool', 3);
-        toast('水來了。（歸屬感 +6　情緒 +6　帥潮 +3）', 3600);
-        waterCutWashed('home');
-        logDay('阿伯來幫我把水表裝回去，鐵絲綁的。他不收錢，叫我明天去換燈籠。');
-        advanceTime(45);
+        chg('calm', 6); chg('mood', 6);
+        toast('水來了。（歸屬感 +6　情緒 +6）', 3600);
+        WATER_CUT.active = false; syncWashQuest();
+        logDay('阿伯來幫我把水表裝回去，鐵絲綁的。他不收錢，叫我明天去換燈籠。水來了。');
+        advanceTime(25);
         busy = false;
       }), 700);
     });
