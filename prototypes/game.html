@@ -210,6 +210,22 @@
      你決定... 這樣就可以一次度過好幾天」)——日記 →「你悠悠地睡了一覺」黑畫面之後,
      如果這次會跳過好幾天而且那幾天排了跨天事件,就蓋這一頁:一張紙,日期範圍、
      一段敘述、兩三個選項;選完顯示結果,按空白才醒來。沒排事件不出頁。見 SPAN_EVENTS。 */
+  /* 核心目標那一頁(2026-09-17,見 showGoalCard):跟跨天頁同一張黑底+紙,字分兩拍寫進來 */
+  #goalCard { position:fixed; inset:0; z-index:62; background:#05060a; display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .6s ease; }
+  #goalCard.on { opacity:1; pointer-events:auto; }
+  #goalSheet { width:min(460px, 88vw); padding:34px 36px 22px; text-align:center; }
+  #goalSheet .gLb { font-family:var(--sp-kai); font-weight:700; font-size:13px; letter-spacing:.5em; text-indent:.5em; color:var(--ui-red);
+    opacity:0; transition:opacity .5s ease .3s; }
+  #goalSheet .gTx { font-family:var(--sp-kai); font-weight:700; font-size:44px; letter-spacing:.14em; color:var(--ui-ink); margin:14px 0 10px; line-height:1.3; }
+  #goalSheet .gTx span { display:inline-block; opacity:0; transform:translateY(10px) scale(1.06); filter:blur(3px);
+    transition:opacity .7s ease, transform .7s ease, filter .7s ease; }
+  #goalSheet .gTx span:nth-child(1) { transition-delay:.9s; }
+  #goalSheet .gTx span:nth-child(2) { transition-delay:1.7s; }
+  #goalSheet .gSub { font-family:var(--sp-serif); font-size:14px; letter-spacing:.12em; color:var(--ui-ink2); opacity:0; transition:opacity .6s ease 2.6s; }
+  #goalSheet .gTip { margin-top:18px; text-align:right; font-size:11.5px; letter-spacing:.18em; color:var(--ui-ink2); opacity:0; transition:opacity .6s ease 3.2s; }
+  #goalCard.on .gLb, #goalCard.on .gSub, #goalCard.on .gTip { opacity:1; }
+  #goalCard.on .gTx span { opacity:1; transform:none; filter:none; }
   #spanPage { position:fixed; inset:0; z-index:61; background:#05060a;   /* 全黑:卡片選完之前都還在「睡了一覺」的黑畫面裡(kc),選完按空白才淡回房間 */
     display:flex; align-items:center; justify-content:center;
     opacity:0; pointer-events:none; transition:opacity .4s ease; }
@@ -1414,6 +1430,7 @@
   <div class="menuNote">WASD 走路　空白鍵 互動　Shift 跑<br>遊戲中隨時按 ESC 或右上角「選單」存檔</div>
 </div>
 <div id="menuOverlay"></div>
+<div id="goalCard"><div id="goalSheet" class="menuSheet"><div class="gLb">核心目標</div><div class="gTx"><span>活下來，</span><span>畢業。</span></div><div class="gSub">阿嬤說她等你。</div><div class="gTip">按 空白鍵 繼續</div></div></div>
 <div id="spanPage"><div id="spanSheet" class="menuSheet"><div class="spanDate" id="spanDate"></div><div class="spanTitle" id="spanTitle"></div><div class="spanText" id="spanText"></div><div id="spanOpts"></div><div class="spanResult" id="spanResult" hidden></div><div class="spanTip" id="spanTip" hidden>按 空白鍵 繼續</div></div></div>
 <div id="sleepPage"><div id="spPaper">
   <div id="spDate"></div>
@@ -9611,10 +9628,10 @@ function showSleepPage(onDone){
 /* 過渡頁開著的時候空白鍵只用來關它——用 capture 攔在遊戲那個全域 keydown
    前面,不然同一次按鍵會被下面的互動邏輯也吃掉一次。 */
 addEventListener('keydown', e => {
-  if(!sleepPageDone && !spanPageDone) return;
+  if(!sleepPageDone && !spanPageDone && !goalCardDone) return;
   if(e.code === 'Space' || e.code === 'Enter'){
     e.preventDefault(); e.stopPropagation();
-    if(sleepPageDone) sleepPageDone(); else if(spanPageDone) spanPageDone();   // spanPageDone 現在不會被設(選了就關),留著無害
+    if(sleepPageDone) sleepPageDone(); else if(spanPageDone) spanPageDone(); else closeGoalCard();   // spanPageDone 現在不會被設(選了就關),留著無害
   }
 }, true);
 
@@ -9762,6 +9779,25 @@ function spanEventFor(from, to){
   return null;
 }
 let spanPageDone = null, spanStaminaDelta = 0;   // spanStaminaDelta:跨天事件的體力增減,等 sleepLand() 補滿之後才套
+/* 核心目標那一頁(2026-09-17)——阿嬤說「我等你」之後,黑底一張紙:核心目標／活下來,畢業。
+   字分兩拍寫進來,三秒後才給「按空白鍵繼續」;空白鍵或點一下關掉,接 onDone。 */
+let goalCardDone = null;
+function showGoalCard(onDone){
+  const el = document.getElementById('goalCard');
+  goalCardDone = onDone;
+  busy = true;
+  el.classList.add('on');
+  el.onclick = () => closeGoalCard();
+  setTimeout(() => { if(el.classList.contains('on')) busy = true; }, 1300);
+}
+function closeGoalCard(){
+  const el = document.getElementById('goalCard');
+  if(!el.classList.contains('on')) return false;
+  el.classList.remove('on');
+  const f = goalCardDone; goalCardDone = null;
+  setTimeout(() => { busy = false; f && f(); }, 500);
+  return true;
+}
 function showSpanPage(from, to, ev, onDone){
   const el = document.getElementById('spanPage');
   const a = from + 1, b = to - 1;
@@ -10408,12 +10444,13 @@ const DAILY_SCHEDULE = {
   /* 2026-09-17 大砍(kc:「現在行動天太多了啦 應該要是一個禮拜兩個行動天左右即可」)——
      原本 90 天醒 56 次,砍到 26 次:固定的 19 天(母・賭 6、父・喝 5、期中 12、期末 65、
      學校線 22/37、校外教學 57、阿嬤電話 46、停水 50、捐血 55)+ 下面 7 格。
+     2026-09-17 kc:「第一天跟第二天對調」——day1 送袋子去醫院(阿嬤種畢業證書那句),母・賭「兩千」挪到 day2。
      拿掉的(資料都還在 DAILY_EVENTS,要回來把格子加回去就好):下雨 ×2、口袋破洞 ×2、
      機車分期 ×4(不醒來,跳過那天照扣,sleepLand 的 while 本來就會)、水費 ×2、電費 35、
      超商代班 ×2、車發不動、阿源叫你去廟口 ×2、阿姨給吃的 ×2、小美問題目 ×2、阿凱找你 59、
      看護費 72、工地缺人 ×3、阿凱有東西要送 ×3、導師催 78/87、day90 媽要錢。
      ⚠ 註解不要寫在資料行尾巴,之前一行尾註解把後面幾格吃掉過。 */
-  2:'grandma-bag', 5:'power', 7:'mom-ask', 30:'kai-hang', 47:'acheng-hand', 50:'water-cut', 55:'blood',
+  1:'grandma-bag', 5:'power', 7:'mom-ask', 30:'kai-hang', 47:'acheng-hand', 50:'water-cut', 55:'blood',
   61:'hospital-bill', 68:'tuition-remind'
 };
 function pickDailyForDay(d){
@@ -12436,20 +12473,24 @@ function deliverGrandmaBag(){
     { who:'pc',     text:'「上班。」她點點頭，沒再問。' },
     { who:'granny', text:'「有沒有吃飽。」' },
     { who:'granny', text:'「註冊單你媽給你了沒。」' },
-    { who:'pc',     text:'「給了。」' },
-    { who:'granny', text:'「那就好好念，不要學你媽。」' },
+    { who:'pc',     text:'「還沒。」' },   // 2026-09-17 對調之後 day1 先來醫院,註冊單 day2 媽才給
+    { who:'granny', text:'「她會給你。拿到就去繳，好好念，不要學你媽。」' },
     { who:'granny', text:'「{name}，畢業的時候，證書拿來給我看。」' },
     { who:'pc',     text:'「嗯。」' },
     { who:'granny', text:'「我等你。」' }
   ], 0, () => {
     chg('calm', 6); chg('mood', 3);
     logDay('去醫院看阿嬤。她問我媽呢，然後叫我畢業的時候把證書拿去給她看。');
-    toast('（歸屬感 +6、情緒 +3）', 2200);
     if(!ACTIVE_QUESTS.some(q => q.id === 'diploma')){
       ACTIVE_QUESTS.push({ id:'diploma', title:'帶畢業證書給阿嬤看', hint:'她說她等你。<br><span class="qpNote">沒有期限。</span>' });
       renderQuestPanel();
     }
-    grandmaVisitLine();
+    /* 核心目標那一頁(2026-09-17 kc:「探望完阿嬤之後她叫你拿畢業證書給他看 會有一個動畫
+       提醒我們核心目標 活下來,畢業。」)——角色卡上那行字第一次正式出現,黑底一張紙。 */
+    showGoalCard(() => {
+      toast('（歸屬感 +6、情緒 +3）', 2200);
+      grandmaVisitLine();
+    });
   });
 }
 /* 2026-09-04,kc:「平常探望為何只有先出去的選項」——沒帶食物時選單只剩
@@ -12740,7 +12781,7 @@ function applyStoryChoice(item){
    這樣寫日記啊」,而且節點標題有時候是事後才知道的事)。一節一句,只寫**當天
    他自己知道的**,兩個選項都講得通;沒列的節點就不寫。key 是 story key + day。 */
 const STORY_DIARY = {
-  'bet-1':    '媽拿走兩千說要投資，月底還。她哪次月底還過。註冊單一千塊要我自己想辦法。',
+  'bet-2':    '媽拿走兩千說要投資，月底還。她哪次月底還過。註冊單一千塊要我自己想辦法。',
   'bet-16':   '媽又來要錢，說是阿嬤的藥，健保沒付。不知道真的假的。',
   'bet-28':   '媽說機車壞了要修，不然明天不能上班。我早上經過那台車明明好好的。',
   'bet-40':   '媽今天來要錢連理由都懶得編了。我不知道哪一種比較難受。',
@@ -17777,7 +17818,7 @@ function tornAttach(el, amp, gen){
 function tornInit(){
   const q = sel => Array.from(document.querySelectorAll(sel));
   const big = ['#dialog .frame', '#menu', '#textPrompt', '#questPanel', '#mapPanel', '#invPanel'];
-  big.push('#tsSheet', '#spanSheet');
+  big.push('#tsSheet', '#spanSheet', '#goalSheet');
   big.forEach(sel => q(sel).forEach(el => { tornAttach(el, sel==='#dialog .frame' ? 5 : 4); el.classList.add('big'); }));
   ['.hudGroup', '.statList .pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool']
     .forEach(sel => q(sel).forEach(el => tornAttach(el, 2)));
@@ -17948,7 +17989,12 @@ function openingWakeUp(){
   playBeats([
     { who:'pc',  text:'門外你媽在叫你。' },
     { who:'mom', text:'「起來了沒——」' }
-  ], 0, () => {});
+  ], 0, () => {
+    /* 第一天是送袋子(2026-09-17 kc:「第一天跟第二天對調一下」,母・賭「兩千」挪到 day2)——
+       事件在這裡先抽好(DAILY.id),走出房門那步 leaveBedroom() 的 dailyGotoReady('momBag') 才接得到。 */
+    const e = drawDailyEvent();
+    if(e) dailyCard(e);
+  });
 }
 window.finishSchoolPick = finishSchoolPick;
 window.showSchoolPick = showSchoolPick;
