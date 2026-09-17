@@ -315,6 +315,9 @@
      padding(跟頭像那 152px 對齊用的縮排一起拿掉),墨色淡一階跟台詞區分。 */
   #dialog.narration #portrait, #dialog.narration .dname { display:none; }
   #dialog.narration .frame { padding-left:26px; }
+  /* 電話裡的聲音(自來水公司那種):只藏頭像,名牌留著(2026-09-17 kc:「自來水公司不要配頭像」)。 */
+  #dialog.noface #portrait { display:none; }
+  #dialog.noface .frame { padding-left:26px; }
   #dialog.narration .dbody { color:var(--ui-ink2); }
   .caret { display:inline-block; margin-left:6px; color:var(--sp-red); opacity:0; animation:bob 1s infinite; }
   .caret.on { opacity:1; }
@@ -947,6 +950,7 @@
   #dialog .frame::after { content:''; position:absolute; right:16px; top:6px; bottom:6px; width:36%;
     background:var(--ui-temple) right center/contain no-repeat; opacity:.22; pointer-events:none; }
   #dialog.narration .frame { padding-left:34px; }
+  #dialog.noface .frame { padding-left:34px; }
   .dname { display:inline-block; position:relative; font-family:var(--sp-kai); font-weight:700; font-size:20px;
     letter-spacing:.2em; color:#f6efe2; text-shadow:0 1px 0 rgba(0,0,0,.35);
     padding:4px 40px 5px 16px; margin:0 0 10px -6px; border:0; background-size:100% 100%; background-repeat:no-repeat; }
@@ -2876,7 +2880,7 @@ const WHO = {
      「3D 街上的角色」),跟 mom/dad 同一套「沒有模型只有 WHO 頭像」做法。
      灰髮示意年紀。 */
   /* 自來水公司(2026-09-17,停水那天店門口那通電話,見 METER)——沒有臉,電話裡的聲音。 */
-  water:    { name:'自來水公司', opt:{ face:'F', skin:'#c9a077', hair:'#3a3a3a', top:'#4a6a8a', topD:'#3a5570', pants:'#2b2b2b' } },
+  water:    { name:'自來水公司', noFace:true, opt:{ face:'F', skin:'#c9a077', hair:'#3a3a3a', top:'#4a6a8a', topD:'#3a5570', pants:'#2b2b2b' } },
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
   /* 阿凱(2026-08-24)——見上面 KAI 那則筆記,染髮跟 kaiNPC 那組 buildNPC 顏色同步。 */
   kai:      { name:'阿凱', opt:{ face:'F', skin:'#c9976e', hair:'#d4a03c', top:'#1c1c1c', topD:'#141414', pants:'#2b2b2b' } },
@@ -3047,6 +3051,7 @@ function say(who, text, after){
   if(parts){ playBeats(parts, 0, after); return; }
   drawPortrait(who);
   dlgEl.classList.toggle('narration', isNarrationLine(who, text));
+  dlgEl.classList.toggle('noface', !!(WHO[who] && WHO[who].noFace));   // 電話裡的聲音,沒臉(見 WHO.water)
   dlg = { on:true, full:text, shown:0, timer:0, done:false, after:after||null };
   dTx.textContent = ''; dCaret.classList.remove('on'); dlgEl.classList.add('on');
 }
@@ -10595,7 +10600,7 @@ function tickWaterCut(){
       WATER_CUT.active = false; METER.phase = 'done';
       { const i = ACTIVE_QUESTS.findIndex(q => q.id === 'meter'); if(i >= 0) ACTIVE_QUESTS.splice(i, 1); }
       { const i = TRASH.findIndex(t => t.meter); if(i >= 0) TRASH.splice(i, 1); }   // 手上那顆沒裝上的舊表,新的裝了就沒用了
-      dayLogPending = (dayLogPending ? dayLogPending + '\n' : '') + '水公司來裝了新的水表，水來了。六百塊媽從哪裡生出來的，我沒有問。';
+      dayLogPending = (dayLogPending ? dayLogPending + '\n' : '') + '媽去水公司辦了一顆新的水表，水來了。';
     } else {
       WATER_CUT.washed = false;   // 隔天還是沒水
     }
@@ -10638,14 +10643,14 @@ function meterPhoneCall(){
     { who:'water', text:'「你們那戶沒有被停水。單子繳不繳，水都在。」' },
     { who:'water', text:'「你們的水表上個月抄表就不見了，抄表員以為是空屋。」' },
     { who:'pc',    text:'「不見了是什麼意思。」' },
-    { who:'water', text:'「就是箱子裡沒有那顆表。水表是住戶自己要顧的，補裝一顆六百，排到三天後。」' },
+    { who:'water', text:'「就是箱子裡沒有那顆表。水表是住戶自己要顧的，你們自己找回來裝上去，水就會來。」' },
     { who:'water', text:'「你先回去看一下水表箱，一樓鐵門旁邊那個。」' },
-    { who:'pc',    text:'你剛把身上的錢繳掉，六百你沒有。' }
+    { who:'pc',    text:'電話掛掉了。' }
   ], 0, () => {
     METER.phase = 'box';
     dailyDone();
-    meterCard('水公司說水表不見了，補裝要六百、等三天。回家看一下鐵門旁邊的水表箱。');
-    logDay('繳了水費，水公司說我家的水表上個月就不見了。補裝要六百。');
+    meterCard('水公司說水表不見了，要自己找回來裝上去。先回家看一下鐵門旁邊的水表箱。');
+    logDay('繳了水費，水公司說我家的水表上個月就不見了，要自己找回來。');
     busy = false;
   });
 }
@@ -10654,10 +10659,8 @@ function meterBoxCheck(door){
   if(METER.phase !== 'box') return false;
   busy = true;
   playBeats([
-    { who:'pc', text:'鐵門旁邊那個鐵箱子你每天經過，從來沒有打開過。' },
-    { who:'pc', text:'你家那格是空的。接水管的地方剪得很乾淨，鉛封斷成兩截掛在旁邊，兩顆螺絲還在箱底。' },
-    { who:'pc', text:'不是掉的，是人拆的。' },
-    { who:'pc', text:'你把那截鉛封放進口袋。' }
+    { who:'pc', text:'你打開鐵門旁邊那個鐵箱子。你家那格是空的，接水管的地方剪得很乾淨，鉛封斷成兩截掛在旁邊，兩顆螺絲還在箱底。' },
+    { who:'pc', text:'這不是自己掉的，是有人拆走的。你把那截鉛封放進口袋。' }
   ], 0, () => {
     METER.phase = 'find';
     meterCard(meterHintFind());
@@ -10670,8 +10673,7 @@ function meterBoxCheck(door){
 const METER_FIND = {
   motoboss: { beats:[
     { who:'motoboss', text:'「水表？那是銅的，回收一顆三百多。」' },
-    { who:'motoboss', text:'「前幾天半夜你們那棟樓下有人在敲東西，敲很久。我以為是哪個喝醉的。」' },
-    { who:'pc',       text:'你點點頭。他其實已經講完了，你沒有聽出來。' } ] },
+    { who:'motoboss', text:'「前幾天半夜你們那棟樓下有人在敲東西，敲很久。我以為是哪個喝醉的。」' } ] },
   kai: { beats:[
     { who:'kai', text:'「幹，誰這麼衰偷水表。」' },
     { who:'kai', text:'「收破銅爛鐵的……你先去問滷味阿成，那條街的事他都知道。」' } ] },
@@ -10680,7 +10682,6 @@ const METER_FIND = {
     { who:'acheng', text:'「收銅的都拿去廟後面。阿源他們在收。」' } ] },
   bo: { clue:'yuan', beats:[
     { who:'bo', text:'「你家的水表喔。」' },
-    { who:'pc', text:'他看著廟埕，沒有看你。' },
     { who:'bo', text:'「這條街誰家的水表不見，是誰拆的，我大概知道。」' },
     { who:'pc', text:'「是誰。」' },
     { who:'bo', text:'「你自己去問阿源。」' } ] },
@@ -10700,7 +10701,7 @@ const METER_FIND = {
     { who:'jiaoguan', text:'「這種事去報案，不是你一個學生在處理的。」' },
     { who:'jiaoguan', text:'「你家沒有大人嗎？」' },
     { who:'pc',       text:'「有。」' },
-    { who:'pc',       text:'他沒有再問。' } ] },
+    { who:'jiaoguan', text:'「那叫大人去處理。」' } ] },
   teacher: { beats:[
     { who:'teacher', text:'「水表不見了？」' },
     { who:'teacher', text:'「這我沒遇過。你要不要先跟房東講。」' } ] },
@@ -10709,7 +10710,7 @@ const METER_FIND = {
     { who:'brother', text:'「銅的東西被拆，你去問收的人比較快。」' } ] },
   fortune: { beats:[
     { who:'fortune', text:'「我看的是命，不是水。」' },
-    { who:'fortune', text:'「水的事，你去問常在夜裡走動的人。」' } ] }
+    { who:'fortune', text:'「旺鴻那間修到很晚，半夜有什麼動靜他會知道。」' } ] }
 };
 /* 水表在手上之後——找人裝。阿伯以前做水電,其他人各推一次。 */
 const METER_INSTALL = {
@@ -10786,7 +10787,7 @@ function meterYuan(){
     { who:'pc',   text:'他看了你幾秒，走到後面，拿出一顆水表放在桌上。鉛封剪過的那頭還掛著。' },
     { who:'yuan', text:'「你爸拿來的。我給他三百。」' },
     { who:'yuan', text:'「他說是別人家的。」' },
-    { who:'pc',   text:'你看著那顆表，上面的號碼你今天早上才在單子上看過。' },
+    { who:'pc',   text:'表上的號碼跟你早上繳的那張單子一樣。' },
     { who:'yuan', text:'「三百。你現在給，還是叫你爸來拿？」' }
   ];
   playBeats(reveal, 0, () => {
@@ -10797,7 +10798,7 @@ function meterYuan(){
         run(){
           if(ST.money < 300){ say('yuan', '「你身上沒有三百還跟我講價。」', () => { busy = false; }); return; }
           chg('money', -300);
-          meterTake([{ who:'pc', text:'你把三百塊放在桌上，把水表拿起來。很重。' }]);
+          meterTake([{ who:'pc', text:'你把三百塊放在桌上，把水表拿起來。' }]);
         } },
       { label: watched ? '「上次我幫你顧場。」' : '「我欠你一次。」', cost: watched ? '抵了' : '下次顧場少領 $300',
         run(){
@@ -10843,9 +10844,8 @@ function meterInstall(){
         { who:'pc', text:'他蹲在鐵門邊，二十分鐘沒講話。你在旁邊拿手機照。' },
         { who:'bo', text:'「鉛封剪過了，我用鐵絲綁一綁。」' },
         { who:'bo', text:'「抄表的來，你就說本來就這樣。」' },
-        { who:'pc', text:'你跟一個七十歲的人一起，做了一件小小的、犯規的事。' },
         { who:'bo', text:'「上去開水龍頭。」' },
-        { who:'pc', text:'你扭開水龍頭，先是一陣咳嗽一樣的空氣聲，然後水衝出來。' },
+        { who:'pc', text:'你扭開水龍頭，空氣聲響了一陣，然後水衝出來。' },
         { who:'pc', text:'你要拿錢給他，他把袋子背上，擺擺手。' },
         { who:'bo', text:'「明天來廟口幫我換燈籠。」' }
       ], 0, () => {
@@ -10872,7 +10872,11 @@ function meterDadScene(){
       { label:'放在他桌上', cost:'',
         run(){
           METER.sealLeft = true;
-          say('pc', '你把鉛封放在他桌上的菸灰缸旁邊，沒有講話。他沒有看。', () => {
+          playBeats([
+            { who:'pc',  text:'你把鉛封放在他桌上的菸灰缸旁邊。' },
+            { who:'dad', text:'「那什麼。」' },
+            { who:'pc',  text:'「沒什麼。」' }
+          ], 0, () => {
             chg('mood', -3); toast('（情緒 −3）', 1800);
             logDay('我把鉛封放在爸桌上。');
             busy = false;
@@ -10880,7 +10884,7 @@ function meterDadScene(){
         } },
       { label:'丟掉', cost:'',
         run(){
-          say('pc', '你走到廚房，把鉛封丟進垃圾桶，跟今天一起。', () => {
+          say('pc', '你走到廚房，把鉛封丟進垃圾桶。', () => {
             logDay('鉛封我丟了。');
             busy = false;
           });
@@ -10891,8 +10895,7 @@ function meterDadScene(){
             { who:'dad', text:'「什麼水表。」' },
             { who:'pc',  text:'「我們家的水表。阿源說你拿去賣他三百。」' },
             { who:'dad', text:'「你在講什麼。」' },
-            { who:'pc',  text:'他轉頭看你，眼睛裡沒有心虛，只有不耐煩。' },
-            { who:'pc',  text:'他不是在騙你。他是真的不記得。' }
+            { who:'pc',  text:'他不耐煩地轉回去看電視。他不是裝的，他真的不知道你在講什麼。' }
           ], 0, () => {
             chg('mood', -6); toast('（情緒 −6）', 1800);
             logDay('我問爸水表的事。他說什麼水表。他真的不記得。');
@@ -10910,7 +10913,7 @@ function meterMomScene(){
     { who:'pc',  text:'她沒有轉頭，看著電視。' },
     { who:'mom', text:'「他又拿去賣了。」' },
     { who:'mom', text:'「上次是電鍋。」' },
-    { who:'pc',  text:'你不知道有上次。' }
+    { who:'pc',  text:'電鍋什麼時候不見的，你完全沒有印象。' }
   ], 0, () => {
     chg('calm', -3); toast('（歸屬感 −3）', 1800);
     logDay('媽說上次是電鍋。我不知道有上次。');
@@ -15858,7 +15861,7 @@ function talkToBrother(){
         { label:'「有沒有什麼可以幫忙的。」', cost:'貼三張宣導單　風評 +3',
           run(){
             playBeats([
-              { who:'pc',      text:'他從櫃台底下抽出三張紙，反詐騙的，印得很醜。' },
+              { who:'pc',      text:'他從櫃台底下抽出三張反詐騙的宣導單給你。' },
               { who:'brother', text: NOTICE_JOB.times ? '「老地方，公車亭、公園、超商門口。」' : '「公車亭、公園長椅那邊、超商門口，一個地方一張。貼高一點，不然會被撕。」' }
             ], 0, () => { startNoticeJob(); });
           } },
