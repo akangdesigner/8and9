@@ -4251,7 +4251,7 @@ const NPCS = [
     tattoo:{ texFile:'tattoo-dragon-koi.png' }          // 前臂刺青,位置是目前肉眼調的最佳猜測,還沒最終確認
   }),
   buildNPC(THREE, scene, {                             // 阿伯・70幾・顧廟,廟門另一側柱子旁(見 BO 那則筆記)
-    x:BO.x, z:BO.z, rotationY:Math.PI, rig:'m9',
+    x:BO.x, z:BO.z, rotationY:0, rig:'m9',   // 0 = 面向廟埕(π 是背對,截圖核過)
     height: PLAYER.height * .9,
     skin:'#b98a63', hair:'#cfcfc8', hood:'#5f6f66', pants:'#3d4247', shoe:'#4a4744'
   }),
@@ -17584,6 +17584,7 @@ window.__dbg = {
     get hospitalCallFired(){ return hospitalCallFired; }, set hospitalCallFired(v){ hospitalCallFired = v; },
     get busy(){ return busy; }, set busy(v){ busy = v; }, get MODE(){ return MODE; }, get PLACE(){ return PLACE; },
     cancelWalkIn(){ walkIn = null; busy = false; },
+    get camYaw(){ return camYaw; }, set camYaw(v){ camYaw = v; },
     get lastSchoolDay(){ return lastSchoolDay; }, set lastSchoolDay(v){ lastSchoolDay = v; },
     ST, GRANDMA, BLOOD, DAILY, BILLS, WATER_CUT, MIDTERM, FINAL, ACTIVE_QUESTS, TRASH, FORTUNE, YUAN, KAI, AYI, ACHENG, MEI, AREN, hero, IN,
     get dlgOn(){ return dlg.on; }, get dlgText(){ return dTx.textContent; }, get dlgName(){ return dName.textContent; },
