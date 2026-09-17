@@ -2183,8 +2183,14 @@ function showItemDetail(el, host, html){
   el.classList.add('on');
   document.getElementById('itemDetail').innerHTML = html;
 }
+/* 核心目標那行(2026-09-17 kc:「帶畢業證書給阿嬤看 不會顯示在任務 是角色裡面的核心目標」)——
+   阿嬤講過那句之後多半句;她走了改成牌位。 */
+function syncGoalLine(){
+  const el = document.querySelector('.invGoal .tx'); if(!el) return;
+  el.textContent = '活下來，畢業。' + (GRANDMA.dead ? '把證書拿去牌位前。' : GRANDMA.promised ? '把證書拿給阿嬤看。' : '');
+}
 function openInventory(){
-  peopleOpen = null; renderPeopleStrip();
+  peopleOpen = null; renderPeopleStrip(); syncGoalLine();
   { const g = document.getElementById('invGoalName'); if(g) g.textContent = (PLAYER_NAME ? PLAYER_NAME + '　' : '') + '一年三班　第 ' + day + ' 天'; }
   busy = true;
   const fHost = document.getElementById('invFood');
@@ -12099,7 +12105,7 @@ const GRANDMA_CALL_DAY = 46, GRANDMA_CALL_MINUTE = 18*60;
 let hospitalCallFired = false;
 let yuanMorningCallFired = false;   // sleep() 那段「阿源早上打電話來」用,見那則筆記
 const GRANDMA = { dead:false, wentToSee:false, toldYuan:false, critical:false, nextCheckDay:-1, visits:0, feeds:0,
-                  bagGiven:false, bagDelivered:false, met:false };   // day2 那袋(2026-09-11),met=在 day16 之前就見過她
+                  bagGiven:false, bagDelivered:false, met:false, promised:false };   // promised:她說「證書拿來給我看」那句講過了(2026-09-17)   // day2 那袋(2026-09-11),met=在 day16 之前就見過她
 const GRANDMA_MONTH_DAYS = 30, GRANDMA_VISITS_NEEDED = 2, GRANDMA_FEEDS_NEEDED = 2;
 let altarTalkDay = -1, altarIncenseDay = -1;   // 家裡牌位互動一天一次,見 openIndoorSpot() PLACE==='home' 那段
 function checkGrandmaCall(){
@@ -12238,7 +12244,8 @@ function notifyGrandmaDeath(){
      再也不會更新、內容也不對的舊任務。 */
   { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); renderQuestPanel(); }
   /* 畢業證書那張卡不拔,改成牌位版(2026-09-15,見 deliverGrandmaBag() 那則筆記)。 */
-  { const q = ACTIVE_QUESTS.find(q => q.id === 'diploma'); if(q){ q.title = '帶畢業證書去牌位前'; q.hint = '她沒有等到。<br><span class="qpNote">沒有期限。</span>'; renderQuestPanel(); } }
+  /* 畢業證書那句不是任務卡(2026-09-17 kc:「不會顯示在這裡 是角色裡面的核心目標 因為他不是任務」)——
+     只改角色卡上核心目標那行(見 syncGoalLine)。 */
   playBeats([
     { who:'pc',  text:'手機又震了一下，是媽打來的。' },
     { who:'mom', text:'「阿嬤剛剛走了。」她的聲音很平,像是已經哭過一輪。' },
@@ -12510,10 +12517,7 @@ function deliverGrandmaBag(){
   ], 0, () => {
     chg('calm', 6); chg('mood', 3);
     logDay('去醫院看阿嬤。她問我媽呢，然後叫我畢業的時候把證書拿去給她看。');
-    if(!ACTIVE_QUESTS.some(q => q.id === 'diploma')){
-      ACTIVE_QUESTS.push({ id:'diploma', title:'帶畢業證書給阿嬤看', hint:'她說她等你。<br><span class="qpNote">沒有期限。</span>' });
-      renderQuestPanel();
-    }
+    GRANDMA.promised = true;   // 畢業證書那句進角色卡的核心目標,不掛任務卡(2026-09-17 kc:「他不是任務」)
     /* 核心目標那一頁(2026-09-17 kc:「探望完阿嬤之後她叫你拿畢業證書給他看 會有一個動畫
        提醒我們核心目標 活下來,畢業。」)——角色卡上那行字第一次正式出現,黑底一張紙。 */
     showGoalCard(() => {
@@ -17609,6 +17613,7 @@ function loadGame(slot){
     Object.entries(SAVE_LISTS).forEach(([k,o]) => {
       const src = d.list?.[k]; if(Array.isArray(src)) o.splice(0, o.length, ...src);
     });
+    { const i = ACTIVE_QUESTS.findIndex(q => q.id === 'diploma'); if(i >= 0){ ACTIVE_QUESTS.splice(i, 1); GRANDMA.promised = true; } }   // 舊存檔的畢業證書卡(2026-09-17 拔掉,進核心目標)
     Object.entries(SAVE_VARS).forEach(([k,f]) => { if(d.vars && k in d.vars) f(d.vars[k]); });
     seenStoryDays.clear(); (d.story || []).forEach(x => seenStoryDays.add(x));
     if(d.pos) hero.group.position.set(d.pos.x, .3, d.pos.z);
