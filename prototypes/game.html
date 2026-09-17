@@ -1042,6 +1042,25 @@
   #invClose { background:none; color:var(--ui-ink2); border:1px solid var(--ui-line); border-radius:1px;
     font:14px var(--sp-serif); letter-spacing:.4em; text-indent:.4em; }
   #invClose:hover { color:#000; border-color:var(--ui-ink); background:var(--ui-paper-hi); }
+  /* 名冊(2026-09-17,見 PEOPLE):右欄一排小照片,點了左欄換成那個人的頁 */
+  #peopleStrip { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  #peopleStrip .pp { width:44px; height:44px; border:3px solid var(--ui-paper-hi); border-radius:1px; background:#1b202b center/cover no-repeat;
+    box-shadow:0 1px 2px rgba(0,0,0,.3); cursor:pointer; transform:rotate(-1.5deg); }
+  #peopleStrip .pp:nth-child(even) { transform:rotate(1.5deg); }
+  #peopleStrip .pp:hover, #peopleStrip .pp.on { border-color:var(--ui-red); }
+  #peopleStrip .pp canvas { width:100%; height:100%; display:block; image-rendering:pixelated; }
+  #peopleStrip .more { flex-basis:100%; color:#9a8a70; font-size:12px; margin-top:2px; }
+  #panePeople { font-family:var(--sp-serif); color:var(--ui-ink); }
+  #panePeople .ppHead { display:flex; align-items:baseline; gap:12px; border-bottom:1px solid var(--ui-rule); padding-bottom:6px; margin-bottom:8px; }
+  #panePeople .ppHead .nm { font-family:var(--sp-kai); font-weight:700; font-size:22px; letter-spacing:.2em; }
+  #panePeople .ppHead .met { color:var(--ui-ink2); font-size:12px; margin-left:auto; }
+  #panePeople .ppWho { color:var(--ui-ink); line-height:1.8; margin-bottom:10px; }
+  #panePeople h4 { color:var(--ui-ink2); font-family:var(--sp-kai); font-weight:700; font-size:13px; letter-spacing:.3em; margin:10px 0 4px; }
+  #panePeople .ppLine { display:flex; gap:10px; line-height:1.7; font-size:14px; }
+  #panePeople .ppLine .d { flex:0 0 58px; color:var(--ui-red); font-family:var(--sp-kai); font-weight:700; }
+  #panePeople .ppFact { line-height:1.7; font-size:14px; color:var(--ui-ink2); padding-left:12px; position:relative; }
+  #panePeople .ppFact::before { content:'・'; position:absolute; left:0; }
+  #panePeople .invEmpty { color:#9a8a70; }
 
   /* 標題畫面 / ESC 選單 / 存檔格:選項排在一張撕邊紙上(kc 2026-09-14:「比如
      選單介面」也要);標題字換楷體。紙外面的 .menuBtn(開場頁「起床」)走 #sp_go
@@ -1222,6 +1241,9 @@
         <div class="invTabPane" id="paneTrash">
           <div class="itemGrid" id="invTrash"></div>
         </div>
+        <!-- 名冊(2026-09-17,kc:「不是社交 只是記錄主角認識了哪些人發生了啥事以及他們的故事」)——
+             右欄「社交」那格是入口(見過的人的頭像),點一個這裡換成他的那頁。見 PEOPLE。 -->
+        <div class="invTabPane" id="panePeople"></div>
       </div>
       <div class="invCol invMid">
         <div class="equipBadges" id="equipLeft"></div>
@@ -1242,7 +1264,7 @@
         <h3>特質</h3>
         <div class="invEmpty">尚未開放。</div>
         <h3>社交</h3>
-        <div class="invEmpty">尚未開放。</div>
+        <div id="peopleStrip"></div>
       </div>
     </div>
     <button id="invClose">關閉</button>
@@ -2145,6 +2167,7 @@ function showItemDetail(el, host, html){
   document.getElementById('itemDetail').innerHTML = html;
 }
 function openInventory(){
+  peopleOpen = null; renderPeopleStrip();
   { const g = document.getElementById('invGoalName'); if(g) g.textContent = (PLAYER_NAME ? PLAYER_NAME + '　' : '') + '一年三班　第 ' + day + ' 天'; }
   busy = true;
   const fHost = document.getElementById('invFood');
@@ -3050,6 +3073,7 @@ function pcName(){ return PLAYER_NAME || '小傑'; }
 function withName(t){ return (typeof t === 'string' && t.includes('{name}')) ? t.replace(/\{name\}/g, pcName()) : t; }
 function say(who, text, after){
   text = withName(text);
+  if(who !== 'pc') meetPerson(who);   // 名冊:他開口跟你講過話就算認識(見 PEOPLE)
   const parts = splitSpeech(who, text);
   if(parts){ playBeats(parts, 0, after); return; }
   drawPortrait(who);
@@ -4103,6 +4127,7 @@ const MOTO_PATROL_POINTS = [ [-78,90], [-84,40], [-84,-40], [-84,-84], [0,-84] ]
    m.x=pos.x 的同一個坑)。 */
 function finishMotoImpound(msg){
   logDay(MOTO_IMPOUND.patrolActive ? '幫阿正巡了一段街抵罰款，車拿回來了。走路比繳錢便宜。' : '去警局繳罰款把車贖回來。那筆錢我站了好幾天的班。');
+  logPerson('brother', MOTO_IMPOUND.patrolActive ? '車被拖了，幫他巡了一段街抵罰款。' : '車被拖了，去他那裡繳罰款贖回來。');
   MOTO_IMPOUND.active = false; MOTO_IMPOUND.done = true;
   MOTO_IMPOUND.patrolActive = false;
   const m = MOTO_IMPOUND.motoRef;
@@ -4148,6 +4173,7 @@ function finishNoticeJob(){
   syncMiscQuestPanel();
   chg('star', 3);
   logDay('幫阿正貼了三張宣導單。');
+  logPerson('brother', '幫他貼了三張反詐騙的宣導單。');
 }
 const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null, armed:false, liedToBrother:false };   // resolved: null|'reported'|'warned'|'expired';armed 是 #bar「贓物協尋」測試鈕跳過 day52 門檻用
 /* 三條的任務面板統一走這個函式(2026-08-31)——跟阿正月長線那個
@@ -4588,6 +4614,7 @@ function resolveWatchJob(success){
   if(WATCHJOB.resolved) return;
   WATCHJOB.resolved = true; WATCHJOB.active = false; WATCHJOB.lastDay = day;
   logDay(success ? '晚上幫阿源顧場子，小美哥一出現我就跑回去講了。阿源說幹得好。' : '晚上幫阿源顧場子，小美哥都走進去了我才講。阿源罵我死人。');
+  logPerson('yuan', success ? '幫他顧場子，小美哥一出現我就跑回去講了。' : '幫他顧場子，小美哥都走進去了我才講，他罵我死人。');
   scene.remove(WATCHJOB.walker.group);
   const idx = NPCS.indexOf(WATCHJOB.walker);
   if(idx >= 0) NPCS.splice(idx, 1);
@@ -7967,7 +7994,7 @@ function openIndoorSpot(id){
           { who:'pc',  text:'她看了你一下，把電視轉回去。' }
         ], 0, () => {
           if(BLOOD.found){
-            chg('calm', 6); toast('（歸屬感 +6）', 2000); logDay('媽說阿嬤開完刀了，還好。她叫我去謝謝算命的。');
+            chg('calm', 6); toast('（歸屬感 +6）', 2000); logDay('媽說阿嬤開完刀了，還好。她叫我去謝謝算命的。'); logPerson('fortune', '阿嬤的刀開完了，血是他捐的。媽在醫院看到他抽完血自己坐公車回去。');
             if(!ACTIVE_QUESTS.some(q => q.id === 'thank-fortune')){ ACTIVE_QUESTS.push({ id:'thank-fortune', title:'去謝謝算命的', hint:'廟口那個算命攤。<br><span class="qpNote">他說回來記得抽一支籤，不收錢</span>' }); renderQuestPanel(); }
           }
           else { chg('mood', -3); toast('（情緒 −3）', 2000); logDay('媽說阿嬤開完刀了，血是醫院晚上自己調到的。她問我昨天跑去哪。'); }
@@ -9418,6 +9445,96 @@ function logDay(text){ if(text && !dayLog.includes(text)) dayLog.push(text); }
 /* 跟誰講過話——每個 talkToXxx() 開頭一行,同一天同一個人只留一句(logDay 本來
    就去重)。曠課那句要寫在「新的一天」的日記裡,wake 那時 dayLog 已經清掉,
    先寄在 dayLogPending,snapDay() 之後補進去。 */
+/* ===== 名冊(2026-09-17,kc:「我還是想做社交功能 他不是社交只是記錄主角認識了哪些人發生了啥事
+ * 以及他們的故事」)=================================================================
+ * 不是好感度、不是送禮。三個部分:
+ *   一句話他是誰  → PEOPLE_DEF[who].who(),**你眼中的他**,隨你知道的變(旺鴻翻到新聞之後那句就變)
+ *   發生過的事    → logPerson(who, text),按天記,只記真的發生在你跟他之間的事
+ *   他的故事      → learnFact(who, text),只記你在遊戲裡真的聽到/看到的
+ * 「認識」在 say() 出口自動登記(他開口跟你講過話就算),不用每個對話函式各補一行。
+ * 沒見過的人不出現,只留一行「還有 N 個人你還沒認識」(我選的,不要灰色剪影)。
+ * 家人也在名冊裡,爸那頁本來就該是最長的。PEOPLE 進 SAVE_OBJECTS。 */
+const PEOPLE = {};
+const PEOPLE_DEF = {
+  mom:      { name:'媽',   who(){ return (seenStoryDays.has('bet-16') ? '媽。晚上不在家的時候人在賭場。' : '媽。在沙發上看電視，錢的事都是她開口。') + (METER.momTold ? '爸賣東西的事她早就知道，上次是電鍋。' : ''); } },
+  dad:      { name:'爸',   who(){ return meterFound() && METER.dadDone ? '爸。喝酒，睡沙發。家裡的東西會不見，問他他說不記得。' : seenStoryDays.has('drink-10') ? '爸。喝酒，睡沙發。錢會自己不見。' : '爸。喝酒，睡沙發。'; } },
+  granny:   { name:'阿嬤', who(){ return GRANDMA.dead ? '阿嬤。走了。她要看的畢業證書我還沒拿到。' : GRANDMA.met ? '阿嬤。在醫院。她要我畢業的時候把證書拿去給她看。' : '阿嬤。在醫院。'; } },
+  clerk:    { name:'店員', who(){ return '超商的店員，也是店長。' + (WATER_CUT.washedWhere === 'store' ? '停水那天讓我用洗手台。' : ''); } },
+  nurse:    { name:'護理師', who(){ return '醫院護理站的。阿嬤的事都是她打電話來。'; } },
+  worker:   { name:'阿霞', who(){ return '巷子裡越式按摩的。'; } },
+  ayi:      { name:'阿姨', who(){ return '攤子的阿姨。叫我來就來，講什麼。'; } },
+  acheng:   { name:'阿成', who(){ return '滷味攤的阿成，話不多。廟口的垃圾他在管。'; } },
+  fat:      { name:'小胖', who(){ return '廟口那個小孩，國二。'; } },
+  yuan:     { name:'阿源', who(){ return '廟口的。手臂有刺青，收破銅爛鐵，晚上要人顧場子。' + (YUAN.betrayedConfronted ? '他知道是我跟阿正講的。' : ''); } },
+  mei:      { name:'小美', who(){ return '同班。她哥是警察。'; } },
+  jiaoguan: { name:'教官', who(){ return '教官。校門口那本本子，我的名字在上面。'; } },
+  aren:     { name:'阿仁', who(){ return '同班。想去刺青店當學徒。'; } },
+  brother:  { name:'阿正', who(){ return '小美她哥，警察。'; } },
+  teacher:  { name:'老師', who(){ return '導師。考卷只講錯的。'; } },
+  bo:       { name:'阿伯', who(){ return '廟口的阿伯，顧供桌換燈籠。' + (METER.phase === 'done' && METER.asked.length ? '以前做水電的。' : ''); } },
+  kai:      { name:'阿凱', who(){ return '同年，十六。翹課都是他來找我。'; } },
+  fortune:  { name:'算命的', who(){ return '廟口擺攤算命的。' + (BLOOD.found ? 'O 型，阿嬤開刀的血是他捐的。' : ''); } },
+  motoboss: { name:'旺鴻', who(){ return '機車行老闆。' + (BOOKSHELF_CLUES.motoNewsFound ? '報紙上收保護費被抓的那個，同名同姓，年紀也對。' : ''); } },
+  foreman:  { name:'工頭', who(){ return '工地的老闆。要看良民證才讓人做。'; } },
+  tattooMaster: { name:'師傅', who(){ return '刺青店的師傅。'; } }
+};
+function meetPerson(who){
+  if(!PEOPLE_DEF[who]) return;
+  if(!PEOPLE[who]) PEOPLE[who] = { met:day, notes:[], facts:[] };
+}
+function logPerson(who, text){
+  if(!PEOPLE_DEF[who]) return;
+  meetPerson(who);
+  const p = PEOPLE[who];
+  if(p.notes.some(n => n.d === day && n.t === text)) return;
+  p.notes.push({ d:day, t:text });
+}
+function learnFact(who, text){
+  if(!PEOPLE_DEF[who] || !text) return;
+  meetPerson(who);
+  const p = PEOPLE[who];
+  if(!p.facts.includes(text)) p.facts.push(text);
+}
+let peopleOpen = null;   // 名冊目前翻到誰
+function renderPeopleStrip(){
+  const host = document.getElementById('peopleStrip');
+  host.innerHTML = '';
+  const keys = Object.keys(PEOPLE_DEF).filter(k => PEOPLE[k]);
+  if(!keys.length) host.innerHTML = '<div class="invEmpty">還沒有跟誰講過話。</div>';
+  keys.forEach(k => {
+    const el = document.createElement('div');
+    el.className = 'pp' + (peopleOpen === k ? ' on' : '');
+    el.title = PEOPLE_DEF[k].name;
+    const img = PORTRAIT_IMGS[k];
+    if(img && img.complete && img.naturalWidth) el.style.backgroundImage = `url("${img.src}")`;
+    else {
+      const c = document.createElement('canvas'); c.width = c.height = 44;
+      const cx = c.getContext('2d'); cx.imageSmoothingEnabled = false;
+      const k2 = 44/33; cx.scale(k2,k2);
+      SF.person(cx, (44/k2)/2, 108, Object.assign({k:1}, (WHO[k] || WHO.pc).opt));
+      el.appendChild(c);
+    }
+    el.onclick = () => openPersonPage(k);
+    host.appendChild(el);
+  });
+  const left = Object.keys(PEOPLE_DEF).length - keys.length;
+  if(left > 0){ const m = document.createElement('div'); m.className = 'more'; m.textContent = '還有 ' + left + ' 個人你還沒認識。'; host.appendChild(m); }
+}
+function openPersonPage(k){
+  peopleOpen = k;
+  document.querySelectorAll('.invTabBtn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.invTabPane').forEach(p => p.classList.remove('on'));
+  document.getElementById('panePeople').classList.add('on');
+  renderPeopleStrip();
+  const p = PEOPLE[k], def = PEOPLE_DEF[k];
+  const notes = p.notes.map(n => `<div class="ppLine"><span class="d">第 ${n.d} 天</span><span>${n.t}</span></div>`).join('');
+  const facts = p.facts.map(f => `<div class="ppFact">${f}</div>`).join('');
+  document.getElementById('panePeople').innerHTML =
+    `<div class="ppHead"><span class="nm">${def.name}</span><span class="met">第 ${p.met} 天認識</span></div>` +
+    `<div class="ppWho">${def.who()}</div>` +
+    `<h4>發生過的事</h4>` + (notes || '<div class="invEmpty">還沒有什麼事。</div>') +
+    `<h4>他的事</h4>` + (facts || '<div class="invEmpty">你還不知道他的事。</div>');
+}
 function logTalk(name){ logDay('跟' + name + '聊了一下。'); }
 let dayLogPending = '';
 function snapDay(){ daySnapshot = { ...ST }; dayLog = []; if(dayLogPending){ dayLog.push(dayLogPending); dayLogPending = ''; } }
@@ -10386,7 +10503,7 @@ function runDailyGoto(who){
       { label:'給她', cost: ST.money < 500 ? '身上不夠' : '−$500　歸屬感 +6',
         cls: ST.money < 500 ? 'bad' : '', run(){
           if(ST.money < 500){ toast('你身上不夠五百。', 2200); busy = false; return; }
-          chg('money', -500); chg('calm', 6); logDay('媽來要錢，說朋友那邊周轉。我給了五百。她收得很快。');
+          chg('money', -500); chg('calm', 6); logDay('媽來要錢，說朋友那邊周轉。我給了五百。她收得很快。'); logPerson('mom', '她跟我要五百，說朋友那邊周轉。我給了。');
           playBeats([
             { who:'pc',  text:'她把錢摺起來，塞進口袋，動作很快。' },
             { who:'mom', text:'「下個月還你。」' },
@@ -10583,7 +10700,9 @@ function syncWashQuest(){
   renderQuestPanel();
 }
 function waterCutWashed(where){
-  WATER_CUT.washed = true;
+  WATER_CUT.washed = true; WATER_CUT.washedWhere = where;
+  if(where === 'ayi') logPerson('ayi', '停水那天去她家洗澡，她還熱了一碗湯。');
+  if(where === 'store') logPerson('clerk', '停水那天借超商的洗手台沖了頭。');
   syncWashQuest();
   logDay(where === 'ayi' ? '家裡停水，去阿姨家洗澡，她還熱了一碗湯。' : where === 'home' ? '水來了。我洗了今天第一次澡。' : '家裡停水，在超商借洗手台沖了頭跟脖子。');
 }
@@ -10673,7 +10792,7 @@ function meterBoxCheck(door){
 }
 /* 查的時候每個人怎麼回——他為什麼幫不上就是他這個人。clue:'yuan' 會把阿源那條線打開。 */
 const METER_FIND = {
-  motoboss: { beats:[
+  motoboss: { fact:'水表不見那幾天，半夜聽到我們樓下有人在敲東西。', beats:[
     { who:'motoboss', text:'「水表？那是銅的，回收一顆三百多。」' },
     { who:'motoboss', text:'「前幾天半夜你們那棟樓下有人在敲東西，敲很久。我以為是哪個喝醉的。」' } ] },
   kai: { beats:[
@@ -10682,7 +10801,7 @@ const METER_FIND = {
   acheng: { clue:'yuan', beats:[
     { who:'pc',     text:'他看了你一眼，繼續切滷味。' },
     { who:'acheng', text:'「收銅的都拿去廟後面。阿源他們在收。」' } ] },
-  bo: { clue:'yuan', beats:[
+  bo: { clue:'yuan', fact:'這條街誰家的東西被拆走、是誰拆的，他都知道。', beats:[
     { who:'bo', text:'「你家的水表喔。」' },
     { who:'bo', text:'「這條街誰家的水表不見，是誰拆的，我大概知道。」' },
     { who:'pc', text:'「是誰。」' },
@@ -10757,6 +10876,8 @@ function meterAsk(who){
   playBeats([...ask, ...a.beats], 0, () => {
     advanceTime(a.time || 15);
     if(a.clue === 'yuan') METER.clueYuan = true;
+    learnFact(who, a.fact);
+    if(METER.phase === 'have' && who === 'kai') logPerson('kai', '他說他會裝水表，裝反了，水表倒著轉。');
     if(a.mood){ chg('mood', a.mood); toast('（情緒 ' + a.mood + '）', 1800); }
     if(METER.phase === 'find') meterCard(meterHintFind());
     busy = false;
@@ -10793,7 +10914,7 @@ function meterYuan(){
     { who:'yuan', text:'「三百。你現在給，還是叫你爸來拿？」' }
   ];
   playBeats(reveal, 0, () => {
-    if(!again){ METER.revealed = true; chg('mood', -6); toast('（情緒 −6）', 1800); }
+    if(!again){ METER.revealed = true; chg('mood', -6); toast('（情緒 −6）', 1800); logPerson('yuan', '水表在他那裡。他說是我爸拿去賣的，三百塊。'); logPerson('dad', '他把家裡的水表拆去賣給阿源，三百塊。'); }
     const watched = WATCHJOB.lastDay >= 0;
     openMenu('阿源', [
       { label:'給他三百', cost: ST.money < 300 ? '身上不夠' : '−$300', cls: ST.money < 300 ? 'bad' : '',
@@ -10863,6 +10984,7 @@ function meterInstall(){
         toast('水來了。（歸屬感 +6　情緒 +6）', 3600);
         WATER_CUT.active = false; syncWashQuest();
         logDay('阿伯來幫我把水表裝回去，鐵絲綁的。他不收錢，叫我明天去換燈籠。水來了。');
+        logPerson('bo', '他來幫我把水表裝回去，鐵絲綁的。不收錢，叫我去換燈籠。'); learnFact('bo', '以前做水電的。');
         advanceTime(25);
         busy = false;
       }), 700);
@@ -10885,7 +11007,7 @@ function meterDadScene(){
             { who:'pc',  text:'「沒什麼。」' }
           ], 0, () => {
             chg('mood', -3); toast('（情緒 −3）', 1800);
-            logDay('我把鉛封放在爸桌上。');
+            logDay('我把鉛封放在爸桌上。'); logPerson('dad', '我把水表的鉛封放在他桌上，他問那什麼，我說沒什麼。');
             busy = false;
           });
         } },
@@ -10905,7 +11027,7 @@ function meterDadScene(){
             { who:'pc',  text:'他不耐煩地轉回去看電視。他不是裝的，他真的不知道你在講什麼。' }
           ], 0, () => {
             chg('mood', -6); toast('（情緒 −6）', 1800);
-            logDay('我問爸水表的事。他說什麼水表。他真的不記得。');
+            logDay('我問爸水表的事。他說什麼水表。他真的不記得。'); logPerson('dad', '我問他水表的事，他說什麼水表。他真的不記得。');
             busy = false;
           });
         } }
@@ -10923,7 +11045,7 @@ function meterMomScene(){
     { who:'pc',  text:'電鍋什麼時候不見的，你完全沒有印象。' }
   ], 0, () => {
     chg('calm', -3); toast('（歸屬感 −3）', 1800);
-    logDay('媽說上次是電鍋。我不知道有上次。');
+    logDay('媽說上次是電鍋。我不知道有上次。'); logPerson('mom', '她說爸又拿去賣了，上次是電鍋。'); learnFact('dad', '之前把電鍋拿去賣過。');
     busy = false;
   });
 }
@@ -10935,49 +11057,49 @@ function meterMomScene(){
  * 他能捐即可」)。掛法跟 dailyGotoReady() 一樣,插在每個人對話函式的最前面。 */
 const BLOOD = { active:false, day:-1, asked:[], found:false, briefed:false, momTalked:false, thanked:false };   // briefed:到了醫院護士才講要捐血(kc:「醫院打來就會說阿嬤昏迷了叫我們過來 我們到醫院的時候他才會說要捐血」)
 const BLOOD_ANSWERS = {
-  yuan:     { name:'阿源',   ok:false, beats:[
+  yuan:     { name:'阿源',   ok:false, fact:'O 型，但有刺青一年內不能捐。', beats:[
     { who:'yuan', text:'「我 O 型欸。」' },
     { who:'pc',   text:'他低頭看自己的手臂。' },
     { who:'yuan', text:'「有刺青的一年內不能捐，護士會退。」' } ] },
-  kai:      { name:'阿凱',   ok:false, beats:[
+  kai:      { name:'阿凱',   ok:false, fact:'十六歲，跟我同年。', beats:[
     { who:'kai',  text:'「我跟你同年啊，十六。」' },
     { who:'kai',  text:'「你自己都不行了還問我。」' } ] },
-  aren:     { name:'阿仁',   ok:false, beats:[
+  aren:     { name:'阿仁',   ok:false, fact:'A 型。捐血那天真的跟我跑了一趟醫院。', beats:[
     { who:'aren', text:'「好，我去！」' },
     { who:'pc',   text:'他真的跟你跑了一趟醫院。驗完護士說 A 型，不合，他比你還失望。' } ] },
-  mei:      { name:'小美',   ok:false, beats:[
+  mei:      { name:'小美',   ok:false, fact:'O 型，未滿十七要家長同意書，她媽不會簽。', beats:[
     { who:'mei',  text:'「我 O 型，可是我未滿十七要家長同意書。」' },
     { who:'mei',  text:'「我媽不會簽的。」' } ] },
-  acheng:   { name:'阿成',   ok:false, beats:[
+  acheng:   { name:'阿成',   ok:false, fact:'B 型。捐血那天脫了圍裙就跟我走。', beats:[
     { who:'pc',     text:'他沒講話，把圍裙脫下來跟你走。' },
     { who:'pc',     text:'到了醫院驗出來是 B 型。他站在走廊上，還是沒講話。' } ] },
-  ayi:      { name:'阿姨',   ok:false, beats:[
+  ayi:      { name:'阿姨',   ok:false, fact:'貧血，捐血被退過。', beats:[
     { who:'ayi',  text:'「我貧血，上次去捐被退回來。」' },
     { who:'ayi',  text:'「你去問問看廟口那幾個男的。」' } ] },
-  motoboss: { name:'旺鴻',   ok:false, beats:[
+  motoboss: { name:'旺鴻',   ok:false, fact:'血壓高，醫生不讓他捐。', beats:[
     { who:'motoboss', text:'「我血壓高，醫生不讓我捐。」' },
     { who:'motoboss', text:'「不然我早就去了。」' } ] },
-  foreman:  { name:'工頭',   ok:false, beats:[
+  foreman:  { name:'工頭',   ok:false, fact:'不肯讓工人捐血，捐完隔天沒人扛磚。', beats:[
     { who:'foreman', text:'「捐完要休息一天，明天誰扛磚？」' },
     { who:'foreman', text:'「你去找別人。」' } ] },
-  jiaoguan: { name:'教官',   ok:false, beats:[
+  jiaoguan: { name:'教官',   ok:false, fact:'AB 型。', beats:[
     { who:'jiaoguan', text:'「AB。」' },
     { who:'pc',       text:'他停了一下，把手機拿出來翻了翻，又收回去。' } ] },
-  teacher:  { name:'老師',   ok:false, beats:[
+  teacher:  { name:'老師',   ok:false, fact:'A 型。幫我問過辦公室，沒有 O 型的。', beats:[
     { who:'teacher', text:'「我 A 型。」' },
     { who:'teacher', text:'「我幫你問問看辦公室有沒有人 O 型。」' },
     { who:'pc',      text:'放學前他到走廊找你。' },
     { who:'teacher', text:'「問過了，沒有。」' } ] },
-  brother:  { name:'阿正',   ok:false, beats:[
+  brother:  { name:'阿正',   ok:false, fact:'捐血那天他值班。', beats:[
     { who:'brother', text:'「我值班。」' },
     { who:'brother', text:'「你去問問看外面那些人。」' } ] },
   /* 2026-09-16 kc:「算命先生對話太草率」——第一版三句就收。他是靠看人吃飯的,先問阿嬤
      幾歲、翻自己的健保卡確認血型,講一句當兵捐血的來歷,再收攤;最後那句「回來記得抽一支籤,
      不收錢」是他的方式,不是煽情。 */
-  bo:       { name:'阿伯',   ok:false, beats:[
+  bo:       { name:'阿伯',   ok:false, fact:'七十幾歲，捐血中心不收。', beats:[
     { who:'bo', text:'「我七十幾了，人家不收。」' },
     { who:'bo', text:'「你去問年輕的。」' } ] },
-  fortune:  { name:'算命的', ok:true,  beats:[
+  fortune:  { name:'算命的', ok:true, fact:'O 型。年輕的時候在部隊捐過三十幾次，一包血換一天假。',  beats:[
     { who:'fortune', text:'「你阿嬤幾歲？」' },
     { who:'pc',      text:'「七十八。」' },
     { who:'pc',      text:'他沒有回話，從抽屜裡翻出自己的健保卡，看了一下背面。' },
@@ -11029,6 +11151,8 @@ function bloodAsk(who){
   const a = BLOOD_ANSWERS[who];
   if(!a || BLOOD.asked.includes(who)) return false;
   BLOOD.asked.push(who);
+  learnFact(who, a.fact);
+  logPerson(who, a.ok ? '阿嬤要開刀，我問他能不能捐血。他自己去了醫院。' : '阿嬤要開刀，我問他能不能捐血，不行。');
   busy = true;
   playBeats([
     { who:'pc', text:'「我阿嬤明天要開刀，血庫沒有 O 型的血，要家屬自己找人。」' },
@@ -12027,6 +12151,7 @@ function nudgeToFindYuan(){
    趕過去,語氣故意平靜、不慌張——那件事已經結束了,剩下的只是知道。 */
 function notifyGrandmaDeath(){
   GRANDMA.dead = true;
+  logPerson('granny', '她走了。');
   /* 死了之後拔掉續命任務卡(見 updateGrandmaQuestHint()),不留一張
      再也不會更新、內容也不對的舊任務。 */
   { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'grandma-visit'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); renderQuestPanel(); }
@@ -12967,6 +13092,7 @@ function startExam(ex){
     logDay('放學。');
     if(pass){
       DISCIPLINE.merits++;
+      logPerson('teacher', '考試考過了，他當眾誇我。');
       chg('star', 8); chg('mood', 8);
       const gift = !owned.includes('pen');
       if(gift){ owned.push('pen'); st.gift = true; }
@@ -14046,6 +14172,7 @@ function talkToAcheng(){
              第一次 +6。他的話按第幾次排死,不抽。 */
           FOOD.push({ id: ++FOOD_SEQ, name:'滷味', icon:'🍢', feed:16, mood:2 });
           chg('star', 3);
+          logPerson('acheng', '幫他撿廟口的垃圾，他給我一包滷味。');
           const first = q.times === 1;
           if(first) chg('calm', 6);
           const line = first ? '「你人真好。」' : q.times === 2 ? '「{name}，今天怎麼又來。」' : q.times === 3 ? '「廟口這幾天比較乾淨了，阿伯有講。」' : '「習慣了喔。」';
@@ -14466,6 +14593,7 @@ function talkToYuan(){
      對峙+歸屬感懲罰,不腦補額外機制。 */
   if(YUAN.betrayed && !YUAN.betrayedConfronted){
     YUAN.betrayedConfronted = true;
+    logPerson('yuan', '他問是誰跟條子講的，我說不知道。');
     playBeats([
       { who:'yuan', text:'他劈頭就是一句：「幹，是誰跟條子講的？」' },
       { who:'pc', text:'他盯著你看了兩秒，你別開視線。' },
@@ -15363,6 +15491,7 @@ function getTattoo(id, price){
   chg('money', -price);
   owned.push(id);
   toggleWear(id);   // 永久裝備,這一款自己的 cool 從這裡套用,見 toggleWear() 的 removable 筆記
+  logPerson('tattooMaster', '在他那裡刺了刺青。');
   YUAN.hasTattoo = true;
   advanceTime(90);
   say('tattooMaster', '「刺完了，包著保鮮膜，回去別馬上洗。」', () => {
@@ -15737,7 +15866,7 @@ function talkToBrother(){
     syncMiscQuestPanel();
     say('brother', '「好了，這給你。」');
     toast('拿到良民證了。（歸屬感 +6）', 2600);
-    logDay('去警局拿到良民證。一張紙證明我是乾淨的。');
+    logDay('去警局拿到良民證。一張紙證明我是乾淨的。'); logPerson('brother', '跟他辦了良民證。');
     return;
   }
 
@@ -15762,6 +15891,7 @@ function talkToBrother(){
           { label:'把你知道的告訴他', run(){
               SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'reported';
               YUAN.betrayed = true;
+              logPerson('brother', '我把阿源那批東西的事告訴他了。');
               syncMiscQuestPanel();
               /* 句子要寫完整(kc 2026-09-14:「阿正沒拿筆 就聽 超怪 能不能講完完整
                  的句子不要字已為文筆很好」)——旁白不要用斷句裝氣氛,一句話把事情講完。 */
@@ -17284,7 +17414,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB, PEOPLE
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
