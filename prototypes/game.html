@@ -10657,7 +10657,7 @@ function meterPhoneCall(){
     busy = false;
   });
 }
-/* 走到家門口那一步(enterIndoor 'home' 攔住)——沒有樓梯間場景,箱子就在鐵門邊,一段旁白。 */
+/* 走到家門口那一步(enterIndoor 'home' 攔住)——沒有樓梯間場景,箱子就在鐵門邊,一段旁白。看完不自動進屋。 */
 function meterBoxCheck(door){
   if(METER.phase !== 'box') return false;
   busy = true;
@@ -10667,8 +10667,7 @@ function meterBoxCheck(door){
   ], 0, () => {
     METER.phase = 'find';
     meterCard(meterHintFind());
-    busy = false;
-    enterIndoor(door);
+    busy = false;   // 看完人還站在鐵門外(kc:「為何我回家看水表他會自動叫我走進家裡」)——要進去自己再按一次
   });
   return true;
 }
