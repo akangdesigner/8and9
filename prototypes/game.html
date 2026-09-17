@@ -2576,6 +2576,7 @@ function wakeAtMorning(toDay){
   paintBedroomBackdrop();
   syncHUD(); syncMiscQuestPanel();
   snapDay();
+  introExpire();
   busy = false;
   toast('第 ' + day + ' 天早上。', 2400);
   maybeIdleDay();
@@ -3935,6 +3936,7 @@ const BO = { x:4.4, z:-91.6, visits:0, seenEvents:{} };   // 2026-09-17 kc:「�
 const BO_DATA = NpcTemple.NPCS.find(n => n.id === 'bo');
 function talkToBo(){
   logTalk('阿伯');
+  if(introCharmBo()) return;   // day7 平安符(見 INTRO)
   if(bloodAsk('bo')) return;   // 捐血那天(見 BLOOD)
   if(meterAsk('bo')) return;   // 水表去哪了(見 METER)
   talkToStallVendor(BO, BO_DATA, 'bo', () => {}, { talkGivesCalm: 1 });
@@ -7973,6 +7975,11 @@ function checkout(){
         chg('money', -total);
         let line = '';
         IN.basket.forEach(it => {
+          if(it.soy){   // day1 的醬油(見 INTRO):進雜物欄,卡換成拿回家
+            TRASH.push({ name:'醬油', icon:'🧴', soy:true, detail:'媽交代買的。<br>拿回家放廚房。' });
+            if(INTRO.day1 === 'soy'){ INTRO.day1 = 'home'; setTodayCard('把醬油拿回家。', '送東西給阿嬤'); }
+            return;
+          }
           FOOD.push({ id: ++FOOD_SEQ, name: it.name, icon: it.icon, feed: it.feed, mood: it.mood });
           if(it.line) line = it.line;   // 目前一次結帳最多一件會帶特殊台詞(即期便當),直接蓋過去就好
         });
@@ -8158,10 +8165,12 @@ function openIndoorSpot(id){
       /* 體力要低於 30 才准睡(2026-08-28,kc:「體力要低於30才可以睡覺」,
          同一輪「沒誘因去做別的事」的調整,不然體力還很滿也能直接睡跳過
          一天,等於白得一堆時間)。 */
-      { label:'睡覺', cost: ST.stamina >= 30 ? '還不夠累，睡不著' : '體力補滿,跳到明天早上',
-        cls: ST.stamina >= 30 ? 'bad' : '',
+      /* 晚上八點以後不管體力都能睡(2026-09-17,前幾天帶著走那條:day1 媽煮完飯「早點睡」,
+         體力還很高睡不著會卡住;晚上睡覺本來就不算跳過一天)。 */
+      { label:'睡覺', cost: (ST.stamina >= 30 && minute < 20*60) ? '還不夠累，睡不著' : '體力補滿,跳到明天早上',
+        cls: (ST.stamina >= 30 && minute < 20*60) ? 'bad' : '',
         run:() => {
-          if(ST.stamina >= 30){ toast('還不夠累，睡不著。', 2400); return; }
+          if(ST.stamina >= 30 && minute < 20*60){ toast('還不夠累，睡不著。晚上八點以後再來。', 2400); return; }
           sleep();
         } },
       { label:'不睏', cls:'back', run(){} }
@@ -8411,6 +8420,8 @@ function openIndoorSpot(id){
     { label:'不拿了', cls:'back', run(){} }
   ]);
   else if(id === 'shelf') openMenu('貨架', [
+    /* day1 媽交代的醬油(2026-09-17,見 INTRO)——走一般的提袋→櫃台結帳,讓玩家學一次;結帳時 soy:true 進雜物欄不進食物。 */
+    ...(INTRO.day1 === 'soy' && !IN.basket.some(it => it.soy) ? [{ label:'買醬油', cost:'$40', run:() => { addToBasket('醬油', 40, 0, 0, '🧴'); IN.basket[IN.basket.length-1].soy = true; } }] : []),
     { label:'買泡麵', cost:'$25　飽足 +20　情緒 +3', run:() => addToBasket('泡麵', 25, 20, 1, '🍜') },
     { label:'買洋芋片', cost:'$40　飽足 +15　情緒 +6', run:() => addToBasket('洋芋片', 40, 15, 6, '🍟') },
     /* 小胖的傷口任務用的藥水(2026-08-31,見上面 FAT 那則長筆記)——只在
@@ -8448,7 +8459,11 @@ function openIndoorSpot(id){
         { who:'pc',    text:'他頓了一下。' },
         { who:'clerk', text:'「白天早班可以，一小時一百八十三。」' },
         { who:'clerk', text:'「你要留個電話嗎？」' }
-      ], 0, () => { IN.hired = true; chg('calm', -3); toast('早班的時間，是你上課的時間。', 3400); });
+      ], 0, () => {
+        IN.hired = true; chg('calm', -3); toast('早班的時間，是你上課的時間。', 3400);
+        logPerson('clerk', '問他有沒有缺人，他說白天早班可以。');
+        if(INTRO.day2 === 'apply'){ INTRO.day2 = 'done'; clearTodayCard(); logDay('去超商問有沒有缺人。店員說白天早班可以，一小時一百八十三。'); }
+      });
     }});
     /* 上班(2026-08-19,kc 要求「早班不是死門,是翹課換錢」,見
        docs/DESIGN_NOTES.md「早班不是死門」節)——`IN.askedJob` 那段問完
@@ -9507,6 +9522,14 @@ function logDay(text){ if(text && !dayLog.includes(text)) dayLog.push(text); }
  * 「認識」在 say() 出口自動登記(他開口跟你講過話就算),不用每個對話函式各補一行。
  * 沒見過的人不出現,只留一行「還有 N 個人你還沒認識」(我選的,不要灰色剪影)。
  * 家人也在名冊裡,爸那頁本來就該是最長的。PEOPLE 進 SAVE_OBJECTS。 */
+/* ===== 前幾天帶著走(2026-09-17,kc:「前幾天我覺得可以用 A 只留一點點空閒時間 可以讓用戶自由逛逛
+ * 一下之類 讓大家了解基本玩法」)=====================================================
+ * day1/2/7 早上那件事各接一條尾巴,把超商、學校、廟口帶過一遍;day5 本來就滿。第 10 天起父線開始,
+ * 之後靠生活壓力,不再牽。細節見 DESIGN_NOTES「前幾天帶著走」。
+ *   day1:醫院 → 超商買醬油(學結帳,看到徵人的紙)→ 拿回家,媽在煮飯
+ *   day2:兩千+註冊單 → 第一次去學校 → 放學去超商櫃台問有沒有缺人
+ *   day7:媽要錢前先叫你去廟口幫阿嬤求平安符 → 阿伯給你 → 之後可以放阿嬤枕頭下 */
+const INTRO = { day1:'none', day2:'none', day7:'none' };   // none → 進行中的階段 → done
 const PEOPLE = {};
 const PEOPLE_DEF = {
   mom:      { name:'媽',   who(){ return (seenStoryDays.has('bet-16') ? '媽。晚上不在家的時候人在賭場。' : '媽。在沙發上看電視，錢的事都是她開口。') + (METER.momTold ? '爸賣東西的事她早就知道，上次是電鍋。' : ''); } },
@@ -10555,25 +10578,51 @@ function dailyGotoReady(who){
   const e = dailyDef();
   return !!e && e.goto === who && !DAILY.done && DAILY.day === day;
 }
-/* 今天的事做完之後那張卡(2026-09-17 kc:「當我解完阿嬤的任務之後我突然不知道要幹嘛也沒有提示」)——
-   不是收掉,是換成「做完了,接下來可以幹嘛」。前兩天多一句床在哪。 */
-function todayFreeCard(){
-  const early = day <= 2 ? '<br><span class="qpNote">要睡覺就回家進房間，走到床邊按空白鍵。</span>' : '';
-  const money = ST.money < 300 ? '身上的錢不多了，' : '';
-  setTodayCard('今天的事做完了。' + money + '想賺錢去超商或工地打工，想休息就回家睡覺，明天再說。' + early, '今天');
-}
+/* 「做完了,接下來可以幹嘛」那張通用卡 2026-09-17 做了又退掉(kc:「感覺很怪」——那是遊戲在跟玩家講話,
+   這遊戲的提示都是世界裡的人在講)。改成前幾天的事自己有尾巴(見 INTRO),之後靠生活壓力(C)。 */
 function dailyDone(){
-  DAILY.done = true; todayFreeCard();
+  DAILY.done = true; clearTodayCard();
   const e = dailyDef();
   if(e && e.diary) logDay(e.diary);
+}
+function introCharmCard(){
+  if(INTRO.day7 === 'charm') setTodayCard('去廟口找阿伯，幫阿嬤求一個平安符。', '媽要錢');
+}
+/* day7 尾巴:阿伯給平安符(2026-09-17,見 INTRO)——掛在 talkToBo() 最前面。 */
+function introCharmBo(){
+  if(INTRO.day7 !== 'charm') return false;
+  INTRO.day7 = 'done';
+  clearTodayCard();
+  busy = true;
+  playBeats([
+    { who:'pc', text:'「阿伯，我媽叫我來幫阿嬤求一個平安符。」' },
+    { who:'bo', text:'「你阿嬤的喔。」' },
+    { who:'pc', text:'他從供桌底下拿出一個紅色的小袋子，在香爐上繞了三圈。' },
+    { who:'bo', text:'「這個放她枕頭下面。」' },
+    { who:'bo', text:'「她以前每個月初一都來。你跟她講，阿伯有在念。」' }
+  ], 0, () => {
+    TRASH.push({ name:'平安符', icon:'🧧', charm:true, detail:'廟口阿伯給的。<br>放阿嬤枕頭下面。' });
+    chg('calm', 3);
+    toast('拿到平安符了。（歸屬感 +3）', 2400);
+    logDay('去廟口幫阿嬤求了平安符，阿伯說她以前每個月初一都來。');
+    logPerson('bo', '幫阿嬤求平安符，他說她以前每個月初一都來。'); learnFact('bo', '認識阿嬤，她以前每個月初一都去廟裡。');
+    busy = false;
+  });
+  return true;
 }
 function runDailyGoto(who){
   const e = dailyDef();
   busy = true;
   if(who === 'mom'){
     dailyDone();
+    /* day7 尾巴(2026-09-17,見 INTRO):先交代平安符,再開口要錢——不管給不給,廟口那趟都在。 */
+    const charm = INTRO.day7 === 'none';
+    if(charm){ INTRO.day7 = 'charm'; }
     playBeats([
-      { who:'mom', text:'「{name}，你身上還有錢嗎。」' },
+      ...(charm ? [
+        { who:'mom', text:'「{name}，今天廟口有拜拜，你去幫阿嬤求一個平安符。」' },
+        { who:'mom', text:'「跟廟口那個阿伯講就好，他認識阿嬤。」' } ] : []),
+      { who:'mom', text:'「還有，你身上還有錢嗎。」' },
       { who:'pc',  text:'她沒有看你，看的是你桌上那個袋子。' },
       { who:'mom', text:'「五百就好，朋友那邊周轉一下。」' }
     ], 0, () => openMenu('', [
@@ -10585,7 +10634,7 @@ function runDailyGoto(who){
             { who:'pc',  text:'她把錢摺起來，塞進口袋，動作很快。' },
             { who:'mom', text:'「下個月還你。」' },
             { who:'pc',  text:'她每次都這樣講。' }
-          ], 0, () => { busy = false; });
+          ], 0, () => { busy = false; introCharmCard(); });
         } },
       { label:'說你沒有', cost:'歸屬感 −6　情緒 −3', run(){
           chg('calm', -6); chg('mood', -3); logDay('媽來要錢，我說我沒有。她把門關得很輕。');
@@ -10593,7 +10642,7 @@ function runDailyGoto(who){
             { who:'mom', text:'「喔。」' },
             { who:'pc',  text:'她把門帶上，關得很輕。' },
             { who:'pc',  text:'她走了以後，你在房間裡坐了一下才出門。' }
-          ], 0, () => { busy = false; });
+          ], 0, () => { busy = false; introCharmCard(); });
         } }
     ]));
     return;
@@ -11489,6 +11538,7 @@ function sleepLand(skippedSchool){
          接到任務那天的天數。 */
       syncMiscQuestPanel();
       clearTodayCard();        // 「今天」的卡不跨日——昨天沒做完的事,隔天不該還掛在面板上
+      introExpire();           // 前幾天的尾巴過夜就算了(見 INTRO)
       maybeIdleDay();          // 今天沒排劇情的話,給一個「這天你要幹嘛」的過渡選項
     };
     if(impoundBeats) playBeats(impoundBeats, 0, wake);
@@ -11523,6 +11573,8 @@ function warpIntoPlace(door){
        `where` 標籤卻顯示上一個場景的背景。這裡補回來,每次真的走進
        超商都重畫一次,不能只靠頁面載入那一次。 */
     paintStoreBackdrop();
+    /* 前幾天第一次走進超商,櫃台旁那張徵人的紙(2026-09-17,見 INTRO)——先看到就好,day2 才會去問。 */
+    if(!IN.seenHiringNote && !IN.hired){ IN.seenHiringNote = true; setTimeout(() => { if(!busy && !dlg.on) toast('櫃台旁邊貼著一張紙：誠徵早班，時薪 183。', 3200); }, 900); }
     /* story-school.js day36(鮮食櫃)——這節設在超商,不是校內,見
        maybeTriggerStoryNode() 旁邊的長筆記(2026-09-01)。 */
     /* day36(鮮食櫃)原本接在這裡(這節設在超商不是校內)。2026-09-09 封存,
@@ -11536,6 +11588,10 @@ function warpIntoPlace(door){
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
     lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
+    if(INTRO.day2 === 'school'){   // day2 尾巴:到了學校,放學去超商問工(見 INTRO)
+      INTRO.day2 = 'apply';
+      setTodayCard('放學後去超商，櫃台問有沒有缺人。<br><span class="qpNote">註冊費一千塊要自己想辦法</span>', '第一天上學');
+    }
     /* story-school.js day5(樓梯間)/day21(打牌)——這兩節本來就設在教室/
        教室附近,一進教室就檢查,跟 home 那邊 maybeTriggerStoryNode() 同一招
        (2026-09-01,見 maybeTriggerStoryNode() 旁邊的長筆記)。小考宣布
@@ -11568,7 +11624,8 @@ function warpIntoPlace(door){
     IN.px = 90; IN.py = HOME.walkS; IN.face = 'F';
     document.getElementById('where').textContent = '家';
     paintHomeBackdrop();
-    maybeTriggerStoryNode();
+    if(INTRO.day1 === 'home' && TRASH.some(t => t.soy)) introSoyHome();
+    else maybeTriggerStoryNode();
   }
   advanceTime(1);
   checkGrandmaCall();
@@ -11898,6 +11955,35 @@ function leaveBedroom(){
   });
 }
 /* day2 阿嬤那袋——媽在客廳塞給你就出門。字是我寫的,kc 2026-09-11 點頭。 */
+/* day1 尾巴:把醬油拿回家,媽在煮飯(2026-09-17,見 INTRO)。天也差不多黑了,今天到這裡。 */
+/* 前幾天的尾巴沒做完就過夜了,隔天不再牽(掛在睡醒那段)。平安符那條不過期,阿伯什麼時候給都行。 */
+function introExpire(){
+  if(day > 1 && INTRO.day1 !== 'done'){ INTRO.day1 = 'done'; const i = TRASH.findIndex(t => t.soy); if(i >= 0) TRASH.splice(i, 1); }
+  if(day > 2 && INTRO.day2 !== 'done') INTRO.day2 = 'done';
+}
+function introSoyHome(){
+  INTRO.day1 = 'done';
+  { const i = TRASH.findIndex(t => t.soy); if(i >= 0) TRASH.splice(i, 1); }
+  clearTodayCard();
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'廚房有油煙的味道，媽在煮飯。' },
+    { who:'mom', text:'「放廚房。」' },
+    { who:'pc',  text:'你把醬油放在瓦斯爐旁邊。' },
+    { who:'mom', text:'「阿嬤有沒有醒？」' },
+    { who:'pc',  text:'「有。她問你怎麼沒去。」' },
+    { who:'mom', text:'「我要上班啊。」' },
+    { who:'mom', text:'「明天有事跟你講。吃飽早點睡。」' }
+  ], 0, () => {
+    chg('full', 24); chg('calm', 3);
+    toast('媽煮的飯。（飽足 +24　歸屬感 +3）', 2600);
+    logDay('幫媽買了醬油。她煮飯，說明天有事跟我講。');
+    logPerson('mom', '她叫我買醬油，煮了飯。');
+    if(minute < 20*60) minute = 20*60;   // 吃完飯天黑了,床那邊晚上八點以後就能睡
+    syncHUD();
+    busy = false;
+  });
+}
 function runMomBag(){
   GRANDMA.bagGiven = true;
   busy = true;
@@ -11909,10 +11995,13 @@ function runMomBag(){
     { who:'pc',  text:'她手上拎著一個袋子。' },
     { who:'mom', text:'「這個拿去醫院給阿嬤。換洗的，還有她要的那罐麥片。」' },
     { who:'mom', text:'「上禮拜住進去的，你都沒去。」' },
-    { who:'pc',  text:'她把袋子塞給你就出門了。' }
+    { who:'mom', text:'「回來的時候順便去超商買一瓶醬油，錢放桌上，剩的你留著。」' },
+    { who:'pc',  text:'她把袋子塞給你就出門了。桌上放著一百塊，你收進口袋。' }
   ], 0, () => {
+    chg('money', 100);
+    INTRO.day1 = 'hospital';
     TRASH.push({ name:'給阿嬤的袋子', icon:'🛍️', grandmaBag:true, detail:'換洗衣服跟一罐麥片。<br>媽說拿去醫院給她。' });
-    setTodayCard('拿東西去醫院給阿嬤', '送東西給阿嬤');
+    setTodayCard('拿東西去醫院給阿嬤，回來順便去超商買一瓶醬油。<br><span class="qpNote">媽給了一百，剩的你留著</span>', '送東西給阿嬤');
     logDay('媽叫我拿東西去醫院給阿嬤。上禮拜住院的，我今天才知道。');
     busy = false;
   });
@@ -12503,6 +12592,7 @@ function deliverGrandmaBag(){
   GRANDMA.bagDelivered = true; GRANDMA.met = true;
   const i = TRASH.findIndex(t => t.grandmaBag); if(i >= 0) TRASH.splice(i, 1);
   if(dailyDef() && dailyDef().id === 'grandma-bag') dailyDone(); else clearTodayCard();
+  if(INTRO.day1 === 'hospital'){ INTRO.day1 = 'soy'; setTodayCard('去超商買一瓶醬油。<br><span class="qpNote">貨架拿了到櫃台結帳</span>', '送東西給阿嬤'); }
   paintHospitalBackdrop(true);
   /* 畢業證書那個承諾(2026-09-15,kc:「媽媽給你註冊單後會叫你去看阿嬤 阿嬤會
      叫你要好好念書帶畢業證書來給他看 這可以貫穿我們的最大主線」)——就種在
@@ -12591,6 +12681,26 @@ function grandmaVisitLine(){
           chg('calm', 12); chg('mood', 6);
           toast('（歸屬感 +12、情緒 +6）', 2400);
           logDay('把獎狀拿給阿嬤看。她說這不是畢業證書，她等。');
+          grandmaVisitLine();
+        });
+      } });
+    }
+    /* 平安符(2026-09-17,day7 尾巴,見 INTRO)——放她枕頭下,一次。 */
+    if(TRASH.some(t => t.charm)){
+      opts.push({ label:'把平安符放她枕頭下', run(){
+        { const i = TRASH.findIndex(t => t.charm); if(i >= 0) TRASH.splice(i, 1); }
+        playBeats(awake ? [
+          { who:'pc',     text:'你把紅色的小袋子塞到她枕頭下面。' },
+          { who:'granny', text:'「哪裡來的。」' },
+          { who:'pc',     text:'「廟口阿伯。他說他有在念。」' },
+          { who:'granny', text:'「他還在喔。」' },
+          { who:'pc',     text:'她把手伸到枕頭下面摸了一下，沒有拿出來。' }
+        ] : [
+          { who:'pc', text:'她睡著。你把紅色的小袋子塞到她枕頭下面，她沒有醒。' }
+        ], 0, () => {
+          chg('calm', 6); toast('（歸屬感 +6）', 2000);
+          logDay('把平安符放在阿嬤枕頭下。');
+          logPerson('granny', '把阿伯給的平安符放在她枕頭下。');
           grandmaVisitLine();
         });
       } });
@@ -12845,7 +12955,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
       /* 事情發生了就收掉早上那張提醒卡——**除非這個節點自己要換掉卡的內容**
          (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
          要留到那件事真的做完。 */
-      if(!node.questAfter) todayFreeCard();   // 做完了換成「接下來可以幹嘛」,不是收掉(2026-09-17)
+      if(!node.questAfter) clearTodayCard();
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
@@ -12861,6 +12971,10 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
            第二張,面板上只該有一張)。 */
         if(node.questAfter) setTodayCard(node.questAfter.hint);
         if(node.kaiRun) KAI_RUN.pending = true;   // day5 跑腿,見 KAI_RUN 那段
+        if(key === 'bet' && node.day === 2 && INTRO.day2 === 'none'){   // day2 尾巴:第一次去學校(見 INTRO)
+          INTRO.day2 = 'school';
+          setTodayCard('今天第一天上學。去學校，走廊有繳費機可以看註冊費怎麼繳。', '第一天上學');
+        }
         /* 沒有 menu 的節點(day5 那種「只是鋪陳、真正的選擇在別的場景」)
            直接走 after,不要硬開一個空選單。 */
         if(!node.menu){ if(after) after(); return; }
@@ -17516,7 +17630,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB, PEOPLE
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB, PEOPLE, INTRO
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
@@ -17526,6 +17640,10 @@ const SAVE_VARS = {
   PLAYER_NAME:        v => v===undefined ? PLAYER_NAME        : (PLAYER_NAME = v),
   PLAYER_AGE:         v => v===undefined ? PLAYER_AGE         : (PLAYER_AGE = v),
   PLAYER_SEX:         v => v===undefined ? PLAYER_SEX         : (PLAYER_SEX = v),
+  /* 超商應徵過了沒(2026-09-17 補)——之前漏登記,關掉再開要重新問一次店員。 */
+  storeHired:         v => v===undefined ? IN.hired           : (IN.hired = !!v),
+  storeAskedJob:      v => v===undefined ? IN.askedJob        : (IN.askedJob = !!v),
+  seenHiringNote:     v => v===undefined ? !!IN.seenHiringNote : (IN.seenHiringNote = !!v),
   day:                v => v===undefined ? day                : (day = v),
   minute:             v => v===undefined ? minute             : (minute = v),
   lastExamDay:        v => v===undefined ? lastExamDay        : (lastExamDay = v),
