@@ -10181,7 +10181,7 @@ function dayHasSomething(d){
   if(BILLS.some(b => b.dueDay === d)) return true;
   if(TUITION_QUEST && !TUITION_QUEST.paid && TUITION_QUEST.dueDay === d) return true;
   if(GRANDMA.nextCheckDay === d) return true;
-  if(MOTO_LOAN.active && MOTO_LOAN.nextDueDay === d) return true;
+  /* 機車分期到期日不再算「有事的日子」(2026-09-17 砍行動天)——跳過那天照扣,sleepLand 的 while 會補。 */
   if(KAI_RUN.wrong && !KAI_RUN.confronted && KAI_RUN.dropDay >= 0 && d === KAI_RUN.dropDay + 2) return true;   // 阿凱那通電話的日子
   return false;
 }
@@ -10405,19 +10405,16 @@ function dailyDef(){ return DAILY.id ? DAILY_EVENTS.find(e => e.id === DAILY.id)
      喘息。最後一天(day90)是媽開口要錢——註冊費到期的前一天。
    要改哪一天就直接改這張表。 */
 const DAILY_SCHEDULE = {
-  /* 2026-09-16 這輪改的格子(⚠ 註解不要寫在資料行尾巴,之前一行尾註解把後面幾格吃掉過):
-       代班 12→13(day12 讓給期中考,週六代班也合理)
-       阿凱找你 22→30(day22 是學校線主線日,主線日不抽日常事件,排在那裡永遠不會出現)
-       day50 水費改成停水那天(見 WATER_CUT)
-       day55 阿嬤開刀要人捐血,到處問人(見 BLOOD),阿嬤那 30 天(46~76)裡面
-     day2 阿嬤那袋(2026-09-11 kc:「第二個行動天要是媽媽請你拿東西給阿嬤」),原本的下雨挪到 day3 */
-  2:'grandma-bag', 3:'rain', 4:'pocket', 5:'power', 7:'mom-ask', 9:'loan', 13:'co-extra',
-  15:'moto-dead', 17:'rain', 20:'water', 23:'loan', 26:'yuan-call',
-  29:'pocket', 30:'kai-hang', 31:'ayi-food', 35:'power', 38:'mei-ask', 41:'mom-ask', 44:'yuan-call',
-  47:'acheng-hand', 50:'water-cut', 51:'loan', 53:'co-extra', 55:'blood', 56:'mei-ask', 59:'kai-hang',
-  61:'hospital-bill', 62:'site-work', 66:'kai-fast', 68:'tuition-remind', 70:'ayi-food', 72:'hospital-bill',
-  74:'site-work', 78:'tuition-remind', 79:'loan', 81:'kai-fast', 83:'water', 85:'site-work',
-  87:'tuition-remind', 89:'kai-fast', 90:'mom-ask'
+  /* 2026-09-17 大砍(kc:「現在行動天太多了啦 應該要是一個禮拜兩個行動天左右即可」)——
+     原本 90 天醒 56 次,砍到 26 次:固定的 19 天(母・賭 6、父・喝 5、期中 12、期末 65、
+     學校線 22/37、校外教學 57、阿嬤電話 46、停水 50、捐血 55)+ 下面 7 格。
+     拿掉的(資料都還在 DAILY_EVENTS,要回來把格子加回去就好):下雨 ×2、口袋破洞 ×2、
+     機車分期 ×4(不醒來,跳過那天照扣,sleepLand 的 while 本來就會)、水費 ×2、電費 35、
+     超商代班 ×2、車發不動、阿源叫你去廟口 ×2、阿姨給吃的 ×2、小美問題目 ×2、阿凱找你 59、
+     看護費 72、工地缺人 ×3、阿凱有東西要送 ×3、導師催 78/87、day90 媽要錢。
+     ⚠ 註解不要寫在資料行尾巴,之前一行尾註解把後面幾格吃掉過。 */
+  2:'grandma-bag', 5:'power', 7:'mom-ask', 30:'kai-hang', 47:'acheng-hand', 50:'water-cut', 55:'blood',
+  61:'hospital-bill', 68:'tuition-remind'
 };
 function pickDailyForDay(d){
   const first = DAILY_SCHEDULE[d] && DAILY_EVENTS.find(e => e.id === DAILY_SCHEDULE[d]);
