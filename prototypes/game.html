@@ -3450,13 +3450,20 @@ patrolLine.visible = false;
 patrolLine.frustumCulled = false;
 patrolLine.renderOrder = 5;   // 有測深度(depthTest 沒關),但地面/道路那類貼地 mesh 常常也是 y≈0,同一個深度值誰先畫誰蓋過誰不保證,拉高一點 render order 避免被地面貼圖搶著畫
 scene.add(patrolLine);
+/* 導引線的目標:贖車巡邏的下一個點,或貼宣導單的下一個點(2026-09-17,見 NOTICE_JOB)。 */
+function guideTarget(){
+  if(MOTO_IMPOUND.patrolActive && MOTO_IMPOUND.patrolVisited < MOTO_PATROL_POINTS.length) return MOTO_PATROL_POINTS[MOTO_IMPOUND.patrolVisited];
+  if(NOTICE_JOB.active){ const pts = noticePoints(); if(NOTICE_JOB.posted < pts.length){ const p = pts[NOTICE_JOB.posted]; return [p.x, p.z]; } }
+  return null;
+}
 function updatePatrolMarker(dt){
-  if(!MOTO_IMPOUND.patrolActive || MOTO_IMPOUND.patrolVisited >= MOTO_PATROL_POINTS.length){
+  const tgt = guideTarget();
+  if(!tgt){
     patrolMarkerEl.style.display = 'none';
     patrolLine.visible = false;
     return;
   }
-  const [px, pz] = MOTO_PATROL_POINTS[MOTO_IMPOUND.patrolVisited];
+  const [px, pz] = tgt;
   _patrolV.set(px, 2.4, pz).project(camera);
   if(_patrolV.z > 1 || _patrolV.z < -1) patrolMarkerEl.style.display = 'none';
   else {
@@ -3620,7 +3627,7 @@ const MOTOBOSS = { x:-1, z:-13.2, visits:0, seenEvents:{}, newsConfronted:false 
    litterQuest 同樣借用場上既有機制(city.litter/interactProp() 的垃圾
    撿拾分支),完成條件是撿滿 3 件(need),不限定要在廟口附近撿到的那幾件,
    簡化成「累計撿滿 3 件」,不做額外的範圍判斷。 */
-const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3 } };
+const ACHENG = { x:-13, z:-93.5, visits:0, seenEvents:{}, litterQuest:{ active:false, taskDone:false, done:false, picked:0, need:3, lastDay:-1, times:0 } };   // lastDay/times:2026-09-17 改成每天都能接一次(kc:「做一些可以賺風評的任務 比如剪垃圾」)
 /* 任務小面板同步(2026-08-27,kc:「所有任務都要有面板啦,比如剪垃圾也
    算啊」)——上一輪 ACTIVE_QUESTS 只有算命攤的委託在用,kc 要求場上所有
    「接下來要做、之後回報」的任務都要進同一個面板,阿成的撿垃圾任務是
@@ -4118,6 +4125,22 @@ function motoImpoundMenuItems(){
   ];
 }
 const ID_CARD_QUEST = { active:false, requestedDay:-1, readyDay:-1, done:false };
+/* 幫阿正貼宣導單(2026-09-17,kc:「做一些可以賺風評的任務 比如幫阿正」→「阿正的徒步巡邏
+   改成平常也能幫但直接改成貼宣導單」)——認識阿正之後每天能幫一次:他給你三張反詐騙的
+   單子,貼在公車亭、公園長椅、超商門口(走到就貼,跟贖車巡邏同一套「走到點」判定+同一條
+   導引線),貼完回警局報到風評 +3。贖車巡邏那條(MOTO_IMPOUND.patrolActive)在跑的時候不開。 */
+const NOTICE_JOB = { active:false, posted:0, lastDay:-1, times:0 };
+function noticePoints(){
+  const d = city.doors.find(x => x.id === 'store');
+  return [ { x:-42, z:103, name:'公車亭' }, { x:62, z:-16, name:'公園長椅' }, { x: d ? d.x : 0, z: d ? d.z + 3 : 0, name:'超商門口' } ];
+}
+function startNoticeJob(){ NOTICE_JOB.active = true; NOTICE_JOB.posted = 0; syncMiscQuestPanel(); }
+function finishNoticeJob(){
+  NOTICE_JOB.active = false; NOTICE_JOB.lastDay = day; NOTICE_JOB.times++;
+  syncMiscQuestPanel();
+  chg('star', 3);
+  logDay('幫阿正貼了三張宣導單。');
+}
 const SNITCH_QUEST  = { active:false, startDay:-1, resolved:null, armed:false, liedToBrother:false };   // resolved: null|'reported'|'warned'|'expired';armed 是 #bar「贓物協尋」測試鈕跳過 day52 門檻用
 /* 三條的任務面板統一走這個函式(2026-08-31)——跟阿正月長線那個
    syncBrotherArcPanel() 是平行的兩套,不合併是因為觸發時機不同:月長線
@@ -4144,6 +4167,13 @@ function syncMiscQuestPanel(){
       : (day < ID_CARD_QUEST.readyDay ? `良民證還在辦，還要等 ${activeDaysUntil(ID_CARD_QUEST.readyDay)} 個行動天`
          : (ST.star < -10 ? '良民證辦好了，但風評太差阿正不肯發（風評要到 -10 以上）' : '良民證好了，去警局跟阿正拿'));
     if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'id-card', title:'辦良民證', hint });
+  } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
+
+  idx = ACTIVE_QUESTS.findIndex(x => x.id === 'notice');
+  if(NOTICE_JOB.active){
+    const pts = noticePoints();
+    const hint = NOTICE_JOB.posted >= pts.length ? '三張都貼了，回警局跟阿正說一聲' : `把宣導單貼到 ${pts[NOTICE_JOB.posted].name}（${NOTICE_JOB.posted}/${pts.length}）`;
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'notice', title:'幫阿正貼宣導單', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'snitch');
@@ -13306,6 +13336,20 @@ function updateCity(dt){
     }
   }
 
+  /* 貼宣導單(2026-09-17,見 NOTICE_JOB)——跟上面巡邏同一套,走到就貼。 */
+  if(NOTICE_JOB.active){
+    const pts = noticePoints();
+    if(NOTICE_JOB.posted < pts.length){
+      const p = pts[NOTICE_JOB.posted];
+      if(Math.hypot(pos.x-p.x, pos.z-p.z) < 6){
+        NOTICE_JOB.posted++;
+        advanceTime(5);
+        syncMiscQuestPanel();
+        toast(NOTICE_JOB.posted >= pts.length ? '三張都貼好了，回警局跟阿正說一聲。' : `你把單子貼在${p.name}（${NOTICE_JOB.posted}/${pts.length}）。`, 2200);
+      }
+    }
+  }
+
   /* 小胖的連續劇情(2026-08-31,見上面 FAT 那則長筆記+ checkFatArc())——
      跟 BROTHER 月長線同一招「靠近才自動觸發」,但小胖沒有 3D 模型可以
      靠近,直接沿用 YUAN 的座標當廟埕位置判斷。 */
@@ -13981,20 +14025,25 @@ function talkToAcheng(){
     if(q.taskDone && !q.done){
       extra.push({ label:'「垃圾撿好了。」', cls:'',
         run(){
-          q.done = true;
+          q.done = true; q.active = false; q.lastDay = day; q.times++;
           syncLitterQuestPanel();
           /* 2026-09-09 kc:「滷味攤剪垃圾 是獲得多一包滷味而非金錢」——原本
              台詞寫「塞給你一包滷味」但實際上是 chg('money', 40),文字跟給的
              東西對不起來。改成真的進揹包一包滷味(FOOD,跟超商結帳同一份
              資料結構),不給錢。feed 16 跟他攤子上「買一份來吃」同一個數字
-             (openStallMenu 的 full 參數),mood +2 是自己抓的小確幸。 */
+             (openStallMenu 的 full 參數),mood +2 是自己抓的小確幸。
+             2026-09-17 改成每天都能接:風評 +3(真的做了什麼那一檔),歸屬感只
+             第一次 +6。他的話按第幾次排死,不抽。 */
           FOOD.push({ id: ++FOOD_SEQ, name:'滷味', icon:'🍢', feed:16, mood:2 });
-          chg('calm', 6);
-          toast('「你人真好。」阿成塞給你一包滷味。（滷味 ×1，歸屬感 +6）', 2600);
+          chg('star', 3);
+          const first = q.times === 1;
+          if(first) chg('calm', 6);
+          const line = first ? '「你人真好。」' : q.times === 2 ? '「今天怎麼又來。」' : q.times === 3 ? '「廟口這幾天比較乾淨了，阿伯有講。」' : '「習慣了喔。」';
+          toast(line + '阿成塞給你一包滷味。（滷味 ×1，風評 +3' + (first ? '，歸屬感 +6' : '') + '）', 2600);
         } });
-    } else if(!q.active && !q.done){
-      extra.push({ label:'「廟口這附近的垃圾,你順手幫忙撿一撿?」', cls:'',
-        run(){ q.active = true; syncLitterQuestPanel(); toast('「三包就好,不用撿到天亮。」', 2400); } });
+    } else if(!q.active && q.lastDay !== day){
+      extra.push({ label: q.times ? '「今天的垃圾我再撿一撿？」' : '「廟口這附近的垃圾,你順手幫忙撿一撿?」', cls:'',
+        run(){ q.active = true; q.done = false; q.taskDone = false; q.picked = 0; syncLitterQuestPanel(); toast(q.times ? '「三包，老規矩。」' : '「三包就好,不用撿到天亮。」', 2400); } });
     }
     openStallMenu('阿成的麵攤', '阿成', 45, 16, '「趁熱吃。」', '「自己人,不用跟我客氣。」', extra);
   }, { talkGivesCalm: 2 });
@@ -15785,6 +15834,39 @@ function talkToBrother(){
     }
     return;
   }
+  /* 貼宣導單(2026-09-17,見 NOTICE_JOB)——在跑就看進度;沒在跑、今天還沒幫過就問。 */
+  if(NOTICE_JOB.active){
+    const pts = noticePoints();
+    if(NOTICE_JOB.posted >= pts.length){
+      const t = NOTICE_JOB.times;
+      playBeats([
+        { who:'pc',      text:'「貼好了。」' },
+        { who:'brother', text: t === 0 ? '「好。這種事沒人要做，謝了。」' : t === 1 ? '「公車亭那張昨天被撕了，你貼的位置太低。」' : t === 2 ? '「里長有看到，問我是哪個學生在貼。」' : '「好，放著吧。」' },
+        ...(t === 2 ? [{ who:'pc', text:'「你怎麼說。」' }, { who:'brother', text:'「我說是我朋友。」' }] : [])
+      ], 0, () => {
+        finishNoticeJob();
+        toast('（風評 +3）', 1800);
+      });
+    } else {
+      say('brother', `「還有 ${pts.length - NOTICE_JOB.posted} 張沒貼。」`);
+    }
+    return;
+  }
+  if(!MOTO_IMPOUND.patrolActive && NOTICE_JOB.lastDay !== day){
+    say('brother', D.idleAfter[Math.random()*D.idleAfter.length|0], () => {
+      openMenu('阿正', [
+        { label:'「有沒有什麼可以幫忙的。」', cost:'貼三張宣導單　風評 +3',
+          run(){
+            playBeats([
+              { who:'pc',      text:'他從櫃台底下抽出三張紙，反詐騙的，印得很醜。' },
+              { who:'brother', text: NOTICE_JOB.times ? '「老地方，公車亭、公園、超商門口。」' : '「公車亭、公園長椅那邊、超商門口，一個地方一張。貼高一點，不然會被撕。」' }
+            ], 0, () => { startNoticeJob(); });
+          } },
+        { label:'沒事', cls:'back', run(){} }
+      ]);
+    });
+    return;
+  }
   say('brother', D.idleAfter[Math.random()*D.idleAfter.length|0]);
 }
 /* 阿凱(2026-08-24 新角色,見上面 KAI 那則筆記)——閒聊句比照爸媽的
@@ -17192,7 +17274,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
