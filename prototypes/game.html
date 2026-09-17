@@ -11862,8 +11862,12 @@ function leaveBedroom(){
 function runMomBag(){
   GRANDMA.bagGiven = true;
   busy = true;
+  /* 她喊你,人自動走過去(2026-09-17 kc:「有一些 npc 喊住你的劇情你會自動過去 比如媽媽叫你去醫院
+     你走出房門後你媽會叫你過去」)——跟母・賭「欸。」+ walkTo:'mom' 同一招。 */
   playBeats([
-    { who:'pc',  text:'媽站在門口，手上一個袋子。' },
+    { who:'mom', text:'「{name}，過來。」' },
+    { walkTo:'mom' },
+    { who:'pc',  text:'她手上拎著一個袋子。' },
     { who:'mom', text:'「這個拿去醫院給阿嬤。換洗的，還有她要的那罐麥片。」' },
     { who:'mom', text:'「上禮拜住進去的，你都沒去。」' },
     { who:'pc',  text:'她把袋子塞給你就出門了。' }
@@ -12707,7 +12711,9 @@ function openTuitionKiosk(){
    px 改成直接在新照片上拉格線量她的位置(native x≈785,乘 0.383 換算)——
    跟門口/房間門用同一套量法,不是精算。face:'B' 是「背對鏡頭、面向沙發」,
    媽媽坐沙發面對鏡頭,玩家要面對她本來就該背對鏡頭。 */
-const IN_TARGETS = { mom: { px: 300, face:'B' } };
+/* dad 的 px 跟爸爸互動點同一份 DAD_TWEAK(getter 延後讀,跟 HOME.spots 那格同一招)——
+   2026-09-17 kc:「有一些 npc 喊住你的劇情你會自動過去」,爸喊「你去哪裡」也要走過去。 */
+const IN_TARGETS = { mom: { px: 300, face:'B' }, dad: { get px(){ return (DAD_TWEAK.x + DAD_TWEAK.w/2)/SC; }, face:'B' } };
 /* menu 型 beat(2026-08-19,爸爸「打工→要錢→給/不給」那段用):playBeats
    跑到 `{ menu:[...] }` 這種 beat,開一個子選單,選完照 applyStoryChoice()
    吃 calm/mood/money 那些欄位、播完該選項自己的 beats,再接回原本那串
