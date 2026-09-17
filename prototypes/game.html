@@ -3937,6 +3937,17 @@ function talkToBo(){
    純靠自動觸發,但沒進度可推的時候玩家走過去按空白鍵完全沒反應,像壞掉。
    補一個回傳值,讓下面新的 talkToFat() 知道這次呼叫有沒有真的推進劇情,
    沒有的話才退回 npc-temple.js 本來就寫好、一直沒接的 talk[] 閒聊池。 */
+/* checkFatArc() 會不會真的播東西——給「他喊你」那層先看,免得走過去了什麼都沒有。條件跟下面那串
+   一對一,下面加分支這裡要跟著加。 */
+function fatWouldTrigger(){
+  if(FAT.gone) return false;
+  if(CLASSFUND.foundEvidence && !CLASSFUND.toldByFat) return true;
+  if(!FAT.seenAsk && YUAN.visits >= 1) return true;
+  if(FAT.seenAsk && !FAT.seenWound && YUAN.hasTattoo) return true;
+  if(FAT.questActive && FAT.hasMedicine) return true;
+  if(FAT.questActive && !FAT.reminded && day >= FAT.questStartDay + 5) return true;
+  return false;
+}
 function checkFatArc(){
   if(FAT.gone) return false;
   /* 班費失竊・小胖給提示(2026-09-02,見上面 CLASSFUND 那則長筆記)——
@@ -11548,6 +11559,20 @@ function warpIntoPlace(door){
   advanceTime(1);
   checkGrandmaCall();
 }
+/* 街上「他喊你,你走過去」(2026-09-17 kc:「有一些 npc 喊住你的劇情你會自動過去」→「有一些可以
+   阿正也可以你斟酌」)——借進門那套 walkIn(腳本算方向直接走),走到離他 1.6 的地方、轉過去面對他,
+   再接 cb。用在靠近就自動觸發的那幾段:阿正(月長線/贓物協尋開頭)、小胖(廟埕那幾段)。 */
+function walkToNpc(nx, nz, cb){
+  const pos = hero.group.position;
+  const dx = pos.x - nx, dz = pos.z - nz, d = Math.hypot(dx, dz) || 1;
+  const tx = nx + dx/d * 1.6, tz = nz + dz/d * 1.6;
+  busy = true;
+  walkIn = { x:tx, z:tz, done(){
+    hero.group.rotation.y = Math.atan2(nx - tx, nz - tz);
+    busy = false;
+    cb();
+  }};
+}
 function enterIndoor(door){
   /* 越式按摩店的門(2026-09-03,scene-city3d.js buildAlleyShopfront())——
      門本身不是新的進場入口,只是讓 ALLEY_WORKER 站的地方有個真的店面。
@@ -13502,8 +13527,9 @@ function updateCity(dt){
      `!MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active`。 */
   if(!busy && !dlg.on && !MOTO_IMPOUND.active && !ID_CARD_QUEST.active && !SNITCH_QUEST.active && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 22){
     const snitchNew = !SNITCH_QUEST.active && SNITCH_QUEST.resolved === null && (day >= 52 || SNITCH_QUEST.armed) && YUAN.visits > 0;
-    if(MEI.together && !BROTHER.met) talkToBrother();
-    else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) talkToBrother();
+    /* 他喊你,你走過去(2026-09-17,見 walkToNpc)——先喊一句,對話框關掉才走,走到才開始講。 */
+    if(MEI.together && !BROTHER.met) say('brother', '「欸，等一下。」', () => walkToNpc(BROTHER.x, BROTHER.z, talkToBrother));
+    else if(BROTHER.met && (nextBrotherArcDay() != null || snitchNew)) say('brother', '「{name}，過來一下。」', () => walkToNpc(BROTHER.x, BROTHER.z, talkToBrother));
   }
   syncBrotherArcPanel();
   syncMiscQuestPanel();
@@ -13552,8 +13578,9 @@ function updateCity(dt){
   /* 小胖的連續劇情(2026-08-31,見上面 FAT 那則長筆記+ checkFatArc())——
      跟 BROTHER 月長線同一招「靠近才自動觸發」,但小胖沒有 3D 模型可以
      靠近,直接沿用 YUAN 的座標當廟埕位置判斷。 */
-  if(!busy && !dlg.on && Math.hypot(pos.x-FAT.x, pos.z-FAT.z) < 10){
-    checkFatArc();
+  if(!busy && !dlg.on && Math.hypot(pos.x-FAT.x, pos.z-FAT.z) < 10 && fatWouldTrigger()){
+    /* 小孩子喊人不會客氣(2026-09-17,見 walkToNpc)。 */
+    say('fat', '「{name}！過來過來。」', () => walkToNpc(FAT.x, FAT.z, checkFatArc));
   }
 
   /* 騎乘中:那台車的 group 每幀跟著玩家座標/朝向跑(見 mountMoto()/
