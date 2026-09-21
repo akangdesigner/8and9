@@ -19043,6 +19043,7 @@ function loadGame(slot){
       const src = d.list?.[k]; if(Array.isArray(src)) o.splice(0, o.length, ...src);
     });
     { const i = ACTIVE_QUESTS.findIndex(q => q.id === 'diploma'); if(i >= 0){ ACTIVE_QUESTS.splice(i, 1); GRANDMA.promised = true; } }   // 舊存檔的畢業證書卡(2026-09-17 拔掉,進核心目標)
+    { const i = ACTIVE_QUESTS.findIndex(q => q.id === 'arrest'); if(i >= 0) ACTIVE_QUESTS.splice(i, 1); }   // 舊存檔的「阿凱被抓了」狀態卡(2026-09-21 拔掉,kc:「這任務要幹嘛」)
     Object.entries(SAVE_VARS).forEach(([k,f]) => { if(d.vars && k in d.vars) f(d.vars[k]); });
     seenStoryDays.clear(); (d.story || []).forEach(x => seenStoryDays.add(x));
     if(d.pos) hero.group.position.set(d.pos.x, .3, d.pos.z);
