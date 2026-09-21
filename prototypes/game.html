@@ -14920,9 +14920,12 @@ function updateCity(dt){
       nearProp = { type:'jiaoguan', ref:JIAOGUAN };
     if(!nearProp && Math.hypot(pos.x-AREN.x, pos.z-AREN.z) < 3.2)
       nearProp = { type:'aren', ref:AREN };
-    if(!nearProp && Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < 3.2)
+    /* 阿正/阿凱用 3D 本尊的實際位置跟顯示狀態判斷(2026-09-21 kc 截圖:警局門口沒人卻出現「跟他說話」)——
+       阿正會被搬走(顧場子/送貨巡邏時藏起來、阿凱被抓那天站車行、街上攔你),阿凱被抓那兩週不在,
+       用 BROTHER/KAI 那組固定座標判就會對著空氣講話。 */
+    if(!nearProp && brotherNPC.group.visible && Math.hypot(pos.x-brotherNPC.group.position.x, pos.z-brotherNPC.group.position.z) < 3.2)
       nearProp = { type:'brother', ref:BROTHER };
-    if(!nearProp && Math.hypot(pos.x-KAI.x, pos.z-KAI.z) < 3.2)
+    if(!nearProp && kaiNPC.group.visible && Math.hypot(pos.x-kaiNPC.group.position.x, pos.z-kaiNPC.group.position.z) < 3.2)
       nearProp = { type:'kai', ref:KAI };
     /* 交貨那三個人(day5 跑腿)——只有他們現身的時候才有互動點,見 syncRunmen()。 */
     if(!nearProp && KAI_RUN.gotBag && !KAI_RUN.done)
