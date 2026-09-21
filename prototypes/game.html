@@ -2586,9 +2586,10 @@ function debugNextDay(){
 }
 window.debugJumpDay = debugJumpDay; window.debugNextDay = debugNextDay;
 function wakeAtMorning(toDay){
+  if(toDay < day) debugRewindTo(toDay);   // 往回跳:把還沒到那天的狀態跟卡收掉(kc:「跳回去任務卡不會自動清除」)
   day = toDay; minute = 7*60;
   DAILY.id = null; DAILY.day = -1; DAILY.done = false; DAILY.told = false; DAILY.dueDay = -1;
-  clearTodayCard();
+  clearTodayCard(); clearTodayCard('daily');
   const d = city.doors.find(x => x.id === 'home');
   if(d){ returnTo.x = d.x; returnTo.z = d.z + 3; }
   MODE = 'indoor'; PLACE = 'bedroom';
@@ -2637,6 +2638,26 @@ function debugSnitchArm(){
 window.debugSnitchArm = debugSnitchArm;
 /* 送貨測試鈕(2026-09-21,見 COURIER):把 day5 那趟當成送對了、時鐘撥到 16:00、人放到機車行旁,
    去找阿凱就有「有沒有東西要送」。tier2 那顆把次數直接調到 3,阿凱會指定騎車。 */
+/* 測試用往回跳(2026-09-21):三十萬/阿凱被抓/送貨這幾條的狀態都綁天數,跳回去之前的日子要把「還沒發生」的
+   部分退掉,不然卡跟旗標留著。只處理這幾條,其他線本來就沒這種需求(或用「重來」)。 */
+function debugRewindTo(toDay){
+  ['debt-34','debt-84'].forEach(k => { const d = +k.split('-')[1]; if(toDay <= d) seenStoryDays.delete(k); });
+  ['bet-2','bet-16','bet-28','bet-40','bet-52','bet-64','drink-10','drink-25','drink-43','drink-58','drink-76'].forEach(k => { const d = +k.split('-')[1]; if(toDay <= d) seenStoryDays.delete(k); });
+  if(toDay <= DEBT_STREET_DAY){ Object.assign(DEBT, { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, resolution:'', resolvedDay:-1 }); ['debt','debt-self'].forEach(courierCardOff); despawnDebtCollector(); }
+  else { Object.keys(DEBT.remind).forEach(d => { if(+d >= toDay) delete DEBT.remind[d]; });
+         if(toDay < DEBT_ASK_FROM){ DEBT.askedBrother = DEBT.askedYuan = DEBT.askedDad = false; }
+         if(toDay <= 84){ DEBT.resolution = ''; DEBT.resolvedDay = -1; courierCardOff('debt-self'); YUAN.owns = false; }
+         debtCardSync(); }
+  if(ARREST.day >= 0 && toDay <= ARREST.day){
+    Object.assign(ARREST, { day:-1, seen:false, brotherAsked:false, brotherAnswer:'', brotherAskDay:-1, momMet:false, momWent:false,
+      hearingDay:-1, hearingDone:false, yuanOffered:false, yuanTook:false, yuanAskedTold:false, kaiBack:false, kaiBackTold:false });
+    ['arrest','hearing'].forEach(courierCardOff); kaiNPC.group.visible = true;
+    if(COURIER.src === 'yuan') COURIER.src = 'kai';
+  }
+  if(COURIER.active) courierClear();
+  ['courier-lost','courier-owe','courier-report','courier-call'].forEach(courierCardOff);
+  COURIER.lost = false; COURIER.owe = 0; COURIER.reportDue = false; COURIER.late = false;
+}
 /* 三十萬測試鈕(2026-09-21,見 DEBT):把母線 day2~64 全當播過(day64 當作打開看了)、跳到第 70 天早上站在中華路,
    走幾步他就攔你;之後「跳到那天早上」輸入 72/75/78/81/84 看後面。 */
 function debugDebt(){
