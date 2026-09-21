@@ -18237,7 +18237,8 @@ function finishTroupeGame(){
    先跑 events[] 故事節點,沒有觸發中事件就退回 talk[] 隨機閒聊),對完話
    才開下面 buyMoto() 選單。資料在 lib/story-motoboss.js。 */
 function talkToMotoBoss(){
-  logTalk('旺鴻');
+  /* logTalk 從最上面搬到真的聊天那條(2026-09-21 kc:「為何我第一天沒跟旺鴻聊天他卻說我有聊」)——
+     原本一按空白鍵就先寫日記,被別的分支攔走(捐血/水表/算命跑腿)或只是路過按到也算「聊了」。 */
   if(bloodAsk('motoboss')) return;   // 捐血那天(見 BLOOD)
   if(meterAsk('motoboss')) return;   // 水表去哪了(見 METER)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
@@ -18275,12 +18276,13 @@ function talkToMotoBoss(){
           } },
         { label:'（心裡覺得他也不過如此）', cls:'risk', run(){
             chg('star', -6);
-            toast('你沒有把那句話說出口。他看了你一眼，低頭繼續修車，之後也沒有再跟你多聊。（風評 −6）', 3400);
+            toast('你沒有把那句話說出口。他低頭繼續修車。（風評 −6）', 3400);
           } }
       ]);
     });
     return;
   }
+  logTalk('旺鴻');
   talkToStallVendor(MOTOBOSS, StoryMotoBoss, 'motoboss', () => {
     if(!shopMoto) offerBuyMoto();
     else if(!shopMoto.modded) offerMotoMod(shopMoto);
