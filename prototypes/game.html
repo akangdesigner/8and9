@@ -11307,10 +11307,10 @@ function despawnDebtCollector(){
 function debtCardSync(){
   if(!DEBT.street || DEBT.resolution) { courierCardOff('debt'); return; }
   const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedDad && '爸'].filter(Boolean);
-  const hint = (day >= DEBT_ASK_FROM ? '找人問:阿正、阿源、爸。' : '月底他會再來。') +
+  const hint = (day >= DEBT_ASK_FROM ? '去問問看阿正、阿源、爸,看誰有辦法。' : '他說月底會再來。') +
                (asked.length ? '<br><span class="qpNote">問過:' + asked.join('、') + '</span>' : '');
   const q = ACTIVE_QUESTS.find(x => x.id === 'debt');
-  if(q) q.hint = hint; else ACTIVE_QUESTS.push({ id:'debt', title:'三十萬,你的名字', hint });
+  if(q) q.hint = hint; else ACTIVE_QUESTS.push({ id:'debt', title:'那筆三十萬', hint });
   renderQuestPanel();
 }
 /* 每幀(updateCity)。 */
@@ -11348,16 +11348,16 @@ function debtStreetScene(){
       { who:'pc',        text:'路邊站著一個人,是按鈴的那個。這次他看的是你。' },
       { who:'collector', text:'「你就是' + (PLAYER_NAME || '她兒子') + '?」' },
       { who:'pc',        text:'「⋯⋯嗯。」' },
-      { who:'collector', text:'「單子是你的名字。三十萬。」' },
+      { who:'collector', text:'「借據上簽的是你的名字,三十萬。」' },
       { who:'collector', text:'「你媽我找不到。以後我找你。」' },
       { who:'pc',        text:'他講完就走了。你站在原地,街上的人從你旁邊走過去。' }
     ], 0, () => {
       despawnDebtCollector();
       chg('mood', -12);
       debtCardSync();
-      logDay('那個人在街上攔我。他說以後不找媽了,找我。三十萬,我的名字。');
+      logDay('那個人在街上攔我。他說以後不找媽了,找我。那三十萬簽的是我的名字。');
       logPerson('collector', '在街上攔我。他說以後找我,不找媽。');
-      toast('從今天起,他找的是你。\n（情緒 −12）', 4200);
+      toast('從今天起他找的人是你,不是媽。\n（情緒 −12）', 4200);
       busy = false;
     });
   });
@@ -11368,7 +11368,7 @@ function debtAskBrother(){
   DEBT.askedBrother = true;
   busy = true;
   playBeats([
-    { who:'pc',      text:'你把三張紙的事講了。三十萬,你的名字,簽的時候你十歲。' },
+    { who:'pc',      text:'你把那三張紙的事講了:三十萬,簽的是你的名字,簽的時候你才十歲。' },
     { who:'brother', text:'「未成年簽的,那個名字不算數。你可以報案。」' },
     { who:'brother', text:'「但你要想清楚,報案就是告你媽。她會被帶走。」' },
     { who:'pc',      text:'「⋯⋯」' },
@@ -11393,7 +11393,7 @@ function debtAskDad(){
   DEBT.askedDad = true;
   busy = true;
   playBeats([
-    { who:'pc',  text:'「爸。三十萬,我的名字。你知道嗎。」' },
+    { who:'pc',  text:'「爸,那三十萬簽的是我的名字。你知道嗎?」' },
     { who:'dad', text:'「⋯⋯喔。」' },
     { who:'pc',  text:'他眼睛沒有張開。' },
     { who:'dad', text:'「那是你媽的事。」' }
@@ -11414,7 +11414,7 @@ function debtResolve(kind){
     logPerson('yuan', '三十萬他處理掉了。以後我的人是他的。');
     logPerson('collector', '阿源跟他講了一通電話,他就不管我了。');
   } else {
-    ACTIVE_QUESTS.push({ id:'debt-self', title:'三十萬,你的名字', hint:'一個月五千。超商二十九輪班。<br><span class="qpNote">畢業那天,債還在</span>' });
+    ACTIVE_QUESTS.push({ id:'debt-self', title:'那筆三十萬', hint:'你自己還,一個月五千,超商要站二十九輪班。<br><span class="qpNote">畢業那天債還會在</span>' });
     renderQuestPanel();
     logPerson('collector', '我說我自己還。一個月五千。');
   }
@@ -14183,9 +14183,9 @@ const STORY_DIARY = {
   'bet-28':   '媽說機車壞了要修，不然明天不能上班。我早上經過那台車明明好好的。',
   'bet-40':   '媽今天來要錢連理由都懶得編了。我不知道哪一種比較難受。',
   'bet-52':   '回家客廳沒人，電視也關著。她房間燈亮著，我沒敲。',
-  'bet-64':   '媽包包裡那幾張紙，上面是我的名字，三十萬。我摺回去了，當作沒看到。',
+  'bet-64':   '媽包包裡那幾張紙，簽的是我的名字，三十萬。我摺回去了，當作沒看到。',
   'debt-34':  '早上有人按鈴找媽。他說月底。我不知道他是誰，媽知道。',
-  'debt-84':  '月底。那個人來了，這次是找我。三十萬，我的名字。',
+  'debt-84':  '月底那個人又來了，這次是找我，問我那三十萬要怎麼辦。',
   'drink-10': '鉛筆盒裡的兩百塊不見了，我明明數過。爸跟我要錢的時候我什麼都沒說。',
   'drink-25': '爸在後面叫我，我沒回頭。那兩百塊我還是沒問。',
   'drink-43': '回家爸醉倒在椅子上，酒都流到地上乾了。我先看他還有沒有在喘。',
