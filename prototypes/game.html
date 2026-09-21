@@ -10665,6 +10665,7 @@ function courierGuan(){
   });
 }
 function courierDeliver(d){
+  faceNpcTo(courierTaker, hero.group.position.x, hero.group.position.z);
   const tier = COURIER.tier, free = COURIER.freeRuns > 0, idx = courierDropIdx(), v = courierVoice();
   const pay = courierPayNow(), star = courierStarNow();
   busy = true;
@@ -11041,6 +11042,7 @@ function arrestBrotherStop(){
   busy = true;
   walkToNpc(bx, bz, () => {
     busy = true;
+    faceNpcTo(brotherNPC, hero.group.position.x, hero.group.position.z);
     playBeats([
       { who:'brother', text:'「欸。」' },
       { who:'pc',      text:'阿正站在路邊,就站在那裡等你走過去。' },
@@ -11114,6 +11116,7 @@ function arrestMomScene(){
   busy = true;
   walkToNpc(ARREST_MOM_SPOT.x, ARREST_MOM_SPOT.z, () => {
     busy = true;
+    faceNpcTo(arrestMomNPC, hero.group.position.x, hero.group.position.z);
     playBeats([
       { who:'pc',     text:'校門口站著一個女人,看到你就往你這邊看。' },
       { who:'kaimom', text:'「你是阿凱的同學?他有講過你。」' },
@@ -11334,6 +11337,7 @@ function tickDebt(){
     const w = debtCollectorNPC.group.position;
     if(Math.hypot(p.x - w.x, p.z - w.z) < 6){
       DEBT.remind[day] = true;
+      faceNpcTo(debtCollectorNPC, p.x, p.z);
       busy = true;
       say('collector', DEBT_REMIND_LINES[day], () => { busy = false; despawnDebtCollector(); });
       logPerson('collector', DEBT_REMIND_LINES[day].replace(/「|」/g, '').split('。')[0] + '。');
@@ -11349,6 +11353,7 @@ function debtStreetScene(){
   busy = true;
   walkToNpc(bx, bz, () => {
     busy = true;
+    faceNpcTo(debtCollectorNPC, hero.group.position.x, hero.group.position.z);
     playBeats([
       { who:'pc',        text:'路邊站著一個人,是按鈴的那個。這次他看的是你。' },
       { who:'collector', text:'「你就是' + (PLAYER_NAME || '她兒子') + '?」' },
@@ -12873,6 +12878,13 @@ function warpIntoPlace(door){
 /* 街上「他喊你,你走過去」(2026-09-17 kc:「有一些 npc 喊住你的劇情你會自動過去」→「有一些可以
    阿正也可以你斟酌」)——借進門那套 walkIn(腳本算方向直接走),走到離他 1.6 的地方、轉過去面對他,
    再接 cb。用在靠近就自動觸發的那幾段:阿正(月長線/贓物協尋開頭)、小胖(廟埕那幾段)。 */
+/* 讓 NPC 轉過來面對某個點(2026-09-21 kc 截圖:「沒有對到眼」——生出來的討債的/阿正站的角度是我猜的,
+   跟玩家沒對上)。角度慣例跟 buildNPC 裡「瞄玩家」那段同一個:atan2(dx, dz)。演出開始前叫一次。 */
+function faceNpcTo(npc, x, z){
+  if(!npc || !npc.setFacing) return;
+  const g = npc.group.position;
+  npc.setFacing(Math.atan2(x - g.x, z - g.z));
+}
 function walkToNpc(nx, nz, cb){
   const pos = hero.group.position;
   const dx = pos.x - nx, dz = pos.z - nz, d = Math.hypot(dx, dz) || 1;
