@@ -908,6 +908,9 @@
   button.tool:hover, #menuBtn:hover, #charCardBtn:hover, #mapBtn:hover, #questToggleBtn:hover {
     color:#000; filter:drop-shadow(0 1px 1px rgba(0,0,0,.45)) drop-shadow(0 6px 10px rgba(0,0,0,.35)) brightness(1.06); }
   button.tool { padding:6px 13px; font-size:12px; }
+  /* 「第 N 天」那格(span.tool 包 input)跟按鈕同一張紙籤(2026-09-21 kc:「那個按鈕黑的看不出來」——原本是深底黑字) */
+  span.tool { padding:6px 13px; font-size:12px; color:var(--ui-ink); font-family:var(--sp-serif); }
+  span.tool input { color:var(--ui-ink); border-bottom-color:var(--ui-ink) !important; font-family:var(--sp-kai); font-weight:700; }
   #charCardBtn, #mapBtn, #questToggleBtn { font:15px/1.4 var(--sp-kai); padding:8px 18px; }
   #charCardBtn { left:16px; top:106px; } #mapBtn { left:96px; top:106px; }
   #questToggleBtn { left:176px; top:106px; }        /* 三顆排一列(參考圖),任務面板從它們底下開始 */
@@ -19272,7 +19275,7 @@ function tornInit(){
   const big = ['#dialog .frame', '#menu', '#textPrompt', '#questPanel', '#mapPanel', '#invPanel'];
   big.push('#tsSheet', '#spanSheet', '#goalSheet');
   big.forEach(sel => q(sel).forEach(el => { tornAttach(el, sel==='#dialog .frame' ? 5 : 4); el.classList.add('big'); }));
-  ['.hudGroup', '.statList .pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool']
+  ['.hudGroup', '.statList .pod', '#clock', '#hint', '#toast', '#restBar', '#charCardBtn', '#mapBtn', '#questToggleBtn', '#menuBtn', 'button.tool', 'span.tool']
     .forEach(sel => q(sel).forEach(el => tornAttach(el, 2)));
   q('.dname').forEach(el => { el.__torn = { amp:0, seed:31, gen:brushTagURL }; TORN.ro.observe(el); tornPaint(el); });
   /* 廟宇線稿浮水印(對話框右側,參考圖第二張)——素材 assets/ui/temple-lineart.png
