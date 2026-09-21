@@ -1442,7 +1442,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡痕跡</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2407,6 +2407,36 @@ function debugWarpDoor(id){
   warpIntoPlace(d);
 }
 function debugJumpHome(){ debugWarpDoor('home'); }
+/* 家裡痕跡測試鈕(2026-09-21,見 HOME_TRACES):把母線六節+父線五節全部當播過、bet-16 當給了錢,
+   人直接放進客廳,順便開滑桿調每個痕跡的位置(kc 不打 console,滑桿要有按鈕)。 */
+function debugHomeTraces(){
+  ['bet-2','bet-16','bet-28','bet-40','bet-52','bet-64','drink-10','drink-25','drink-43','drink-58','drink-76'].forEach(k => seenStoryDays.add(k));
+  if(!STORY_CHOICE['bet-16']) STORY_CHOICE['bet-16'] = 'gave';
+  debugWarpDoor('home');
+  setTimeout(() => { paintHomeBackdrop(); tweakTracesPanel(); }, 300);
+}
+window.debugHomeTraces = debugHomeTraces;
+function tweakTracesPanel(){
+  const old = document.getElementById('tracesTweakPanel');
+  if(old){ old.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'tracesTweakPanel';
+  panel.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#1b202bee;color:#eee;padding:12px 14px;border-radius:8px;font:12px/1.6 sans-serif;width:230px;max-height:90vh;overflow:auto;box-shadow:0 4px 20px #0008';
+  const names = { pills:'藥袋', scratch:'刮刮樂', tv:'電視那塊牆', bag:'包包', bottle:'酒瓶' };
+  const rows = [['x','x',0,1280],['bottom','底部 y',0,720],['w','寬',4,400],['h','高',4,300]];
+  panel.innerHTML = Object.keys(HOME_TRACES).map(id =>
+    `<div style="font-weight:bold;margin:8px 0 4px">${names[id]}</div>` +
+    rows.filter(([k]) => k in HOME_TRACES[id]).map(([k,label,min,max]) =>
+      `<div style="margin-bottom:4px">${label}: <span id="tw_${id}_${k}_v">${HOME_TRACES[id][k]}</span><br>
+       <input type="range" id="tw_${id}_${k}" min="${min}" max="${max}" step="1" value="${HOME_TRACES[id][k]}" style="width:100%"></div>`
+    ).join('')
+  ).join('') + '<div style="margin-top:6px;opacity:.7">關掉:再按一次「家裡痕跡」。數字直接念給我,我回填 HOME_TRACES。</div>';
+  document.body.appendChild(panel);
+  Object.keys(HOME_TRACES).forEach(id => rows.forEach(([k]) => {
+    const input = document.getElementById(`tw_${id}_${k}`); if(!input) return;
+    input.addEventListener('input', () => { HOME_TRACES[id][k] = +input.value; document.getElementById(`tw_${id}_${k}_v`).textContent = input.value; paintHomeBackdrop(); });
+  }));
+}
 /* 跳學校改成跳到校門口外面(2026-09-11,kc:「跳學校是跳到學校門口」)——原本
    直接 warp 進教室,現在站在校門(doors school (-36,70.4))南邊人行道上,面朝
    校門,教官就在右手邊。 */
@@ -5529,7 +5559,11 @@ const HOME_PHOTO = {
        目前完全沒有牌位這個物件,純文字互動,沒有真的疊圖標示——見自動
        記憶,還要再補一張牌位照片才會有畫面),玩起來覺得卡怪、或位置對不上
        家具再說要往哪調。 */
-    { id:'altar', name:'牌位', x:180, w:70, y0:200, y1:310 }
+    { id:'altar', name:'牌位', x:180, w:70, y0:200, y1:310 },
+    /* 家裡會變(2026-09-21,見 HOME_TRACES):餐桌/電視櫃/門邊酒瓶三個點,痕跡還沒出現就不存在。 */
+    { id:'table',   name:'餐桌',   x:492, w:96, y0:200, y1:310, hide:() => !homeTraceOn('pills') && !homeTraceOn('scratch') && !homeTraceOn('bag') },
+    { id:'tv',      name:'電視櫃', x:386, w:86, y0:200, y1:310, hide:() => !homeTraceOn('tv') },
+    { id:'bottles', name:'酒瓶',   x:14,  w:60, y0:200, y1:310, hide:() => !homeBottleCount() }
   ]
 };
 const HOME_COLLIDERS_PHOTO = [];
@@ -6132,12 +6166,107 @@ function schoolPropFilter(tweak){
   const svg = `<svg xmlns='http://www.w3.org/2000/svg'><filter id='f'><feColorMatrix type='matrix' values='${m}'/></filter></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}#f") brightness(${brightness}%)`;
 }
+/* ============================================================
+   家裡會變(2026-09-21,kc:「現在都沒有推進劇情的感覺」→ 診斷:故事只存在節點裡,戲演完家裡跟昨天
+   一模一樣 → 提了四個做法 kc「還行吧」先做這個。8/4 定的原則「跳過的時間用隱喻不用報告」到今天才真的做)
+   每一場戲過完,客廳實際變一樣東西,玩家每天回家都看得到,不用任何字:
+     bet-16 阿嬤的藥 → 餐桌上那袋藥常駐          bet-28 車 → 餐桌上一疊刮完的刮刮樂(車明明好好的)
+     bet-40 她不編了 → 電視不見了,牆上一塊比較白  bet-52 她不來了 → 晚上沙發是空的(momAway 延伸)
+     bet-64 那些紙 → 她的包包放在餐桌上           drink 每一節 → 門邊多一個空酒瓶
+   每個痕跡有一張 assets/bg/home-trace-<id>.png(透明 PNG,kc 用 GPT 生),檔案沒到之前用程式畫的
+   佔位形狀頂著(很醜,但位置對);電視那塊沒圖就取旁邊牆色蓋掉。位置數字是照 home-living.png
+   (1680 寬)換算到 1280 畫布量的,不對的話拉「家裡痕跡」滑桿(#bar)。
+   走到痕跡前按空白鍵有一句話(openIndoorSpot 'table'/'tv'/'bottles'),給了錢跟沒給的版本不同
+   (STORY_CHOICE 記每個節點選了什麼)。
+   ============================================================ */
+const HOME_TRACES = {
+  pills:   { x:1046, bottom:378, w:60,  h:52 },    // 餐桌左半,藥袋
+  scratch: { x:1116, bottom:380, w:72,  h:14 },    // 餐桌右半,刮刮樂一疊
+  tv:      { x:771,  bottom:374, w:176, h:120 },   // 電視本體那塊(櫃子留著)
+  bag:     { x:1080, bottom:380, w:84,  h:58 },    // 她的包包(bet-64 之後,蓋在刮刮樂上)
+  bottle:  { x:196,  bottom:562, w:14,  h:44, gap:20 }   // 鞋櫃前地板,第 n 個往右排
+};
+const homeTraceImgs = {};
+Object.keys(HOME_TRACES).forEach(id => {
+  const im = new Image();
+  im.onload = () => { if(PLACE === 'home') paintHomeBackdrop(); };
+  im.onerror = () => {};   // 檔案還沒生,安靜用佔位形狀
+  im.src = '../assets/bg/home-trace-' + id + '.png';
+  homeTraceImgs[id] = im;
+});
+function homeTraceOn(id){
+  switch(id){
+    case 'pills':   return seenStoryDays.has('bet-16');
+    case 'scratch': return seenStoryDays.has('bet-28') && !seenStoryDays.has('bet-64');   // 包包蓋上去之後刮刮樂就不畫了
+    case 'tv':      return seenStoryDays.has('bet-40');
+    case 'bag':     return seenStoryDays.has('bet-64');
+  }
+  return false;
+}
+function homeBottleCount(){ return ['drink-10','drink-25','drink-43','drink-58','drink-76'].filter(k => seenStoryDays.has(k)).length; }
+function homeMomOutTonight(){ return seenStoryDays.has('bet-52') && minute >= 19*60; }   // bet-52「她不來了」之後晚上不在沙發上
+function drawHomeTrace(g, id, t, n){
+  const im = homeTraceImgs[id], x = t.x + (n||0) * (t.gap||0), y = t.bottom - t.h;
+  if(im && im.complete && im.naturalWidth){ g.drawImage(im, x, y, t.w, t.h); return; }
+  g.save();
+  if(id === 'pills'){
+    g.fillStyle = '#efe9dc'; g.fillRect(x, y+8, t.w, t.h-8);
+    g.fillStyle = '#e3dccb'; g.fillRect(x, y+8, t.w, 6);
+    g.strokeStyle = '#b9ad8f'; g.lineWidth = 1; g.strokeRect(x+.5, y+8.5, t.w-1, t.h-9);
+    g.fillStyle = '#7a8fa8'; g.fillRect(x+10, y+22, t.w-20, 3); g.fillRect(x+10, y+30, t.w-28, 3);
+  } else if(id === 'scratch'){
+    ['#d9b24a','#c9553f','#4a7fa8','#d9b24a'].forEach((c, i) => {
+      g.fillStyle = c; g.fillRect(x + i*6, y + t.h - 6 - i*2, 34, 6);
+      g.fillStyle = '#9a9a9a'; g.fillRect(x + i*6 + 4, y + t.h - 5 - i*2, 12, 4);
+    });
+  } else if(id === 'tv'){
+    /* 沒圖:取電視右邊那塊牆的顏色蓋掉電視,中間留一塊比較白的方形當痕跡。 */
+    let c = '#d8d3ca';
+    try{ const d = g.getImageData(x + t.w + 8, y + 20, 6, 6).data; let r=0,gg=0,b=0; for(let i=0;i<d.length;i+=4){ r+=d[i]; gg+=d[i+1]; b+=d[i+2]; } const k = d.length/4; c = `rgb(${r/k|0},${gg/k|0},${b/k|0})`; }catch(e){}
+    g.fillStyle = c; g.fillRect(x, y, t.w, t.h);
+    g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(x+14, y+10, t.w-28, t.h-30);
+  } else if(id === 'bag'){
+    g.fillStyle = '#3b2a22'; g.beginPath(); g.roundRect(x, y+16, t.w, t.h-16, 8); g.fill();
+    g.strokeStyle = '#3b2a22'; g.lineWidth = 4; g.beginPath(); g.arc(x + t.w/2, y+18, 18, Math.PI, 0); g.stroke();
+    g.fillStyle = '#efe9dc'; g.fillRect(x + t.w - 30, y+8, 22, 16);   // 露出來的那幾張紙
+  } else if(id === 'bottle'){
+    g.fillStyle = '#3d6b3a'; g.fillRect(x, y+14, t.w, t.h-14); g.fillRect(x+4, y, t.w-8, 16);
+    g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(x+2, y+16, 3, t.h-20);
+  }
+  g.restore();
+}
+function drawHomeTraces(g){
+  if(!(homeLivingImg.complete && homeLivingImg.naturalWidth)) return;   // 灰模那版不畫
+  g.imageSmoothingEnabled = true;
+  if(homeTraceOn('tv')) drawHomeTrace(g, 'tv', HOME_TRACES.tv);
+  if(homeTraceOn('pills')) drawHomeTrace(g, 'pills', HOME_TRACES.pills);
+  if(homeTraceOn('scratch')) drawHomeTrace(g, 'scratch', HOME_TRACES.scratch);
+  if(homeTraceOn('bag')) drawHomeTrace(g, 'bag', HOME_TRACES.bag);
+  for(let i = 0; i < homeBottleCount(); i++) drawHomeTrace(g, 'bottle', HOME_TRACES.bottle, i);
+}
+/* 走到痕跡前那一句。給了/沒給看 STORY_CHOICE。 */
+function homeTraceLine(id){
+  if(id === 'table'){
+    if(homeTraceOn('bag')) return '她的包包放在餐桌上,拉鍊沒拉。你知道裡面那幾張紙上面是誰的名字,你沒有再打開。';
+    if(homeTraceOn('scratch')) return '餐桌上一疊刮完的刮刮樂,每一張都刮得很乾淨。那台機車一直都是好的。';
+    return STORY_CHOICE['bet-16'] === 'gave'
+      ? '藥袋還放在餐桌上,你每天回來都會看到。那張單子是真的,一千二。'
+      : '藥袋還是出現在餐桌上了,三天後。你沒有問她錢是哪裡來的。';
+  }
+  if(id === 'tv') return '電視不見了,牆上留下一塊比較白的方形。她沒有說,你也沒有問。';
+  if(id === 'bottles'){
+    const n = homeBottleCount();
+    return n >= 5 ? '門邊排了五個空瓶。你數過了。' : '門邊的空瓶又多了一個,現在是 ' + n + ' 個。';
+  }
+  return '';
+}
 function paintHomeBackdrop(){
   gbg.clearRect(0,0,1280,720);
   if(homeLivingImg.complete && homeLivingImg.naturalWidth){
     gbg.imageSmoothingEnabled = true;
-    const img = (momAway() && homeLivingEmptyImg.complete && homeLivingEmptyImg.naturalWidth) ? homeLivingEmptyImg : homeLivingImg;
+    const img = ((momAway() || homeMomOutTonight()) && homeLivingEmptyImg.complete && homeLivingEmptyImg.naturalWidth) ? homeLivingEmptyImg : homeLivingImg;
     gbg.drawImage(img, 0,0,1280,720);
+    drawHomeTraces(gbg);
   } else {
     gbg.save(); gbg.scale(SC,SC);
     SceneHome.renderBackground(gbg, { tvOn:true, godLamp:true, vignette:true, sofaFront:true });
@@ -8071,8 +8200,10 @@ function openIndoorSpot(id){
       const lines = dadCheckinLines();
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
+    else if(id === 'table' || id === 'tv' || id === 'bottles'){ toast(homeTraceLine(id), 4200); return; }   // 家裡的痕跡(見 HOME_TRACES)
     else if(id === 'mom'){
       if(momAway()){ toast('沙發上沒有人。', 2000); return; }   // 捐血那天她在醫院(見 momAway)
+      if(homeMomOutTonight()){ toast('沙發上沒有人。她房間的燈是暗的,人不在家。', 2600); return; }   // bet-52 之後晚上不在(見 HOME_TRACES)
       if(meterFound() && !METER.momTold){ meterMomScene(); return; }   // 水表是爸賣的,跟她講(見 METER)
       /* 捐血那天之後第一次跟她講話(2026-09-16)——手術結果從她嘴裡出來,找到/沒找到兩版。 */
       if(BLOOD.day >= 0 && day > BLOOD.day && !BLOOD.momTalked){
@@ -9144,8 +9275,10 @@ function updateIndoor(dt){
   } else IN.moving = false;
 
   IN.near = null;
-  for(const sp of bounds.spots)
+  for(const sp of bounds.spots){
+    if(sp.hide && sp.hide()) continue;   // 家裡的痕跡那種「還沒發生就不存在」的互動點(見 HOME_TRACES)
     if(IN.px > sp.x-12 && IN.px < sp.x+sp.w+12 && IN.py >= sp.y0 && IN.py <= sp.y1){ IN.near = sp.id; break; }
+  }
   const show = IN.near && !busy && !dlg.on;
   if(show){
     hintEl.innerHTML = bounds.spots.find(s=>s.id===IN.near).name + '　按 <b>空白鍵</b>';
@@ -13357,6 +13490,10 @@ function dadCheckinLines(){
    整個變溫柔)＋一句「一點點基本關心」——量level 比照 day6 給錢分支
    「你那時候也是這樣」那種若有似無的溫度,不要寫成真的噓寒問暖。 */
 let MOM_GIVEN = 0;
+/* 每個劇情節點選了什麼(2026-09-21,家裡的痕跡要分「給了」跟「沒給」兩版台詞)——key 'bet-16' 那種,
+   值 'gave' 或選項 label。maybeTriggerStoryNode() 開選單前把 key 放進 storyChoiceKey,applyStoryChoice() 記。 */
+const STORY_CHOICE = {};
+let storyChoiceKey = null;
 const MOM_CHECKIN_LINES = {
   0: {
     status: ['她在滑手機,螢幕上是骰子的畫面。'],
@@ -13481,6 +13618,7 @@ function applyStoryChoice(item){
   if(item.debt) chg('money', -item.debt);
   if(item.theft){ MOM_THEFT += item.theft; MOM_THEFT_DAY = day; }
   if(item.gave) MOM_GIVEN++;
+  if(storyChoiceKey){ STORY_CHOICE[storyChoiceKey] = item.gave ? 'gave' : (item.label || 'other'); storyChoiceKey = null; }
   if(item.trashItem) TRASH.push(item.trashItem);
   if(item.truth) knownTruths.add(item.truth);
 }
@@ -13517,6 +13655,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
     const node = src.NODES.find(n => n.day === day);
     if(node && !seenStoryDays.has(key+'-'+node.day)){
       seenStoryDays.add(key+'-'+node.day);
+      storyChoiceKey = key+'-'+node.day;   // 給 applyStoryChoice() 記這一節選了什麼(見 STORY_CHOICE)
       logDay(STORY_DIARY[key + '-' + node.day]);   // 沒寫的節點就不寫(logDay 吃到 undefined 會略過)
       /* 事情發生了就收掉早上那張提醒卡——**除非這個節點自己要換掉卡的內容**
          (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
@@ -18218,7 +18357,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB, PEOPLE, INTRO, COURIER
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB, PEOPLE, INTRO, COURIER, STORY_CHOICE
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
