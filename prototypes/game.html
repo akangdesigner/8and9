@@ -11307,8 +11307,10 @@ function despawnDebtCollector(){
 function debtCardSync(){
   if(!DEBT.street || DEBT.resolution) { courierCardOff('debt'); return; }
   const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedDad && '爸'].filter(Boolean);
-  const hint = (day >= DEBT_ASK_FROM ? '去問問看阿正、阿源、爸,看誰有辦法。' : '他說月底會再來。') +
-               (asked.length ? '<br><span class="qpNote">問過:' + asked.join('、') + '</span>' : '');
+  const hint = (day >= DEBT_ASK_FROM
+      ? '討債的人月底會來要答案。去問問看阿正、阿源、爸,看誰有辦法。'
+      : '討債的人在街上攔住你,說借據上簽的是你的名字。他說月底會再來,到時候你要給他一個答案。') +
+      (asked.length ? '<br><span class="qpNote">問過:' + asked.join('、') + '</span>' : '');
   const q = ACTIVE_QUESTS.find(x => x.id === 'debt');
   if(q) q.hint = hint; else ACTIVE_QUESTS.push({ id:'debt', title:'一筆三十萬的債款', hint });
   renderQuestPanel();
@@ -11414,7 +11416,7 @@ function debtResolve(kind){
     logPerson('yuan', '三十萬他處理掉了。以後我的人是他的。');
     logPerson('collector', '阿源跟他講了一通電話,他就不管我了。');
   } else {
-    ACTIVE_QUESTS.push({ id:'debt-self', title:'一筆三十萬的債款', hint:'你自己還,一個月五千,超商要站二十九輪班。<br><span class="qpNote">畢業那天債還會在</span>' });
+    ACTIVE_QUESTS.push({ id:'debt-self', title:'一筆三十萬的債款', hint:'你決定自己還,一個月五千。超商要站二十九輪班才湊得出來。<br><span class="qpNote">畢業那天,這筆債還會在</span>' });
     renderQuestPanel();
     logPerson('collector', '我說我自己還。一個月五千。');
   }
