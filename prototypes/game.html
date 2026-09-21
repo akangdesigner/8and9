@@ -1621,7 +1621,7 @@ function payAidNow(){
     playBeats([
       { who:'teacher', text:'「欸，你過來一下。」' },
       { who:'teacher', text:'「補助的事。你這學期三支警告，操行那關送不過。」' },
-      { who:'teacher', text:'「我盡力了。」他沒有再看你。' }
+      { who:'teacher', text:'「我盡力了。」他回去改他的考卷。' }
     ], 0, () => { toast('清寒補助沒下來。', 3000); });
     return;
   }
@@ -10380,7 +10380,7 @@ const COURIER_VOICE = {
          lostAsk:[ '「東西咧?送到了沒?」', '「阿正把我攔下來,東西被他拿走了。」', '「那包不是我的,是人家寄放的。人家現在在跟我要。」' ],
          fix:'「那這禮拜你再幫我送三趟,不拿錢。」', pay:'「五百。」他把錢收下,沒有數。「這件事當作沒發生。」',
          owe:'「五百。」你把口袋翻出來給他看,裡面沒有那麼多。「沒錢就去想辦法,三個行動天內拿來。」',
-         begYes:'「⋯⋯算了,這次我幫你扛。」他講完就沒有再看你。', begNo:'「你求我沒有用,人家要的是東西,不是你的道歉。」',
+         begYes:'「⋯⋯算了,這次我幫你扛。」他講完就走了。', begNo:'「你求我沒有用,人家要的是東西,不是你的道歉。」',
          hide:'「東西被拿走那天,你怎麼沒有回來跟我講?」', paid:'他把錢收下,沒有數。「這件事當作沒發生。」',
          notEnough:'「不夠的話就不要拿出來。」', oweLeft:n => '「還有 ' + n + ' 個行動天,你自己算。」',
          burn:{ caught2:'「你又被抓到了。以後不用來了。」', owe:'「五百塊都拿不出來。」他繼續弄他的車,沒有再理你。', other:'「這陣子不要來。」' },
@@ -11261,7 +11261,7 @@ function expireKaiRun(){
   syncRunmen();
   chg('calm', -3);
   toast(KAI_RUN.gotBag
-    ? '袋子還在你外套裡。隔天阿凱來拿走了，沒有多說什麼。\n（歸屬感 −3）'
+    ? '袋子還在你外套裡。隔天阿凱來拿走了。\n（歸屬感 −3）'
     : '你沒有去找阿凱。隔天他沒有提這件事。\n（歸屬感 −3）', 4200);
 }
 
@@ -11748,7 +11748,7 @@ function runDailyGoto(who){
                    run(){ chg('calm', -3);
                           playBeats([
                             { who:'acheng', text:'「喔。」' },
-                            { who:'pc',     text:'他把圍裙收回去，沒有再看你。' }
+                            { who:'pc',     text:'他把圍裙收回去。' }
                           ], 0, () => { busy = false; }); } }
                ] },
     ayi:     { beats:[ { who:'ayi', text:'「吃了沒。」' },
@@ -13471,7 +13471,7 @@ const HOSPITAL_LAST_WORDS_SAID = [
   { who:'pc', text:'她愣了一下,然後笑了,伸手拍了拍你的手背。' }
 ];
 const HOSPITAL_LAST_WORDS_SILENT = [
-  { who:'pc',     text:'你張了張嘴,最後什麼都沒說出口。' },
+  { who:'pc',     text:'你沒有講出口。' },
   { who:'pc', text:'她好像看懂了,伸手拍了拍你的手背,沒有追問。' }
 ];
 /* 2026-09-02 第十五輪,kc 糾正第十四輪的補法:「我只會有一個場景是病房
@@ -13596,7 +13596,7 @@ const GRANDMA_AWAKE_CHANCE = .35;
 const GRANDMA_AWAKE_LINES = [
   [ { who:'granny', text:'「{name}，你來啦。」' }, { who:'pc', text:'她的聲音很小，但看得出來是高興的。' } ],
   [ { who:'granny', text:'「有沒有吃飽。」' }, { who:'pc', text:'跟以前一樣。' }, { who:'pc', text:'「有。」' } ],
-  [ { who:'pc', text:'她拉著你的手，沒說什麼，只是笑了一下。' } ],
+  [ { who:'pc', text:'她拉著你的手，笑了一下。' } ],
   [ { who:'granny', text:'「乖，常回來看阿嬤。」' }, { who:'pc', text:'「嗯。」' } ],
   [ { who:'granny', text:'「外面是不是很冷。」' }, { who:'pc', text:'她望向窗外，窗簾其實是拉著的。' }, { who:'pc', text:'「還好。」' } ],
   [ { who:'granny', text:'「書有沒有在讀。」' }, { who:'pc', text:'「有。」' }, { who:'granny', text:'「那就好。」' } ]   // 2026-09-15 畢業證書那條,偶爾提一下,不天天念
@@ -15619,7 +15619,7 @@ const FORTUNE_STATS = [
     low:  { meaning:'命裡犯勞，奔波難免；此運當歇不歇，恐傷根本。',
             followUp:'「你這樣硬撐，撐得過今天撐不過明天。」他語氣不重，像是提醒。' },
     mid:  { meaning:'筋骨未損，然亦有磨；此運不好不壞，量力而行即可。',
-            followUp:'「還撐得住吧？」他看了你一眼，沒再多說。' },
+            followUp:'「還撐得住吧？」' },
     high: { lines:['筋骨強健精神爽','日行千里不覺累','此運根基本自厚','養精蓄銳待來時'],
             meaning:'精神飽滿，筋骨強健，此乃根基深厚之相。',
             followUp:'「你這陣子精神不錯喔。」他點點頭。「底子養好了，才撐得久。」' },
@@ -15633,7 +15633,7 @@ const FORTUNE_STATS = [
             followUp:'「日子還過得去吧。」他淡淡說了一句。' },
     high: { lines:['命宮吉星照人緣','左右扶持得人望','此運根基在人和','福從眾人心中來'],
             meaning:'人緣廣結，貴人相助，此乃人和之福，非強求可致。',
-            followUp:'「你這陣子身邊倒是熱鬧啊。」他難得多看你一眼。「這種緣分，要惜福。」' },
+            followUp:'「你這陣子身邊倒是熱鬧啊。這種緣分，要惜福。」' },
     grid:{ caiyun:'錢不是重點', shiye:'心不在焉', ganqing:'渴望有人陪', jiankang:'心累比較重',
            chuxing:'別自己悶著', renji:'主動找人聊', yi:'去廟口走走', ji:'把自己關起來' } },
   { k:'mood', no:29,
@@ -15652,7 +15652,7 @@ const FORTUNE_STATS = [
     low:  { meaning:'門面不整，貴人難識；此運要在自身，非關命定。',
             followUp:'他上下打量你一眼。「要不要弄一下自己，不然人家不把你當自己人。」' },
     mid:  { meaning:'門面平平，不顯不隱；此運如常，多一分修整多一分助力。',
-            followUp:'「你這樣子還行啦。」他隨口一句，沒多說什麼。' },
+            followUp:'「你這樣子還行啦。」' },
     high: { lines:['衣冠楚楚人皆敬','門面撐起貴人來','此運根基在自身','人前立得住方真'],
             meaning:'門面撐得住，貴人自然識；此乃自身修得之相。',
             followUp:'「你今天弄得挺整齊的嘛。」他難得多看你兩眼。「這樣，人家才把你當自己人。」' },
@@ -16767,7 +16767,7 @@ function talkToTattooMaster(){
       { who:'tattooMaster', text:'「謝了。」他只講這兩個字，但一直摸牠的頭。' }
     ], 0, () => {
       chg('calm', 6); chg('mood', 12);
-      toast('師傅沒有多說什麼，蹲在那邊摸了狗很久。', 3400);
+      toast('師傅摸了狗很久。', 3400);
     });
     return;
   }
@@ -16900,7 +16900,7 @@ function talkToTeacher(){
       { who:'pc',      text:'你把錢拿出來，放到老師桌上。' },
       { who:'pc',      text:'「班費找到了。」' },
       { who:'teacher', text:'他愣了一下，數了數，鬆了一口氣。「找到就好，我還在想要不要通報。」' },
-      { who:'pc', text:'他沒有再追問是從哪裡找到的，你也沒有多說。' }
+      { who:'pc', text:'他沒有問是從哪裡找到的。' }
     ], 0, () => {
       chg('calm', 12);
       toast('班費還給老師了，這件事總算過去了。（歸屬感 +12）', 3600);
@@ -17218,7 +17218,7 @@ function talkToBrother(){
                   { label:'收下', cost:'+$800／風評 +6', money:800, star:6, beats:[
                     { who:'pc', text:'你把信封塞進口袋裡，沒有打開來數。' } ] },
                   { label:'不用了', cost:'風評 +6', star:6, beats:[
-                    { who:'pc', text:'他看了你一眼，沒有多說什麼，把信封收回抽屜裡。' },
+                    { who:'pc', text:'他把信封收回抽屜裡。' },
                     { who:'brother', text:'「不要就算了，隨便你。」' } ] }
                 ] },
                 { who:'brother', text:'「以後有什麼事，還是可以來找我。」' },
@@ -18217,7 +18217,7 @@ const WORKER_TALK = {
   before: ['「怎樣?」'],
   after: [
     '「又是你。」她說,語氣沒什麼起伏。',
-    '她靠在牆上,看你走近,沒有多說什麼,等你先開口。',
+    '她靠在牆上,等你先開口。',
     '「今天要不要?」她說得比上次隨便一點。'
   ]
 };
@@ -18265,7 +18265,7 @@ function talkToWorker(w){
             ACTIVE_QUESTS.push({ id:'classfund-return', title:'班費不見了', hint:'把班費拿去還給老師' });
             renderQuestPanel();
             playBeats([
-              { who:'pc', text:'她把錢還給你，一句話都沒多說。' },
+              { who:'pc', text:'她把錢還給你。' },
               { who:'pc',     text:'你把錢收好——這件事還沒真的結束，你得拿去還給老師。' }
             ], 0, () => toast('拿到班費了，記得還給老師。', 3200));
           } },
@@ -18361,7 +18361,7 @@ function talkToWorker(w){
           run(){
             playBeats([
               { who:'pc',     text:'「這張收據就是在供桌邊撿到的，不是我們班上的東西。」' },
-              { who:'pc', text:'她瞄了一眼收據，沒有接話。' }
+              { who:'pc', text:'她瞄了一眼收據。' }
             ], 0, round2);
           } }
       ]);
