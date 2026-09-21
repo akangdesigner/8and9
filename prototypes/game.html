@@ -19669,9 +19669,9 @@ if(bootSlot){
    改成先存一次再帶著 resume 旗標重整,直接回到剛才的狀態。玩家要真的從頭
    請走標題畫面的「開始新遊戲」。 */
 function debugReload(){
-  saveGame('auto');
-  try { sessionStorage.setItem('nowayup.loadSlot', 'auto'); } catch(e){}
-  location.reload();
+  /* 2026-09-21 kc:「點擊重來按鈕就會清除任務」——原本「重來」是存檔+重新整理(進度留著,任務卡當然也留著),
+     他要的是真的從頭來:清掉進度重新開始,跟標題畫面「開始新遊戲」一樣。 */
+  debugClearSave();
 }
 window.debugReload = debugReload;
 /* 「清除進度」的按鈕 2026-09-09 從 #bar 拿掉了(kc:「把不需要的清掉 只留
