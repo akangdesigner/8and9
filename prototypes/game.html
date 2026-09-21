@@ -11310,7 +11310,7 @@ function debtCardSync(){
   const hint = (day >= DEBT_ASK_FROM ? '去問問看阿正、阿源、爸,看誰有辦法。' : '他說月底會再來。') +
                (asked.length ? '<br><span class="qpNote">問過:' + asked.join('、') + '</span>' : '');
   const q = ACTIVE_QUESTS.find(x => x.id === 'debt');
-  if(q) q.hint = hint; else ACTIVE_QUESTS.push({ id:'debt', title:'那筆三十萬', hint });
+  if(q) q.hint = hint; else ACTIVE_QUESTS.push({ id:'debt', title:'一筆三十萬的債款', hint });
   renderQuestPanel();
 }
 /* 每幀(updateCity)。 */
@@ -11414,7 +11414,7 @@ function debtResolve(kind){
     logPerson('yuan', '三十萬他處理掉了。以後我的人是他的。');
     logPerson('collector', '阿源跟他講了一通電話,他就不管我了。');
   } else {
-    ACTIVE_QUESTS.push({ id:'debt-self', title:'那筆三十萬', hint:'你自己還,一個月五千,超商要站二十九輪班。<br><span class="qpNote">畢業那天債還會在</span>' });
+    ACTIVE_QUESTS.push({ id:'debt-self', title:'一筆三十萬的債款', hint:'你自己還,一個月五千,超商要站二十九輪班。<br><span class="qpNote">畢業那天債還會在</span>' });
     renderQuestPanel();
     logPerson('collector', '我說我自己還。一個月五千。');
   }
