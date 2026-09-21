@@ -9548,6 +9548,8 @@ function questMapTargets(){
       }
       if(KAI_RUN.delivered && !KAI_RUN.reported){ push(KAI, '回報'); return; }
     }
+    if(q.id === 'today' && INTRO.day2 === 'school'){ push(door('school'), '學校'); return; }   // 第一天上學(見 INTRO)
+    if(q.id === 'today' && INTRO.day2 === 'evening'){ push(door('home'), '回家'); return; }
     if(q.id === 'today' || q.id === 'daily'){
       const e = dailyDef();
       if(!e || DAILY.done) return;
@@ -10080,6 +10082,10 @@ function finishSchoolDay(){
   logDay('放學。');
   if(minute < SCHOOL_OUT_MINUTE) advanceTime(SCHOOL_OUT_MINUTE - minute);
   toast('放學了。', 2200);
+  if(INTRO.day2 === 'class'){   // day2 尾巴:放學了,晚上回家吃飯(見 INTRO)
+    INTRO.day2 = 'evening';
+    setTodayCard('放學了。今天沒有別的事，晚上回家吃飯就好。', '第一天上學');
+  }
 }
 
 const KAI_RUN = { pending:false, gotBag:false, opened:false, arrived:false, spoke:false, delivered:false, reported:false, wrong:false, confronted:false, dropDay:-1, done:false, missed:false, called:false };   // called:2026-09-11 給錯人兩天後阿凱的那通電話(見 checkKaiWrongCall)
@@ -12854,9 +12860,9 @@ function warpIntoPlace(door){
     document.getElementById('where').textContent = '學校';
     paintSchoolBackdrop();
     lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
-    if(INTRO.day2 === 'school'){   // day2 尾巴:到了學校,放學去超商問工(見 INTRO)
-      INTRO.day2 = 'apply';
-      setTodayCard('放學後去超商，櫃台問有沒有缺人。<br><span class="qpNote">註冊費一千塊要自己想辦法</span>', '第一天上學');
+    if(INTRO.day2 === 'school'){   // day2 尾巴:到了學校(見 INTRO)
+      INTRO.day2 = 'class';
+      setTodayCard('到教室了。走到你的座位按空白鍵上課，上到四點放學。', '第一天上學');
     }
     /* story-school.js day5(樓梯間)/day21(打牌)——這兩節本來就設在教室/
        教室附近,一進教室就檢查,跟 home 那邊 maybeTriggerStoryNode() 同一招
@@ -12891,6 +12897,7 @@ function warpIntoPlace(door){
     document.getElementById('where').textContent = '家';
     paintHomeBackdrop();
     if(INTRO.day1 === 'home' && TRASH.some(t => t.soy)) introSoyHome();
+    else if(INTRO.day2 === 'evening') introSchoolEvening();
     else maybeTriggerStoryNode();
   }
   advanceTime(1);
@@ -13231,6 +13238,29 @@ function leaveBedroom(){
 /* day2 阿嬤那袋——媽在客廳塞給你就出門。字是我寫的,kc 2026-09-11 點頭。 */
 /* day1 尾巴:把醬油拿回家,媽在煮飯(2026-09-17,見 INTRO)。天也差不多黑了,今天到這裡。 */
 /* 前幾天的尾巴沒做完就過夜了,隔天不再牽(掛在睡醒那段)。平安符那條不過期,阿伯什麼時候給都行。 */
+/* day2 晚上回家(2026-09-21,見上面 kc 那句):媽煮飯,問學校怎樣,吃飽說想出去晃就去。這是「晚上可以到處晃晃」
+   那句話的來源——是媽講的,不是遊戲講的。 */
+function introSchoolEvening(){
+  INTRO.day2 = 'done';
+  clearTodayCard();
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'廚房有聲音，媽在煮飯。' },
+    { who:'mom', text:'「回來了。學校怎樣？」' },
+    { who:'pc',  text:'「就那樣。」' },
+    { who:'mom', text:'「先吃。」' },
+    { who:'pc',  text:'你在餐桌吃完。她收碗的時候講了一句。' },
+    { who:'mom', text:'「吃飽想出去晃晃就去，不要太晚回來。」' }
+  ], 0, () => {
+    chg('full', 24); chg('calm', 3);
+    toast('媽煮的飯。吃飽了，晚上可以出去晃晃。（飽足 +24　歸屬感 +3）', 3200);
+    logDay('第一天上學回來，媽煮了飯。她說吃飽想出去晃就去。');
+    logPerson('mom', '第一天上學回來她煮了飯，說想出去晃就去。');
+    if(minute < 19*60) minute = 19*60;
+    syncHUD();
+    busy = false;
+  });
+}
 function introExpire(){
   if(day > 1 && INTRO.day1 !== 'done'){ INTRO.day1 = 'done'; const i = TRASH.findIndex(t => t.soy); if(i >= 0) TRASH.splice(i, 1); }
   if(day > 2 && INTRO.day2 !== 'done') INTRO.day2 = 'done';
@@ -14258,7 +14288,10 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
         if(node.kaiRun) KAI_RUN.pending = true;   // day5 跑腿,見 KAI_RUN 那段
         if(key === 'bet' && node.day === 2 && INTRO.day2 === 'none'){   // day2 尾巴:第一次去學校(見 INTRO)
           INTRO.day2 = 'school';
-          setTodayCard('今天第一天上學。去學校，走廊有繳費機可以看註冊費怎麼繳。', '第一天上學');
+          /* 2026-09-21 kc:「第一天很怪 為何要逼人打工 而且應該要引導我們怎麼完成上學這件事才對 然後晚上就說可以到處晃晃」
+             ——原本進學校就換成「放學後去超商問缺人」那張卡(逼打工),拔掉。這條改成教你把上學走完:走到學校 →
+             坐到座位上課 → 四點放學 → 晚上回家吃飯,媽說吃飽想出去晃就去。地圖上標學校。 */
+          setTodayCard('今天第一天上學。學校在永安街那邊，地圖上有標。走到校門進去，坐到座位上課，四點放學。', '第一天上學');
         }
         /* 沒有 menu 的節點(day5 那種「只是鋪陳、真正的選擇在別的場景」)
            直接走 after,不要硬開一個空選單。 */
