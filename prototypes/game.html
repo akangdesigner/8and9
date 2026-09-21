@@ -892,7 +892,8 @@
      filter:drop-shadow。⚠ 因此 hover/閃爍都**不能寫 background 簡寫**(會把
      inline 的紙圖蓋掉),一律改 filter / color。
      上面那些「深灰圓角框」的規則是原型時代的,這一段用同名選擇器整段蓋過去,
-     集中一處方便調;哪天確定不回頭再清。沒碰:標題畫面、遊藝場、算命籤、睡覺日記。
+     集中一處方便調;哪天確定不回頭再清。沒碰:標題畫面、遊藝場、算命籤、睡覺日記
+     (2026-09-21 kc:「遊藝場 / 算命攤 / 睡覺日記 別動」——這三頁維持原樣,不要再套紙)。
      ============================================================ */
   :root { --ui-ink:#2a2118; --ui-ink2:#5a4b38; --ui-rule:#6b5a42; --ui-dot:#a8967a; --ui-line:#8b7a5e;
           --ui-red:#8e2a26; --ui-paper-hi:#f4ecd8; }
@@ -1111,6 +1112,7 @@
     background:rgba(236,229,212,.12); color:#efe8d8; font:11px/1.3 var(--sp-serif); text-align:center; }
   #keys kbd + kbd { margin-left:-3px; }
   #keys .sep { color:#6a6152; margin:0 6px; }
+
 
   /* 2026-09-14 第一輪視覺整理，見 DESIGN_NOTES「超商與 UI 視覺整理」。 */
   .hud { gap:10px; top:18px; left:20px; }
@@ -1502,7 +1504,7 @@ import { CITY, CAM, PLAYER, PLAYER_FACE, NPC_FACE, buildCity, buildPlayer, build
      風評 0。開場就是「什麼都沒有、什麼都是別人給的標籤」那個狀態。 */
 const ST_START_DEV     = { money:2000, full:100, calm:55, cool:11, mood:60, stamina:100, star:-30 };
 const ST_START_RELEASE = { money:500,  full:30,  calm:30, cool:0,  mood:30, stamina:30,  star:0  };
-const ST = { ...ST_START_DEV };
+const ST = { ...ST_START_RELEASE };   // 2026-09-21 換成正式組(kc 9/17 定的 C 方向「為了生活奔波」要靠起始值壓;測試用 #bar 的補錢/補飽足)
 /* 指標上限(2026-08-27,kc:「算命攤道具甚至體力上限增加這種」)——原本
    chg() 對 full/calm/cool/mood/stamina 一律寫死封頂在 100,這是遊戲第一次
    出現「上限本身可以被墊高」的道具,所以拆出一張獨立的上限表,chg() 改
@@ -2272,7 +2274,7 @@ function openInventory(){
   const K_ENTRIES = [
     ['small',   '少少的知識', '📎', '讀書一點一點累積的碎片知識。<br>湊滿 10 個會自動拼成一份「略懂書本內容」。'],
     ['rough',   '略懂書本內容', '📘', '對書的內容有點概念了。<br>湊到 5 份可以在書桌換成「精通知識」。'],
-    ['mastery', '精通知識', '🎓', '真的搞懂了。<br>期中考用得到(考試機制還沒做)。']
+    ['mastery', '精通知識', '🎓', '真的搞懂了。<br>期中考、期末考用得到。']
   ];
   let anyKnowledge = false;
   K_ENTRIES.forEach(([key, name, icon, detail]) => {
