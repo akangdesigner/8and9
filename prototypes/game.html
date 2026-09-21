@@ -2618,8 +2618,8 @@ window.debugSnitchArm = debugSnitchArm;
 function debugCourier(tier2){
   KAI_RUN.reported = true; KAI_RUN.wrong = false; KAI.talked = true;
   COURIER.active = false; COURIER.lastDay = -1; COURIER.burnedUntil = -1; COURIER.told2 = !!tier2;
-  COURIER.lost = false; COURIER.freeRuns = 0; COURIER.owe = 0; COURIER.oweDue = -1; COURIER.squareDue = false;
-  ['courier-lost','courier-owe'].forEach(id => { const i = ACTIVE_QUESTS.findIndex(x => x.id === id); if(i >= 0) ACTIVE_QUESTS.splice(i, 1); });
+  COURIER.lost = false; COURIER.freeRuns = 0; COURIER.owe = 0; COURIER.oweDue = -1; COURIER.squareDue = false; COURIER.reportDue = false;
+  ['courier-lost','courier-owe','courier-report','courier-call'].forEach(courierCardOff);
   if(tier2 && COURIER.times < COURIER_TIER2_AT) COURIER.times = COURIER_TIER2_AT;
   courierClear();
   minute = 16*60; syncHUD();
@@ -2977,6 +2977,7 @@ const WHO = {
      灰髮示意年紀。 */
   /* 自來水公司(2026-09-17,停水那天店門口那通電話,見 METER)——沒有臉,電話裡的聲音。 */
   water:    { name:'自來水公司', noFace:true, opt:{ face:'F', skin:'#c9a077', hair:'#3a3a3a', top:'#4a6a8a', topD:'#3a5570', pants:'#2b2b2b' } },
+  taker:    { name:'收貨的人', noFace:true, opt:{ face:'F', skin:'#c2a17e', hair:'#1c1c1c', top:'#333', topD:'#222', pants:'#2b2b2b' } },   // 送貨三個角落收東西的人,沒名字沒臉(見 COURIER)
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
   /* 阿凱(2026-08-24)——見上面 KAI 那則筆記,染髮跟 kaiNPC 那組 buildNPC 顏色同步。 */
   kai:      { name:'阿凱', opt:{ face:'F', skin:'#c9976e', hair:'#d4a03c', top:'#1c1c1c', topD:'#141414', pants:'#2b2b2b' } },
@@ -9412,7 +9413,7 @@ function questMapTargets(){
   ACTIVE_QUESTS.forEach(q => {
     if(q.id === 'bills') push(door('store'), '繳帳單');
     else if(q.id === 'courier') push(COURIER.late ? KAI : courierDrop(), COURIER.late ? '還阿凱' : '送到');
-    else if(q.id === 'courier-lost' || q.id === 'courier-owe') push(KAI, '阿凱');
+    else if(q.id === 'courier-lost' || q.id === 'courier-owe' || q.id === 'courier-report' || q.id === 'courier-call') push(KAI, '阿凱');
     else if(q.id === 'tuition') push(door('school'), '繳註冊費');
     else if(q.id === 'axia') push(AXIA, '阿霞');
     else if(q.id === 'moto-impound' || q.id === 'id-card' || q.id === 'snitch') push(BROTHER, '警局');
@@ -10258,58 +10259,68 @@ function kaiConfrontWrong(){
    先偷車之類(時間限制)」。三條灰色路線的全貌與數字見 DESIGN_NOTES「灰色地帶」)
    day5 那趟送對之後,每天 16:00~19:00 機車行找阿凱多一個選項。**風險不是亂數,是街上看得到
    的人**:東西在身上時阿正沿中華路來回巡(courierWalker,警局門口本尊暫時藏起來),離他
-   COURIER_SEE 以內就被喊住——東西沒收、風評 −6、阿凱斷七天。帶著東西不能回家(媽問)、
-   不能進學校(教官擋);路過校門口教官會攔(記一筆)、路過供桌阿伯看到(下次講一句)。
-   交貨點三個角落照次數輪,排死的不抽。
+   COURIER_SEE 以內就被喊住——東西沒收、風評 −6,要回去跟阿凱講(見 courierReport)。
+   帶著東西不能回家(媽問)、不能進學校(教官擋);路過校門口教官會攔(記一筆)、路過供桌
+   阿伯看到(下次講一句)。交貨點三個角落照次數輪,排死的不抽。
    **第二階(times ≥ 3)**:阿凱指定騎車、四十分鐘、不能騎自己的——要先去偷一台
    (mountMoto 那套,別人的車每 10 秒扣風評);走路到或騎自己的車到,收貨的人不收。
    逾時人走了,東西拿回去給阿凱,他收回、歸屬感 −6、沒錢。$800、風評 −3。
+   **收尾**(同日 kc:「你的收尾都做得很差 被拿走後一定也有回報失敗的必要啊 甚至他會讓你將功
+   補過 或是求求他」+「完成也要有後續啊」):送到要回去講一聲(每次一句不同的話,第二次給你一支
+   舊手機,之後有貨他打給你;第三次講騎車那句;送滿三趟阿源也知道了);被拿走要回去講——補三趟
+   白做/賠五百(沒錢欠三個行動天)/求他(送過三趟他才扛);沒送就睡東西留在身上隔天還他。
    COURIER 進 SAVE_OBJECTS;courierWalker 是 THREE 物件不存,tickCourier() 看到 active 沒人
-   就重建,讀檔回來接得上。
+   就重建,讀檔回來接得上。數字都是我抓的。
    ============================================================ */
 const COURIER = { times:0, active:false, tier:1, day:-1, lastDay:-1, burnedUntil:-1, burnReason:'',
                   caught:0, missed:0, deadline:-1, late:false, guanStopped:false, boSaw:false, boTold:false, told2:false,
-                  /* 收尾(2026-09-21 kc:「被拿走後一定也有回報失敗的必要啊 甚至他會讓你將功補過 或是求求他」):
-                     lost = 被阿正拿走還沒回去講(lostDay 那天起七天內去講是回報那幕,七天後才去是「你那天怎麼沒回來講」);
-                     freeRuns = 將功補過還欠幾趟白做;owe/oweDue = 賠不出五百欠著的錢跟期限;squareDue = 三趟白做完等他說「扯平」。 */
-                  lost:false, lostDay:-1, freeRuns:0, owe:0, oweDue:-1, squareDue:false };
+                  lost:false, lostDay:-1, freeRuns:0, owe:0, oweDue:-1, squareDue:false,
+                  /* 完成的後續:reportDue = 送到了還沒回去講;phone = 第二次回報後他給的手機(之後 16:00 在街上他打來);
+                     calledDay = 今天打過了;dropVisits = 三個交貨點各去過幾次(第二次起收貨的人認得你);yuanTold = 阿源那句講過了。 */
+                  reportDue:false, phone:false, calledDay:-1, dropVisits:[0,0,0], yuanTold:false };
 let courierWalker = null, courierHintMinute = -1, courierRefusedNear = false;
 const COURIER_PAY = [400, 800], COURIER_STAR = [-1, -3], COURIER_SEE = 10, COURIER_NEAR = 9;
 const COURIER_FROM = 16*60, COURIER_UNTIL = 19*60, COURIER_BURN_DAYS = 7, COURIER_TIER2_AT = 3, COURIER_LIMIT = 40;
 const COURIER_FREE_RUNS = 3, COURIER_OWE = 500, COURIER_OWE_DAYS = 3, COURIER_BEG_AT = 3;   // 補三趟、賠五百(三個行動天)、求他要送過三趟
 const COURIER_PATROL = [[-58, -11, 2500], [62, -11, 2500]];   // 中華路整條來回(跟第三隻路人同一條乾淨路線)
-/* 三個角落,照次數輪(times % 3)。距離機車行單程 30~40 秒 = 遊戲 30~40 分鐘。 */
+/* 三個角落,照次數輪(times % 3)。距離機車行單程 30~40 秒 = 遊戲 30~40 分鐘。
+   again:第二次以後收貨的人認得你,前面那句換掉。 */
 const COURIER_DROPS = [
-  { x:-42, z:103, name:'公車亭', beats:[
-      { who:'pc', text:'公車亭裡坐著一個戴口罩的,旁邊留了一個空位。' },
-      { who:'pc', text:'你坐下,把報紙包放在中間。他把錢壓在你的腿上,起身走了。' } ] },
-  { x:82,  z:-86, name:'廟口路東邊,東和街口', beats:[
-      { who:'pc', text:'騎樓下蹲著一個人在看手機,看到你就站起來。' },
-      { who:'pc', text:'你把報紙包遞過去。他沒打開,從褲袋數了錢給你。' } ] },
-  { x:50,  z:35,  name:'街頭藝人那塊廣場', beats:[
-      { who:'pc', text:'廣場最裡面的紅椅子上坐著一個人,帽子壓得很低。' },
-      { who:'pc', text:'你把報紙包放在他旁邊那張椅子上。他把一疊錢放在你手上,沒看你。' } ] }
+  { x:-42, z:103, name:'公車亭',
+    first:'公車亭裡坐著一個戴口罩的男人,他旁邊的位子空著。',
+    again:'公車亭裡還是那個戴口罩的,他看到你就把旁邊的袋子移開,空出位子。',
+    give:'你坐下來,把報紙包放在兩個人中間。他把一疊錢壓在你的腿上,站起來就走了。' },
+  { x:82,  z:-86, name:'廟口路東邊,東和街口',
+    first:'騎樓下有個人蹲著看手機,看到你走過來就站起來了。',
+    again:'騎樓下那個人還在,看到你就把手機收進口袋。', againSay:'「又是你喔。」',
+    give:'你把報紙包遞過去。他沒有打開來看,從褲袋裡數了錢給你。' },
+  { x:50,  z:35,  name:'街頭藝人那塊廣場',
+    first:'廣場最裡面的紅椅子上坐著一個人,帽子壓得很低。',
+    again:'廣場最裡面那張紅椅子,還是那頂帽子。他往旁邊的椅子拍了兩下。',
+    give:'你把報紙包放在他旁邊那張椅子上。他把一疊錢塞到你手上,眼睛還是看著前面的舞台。' }
 ];
 function courierDrop(){ return COURIER_DROPS[COURIER.times % COURIER_DROPS.length]; }
+function courierDropIdx(){ return COURIER.times % COURIER_DROPS.length; }
 function courierTierNow(){ return COURIER.times >= COURIER_TIER2_AT ? 2 : 1; }
-/* 今天能不能接:day5 那趟真的送對了、今天還沒接過、不在被斷的期間。時段不在這裡擋,選項裡回一句。 */
+/* 今天能不能接:day5 那趟真的送對了、今天還沒接過、沒有欠著要回去講/要還的事、不在被斷的期間。
+   時段不在這裡擋,選項裡回一句。 */
 function courierEligible(){
-  return KAI_RUN.reported && !KAI_RUN.wrong && !COURIER.active && !COURIER.lost && !COURIER.owe
+  return KAI_RUN.reported && !KAI_RUN.wrong && !COURIER.active && !COURIER.lost && !COURIER.owe && !COURIER.reportDue
       && COURIER.lastDay !== day && day >= COURIER.burnedUntil;
 }
 function courierMenuItem(){
   if(!courierEligible()) return null;
   return { label:'今天有沒有東西要送', run(){
     busy = false;
-    if(minute < COURIER_FROM){ say('kai', '「四點以後再來。」'); return; }
-    if(minute >= COURIER_UNTIL){ say('kai', '「太晚了,今天沒有了。」'); return; }
+    if(minute < COURIER_FROM){ say('kai', '「四點以後再來,現在還沒有。」'); return; }
+    if(minute >= COURIER_UNTIL){ say('kai', '「太晚了,今天的已經沒有了。」'); return; }
     courierAccept();
   } };
 }
 function courierHint(){
   const d = courierDrop();
   const pay = COURIER.freeRuns ? '補給阿凱的，不拿錢，還 ' + COURIER.freeRuns + ' 趟' : '$' + COURIER_PAY[COURIER.tier-1];
-  if(COURIER.late) return (COURIER.tier === 1 ? '沒送到。' : '人已經走了。') + '東西拿回去還給阿凱。';
+  if(COURIER.late) return (COURIER.tier === 1 ? '昨天沒送到。' : '人已經走了。') + '東西拿回去還給阿凱。';
   if(COURIER.tier === 1)
     return '送到' + d.name + '（' + pay + '）<br><span class="qpNote">阿正在中華路巡，離他遠一點。東西在身上不能回家、不能進學校</span>';
   return '騎車送到' + d.name + '（' + pay + '）　還剩 ' + Math.max(0, COURIER.deadline - minute) + ' 分鐘' +
@@ -10320,26 +10331,28 @@ function courierAccept(){
   COURIER.active = true; COURIER.tier = tier; COURIER.day = day; COURIER.lastDay = day;
   COURIER.late = false; COURIER.guanStopped = false; COURIER.boSaw = false;
   COURIER.deadline = tier === 2 ? minute + COURIER_LIMIT : -1;
+  courierCallCardOff();
+  const payLine = COURIER.freeRuns ? '這趟算你補我的,沒有錢。' : (tier === 2 ? '送到給你八百。' : '送到給你四百。');
   const beats = tier === 1 ? [
-    { who:'kai', text:'「有。」他從坐墊底下拿出一包用報紙包的東西。' },
-    { who:'kai', text:'「' + d.name + '。' + (COURIER.freeRuns ? '這趟算你補的。' : '四百。') + '」' },
-    { who:'kai', text: COURIER.times === 0 ? '「阿正這個時間在中華路走來走去,自己看著。」' : '「一樣,別讓阿正看到。」' },
+    { who:'kai', text:'「有啊。」他把坐墊掀起來,拿出一包用報紙包著的東西。' },
+    { who:'kai', text:'「送到' + d.name + ',那邊有人在等。' + payLine + '」' },
+    { who:'kai', text: COURIER.times === 0 ? '「阿正這個時間會在中華路走來走去,你自己看著走。」' : '「跟上次一樣,不要讓阿正看到就好。」' },
     { who:'pc',  text:'你把報紙包塞進外套,拉鍊拉到最上面。' }
   ] : [
-    { who:'kai', text:'「這包要騎車。」他從坐墊底下拿出來,比之前那幾包都小。' },
-    { who:'kai', text:'「' + d.name + '。四十分鐘,人就走了。' + (COURIER.freeRuns ? '這趟算你補的。' : '八百。') + '」' },
-    { who:'kai', text:'「不要騎你自己的,車牌會被記。路邊沒拔鑰匙的,借一台。」' },
-    { who:'pc',  text:'你把報紙包塞進外套。四十分鐘,從現在開始算。' }
+    { who:'kai', text:'「這包要騎車去送。」他從坐墊底下拿出來,比之前那幾包都小。' },
+    { who:'kai', text:'「送到' + d.name + ',對方只等四十分鐘,過了人就走了。' + payLine + '」' },
+    { who:'kai', text:'「不要騎你自己的車,車牌會被人記下來。路邊有沒拔鑰匙的,借一台來騎。」' },
+    { who:'pc',  text:'你把報紙包塞進外套。他說的四十分鐘,從現在開始算。' }
   ];
   busy = true;
   playBeats(beats, 0, () => {
     TRASH.push({ name:'報紙包的東西', icon:'📦', courier:true,
-                 detail:'阿凱給的。送到' + d.name + '，$' + COURIER_PAY[tier-1] + '。<br>外套拉鍊拉起來也看得出鼓一塊。' });
+                 detail:'阿凱給的。送到' + d.name + '，' + (COURIER.freeRuns ? '這趟是補他的' : '$' + COURIER_PAY[tier-1]) + '。<br>外套拉鍊拉起來也看得出鼓一塊。' });
     ACTIVE_QUESTS.push({ id:'courier', title:'幫阿凱送東西', hint:courierHint() });
     renderQuestPanel();
     courierHintMinute = minute;
     spawnCourierPatrol();
-    logDay('阿凱給了我一包東西,叫我送到' + d.name + '。' + (tier === 2 ? '八百,要騎車,四十分鐘。' : '四百。'));
+    logDay('阿凱給了我一包東西,叫我送到' + d.name + '。' + (COURIER.freeRuns ? '這趟是補他的,沒有錢。' : tier === 2 ? '要騎車,四十分鐘內,八百。' : '送到給四百。'));
     busy = false;
   });
 }
@@ -10367,6 +10380,12 @@ function courierClear(){
   renderQuestPanel();
   despawnCourierPatrol();
 }
+function courierCardOff(id){
+  const i = ACTIVE_QUESTS.findIndex(x => x.id === id); if(i >= 0) ACTIVE_QUESTS.splice(i, 1);
+  renderQuestPanel();
+}
+function courierLostCardOff(){ courierCardOff('courier-lost'); }
+function courierCallCardOff(){ courierCardOff('courier-call'); }
 /* 每幀(updateCity):東西在身上 → 沒有巡邏的人就生一具(讀檔回來也走這條);
    第二階倒數;離阿正太近被喊住;路過教官/阿伯;走到交貨點就交。 */
 function tickCourier(){
@@ -10376,7 +10395,7 @@ function tickCourier(){
   if(COURIER.tier === 2 && !COURIER.late && minute >= COURIER.deadline){
     COURIER.late = true;
     const q = ACTIVE_QUESTS.find(x => x.id === 'courier'); if(q){ q.hint = courierHint(); renderQuestPanel(); }
-    toast('四十分鐘到了。收東西的人不會等。', 3200);
+    toast('四十分鐘到了,收東西的人已經走了。', 3200);
   } else if(COURIER.tier === 2 && !COURIER.late && minute !== courierHintMinute){
     courierHintMinute = minute;
     const q = ACTIVE_QUESTS.find(x => x.id === 'courier'); if(q){ q.hint = courierHint(); renderQuestPanel(); }
@@ -10390,7 +10409,7 @@ function tickCourier(){
   if(!COURIER.guanStopped && Math.hypot(p.x - JIAOGUAN.x, p.z - JIAOGUAN.z) < COURIER_NEAR){ courierGuan(); return; }
   if(!COURIER.boSaw && Math.hypot(p.x - BO.x, p.z - BO.z) < COURIER_NEAR){
     COURIER.boSaw = true;
-    toast('阿伯從供桌那邊看了你外套一眼,沒說話。', 2800);
+    toast('阿伯從供桌那邊看了你的外套一眼,沒有說話。', 2800);
   }
   const d = courierDrop();
   const near = Math.hypot(p.x - d.x, p.z - d.z) < KAI_RUN_RANGE;
@@ -10400,13 +10419,30 @@ function tickCourier(){
     if(courierRefusedNear) return;
     courierRefusedNear = true;
     busy = true;
-    playBeats([
-      { who:'pc', text: ridingMoto ? '他看了一眼你的車牌。' : '他看了一眼你後面,沒有車。' },
-      { who:'pc', text:'「' + (ridingMoto ? '自己的車?牌都給人看了。' : '走路來的?') + '弄一台再來。」' }
-    ], 0, () => { busy = false; });
+    playBeats(ridingMoto
+      ? [ { who:'pc', text:'他看了一眼你的車牌。' }, { who:'taker', text:'「你騎自己的車來?車牌都給人看光了。去弄一台別的再來。」' } ]
+      : [ { who:'pc', text:'他往你後面看了一眼。' }, { who:'taker', text:'「你走路來的喔?去弄一台車再來。」' } ],
+    0, () => { busy = false; });
     return;
   }
   courierDeliver(d);
+}
+/* 16:00 手機震——第二次回報之後阿凱給了手機,今天能接的話他會打來,你還是要走到機車行拿。
+   跟其他 phone 型消息同一個做法(消息要有來源)。 */
+function checkCourierCall(){
+  if(!COURIER.phone || COURIER.calledDay === day || !courierEligible()) return;
+  if(minute < COURIER_FROM || minute >= COURIER_UNTIL) return;
+  if(MODE !== 'city' || gameOver || busy || dlg.on) return;
+  COURIER.calledDay = day;
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'手機震了,是阿凱。' },
+    { who:'kai', text:'「今天有東西,你過來拿。」他講完就掛了。' }
+  ], 0, () => {
+    ACTIVE_QUESTS.push({ id:'courier-call', title:'阿凱打來', hint:'去中華路機車行找他拿東西（四點到七點）' });
+    renderQuestPanel();
+    busy = false;
+  });
 }
 function courierCaught(wx, wz){
   busy = true;
@@ -10416,11 +10452,11 @@ function courierCaught(wx, wz){
     playBeats([
       { who:'brother', text:'「欸,等一下。」' },
       { who:'pc',      text:'他看著你外套鼓起來的地方。' },
-      { who:'brother', text:'「拿出來。」' },
-      { who:'pc',      text:'你把報紙包拿出來。他撕開一角看了一眼,沒說話。' },
-      { who:'brother', text:'「這誰給你的。」' },
+      { who:'brother', text:'「外套裡面的東西拿出來。」' },
+      { who:'pc',      text:'你把報紙包拿出來給他。他撕開一角看了一眼,什麼都沒說。' },
+      { who:'brother', text:'「這是誰給你的?」' },
       { who:'pc',      text:'你沒有回答。' },
-      { who:'brother', text:'「這個我收了。你回去。」' }
+      { who:'brother', text:'「這個我收走了。你回家去。」' }
     ], 0, () => {
       COURIER.caught++;
       const wasFree = COURIER.freeRuns > 0;
@@ -10432,13 +10468,13 @@ function courierCaught(wx, wz){
         /* 補趟期間又被抓——他不談了,直接斷。 */
         COURIER.freeRuns = 0; COURIER.burnedUntil = day + COURIER_BURN_DAYS; COURIER.burnReason = 'caught2';
         logPerson('kai', '補他的那幾趟又被阿正攔。他說不用來了。');
-        toast('東西又被收走了。這次阿凱不會再談。\n（風評 −6）', 4200);
+        toast('東西又被收走了。阿凱這次不會再跟你談。\n（風評 −6）', 4200);
       } else {
         COURIER.lost = true; COURIER.lostDay = day;
         ACTIVE_QUESTS.push({ id:'courier-lost', title:'東西被拿走了', hint:'回去跟阿凱講。<br><span class="qpNote">不講他也會知道</span>' });
         renderQuestPanel();
         logPerson('kai', '他的東西被阿正收走了,還沒回去跟他講。');
-        toast('東西被收走了。得回去跟阿凱講。\n（風評 −6）', 4200);
+        toast('東西被阿正收走了,你得回去跟阿凱講。\n（風評 −6）', 4200);
       }
       busy = false;
     });
@@ -10451,10 +10487,10 @@ function courierGuan(){
   walkToNpc(JIAOGUAN.x, JIAOGUAN.z, () => {
     busy = true;
     playBeats([
-      { who:'jiaoguan', text:'「外套裡什麼東西。」' },
-      { who:'pc',       text:'「同學的。」' },
+      { who:'jiaoguan', text:'「外套裡面是什麼東西?」' },
+      { who:'pc',       text:'「同學的東西,幫他拿一下。」' },
       { who:'jiaoguan', text:'他看了你三秒,把本子翻開寫了一行。' },
-      { who:'jiaoguan', text:'「走。」' }
+      { who:'jiaoguan', text:'「好,你走吧。」' }
     ], 0, () => {
       addWarning('carry');
       toast('教官在本子上寫了一行。\n（警告 +1）', 3200);
@@ -10463,36 +10499,104 @@ function courierGuan(){
   });
 }
 function courierDeliver(d){
-  const tier = COURIER.tier, free = COURIER.freeRuns > 0;
+  const tier = COURIER.tier, free = COURIER.freeRuns > 0, idx = courierDropIdx();
   busy = true;
-  /* 補趟的:收貨的人一樣收,錢他不給你——「阿凱說這趟不用」。 */
-  const beats = free ? d.beats.slice(0, 1).concat([{ who:'pc', text:'你把報紙包遞過去。他說阿凱交代過,這趟沒有錢。' }]) : d.beats;
+  const seen = COURIER.dropVisits[idx] > 0;
+  const beats = [{ who:'pc', text: seen ? d.again : d.first }];
+  if(seen && d.againSay) beats.push({ who:'taker', text:d.againSay });
+  if(free) beats.push({ who:'pc', text:'你把報紙包遞過去。' }, { who:'taker', text:'「阿凱有交代,你這趟沒有錢。」' });
+  else beats.push({ who:'pc', text:d.give });
   playBeats(beats, 0, () => {
+    COURIER.dropVisits[idx]++;
     COURIER.times++;
     courierClear();
     chg('star', COURIER_STAR[tier-1]);
     if(free){
       COURIER.freeRuns--;
-      logDay('補阿凱的一趟,送到' + d.name + '。沒有錢。' + (COURIER.freeRuns ? '還欠他 ' + COURIER.freeRuns + ' 趟。' : '三趟補完了。'));
+      logDay('補阿凱的一趟,送到' + d.name + ',沒有錢。' + (COURIER.freeRuns ? '還欠他 ' + COURIER.freeRuns + ' 趟。' : '三趟補完了。'));
       logPerson('kai', '補他一趟,送到' + d.name + '。');
       if(!COURIER.freeRuns) COURIER.squareDue = true;
-      toast((COURIER.freeRuns ? '還欠他 ' + COURIER.freeRuns + ' 趟。' : '三趟補完了。回去跟他講一聲。') + '\n（風評 ' + COURIER_STAR[tier-1] + '）', 3600);
+      toast((COURIER.freeRuns ? '還欠他 ' + COURIER.freeRuns + ' 趟。' : '三趟補完了,回去跟他講一聲。') + '\n（風評 ' + COURIER_STAR[tier-1] + '）', 3600);
     } else {
       chg('money', COURIER_PAY[tier-1]);
-      logDay('把阿凱的東西送到' + d.name + '。' + (tier === 2 ? '八百。騎別人的車去的。' : '四百。'));
+      COURIER.reportDue = true;
+      ACTIVE_QUESTS.push({ id:'courier-report', title:'幫阿凱送東西', hint:'送到了。回去跟阿凱講一聲。' });
+      renderQuestPanel();
+      logDay('把阿凱的東西送到' + d.name + '。' + (tier === 2 ? '八百,騎別人的車去的。' : '四百。'));
       logPerson('kai', '幫他送東西到' + d.name + '，$' + COURIER_PAY[tier-1] + '。');
-      toast((tier === 2 ? '八張。' : '四張。') + '你把錢塞進口袋，不數。\n（金錢 +' + COURIER_PAY[tier-1] + '、風評 ' + COURIER_STAR[tier-1] + '）', 3800);
+      toast('他給了你' + (tier === 2 ? '八張' : '四張') + '一百的,你沒有數就塞進口袋。\n（金錢 +' + COURIER_PAY[tier-1] + '、風評 ' + COURIER_STAR[tier-1] + '）', 3800);
     }
     busy = false;
   });
 }
-/* 睡覺前東西還在身上——沒送到就是沒送到,阿凱那邊一樣斷七天。 */
+/* 送到了回去講一聲——每次一句不同的,第二次給手機、第三次講騎車。沒回去講不扣什麼,
+   只是下一次他會自己提(courierEligible 擋著,要先講完才有下一包)。 */
+function courierReportDone(){
+  const n = COURIER.times;
+  let beats, after = null;
+  if(n === 1){
+    beats = [
+      { who:'kai', text:'「送到了?」' },
+      { who:'pc',  text:'「送到了。」' },
+      { who:'kai', text:'「他有沒有跟你講什麼?」' },
+      { who:'pc',  text:'「沒有,錢給了就走了。」' },
+      { who:'kai', text:'「這樣就對了。明天四點,一樣在這裡。」' }
+    ];
+  } else if(n === 2){
+    beats = [
+      { who:'kai', text:'「送到了齁,那邊有跟我講。」' },
+      { who:'pc',  text:'他從口袋裡拿出一支螢幕有裂痕的舊手機,塞到你手上。' },
+      { who:'kai', text:'「這支給你用。以後有東西我打這支,你不用每天過來問。」' }
+    ];
+    after = () => { COURIER.phone = true; TRASH.push({ name:'阿凱給的手機', icon:'📱', detail:'螢幕裂了一角,還能用。有東西要送的時候他會打這支。' }); };
+  } else if(n === 3){
+    beats = [
+      { who:'kai', text:'「送到了齁。」' },
+      { who:'kai', text:'「你走路太慢了。下次的東西要騎車送,地方遠一點,給你八百。」' },
+      { who:'kai', text:'「不要騎你自己的車。路邊沒拔鑰匙的那種,借一台。」' }
+    ];
+    after = () => { COURIER.told2 = true; };
+  } else {
+    const pool = [
+      '「準時。那個人說你比我還準時。」',
+      '「你最近錢比較多齁,不要一次花完,人家會問。」',
+      '「這禮拜就靠你了。」他把坐墊掀起來給你看,底下還有三包。',
+      '「送到了就好。」他遞了一罐飲料給你。'
+    ];
+    beats = [ { who:'kai', text: pool[(n - 4) % pool.length] } ];
+  }
+  busy = true;
+  playBeats(beats, 0, () => {
+    COURIER.reportDue = false;
+    courierCardOff('courier-report');
+    if(after) after();
+    chg('calm', 3);
+    logPerson('kai', n === 2 ? '第二趟送完他給我一支舊手機,以後有東西他打這支。' : n === 3 ? '第三趟送完他說我走路太慢,下次要騎車。' : '回去跟他講送到了。');
+    toast('（歸屬感 +3）' + (n === 2 ? '\n雜物欄多了一支手機。' : ''), 2800);
+    busy = false;
+  });
+}
+/* 送滿三趟阿源也知道了——掛在 talkToYuan 前面,一次。 */
+function courierYuanLine(){
+  if(COURIER.times < COURIER_TIER2_AT || COURIER.yuanTold) return false;
+  COURIER.yuanTold = true;
+  busy = true;
+  playBeats([
+    { who:'yuan', text:'「阿凱說你在幫他跑腿。」' },
+    { who:'pc',   text:'「嗯。」' },
+    { who:'yuan', text:'「跑腿沒什麼,大家都跑過。不要讓阿正抓到就好,抓到了不要講到我。」' }
+  ], 0, () => { logPerson('yuan', '他知道我在幫阿凱跑腿了。'); busy = false; });
+  return true;
+}
+/* 睡覺前東西還在身上——留著,隔天拿回去還他(見 courierKaiLine 的 late 分支)。 */
 function expireCourier(){
   if(!COURIER.active || COURIER.late) return;
   COURIER.missed++; COURIER.late = true;
   const q = ACTIVE_QUESTS.find(x => x.id === 'courier'); if(q){ q.hint = courierHint(); renderQuestPanel(); }
-  logDay('阿凱的東西還在我外套裡。我沒送。');
+  logDay('阿凱的東西還在我外套裡,我沒有送到。');
 }
+/* 送到了沒回去講就睡——那張卡隔天不用留(他打來/你去找他都會接到那句),reportDue 留著擋新的一包。 */
+function expireCourierCards(){ courierCardOff('courier-call'); }
 /* 欠阿凱五百的期限:第 n 個行動天(不是日曆天),跟其他期限同一種講法。 */
 function courierOweDueDay(){
   let n = 0;
@@ -10510,42 +10614,41 @@ function tickCourierOwe(){
   if(!COURIER.owe) return;
   if(day <= COURIER.oweDue){ courierOweCard(); return; }
   COURIER.owe = 0; COURIER.oweDue = -1;
-  { const i = ACTIVE_QUESTS.findIndex(x => x.id === 'courier-owe'); if(i >= 0) ACTIVE_QUESTS.splice(i, 1); renderQuestPanel(); }
+  courierCardOff('courier-owe');
   COURIER.burnedUntil = day + COURIER_BURN_DAYS; COURIER.burnReason = 'owe';
   chg('calm', -12);
-  logDay('欠阿凱的五百到期了,我沒還。');
+  logDay('欠阿凱的五百到期了,我沒有還。');
   logPerson('kai', '欠他五百,到期沒還。');
-  toast('欠阿凱的五百到期了。他沒來找你,這比來找你更糟。\n（歸屬感 −12）', 4200);
+  toast('欠阿凱的五百到期了,你沒有還。\n（歸屬感 −12）', 4200);
 }
 /* 被阿正拿走之後回去講——三個選項:補三趟白做 / 賠五百 / 求他(送過三趟以上他才會扛)。 */
 function courierReport(){
-  const beats = [
-    { who:'kai', text:'「東西咧。」' },
-    { who:'pc',  text:'「阿正攔下來,拿走了。」' },
-    { who:'kai', text:'「那包不是我的,是人家寄的。人家現在在跟我要。」' }
-  ];
   busy = true;
-  playBeats(beats, 0, () => courierReportMenu(true));
+  playBeats([
+    { who:'kai', text:'「東西咧?送到了沒?」' },
+    { who:'pc',  text:'「阿正把我攔下來,東西被他拿走了。」' },
+    { who:'kai', text:'「那包不是我的,是人家寄放的。人家現在在跟我要。」' }
+  ], 0, () => courierReportMenu(true));
 }
 function courierReportMenu(canBeg){
   const items = [
-    { label:'「我幫你補。」', run(){
+    { label:'「我幫你補回來。」', run(){
       COURIER.lost = false; COURIER.freeRuns = COURIER_FREE_RUNS;
       courierLostCardOff();
-      say('kai', '「這禮拜再送三趟,不拿錢。」', () => { busy = false; });
+      say('kai', '「那這禮拜你再幫我送三趟,不拿錢。」', () => { busy = false; });
       logPerson('kai', '東西被拿走,我說我補。他要我白送三趟。');
     } },
-    { label:'「我賠。」', run(){
+    { label:'「我賠你。」', run(){
       COURIER.lost = false;
       courierLostCardOff();
       if(ST.money >= COURIER_OWE){
         chg('money', -COURIER_OWE);
-        say('kai', '「五百。」他收下,沒數。「當沒發生。」\n（金錢 −500）', () => { busy = false; });
+        say('kai', '「五百。」他把錢收下,沒有數。「這件事當作沒發生。」\n（金錢 −500）', () => { busy = false; });
         logPerson('kai', '東西被拿走,賠了他五百。');
       } else {
         COURIER.owe = COURIER_OWE; COURIER.oweDue = courierOweDueDay();
         courierOweCard();
-        say('kai', '「五百。」你把口袋翻出來給他看。「沒錢就去弄。三個行動天。」', () => { busy = false; });
+        say('kai', '「五百。」你把口袋翻出來給他看,裡面沒有那麼多。「沒錢就去想辦法,三個行動天內拿來。」', () => { busy = false; });
         logPerson('kai', '東西被拿走,賠不出五百,欠著。');
       }
     } }
@@ -10555,44 +10658,41 @@ function courierReportMenu(canBeg){
       COURIER.lost = false;
       courierLostCardOff();
       chg('calm', -3);
-      say('kai', '「⋯⋯算了,這次我扛。」他沒再看你。\n（歸屬感 −3）', () => { busy = false; });
-      logPerson('kai', '東西被拿走,我求他,他說這次他扛。');
+      say('kai', '「⋯⋯算了,這次我幫你扛。」他把安全帽戴上,發動車子走了。\n（歸屬感 −3）', () => { busy = false; });
+      logPerson('kai', '東西被拿走,我求他,他說這次他幫我扛。');
     } else {
-      say('kai', '「求我沒用。人家要的是東西。」', () => courierReportMenu(false));
+      say('kai', '「你求我沒有用,人家要的是東西,不是你的道歉。」', () => courierReportMenu(false));
     }
   } });
   openMenu('', items);
 }
-function courierLostCardOff(){
-  const i = ACTIVE_QUESTS.findIndex(x => x.id === 'courier-lost'); if(i >= 0) ACTIVE_QUESTS.splice(i, 1);
-  renderQuestPanel();
-}
-/* 找阿凱時擋在前面的幾句:東西還在身上 / 逾時拿回來還他 / 被斷的期間 / 第三次送完提第二階。 */
+/* 找阿凱時擋在前面的幾句,順序:逾時還他 / 東西還在身上 / 送到了回來講 / 被拿走回來講 / 欠錢 / 被斷 / 扯平。 */
 function courierKaiLine(){
   if(COURIER.active && COURIER.late){
     const overnight = COURIER.day !== day;
     busy = true;
     playBeats([
       { who:'pc',  text:'你把報紙包拿出來還他。' },
-      { who:'kai', text:'「太慢。」他接過去,塞回坐墊底下。' },
-      { who:'kai', text: overnight ? '「人家等了一晚。下次再看。」' : '「人家等了四十分鐘。下次再看。」' }
+      { who:'kai', text:'「太慢了。」他把東西接過去,塞回坐墊底下。' },
+      { who:'kai', text: overnight ? '「人家等了一個晚上。下次的事下次再說。」' : '「人家等了四十分鐘就走了。下次的事下次再說。」' }
     ], 0, () => {
       courierClear();
       chg('calm', -6);
-      logDay(overnight ? '沒送到,東西隔天拿回去還阿凱,他說太慢。' : '騎太慢,人走了。東西拿回去還阿凱,他說太慢。');
+      logDay(overnight ? '沒送到,東西隔天拿回去還阿凱,他說太慢了。' : '騎太慢,人走了。東西拿回去還阿凱,他說太慢了。');
       logPerson('kai', overnight ? '沒送到,隔天拿回去還他。' : '四十分鐘沒送到,東西拿回去還他。');
-      toast('他沒罵你,只是沒再看你。\n（歸屬感 −6）', 3600);
+      toast('他沒有罵你,但是也沒有再跟你講話。\n（歸屬感 −6）', 3600);
       busy = false;
     });
     return true;
   }
-  if(COURIER.active){ say('kai', COURIER.tier === 2 ? '「還在你身上?時間在走。」' : '「還在你身上?去啊。」'); return true; }
+  if(COURIER.active){ say('kai', COURIER.tier === 2 ? '「東西還在你身上?時間一直在走欸。」' : '「東西還在你身上?快去送啊。」'); return true; }
+  if(COURIER.reportDue){ courierReportDone(); return true; }
   if(COURIER.lost){
     if(day >= COURIER.lostDay + COURIER_BURN_DAYS){
       /* 躲了七天才來——不用補也不用賠,但他記得你沒回來講。 */
       COURIER.lost = false; courierLostCardOff();
       chg('calm', -6);
-      say('kai', '「你那天怎麼沒回來講。」\n（歸屬感 −6）');
+      say('kai', '「東西被拿走那天,你怎麼沒有回來跟我講?」\n（歸屬感 −6）');
       logPerson('kai', '東西被拿走那天沒回去講,躲了一個禮拜。');
     } else courierReport();
     return true;
@@ -10602,33 +10702,28 @@ function courierKaiLine(){
     openMenu('', [
       { label:'還他五百', cost: ST.money >= COURIER_OWE ? '$500' : '不夠', run(){
         busy = false;
-        if(ST.money < COURIER_OWE){ say('kai', '「不夠就不要拿出來。」'); return; }
+        if(ST.money < COURIER_OWE){ say('kai', '「不夠的話就不要拿出來。」'); return; }
         chg('money', -COURIER_OWE);
         COURIER.owe = 0; COURIER.oweDue = -1;
-        { const i = ACTIVE_QUESTS.findIndex(x => x.id === 'courier-owe'); if(i >= 0) ACTIVE_QUESTS.splice(i, 1); renderQuestPanel(); }
-        say('kai', '他收下,沒數。「當沒發生。」\n（金錢 −500）');
+        courierCardOff('courier-owe');
+        say('kai', '他把錢收下,沒有數。「這件事當作沒發生。」\n（金錢 −500）');
         logPerson('kai', '欠他的五百還了。');
       } },
-      { label:'「還沒有。」', run(){ busy = false; say('kai', '「還有 ' + activeDaysUntil(COURIER.oweDue) + ' 天。」'); } },
+      { label:'「還沒有湊到。」', run(){ busy = false; say('kai', '「還有 ' + activeDaysUntil(COURIER.oweDue) + ' 個行動天,你自己算。」'); } },
       { label:'走開', cls:'back', run(){ busy = false; } }
     ]);
     return true;
   }
   if(day < COURIER.burnedUntil){
-    say('kai', COURIER.burnReason === 'caught2' ? '「又被抓。你不用來了。」'
-             : COURIER.burnReason === 'owe' ? '「五百都拿不出來。」他沒看你。' : '「東西咧。」他沒看你。');
+    say('kai', COURIER.burnReason === 'caught2' ? '「你又被抓到了。以後不用來了。」'
+             : COURIER.burnReason === 'owe' ? '「五百塊都拿不出來。」他繼續弄他的車,沒有再理你。' : '「這陣子不要來。」');
     return true;
   }
   if(COURIER.squareDue){
     COURIER.squareDue = false;
     chg('calm', 3);
-    say('kai', '「扯平。」他把安全帽遞給你戴一下,又拿回去。\n（歸屬感 +3）');
-    logPerson('kai', '三趟補完,他說扯平。');
-    return true;
-  }
-  if(COURIER.times >= COURIER_TIER2_AT && !COURIER.told2){
-    COURIER.told2 = true;
-    say('kai', '「你走路太慢。下次的要騎車,遠一點,八百。」');
+    say('kai', '「這樣就扯平了。」他從坐墊底下拿出一罐飲料丟給你。\n（歸屬感 +3）');
+    logPerson('kai', '三趟補完,他說扯平了。');
     return true;
   }
   return false;
@@ -10637,7 +10732,7 @@ function courierKaiLine(){
 function courierBoLine(){
   if(!COURIER.boSaw || COURIER.boTold) return false;
   COURIER.boTold = true;
-  say('bo', '「你那天外套裡的東西,我看到了。那種錢不要再拿。」');
+  say('bo', '「你那天外套裡藏的東西,我有看到。那種錢不要再拿了。」');
   return true;
 }
 /* 帶著東西進家門/校門(enterIndoor 最前面)——不是禁止,是那個人會問。回傳 true = 擋下來。 */
@@ -10646,7 +10741,8 @@ function courierDoorBlock(door){
   if(door.id === 'home'){
     busy = true;
     playBeats([
-      { who:'mom', text:'「你外套裡那是什麼。」她站在鐵門後面。' },
+      { who:'pc',  text:'媽站在鐵門後面。' },
+      { who:'mom', text:'「你外套裡面那是什麼?」' },
       { who:'pc',  text:'你把拉鍊拉得更高,轉身走回街上。' }
     ], 0, () => { busy = false; });
     return true;
@@ -10654,8 +10750,8 @@ function courierDoorBlock(door){
   if(door.id === 'school'){
     busy = true;
     playBeats([
-      { who:'jiaoguan', text:'「外套裡面什麼東西。放下再進來。」' },
-      { who:'pc',       text:'你退回校門外。' }
+      { who:'jiaoguan', text:'「外套裡面是什麼東西?放下再進來。」' },
+      { who:'pc',       text:'你退回到校門外面。' }
     ], 0, () => { busy = false; });
     return true;
   }
@@ -11999,6 +12095,7 @@ function sleepLand(skippedSchool){
       busy = false;
       expireKaiRun();          // day5 那件事當天沒做完就淡掉(睡覺 = 這天結束)
       expireCourier();         // 送貨沒送到:東西留在身上,隔天拿回去還(見 COURIER)
+      expireCourierCards();    // 阿凱打來那張卡不跨日
       tickBillsOverdue();      // 沒繳的帳單過期收一次帳(單子照樣留著,見 BILLS)
       /* 跨日之後常駐卡的「還剩幾天」要重算(註冊單那張最明顯,見
          syncMiscQuestPanel() 裡 'tuition' 那段)——不重算的話卡片會一直停在
@@ -14001,6 +14098,7 @@ function updateCity(dt){
   checkKaiRunDrop();
   checkKaiWrongCall();       // 給錯人兩天後那通電話,見 kaiWrongDue() 下面
   tickCourier();             // 送貨:阿正巡邏/倒數/被喊住/交貨,見 COURIER
+  checkCourierCall();        // 送貨:有手機之後 16:00 阿凱打來
   tickStolenRide(dt);        // 騎在別人車上每 10 秒扣一次風評,見 mountMoto()
   tickBenchRest(dt);         // 公園長椅休息讀條,見 sitOnBench()
   if(keys['q']) camYaw -= dt*.0018;
@@ -15279,6 +15377,7 @@ function talkToYuan(){
   if(meterAsk('yuan')) return;   // 水表去哪了(見 METER)
   /* 今天的日常事件正好是找他(見 DAILY_EVENTS)——擋在最前面。 */
   if(dailyGotoReady('yuan')){ runDailyGoto('yuan'); return; }
+  if(courierYuanLine()) return;   // 送滿三趟他知道了(見 COURIER)
   /* 出賣後的翻臉(2026-09-01,kc:「他會咒罵出賣他的人 你會心虛的應對
      會扣歸屬感」)——攔在最前面,比顧場子/陣頭邀約優先權都高,因為這是
      「事情爆了」的當下,不是日常互動。一次性(`YUAN.betrayedConfronted`
