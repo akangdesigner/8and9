@@ -12862,7 +12862,7 @@ function warpIntoPlace(door){
     lastSchoolDay = day;   // 出席旗標,見上面 lastSchoolDay 那則筆記
     if(INTRO.day2 === 'school'){   // day2 尾巴:到了學校(見 INTRO)
       INTRO.day2 = 'class';
-      setTodayCard('到教室了。走到你的座位按空白鍵上課，上到四點放學。', '第一天上學');
+      setTodayCard('到教室了。走到你的座位按空白鍵，認真上課或偷玩手遊都可以，上到四點放學。', '第一天上學');
     }
     /* story-school.js day5(樓梯間)/day21(打牌)——這兩節本來就設在教室/
        教室附近,一進教室就檢查,跟 home 那邊 maybeTriggerStoryNode() 同一招
@@ -14291,7 +14291,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
           /* 2026-09-21 kc:「第一天很怪 為何要逼人打工 而且應該要引導我們怎麼完成上學這件事才對 然後晚上就說可以到處晃晃」
              ——原本進學校就換成「放學後去超商問缺人」那張卡(逼打工),拔掉。這條改成教你把上學走完:走到學校 →
              坐到座位上課 → 四點放學 → 晚上回家吃飯,媽說吃飽想出去晃就去。地圖上標學校。 */
-          setTodayCard('今天第一天上學。學校在永安街那邊，地圖上有標。走到校門進去，坐到座位上課，四點放學。', '第一天上學');
+          setTodayCard('今天第一天上學。學校在永安街那邊，按 M 開地圖看在哪。走到校門進去，坐到座位上課，四點放學。', '第一天上學');
         }
         /* 沒有 menu 的節點(day5 那種「只是鋪陳、真正的選擇在別的場景」)
            直接走 after,不要硬開一個空選單。 */
