@@ -11651,8 +11651,8 @@ function debtAskBrother(){
   DEBT.askedBrother = true;
   busy = true;
   playBeats([
-    { who:'pc',      text:'你把那三張紙的事講了:三十萬,簽的是你的名字,簽的時候你十五歲。' },
-    { who:'brother', text:'「未成年簽的,那個名字不算數。你可以報案。」' },
+    { who:'pc',      text:'你把那三張紙的事講了:三十萬,簽的是你的名字,但那不是你的字,是我媽代簽的。' },
+    { who:'brother', text:'「你未成年,又不是你本人簽的,那張借據對你沒有效力。你可以報案。」' },
     { who:'brother', text:'「但你要想清楚,報案就是告你媽。她會被帶走。」' },
     { who:'pc',      text:'「⋯⋯」' },
     { who:'brother', text:'「' + dayToDate(DEBT_DUE_DAY) + '那天下午,我派兩個人在你家樓下等。他上來動手,我們就上去。」' },
@@ -11881,7 +11881,7 @@ function debtBrotherClose(){
   DEBT.brotherClosed = true;
   busy = true;
   playBeats([
-    { who:'brother', text:'「筆錄做完了。你未成年的時候簽的借據沒有效力,那三十萬不用你還。」' },
+    { who:'brother', text:'「筆錄做完了。那張借據是你媽代簽的,對你沒有效力,那三十萬不用你還。」' },
     { who:'brother', text:'「你媽那邊的案子會照程序走,你不用再來了。」' },
     { who:'pc',      text:'你走回家。沙發上沒有人。（風評 +3）' }
   ], 0, () => { chg('star', 3); logDay('阿正說筆錄做完了,借據無效,錢不用我還。'); logPerson('brother', '筆錄做完了。他說錢不用我還,媽那邊案子會走。'); busy = false; });
@@ -14605,7 +14605,7 @@ const MOM_CHECKIN_LINES = {
   },
   64: {
     status: ['她的包包放在腳邊,拉鍊拉得很緊。', '她看著你,想講什麼,然後又低頭滑手機。'],
-    talk: ['「那些紙你有看到齁。」她沒有等你回答。', '「你十五歲那年,是我帶你去的。你不記得也好。」']
+    talk: ['「那些紙你有看到齁。」她沒有等你回答。', '「那個名字是我簽的。你不用記得這件事。」']
   }
 };
 function momCheckinLines(){
