@@ -1445,7 +1445,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebt()">三十萬</button><button class="tool" onclick="debugDebtRoute('police')">84→阿正</button><button class="tool" onclick="debugDebtRoute('yuan')">84→阿源</button><button class="tool" onclick="debugDebtRoute('hide')">84→阿霞</button><button class="tool" onclick="debugDebtRoute('none')">84→沒人</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button><button class="tool" onclick="debugLowMood()">情緒見底</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebt()">三十萬</button><button class="tool" onclick="debugDebtAsk()">78 找人</button><button class="tool" onclick="debugDebtRoute('police')">84→阿正</button><button class="tool" onclick="debugDebtRoute('yuan')">84→阿源</button><button class="tool" onclick="debugDebtRoute('hide')">84→阿霞</button><button class="tool" onclick="debugDebtRoute('none')">84→沒人</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button><button class="tool" onclick="debugLowMood()">情緒見底</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2701,6 +2701,26 @@ function debugDebtRoute(kind){
   toast('第 84 天早上。走到客廳,他就在鐵門外。' + (kind === 'none' ? '這條是誰都沒問到。' : ''), 4200);
 }
 window.debugDebtRoute = debugDebtRoute;
+/* 78 找人(2026-09-22,kc:「我要看78任務」)——街上那幕當播過、三個提醒日當過,跳 78 早上站中華路。
+   門檻刻意不補,讓 kc 看到三個人各自「不到」的講法;要看答應版就自己補風評/跳陣頭/去消費。 */
+function debugDebtAsk(){
+  ['bet-2','bet-16','bet-28','bet-40','bet-52','bet-64','debt-34'].forEach(k => seenStoryDays.add(k));
+  Object.assign(DEBT, { street:true, remind:{72:true,75:true,81:true}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false,
+    yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
+  ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
+  despawnDebtCollector();
+  day = DEBT_ASK_FROM; minute = 8*60; syncHUD();
+  MODE = 'city';
+  document.getElementById('indoor').classList.remove('on');
+  document.getElementById('city').style.display = '';
+  wlabelsEl.style.display = '';
+  hero.group.position.set(-20, .3, -11.5);
+  hero.group.rotation.y = Math.PI * .5;
+  debtCardSync();
+  toast('第 78 天。任務卡上有三個人的條件。阿正在警局、阿源在廟口、阿霞在光明巷。', 5000);
+}
+window.debugDebtAsk = debugDebtAsk;
 function debugArrest(){
   KAI_RUN.reported = true; KAI_RUN.wrong = false; KAI.talked = true;
   COURIER.src = 'kai'; COURIER.times = Math.max(COURIER.times, 5); COURIER.lastDay = day - 1; COURIER.active = false; COURIER.reportDue = false;
@@ -3114,7 +3134,8 @@ const WHO = {
   /* 阿霞(永安公車站,2026-09-01)——顏色跟街上那具 AXIA_NPC buildNPC()
      同步(rig f2),沒有真人照片,退回 SF.person() 像素小人,跟 worker/bo/
      motoboss 同一套先例。 */
-  axia: { name:'阿霞', noFace:true, opt:{ face:'F', skin:'#c2a17e', hair:'#3a2e26', top:'#5c4a3a', topD:'#3a2e26', pants:'#232323' } },   // 2026-09-21 kc:「阿霞不要大頭貼」——只留名牌,跟自來水公司同一招
+  /* 2026-09-22 kc:「公車站改」——跟巷子裡的阿霞撞名,公車站這位改叫阿桂;變數名 AXIA/axia 不動。 */
+  axia: { name:'阿桂', noFace:true, opt:{ face:'F', skin:'#c2a17e', hair:'#3a2e26', top:'#5c4a3a', topD:'#3a2e26', pants:'#232323' } },   // 2026-09-21 kc:「阿霞不要大頭貼」——只留名牌,跟自來水公司同一招
   /* 刺青店師傅(2026-08-28)——顏色直接借 scene-tattoo.js 的 P.mSkin/mHair/
      mTop/mTopD/mPants(那份場景資料本來就有替他準備一套配色,見
      SceneTattoo.P),沒有真人照片,退回 SF.person() 像素小人,跟
@@ -3704,7 +3725,7 @@ function updatePatrolMarker(dt){
    axiaRiding(載到人才需要導引,還沒上車不用指路)。 */
 const axiaMarkerEl = document.createElement('div');
 axiaMarkerEl.className = 'wlabel';
-axiaMarkerEl.textContent = '載阿霞去這裡';
+axiaMarkerEl.textContent = '載阿桂去這裡';
 axiaMarkerEl.style.display = 'none';
 wlabelsEl.appendChild(axiaMarkerEl);
 const _axiaV = new THREE.Vector3();
@@ -4449,10 +4470,10 @@ function syncMiscQuestPanel(){
 
   idx = ACTIVE_QUESTS.findIndex(x => x.id === 'axia');
   if(AXIA.met && !AXIA.resolved){
-    const hint = axiaRiding ? '載阿霞去中華路，到了按空白鍵下車'
-      : ridingMoto ? '騎車經過永安公車站，載阿霞去中華路'
-      : '去永安公車站找阿霞——給她計程車錢，或有機車的話載她去中華路';
-    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'axia', title:'阿霞等公車', hint });
+    const hint = axiaRiding ? '載阿桂去中華路，到了按空白鍵下車'
+      : ridingMoto ? '騎車經過永安公車站，載阿桂去中華路'
+      : '去永安公車站找阿桂——給她計程車錢，或有機車的話載她去中華路';
+    if(idx >= 0) ACTIVE_QUESTS[idx].hint = hint; else ACTIVE_QUESTS.push({ id:'axia', title:'阿桂等公車', hint });
   } else if(idx >= 0) ACTIVE_QUESTS.splice(idx, 1);
 
   renderQuestPanel();
@@ -9556,7 +9577,7 @@ function questMapTargets(){
     else if(q.id === 'hearing') push(BROTHER, '警局');
     else if(q.id === 'debt' && day >= DEBT_ASK_FROM){ if(!DEBT.askedBrother) push(BROTHER, '阿正'); if(!DEBT.askedYuan) push(YUAN, '阿源'); if(!DEBT.askedDad) push(door('home'), '爸'); }
     else if(q.id === 'tuition') push(door('school'), '繳註冊費');
-    else if(q.id === 'axia') push(AXIA, '阿霞');
+    else if(q.id === 'axia') push(AXIA, '阿桂');
     else if(q.id === 'moto-impound' || q.id === 'id-card' || q.id === 'snitch') push(BROTHER, '警局');
     else if(q.id === 'grandma') push(door('hospital'), '阿嬤');
     else if(q.id === 'classmate') push(door('temple'), '同學');
@@ -15536,7 +15557,7 @@ function updateCity(dt){
     AXIA.rideAsked = true;
     if(!AXIA.met){ AXIA.met = true; syncMiscQuestPanel(); }   // 騎車經過被她叫住也算遇到
     say('axia', '「咦——你有機車？」她看了一眼末班車時刻表，又看看你。「載我到中華路那邊好不好？我家巷子在那附近，不會很遠。」', () => {
-      openMenu('阿霞', [
+      openMenu('阿桂', [
         { label:'載她去中華路', cls:'', run(){ startAxiaRide(); } },
         { label:'「不順路欸。」', cls:'back', run(){
             say('axia', '「喔……好啦，沒關係。」她轉回頭繼續看時刻表。');
@@ -15779,14 +15800,14 @@ function dismountMoto(){
    startAxiaRide()。resolved 之後(不管走哪條路解決)固定回一句,不會
    再開選單。 */
 function talkToAxia(){
-  logTalk('阿霞');
+  logTalk('阿桂');
   if(!AXIA.met){ AXIA.met = true; syncMiscQuestPanel(); }   // 真的遇到她才把任務卡掛上去
   if(AXIA.resolved){
     toast('「謝謝你那天啊。」她笑了笑，繼續等車。', 2200);
     return;
   }
   say('axia', '「末班車……我看是搭不到了齁。」她手上拎著打包的晚餐廚餘，一臉下班的疲態。', () => {
-    openMenu('阿霞', [
+    openMenu('阿桂', [
       { label:'載她去中華路', cls:'', run(){
           if(ridingMoto) startAxiaRide();
           else say('axia', '「你有車再說吧。」她笑了一下，搖搖頭。');
