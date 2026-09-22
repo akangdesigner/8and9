@@ -2685,7 +2685,7 @@ function debugToCity(x, z, ry){
 function debugDebtReset(){
   [...seenStoryDays].filter(k => /^(bet|debt)-/.test(k)).forEach(k => seenStoryDays.delete(k));
   Object.assign(DEBT, { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
-    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false,
     yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
   YUAN.owns = false;
   ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
@@ -2732,7 +2732,7 @@ function debugDebtRoute(kind){
   ['bet-2','bet-16','bet-28','bet-40','bet-52','bet-64','debt-34'].forEach(k => seenStoryDays.add(k));
   seenStoryDays.delete('debt-84'); seenStoryDays.delete('debt-86');
   Object.assign(DEBT, { street:true, remind:{72:true,75:true,81:true}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
-    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false,
     yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
   ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
   despawnDebtCollector();
@@ -6034,7 +6034,20 @@ homeLivingImg.src = '../assets/bg/home-living.png?v=4';
    接縫,遊戲縮到 0.383 看不太出來。之後 kc 用 GPT 生一張正式的直接換檔名同一個。 */
 const homeLivingEmptyImg = new Image();
 homeLivingEmptyImg.src = '../assets/bg/home-living-empty.png?v=1';
-function momAway(){ return (BLOOD.active && BLOOD.day === day) || debtMomGone() || (DEBT.street && day >= DEBT_DUE_DAY); }   // 捐血那天她一早就在醫院;報案之後她被帶走了;最後通牒那天起她跑路了(2026-09-22 kc:「媽媽不是跑路了嗎」,見 DEBT)
+function momGone(){ return DEBT.street && day >= DEBT_MOM_GONE_DAY; }   // 她跑路了:第 75 天起(2026-09-22 kc:「75 就75」——討債的那天說「你媽這幾天都沒回來」,同一天她房間空了),見 DEBT
+function momAway(){ return (BLOOD.active && BLOOD.day === day) || debtMomGone() || momGone(); }
+/* 75 起第一次進客廳:她走了(一次)。回傳 true 表示這次進客廳被這段接走。 */
+function debtMomGoneScene(){
+  if(!momGone() || DEBT.momGoneSeen || DEBT.resolution) return false;
+  DEBT.momGoneSeen = true;
+  busy = true;
+  playBeats([
+    { who:'pc',  text:'她房間的門開著。衣櫃是空的,梳妝台上只剩一支沒蓋的口紅。' },
+    { who:'dad', text:'「昨天晚上走的。」爸在沙發上說。「沒講去哪。」' },
+    { who:'pc',  text:'她的包包不在,那幾張紙也不在。' }
+  ], 0, () => { logDay('媽走了。衣櫃空的,爸說她昨天晚上走的,沒講去哪。'); logPerson('mom', '她走了。衣櫃空的,那幾張紙也帶走了。'); busy = false; });
+  return true;
+}   // 捐血那天她一早就在醫院;報案之後她被帶走了;75 起她跑路了
 const homeBedroomImg = new Image();
 homeBedroomImg.onload = () => {
   if(homeBedroomImg.naturalWidth){ BEDROOM = BEDROOM_PHOTO; BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_PHOTO; }
@@ -6296,6 +6309,7 @@ function schoolPropFilter(tweak){
 function homeMomOutTonight(){ return seenStoryDays.has('bet-52') && minute >= 19*60; }
 /* 餐桌上有什麼——照母線走到哪。給了/沒給看 STORY_CHOICE。 */
 function homeTableLine(){
+  if(momGone()) return '桌上什麼都沒有。她的包包不在,那幾張紙也不在。';   // 75 起(見 momGone)
   if(seenStoryDays.has('bet-64')) return '她的包包放在餐桌上,拉鍊沒拉。你知道裡面那幾張紙上面是誰的名字,你沒有再打開。';
   if(seenStoryDays.has('bet-52')) return '桌上一個碗,裡面是早上的稀飯,已經乾了。她今天沒有回來吃。';
   if(seenStoryDays.has('bet-40')) return '桌上放著一張當鋪的收據,金額那格被摺起來。你沒有翻開。';
@@ -8252,6 +8266,7 @@ function openIndoorSpot(id){
     else if(id === 'table'){ toast(homeTableLine(), 4200); return; }   // 桌上有什麼跟著母線走(見 homeTableLine)
     else if(id === 'mom'){
       if(debtMomGone()){ toast('沙發上沒有人。她被帶走那天之後就沒有回來過。', 2800); return; }   // 報案之後(見 DEBT)
+      if(momGone()){ toast('沙發上沒有人。她房間的門開著,衣櫃是空的,梳妝台上只剩一支沒蓋的口紅。', 3200); return; }   // 75 起她跑路了(見 momGone)
       if(momAway()){ toast('沙發上沒有人。', 2000); return; }   // 捐血那天她在醫院(見 momAway)
       if(homeMomOutTonight()){ toast('沙發上沒有人。她房間的燈是暗的,人不在家。', 2600); return; }   // bet-52 之後晚上不在(見 homeMomOutTonight)
       if(meterFound() && !METER.momTold){ meterMomScene(); return; }   // 水表是爸賣的,跟她講(見 METER)
@@ -11398,10 +11413,11 @@ function arrestKaiBackLine(){
    「這學期」那頁收尾(debtSemesterEnd,文字在 story-debt.js ENDING)。 */
 const DEBT = { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
                resolution:'', resolvedDay:-1,
-               hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false,
+               hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false,
                yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false };
 const DEBT_STREET_DAY = 70, DEBT_REMIND_DAYS = [72, 75, 81], DEBT_ASK_FROM = 70, DEBT_END_DAY = 90;   // ASK_FROM 78→70(2026-09-22 kc:「78刪掉 70收到債務後任務卡變成尋找解決方法」)
 const DEBT_DUE_DAY = 84, DEBT_DUE_MINUTE = 16*60;   // 月底他下午四點來(kc:「他下午四點會來暴力討債你才選擇怎做」)
+const DEBT_MOM_GONE_DAY = 75;   // 她跑路的那天(kc 定 75),見 momGone()
 const DEBT_NEED = { brotherRep:10, yuanTroupe:2, workerServed:1 };
 /* 陣頭跳成功過幾次:練習/出陣/日常各算一次(見 tryJoinTroupe()/offerTroupeRoutine())。 */
 function troupeTimes(){ return (YUAN.practiceIdx||0) + (YUAN.debuted ? 1 : 0) + (YUAN.routineIdx||0); }
@@ -13242,7 +13258,7 @@ function warpIntoPlace(door){
     paintHomeBackdrop();
     if(INTRO.day1 === 'home' && TRASH.some(t => t.soy)) introSoyHome();
     else if(INTRO.day2 === 'evening') introSchoolEvening();
-    else maybeTriggerStoryNode();
+    else if(!debtMomGoneScene()) maybeTriggerStoryNode();
   }
   advanceTime(1);
   checkGrandmaCall();
@@ -13578,7 +13594,7 @@ function leaveBedroom(){
        多一個觸發點沒有副作用。 */
     if(checkDailyLiving()){}                                    // 捐血那天:媽不在沙發上,電話才響(見 checkDailyLiving)
     else if(dailyGotoReady('momBag') && !GRANDMA.bagGiven) runMomBag();
-    else maybeTriggerStoryNode();
+    else if(!debtMomGoneScene()){ maybeTriggerStoryNode(); }
     checkGrandmaCall();
   });
 }
