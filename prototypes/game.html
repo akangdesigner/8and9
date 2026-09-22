@@ -1445,7 +1445,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebt()">三十萬</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button><button class="tool" onclick="debugLowMood()">情緒見底</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebt()">三十萬</button><button class="tool" onclick="debugDebtRoute('police')">84→阿正</button><button class="tool" onclick="debugDebtRoute('yuan')">84→阿源</button><button class="tool" onclick="debugDebtRoute('hide')">84→阿霞</button><button class="tool" onclick="debugDebtRoute('none')">84→沒人</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button><button class="tool" onclick="debugLowMood()">情緒見底</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2683,6 +2683,24 @@ function debugDebt(){
   toast('第 70 天。往前走幾步。之後用「跳到那天早上」輸入 72、78、84。', 5000);
 }
 window.debugDebt = debugDebt;
+/* 三十萬四條路直接跳 day84 早上(2026-09-22)——把前置(門檻+問過誰)一次補齊,人放在房間,走到客廳就播。 */
+function debugDebtRoute(kind){
+  ['bet-2','bet-16','bet-28','bet-40','bet-52','bet-64','debt-34'].forEach(k => seenStoryDays.add(k));
+  seenStoryDays.delete('debt-84'); seenStoryDays.delete('debt-86');
+  Object.assign(DEBT, { street:true, remind:{72:true,75:true,81:true}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false,
+    yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
+  ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
+  despawnDebtCollector();
+  if(kind === 'police'){ if(ST.star < DEBT_NEED.brotherRep) chg('star', DEBT_NEED.brotherRep - ST.star); DEBT.askedBrother = true; }
+  if(kind === 'yuan'){ YUAN.practiceIdx = Math.max(YUAN.practiceIdx||0, 2); YUAN.visits = Math.max(YUAN.visits||0, 1); DEBT.askedYuan = true; }
+  if(kind === 'hide'){ ALLEY_WORKER.served = Math.max(ALLEY_WORKER.served||0, 1); ALLEY_WORKER.talked = true; DEBT.askedWorker = true; }
+  document.getElementById('dbgDay').value = 84;
+  wakeAtMorning(84);
+  debtCardSync();   // 要在 day 改成 84 之後算,卡上的門檻提示才對
+  toast('第 84 天早上。走到客廳,他就在鐵門外。' + (kind === 'none' ? '這條是誰都沒問到。' : ''), 4200);
+}
+window.debugDebtRoute = debugDebtRoute;
 function debugArrest(){
   KAI_RUN.reported = true; KAI_RUN.wrong = false; KAI.talked = true;
   COURIER.src = 'kai'; COURIER.times = Math.max(COURIER.times, 5); COURIER.lastDay = day - 1; COURIER.active = false; COURIER.reportDue = false;
@@ -4857,7 +4875,7 @@ function resolveWatchJob(success){
 /* gone(2026-09-02,班費失竊「揭發」結局用)——見 talkToWorker() 那段
    CLASSFUND.resolved==='exposed' 分支,跟廟口那批「這裡的人會消失」
    同一條規矩,不解釋、不哀悼,純粹從 nearProp 判斷裡拿掉互動點。 */
-const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false, gone:false, freeMassageOwed:false };
+const ALLEY_WORKER = { x:-22.3, z:-38, talked:false, heard:false, toldStory:false, gone:false, freeMassageOwed:false, served:0 };   // served:消費過幾次(2026-09-22,三十萬「躲」那條的門檻)
 /* rig 'f3'(Jody,2026-09-03)——原本借用 'f'(Sophie),跟「阿姨等背景
    女性 NPC」共用同一副骨架,kc:「你能不能找到別的女生模型啊」,補一副
    她專屬的(理由/候選見 MODELS.f3 那則長筆記),跟小美哥/旺鴻補 m5/m6
@@ -8315,6 +8333,7 @@ function openIndoorSpot(id){
   }
   if(PLACE === 'bedroom'){
     if(id === 'door'){ leaveBedroom(); return; }
+    else if(id === 'bed' && DEBT.hiding && day < DEBT_END_DAY){ toast('今晚不能睡這裡。你把書包背上，從後面的樓梯下去。', 3000); return; }   // 躲的那幾天(見 DEBT hide)
     else if(id === 'bed') openMenu('床', [
       /* 體力要低於 30 才准睡(2026-08-28,kc:「體力要低於30才可以睡覺」,
          同一輪「沒誘因去做別的事」的調整,不然體力還很滿也能直接睡跳過
@@ -11325,8 +11344,28 @@ function arrestKaiBackLine(){
      自己扛 → 角色卡核心目標多一行、卡常駐。結局檔(story-ending.js)還沒接進遊戲,接的時候讀 DEBT.resolution。
    三十萬、一個月五千、天數都是我抓的。DEBT 進 SAVE_OBJECTS。
    ============================================================ */
-const DEBT = { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, resolution:'', resolvedDay:-1 };
-const DEBT_STREET_DAY = 70, DEBT_REMIND_DAYS = [72, 75, 81], DEBT_ASK_FROM = 78;
+/* 2026-09-22 kc 定案:「這個就是一定還不了」——「自己還」拔掉,day84 三條路是白道(阿正,風評 ≥10)/
+   黑道(阿源,陣頭跳過 ≥2 次)/躲(阿霞,消費過);門檻不到那個人會講需求、卡上也提醒。84 之後每條路
+   各自有 86/88/90 的後續(躲:家不能回、晚上睡阿霞那裡每晚風評 −2、小美/教官各一句、她替你撒謊;
+   阿源:叫你顧場子後門,去/不去;報案:爸問「你媽呢」、阿正筆錄;誰都沒問到:她走了),day90 早上
+   「這學期」那頁收尾(debtSemesterEnd,文字在 story-debt.js ENDING)。 */
+const DEBT = { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
+               resolution:'', resolvedDay:-1,
+               hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false,
+               yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false };
+const DEBT_STREET_DAY = 70, DEBT_REMIND_DAYS = [72, 75, 81], DEBT_ASK_FROM = 78, DEBT_END_DAY = 90;
+const DEBT_NEED = { brotherRep:10, yuanTroupe:2, workerServed:1 };
+/* 陣頭跳成功過幾次:練習/出陣/日常各算一次(見 tryJoinTroupe()/offerTroupeRoutine())。 */
+function troupeTimes(){ return (YUAN.practiceIdx||0) + (YUAN.debuted ? 1 : 0) + (YUAN.routineIdx||0); }
+/* 84 之後哪幾天有事(hasStoryOn 用)——照走的哪條。 */
+function debtAfterDays(){
+  const r = DEBT.resolution;
+  if(!r) return [];
+  if(r === 'hide')   return [86, 87, 88, DEBT_END_DAY];
+  if(r === 'yuan')   return [86, 88, DEBT_END_DAY];
+  if(r === 'police') return [86, 88, DEBT_END_DAY];
+  return [86, DEBT_END_DAY];
+}
 const DEBT_REMIND_LINES = {
   72: '「跟你媽講了沒?」他站在你家鐵門外面,沒有要上樓的意思。「月底。」',
   75: '「你媽這幾天都沒回來喔。」他看著樓上。「那就找你。」',
@@ -11349,11 +11388,12 @@ function despawnDebtCollector(){
 }
 function debtCardSync(){
   if(!DEBT.street || DEBT.resolution) { courierCardOff('debt'); return; }
-  const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedDad && '爸'].filter(Boolean);
+  const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedWorker && '阿霞', DEBT.askedDad && '爸'].filter(Boolean);
   const hint = (day >= DEBT_ASK_FROM
-      ? '討債的人月底會來要答案。去問問看阿正、阿源、爸,看誰有辦法。'
+      ? '討債的人月底會來要答案。三十萬你還不了,能做的是找人:阿正(警局)、阿源(廟口)、巷子裡的阿霞——他們各有各的條件。' +
+        '<br><span class="qpNote">阿正要你風評 ' + DEBT_NEED.brotherRep + ' 以上（目前 ' + ST.star + '）／阿源要你跟過陣頭 ' + DEBT_NEED.yuanTroupe + ' 次以上（目前 ' + troupeTimes() + '）／阿霞要你在她那裡消費過</span>'
       : '討債的人在街上攔住你,說借據上簽的是你的名字。他說月底會再來,到時候你要給他一個答案。') +
-      (asked.length ? '<br><span class="qpNote">問過:' + asked.join('、') + '</span>' : '');
+      (asked.length ? '<br><span class="qpNote">答應的人:' + asked.join('、') + '</span>' : '');
   const q = ACTIVE_QUESTS.find(x => x.id === 'debt');
   if(q) q.hint = hint; else ACTIVE_QUESTS.push({ id:'debt', title:'一筆三十萬的債款', hint });
   renderQuestPanel();
@@ -11412,6 +11452,16 @@ function debtStreetScene(){
 /* day78 起找人問——三個人各一段,掛在各自對話前面,一次。 */
 function debtAskBrother(){
   if(!DEBT.street || DEBT.resolution || DEBT.askedBrother || day < DEBT_ASK_FROM) return false;
+  if(ST.star < DEBT_NEED.brotherRep){   // 門檻(kc:阿正要風評 10 以上)——不到他不受理,可以之後再來
+    busy = true;
+    playBeats([
+      { who:'pc',      text:'你把那三張紙的事講了:三十萬,簽的是你的名字。' },
+      { who:'brother', text:'「你的事我聽過一些。」他沒有把本子拿出來。' },
+      { who:'brother', text:'「報案要做筆錄,筆錄上寫的是你講的話。你現在講的話,誰會信?」' },
+      { who:'brother', text:'「去把自己弄乾淨一點,再來。」' }
+    ], 0, () => { toast('阿正沒有受理。（風評要 ' + DEBT_NEED.brotherRep + ' 以上他才肯——目前 ' + ST.star + '）', 4200); logDay('問阿正。他說我現在講的話沒人會信。'); busy = false; });
+    return true;
+  }
   DEBT.askedBrother = true;
   busy = true;
   playBeats([
@@ -11425,6 +11475,16 @@ function debtAskBrother(){
 }
 function debtAskYuan(){
   if(!DEBT.street || DEBT.resolution || DEBT.askedYuan || day < DEBT_ASK_FROM || YUAN.hostile) return false;
+  if(troupeTimes() < DEBT_NEED.yuanTroupe){   // 門檻(kc:阿源要跳過兩次以上陣頭)
+    busy = true;
+    playBeats([
+      { who:'pc',   text:'你把三十萬的事講了。' },
+      { who:'yuan', text:'「三十萬。」他看著廟埕。「你陣頭跟我們跳過幾次?」' },
+      { who:'pc',   text:'你算了一下,講不出口。' },
+      { who:'yuan', text:'「我出面是要用我的名字。你連我們的人都還不算,我用什麼幫你。」' }
+    ], 0, () => { toast('阿源沒有答應。（陣頭要跟著跳過 ' + DEBT_NEED.yuanTroupe + ' 次以上——目前 ' + troupeTimes() + '）', 4200); logDay('問阿源。他說我連他們的人都還不算。'); busy = false; });
+    return true;
+  }
   DEBT.askedYuan = true;
   busy = true;
   playBeats([
@@ -11433,6 +11493,29 @@ function debtAskYuan(){
     { who:'yuan', text:'「我可以處理。不是幫你還,是讓他不要再找你。」' },
     { who:'yuan', text:'「之後你的人是我的。我叫你做什麼你就做什麼。想好了再來。」' }
   ], 0, () => { debtCardSync(); logPerson('yuan', '我跟他講了三十萬的事。他說他可以處理,之後我的人是他的。'); logDay('問阿源。他說他可以處理,代價是以後我的人是他的。'); busy = false; });
+  return true;
+}
+/* 阿霞(2026-09-22,kc:「阿霞要之前消費過他才會讓你避風頭」)——掛在 talkToWorker() 最前面。 */
+function debtAskWorker(){
+  if(!DEBT.street || DEBT.resolution || DEBT.askedWorker || day < DEBT_ASK_FROM) return false;
+  if((ALLEY_WORKER.served||0) < DEBT_NEED.workerServed){
+    busy = true;
+    playBeats([
+      { who:'pc',     text:'你問她,如果有人在找你,能不能在她那裡躲幾天。' },
+      { who:'worker', text:'「躲?」她把菸拿下來。「我連你叫什麼都不知道。」' },
+      { who:'worker', text:'「我這裡是做生意的,不是給人躲的。」' }
+    ], 0, () => { toast('她沒有答應。（要在她那裡消費過,她才會收留你）', 4200); logDay('問巷子裡的阿霞能不能躲她那裡。她說她連我叫什麼都不知道。'); busy = false; });
+    return true;
+  }
+  DEBT.askedWorker = true;
+  busy = true;
+  playBeats([
+    { who:'pc',     text:'你問她,如果有人在找你,能不能在她那裡躲幾天。' },
+    { who:'worker', text:'「誰在找你?」' },
+    { who:'pc',     text:'「討債的。三十萬,簽的是我的名字。」' },
+    { who:'worker', text:'她抽了一口菸。「要躲就晚上來。白天不要在巷口站,不要讓人看到你進來。」' },
+    { who:'worker', text:'「地板,沒有床。」' }
+  ], 0, () => { debtCardSync(); logPerson('worker', '我問她能不能躲她那裡。她說晚上來,地板沒有床。'); logDay('問阿霞。她說要躲就晚上來,地板沒有床。'); busy = false; });
   return true;
 }
 function debtAskDad(){
@@ -11460,13 +11543,184 @@ function debtResolve(kind){
     YUAN.owns = true;
     logPerson('yuan', '三十萬他處理掉了。以後我的人是他的。');
     logPerson('collector', '阿源跟他講了一通電話,他就不管我了。');
-  } else {
-    ACTIVE_QUESTS.push({ id:'debt-self', title:'一筆三十萬的債款', hint:'你決定自己還,一個月五千。超商要站二十九輪班才湊得出來。<br><span class="qpNote">畢業那天,這筆債還會在</span>' });
+  } else if(kind === 'hide'){
+    DEBT.hiding = true;
+    ACTIVE_QUESTS.push({ id:'debt-hide', title:'躲到月底', hint:'家不能回。晚上去光明巷找阿霞,在她那裡睡。白天不要在巷口站著。<br><span class="qpNote">每在她那裡睡一晚，風評 −2</span>' });
     renderQuestPanel();
-    logPerson('collector', '我說我自己還。一個月五千。');
+    logPerson('worker', '我躲在她那裡。地板,沒有床。');
+    logPerson('collector', '我沒有回家。他說月底再來。');
+  } else {
+    logPerson('collector', '我什麼都講不出來。他去敲她房間的門。');
   }
 }
-function debtMomGone(){ return DEBT.resolution === 'police'; }   // 報案之後她不在家了(momAway 那條吃這個)
+function debtMomGone(){ return DEBT.resolution === 'police' || DEBT.momLeft; }   // 報案之後她不在家了;誰都沒問到那條 day86 她自己走了
+/* ── 84 之後:躲(hide)──────────────────────────────────────── */
+/* 晚上在阿霞那裡睡——掛在 talkToWorker() 最前面,躲的那幾天她的對話整個換成這個。 */
+function debtHideNight(){
+  if(!DEBT.hiding || day >= DEBT_END_DAY || DEBT.ended) return false;
+  const night = minute >= 18*60;
+  const open = () => openMenu('光明巷', [
+    { label:'在她那裡睡（今天結束）', cost: night ? '風評 −2' : '要晚上才能進去', disabled: !night,
+      run(){
+        DEBT.hideNights++;
+        chg('star', -2);
+        logDay('晚上睡在阿霞那裡,地板。巷口有人看到我進去。');
+        sleep();
+      } },
+    { label:'先不要', cls:'back', run(){} }
+  ]);
+  /* day88:她替你撒了謊——這條線唯一的溫度。 */
+  if(day >= 88 && !DEBT.workerLied){
+    DEBT.workerLied = true;
+    busy = true;
+    playBeats([
+      { who:'worker', text:'「他們今天來過。」她沒有看你,在數零錢。' },
+      { who:'worker', text:'「問我有沒有看過一個穿帽 T 的高中生。我說沒有。」' },
+      { who:'pc',     text:'她把零錢收進抽屜。（歸屬感 +6）' }
+    ], 0, () => { chg('calm', 6); logDay('討債的來巷子問過阿霞。她說她沒看過我。'); logPerson('worker', '討債的來問過她,她說沒看過我。'); busy = false; open(); });
+    return true;
+  }
+  open();
+  return true;
+}
+function debtHideMei(){
+  if(!DEBT.hiding || day < 86 || DEBT.meiAsked) return false;
+  DEBT.meiAsked = true;
+  say('mei', '「你昨天早上是從光明巷出來的?」', () => {
+    openMenu('小美', [
+      { label:'「嗯。家裡不能回。」', cost:'歸屬感 +3', run(){
+          chg('calm', 3);
+          playBeats([
+            { who:'mei', text:'她看著你,把書包的拉鍊拉上。' },
+            { who:'mei', text:'「明天便當我多帶一個。」' }
+          ], 0, () => { logDay('小美看到我從光明巷出來。我跟她說家裡不能回,她說明天多帶一個便當。'); logPerson('mei', '她知道我睡在光明巷。她說要多帶一個便當。'); });
+        } },
+      { label:'「你看錯了。」', cost:'歸屬感 −3', run(){
+          chg('calm', -3);
+          say('mei', '「喔。」她把頭轉回去。');
+          logDay('小美問我是不是從光明巷出來的,我說她看錯了。');
+        } }
+    ]);
+  });
+  return true;
+}
+function debtHideJiaoguan(){
+  if(!DEBT.hiding || day < 87 || DEBT.jgAsked) return false;
+  DEBT.jgAsked = true;
+  busy = true;
+  playBeats([
+    { who:'jiaoguan', text:'「今天有人來學校問你。說是你親戚。」' },
+    { who:'jiaoguan', text:'「學生資料不能給,我叫他走了。」' },
+    { who:'jiaoguan', text:'「你自己知道是什麼事。」' },
+    { who:'pc',       text:'他轉回去看馬路。' }
+  ], 0, () => { logDay('有人去學校問我。教官說是我親戚,他把人趕走了。'); logPerson('jiaoguan', '討債的去學校問我,他說學生資料不能給。'); busy = false; });
+  return true;
+}
+/* ── 84 之後:阿源(yuan)──「你的人是我的」第一次來收。 ── */
+function debtYuanJob(){
+  if(DEBT.resolution !== 'yuan' || DEBT.ended) return false;
+  if(!DEBT.yuanJob && day >= 86){
+    busy = true;
+    playBeats([
+      { who:'yuan', text:'「' + pcName() + '。今晚十一點,場子後門。」' },
+      { who:'yuan', text:'「站著就好。有人出來你不要看,有人問你你不要答。」' },
+      { who:'pc',   text:'「⋯⋯站到幾點?」' },
+      { who:'yuan', text:'「我叫你走你才走。」' }
+    ], 0, () => {
+      busy = false;
+      openMenu('阿源', [
+        { label:'「好。」', cost:'風評 −6', run(){
+            DEBT.yuanJob = 'went';
+            busy = true;
+            fade('晚上十一點', () => {
+              playBeats([
+                { who:'pc', text:'場子後門的燈是壞的。你靠著鐵門站。' },
+                { who:'pc', text:'裡面的聲音隔著門傳出來,有人在吼,然後是東西倒下去的聲音。' },
+                { who:'pc', text:'十二點多,門開了,一個人被推出來,跪在地上吐。你看著對面的牆。' },
+                { who:'pc', text:'兩點,阿源出來,拍了一下你的肩膀。「回去。」（風評 −6）' }
+              ], 0, () => {
+                chg('star', -6);
+                logDay('晚上去場子後門站到兩點。有人被推出來吐在我腳邊,我沒有看。');
+                logPerson('yuan', '他叫我去場子後門站了一晚。我沒有問。');
+                busy = false;
+              });
+            });
+          } },
+        { label:'「今晚不行。」', cost:'歸屬感 −4', run(){
+            DEBT.yuanJob = 'refused';
+            chg('calm', -4);
+            say('yuan', '「不行。」他重複了一次,然後笑了。「隨便你。」');
+            logDay('阿源叫我今晚去場子後門,我說不行。他說隨便我。');
+          } }
+      ]);
+    });
+    return true;
+  }
+  if(DEBT.yuanJob === 'went' && !DEBT.yuanPaid && day >= 88){
+    DEBT.yuanPaid = true;
+    busy = true;
+    playBeats([
+      { who:'yuan', text:'他從口袋掏出兩張千元,塞進你外套。「拿去。」' },
+      { who:'pc',   text:'「這是⋯⋯」' },
+      { who:'yuan', text:'「那天晚上的。以後叫你,你就來。」（$+2000）' }
+    ], 0, () => { chg('money', 2000); logDay('阿源塞給我兩千,說是那天晚上的。'); logPerson('yuan', '他給了我兩千。以後叫我就要到。'); busy = false; });
+    return true;
+  }
+  if(DEBT.yuanJob === 'refused' && !DEBT.yuanDropped && day >= 88){
+    DEBT.yuanDropped = true;
+    busy = true;
+    playBeats([
+      { who:'yuan', text:'「那天晚上我幫你擋的,你知道吧。」' },
+      { who:'yuan', text:'「你不來,那我也沒有理由再擋。」' },
+      { who:'pc',   text:'他轉頭去跟別人講話。（歸屬感 −8）' }
+    ], 0, () => {
+      chg('calm', -8);
+      ACTIVE_QUESTS.push({ id:'debt-back', title:'一筆三十萬的債款', hint:'阿源不擋了。月底那個人會再來。' });
+      renderQuestPanel();
+      logDay('阿源說他不擋了。月底那個人會再來。');
+      logPerson('yuan', '我沒去場子後門,他說他不擋了。');
+      busy = false;
+    });
+    return true;
+  }
+  return false;
+}
+/* ── 84 之後:報案(police)──阿正的筆錄。 ── */
+function debtBrotherClose(){
+  if(DEBT.resolution !== 'police' || DEBT.brotherClosed || day < 88 || DEBT.ended) return false;
+  DEBT.brotherClosed = true;
+  busy = true;
+  playBeats([
+    { who:'brother', text:'「筆錄做完了。未成年簽的借據無效,那筆錢不用你還。」' },
+    { who:'brother', text:'「你媽那邊,案子會走。你不用再來。」' },
+    { who:'pc',      text:'你走回家。沙發是空的。（風評 +3）' }
+  ], 0, () => { chg('star', 3); logDay('阿正說筆錄做完了,借據無效,錢不用我還。'); logPerson('brother', '筆錄做完了。他說錢不用我還,媽那邊案子會走。'); busy = false; });
+  return true;
+}
+/* ── day90 早上:這學期(sleepLand 的 wake 呼叫)。 ── */
+function debtSemesterEnd(){
+  if(!DEBT.resolution || DEBT.ended || day < DEBT_END_DAY) return false;
+  DEBT.ended = true;
+  const key = DEBT.resolution === 'yuan' && DEBT.yuanDropped ? 'yuanDropped' : DEBT.resolution;
+  const pre = key === 'hide' ? [
+      { who:'worker', text:'「這個月過了。」她在門口抽第一根菸。' },
+      { who:'worker', text:'「下個月呢?」' },
+      { who:'pc',     text:'你把書包背起來。' }
+    ] : (key === 'none' || key === 'yuanDropped') ? [
+      { who:'pc',        text:'早上鐵門外有人按鈴。' },
+      { who:'collector', text:'「' + (key === 'none' ? '她跑了。那就是你。' : '阿源說他不管了。') + '下個月,我來收。」' },
+      { who:'pc',        text:'他下樓了。' }
+    ] : null;
+  const show = () => {
+    gameOver = true;
+    document.querySelector('#gameOver .goCap').textContent = '這學期';
+    document.getElementById('goText').textContent = StoryDebt.ENDING[key] || StoryDebt.ENDING.none;
+    document.getElementById('gameOver').classList.add('on');
+  };
+  busy = true;
+  if(pre) playBeats(pre, 0, show); else show();
+  return true;
+}
 /* 當天沒送到就淡掉——掛在 sleep() 裡(睡覺 = 這天結束),跟前一版廟口那條
    同一個「錯過就是錯過」的規矩。袋子也一起從雜物欄拿掉(還在你身上比沒送到
    更難收尾,而且隔天它就沒有任何入口了)。 */
@@ -11493,8 +11747,9 @@ function hasStoryOn(d){
   /* 期中考那天不是 story-school 的節點,走 MIDTERM 自己那條路(跟校外教學
      day18 同一個結構),要另外算進「有事的日子」,不然睡覺會直接跳過去。 */
   const exam = EXAMS.some(e => d === e.day && !e.st.settled);   // 期中(12)+期末(65),見 EXAMS
-  const debt = StoryDebt.NODES.some(n => n.day === d) && !seenStoryDays.has('debt-' + d)   // day34 按鈴、day84 月底(家裡節點)
-            || (d === DEBT_STREET_DAY && !DEBT.street) || DEBT_REMIND_DAYS.includes(d) && DEBT.street && !DEBT.resolution;   // day70 街上攔你、之後他站在你家門口的日子
+  const debt = StoryDebt.NODES.some(n => n.day === d && (!n.only || n.only === DEBT.resolution)) && !seenStoryDays.has('debt-' + d)   // day34 按鈴、day84 月底、86 那兩節(家裡節點)
+            || (d === DEBT_STREET_DAY && !DEBT.street) || DEBT_REMIND_DAYS.includes(d) && DEBT.street && !DEBT.resolution   // day70 街上攔你、之後他站在你家門口的日子
+            || debtAfterDays().includes(d) && !DEBT.ended;   // 84 之後那條路的日子 + day90 收尾
   return home || school || exam || debt || (d === GRANDMA_CALL_DAY && !hospitalCallFired);
 }
 function hasStoryToday(){ return hasStoryOn(day); }
@@ -12667,9 +12922,9 @@ function sleep(){
   const skippedDay = day;                        // 曠課那一天的日期,給 addWarning 記(wake 那時 day 已經跳過去了)
   /* 先蓋上過渡頁做今天的結算(見 showSleepPage()),關掉之後才走原本那套
      fade→加天數→隔天早上的流程。day 還沒 ++,所以頁面上算的是「今天」。 */
-  showSleepPage(() => sleepAdvance(skippedSchool));
+  showSleepPage(() => sleepAdvance(skippedSchool, skippedDay));
 }
-function sleepAdvance(skippedSchool){
+function sleepAdvance(skippedSchool, skippedDay){
   /* 標籤是「早上」不是「回家睡了一覺」(2026-09-10,kc:「回家睡了一覺很怪 我本來
      就是在家裡睡覺啊」)——這個 fade 的標籤本來是給場景轉換用的地名,睡覺這條
      沿用了一句敘述,而且那句描述的是「從外面回到家」,但玩家本來就站在自己房間
@@ -12680,11 +12935,13 @@ function sleepAdvance(skippedSchool){
        那一頁;沒排事件就安靜跳過去,不出頁。 */
     const spanTo = nextActiveDay(day);
     const spanEv = spanTo - day >= 2 ? spanEventFor(day, spanTo) : null;
-    if(spanEv){ showSpanPage(day, spanTo, spanEv, () => sleepLand(skippedSchool)); return; }
-    sleepLand(skippedSchool);
+    if(spanEv){ showSpanPage(day, spanTo, spanEv, () => sleepLand(skippedSchool, skippedDay)); return; }
+    sleepLand(skippedSchool, skippedDay);
   });
 }
-function sleepLand(skippedSchool){
+/* skippedDay 要一路傳進來(2026-09-22 抓到):9/11 警告系統把它宣告在 sleep() 裡、卻在這裡的 wake 用,
+   翹課那天一睡醒就 ReferenceError,busy 卡死、後面 expire/跨日結算全部沒跑。 */
+function sleepLand(skippedSchool, skippedDay){
   {
     chg('stamina', 100 - ST.stamina);
     if(spanStaminaDelta){ chg('stamina', spanStaminaDelta); spanStaminaDelta = 0; }   // 跨天事件的體力增減,套在補滿之後(見 showSpanPage)
@@ -12817,6 +13074,7 @@ function sleepLand(skippedSchool){
          接到任務那天的天數。 */
       syncMiscQuestPanel();
       clearTodayCard(); clearTodayCard('daily');   // 「今天」的卡不跨日——昨天沒做完的事,隔天不該還掛在面板上
+      if(debtSemesterEnd()) return;   // day90 早上「這學期」收尾(見 DEBT),之後不再接日常
       tickCourierOwe();        // 欠五百的期限(見 COURIER)
       tickArrestWake();        // 送滿五趟的隔天阿凱被抓(見 ARREST)
       tickArrestHearingMissed();
@@ -12936,6 +13194,8 @@ function walkToNpc(nx, nz, cb, stopAt){
   }};
 }
 function enterIndoor(door){
+  /* 躲在阿霞那裡的那幾天,家不能回(見 DEBT hide)。 */
+  if(door.id === 'home' && DEBT.hiding && day < DEBT_END_DAY){ toast('鐵門外有人站著。你在樓梯口停下來，退回去。', 3000); return; }
   /* 越式按摩店的門(2026-09-03,scene-city3d.js buildAlleyShopfront())——
      門本身不是新的進場入口,只是讓 ALLEY_WORKER 站的地方有個真的店面。
      走近門按空白鍵,效果跟走近她本人按空白鍵完全一樣(talkToWorker()),
@@ -14265,6 +14525,7 @@ const STORY_DIARY = {
   'bet-64':   '媽包包裡那幾張紙，簽的是我的名字，三十萬。我摺回去了，當作沒看到。',
   'debt-34':  '早上有人按鈴找媽。他說月底。我不知道他是誰，媽知道。',
   'debt-84':  '月底那個人又來了，這次是找我，問我那三十萬要怎麼辦。',
+  'debt-86':  '',
   'drink-10': '鉛筆盒裡的兩百塊不見了，我明明數過。爸跟我要錢的時候我什麼都沒說。',
   'drink-25': '爸在後面叫我，我沒回頭。那兩百塊我還是沒問。',
   'drink-43': '回家爸醉倒在椅子上，酒都流到地上乾了。我先看他還有沒有在喘。',
@@ -14273,7 +14534,7 @@ const STORY_DIARY = {
 };
 function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrink], ['debt', StoryDebt]], after){
   for(const [key, src] of sources){
-    const node = src.NODES.find(n => n.day === day);
+    const node = src.NODES.find(n => n.day === day && (!n.only || n.only === DEBT.resolution));   // only:story-debt.js 84 之後照走的哪條
     if(node && !seenStoryDays.has(key+'-'+node.day)){
       seenStoryDays.add(key+'-'+node.day);
       storyChoiceKey = key+'-'+node.day;   // 給 applyStoryChoice() 記這一節選了什麼(見 STORY_CHOICE)
@@ -14282,6 +14543,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
          (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
          要留到那件事真的做完。 */
       if(!node.questAfter) clearTodayCard();
+      if(node.debtFlag) DEBT[node.debtFlag] = true;   // story-debt.js day86「她走了」——播之前就設,沙發那張圖才會是空的
       playBeats(node.beats, 0, () => {
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
@@ -14308,7 +14570,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
            直接走 after,不要硬開一個空選單。 */
         if(!node.menu){ if(after) after(); return; }
         /* item.when(s):看遊戲狀態決定這個選項出不出現(story-debt.js day84 用,找過阿正才有「報案」)。 */
-        const st = { askedBrother: DEBT.askedBrother, askedYuan: DEBT.askedYuan };
+        const st = { askedBrother: DEBT.askedBrother, askedYuan: DEBT.askedYuan, askedWorker: DEBT.askedWorker };
         openMenu(node.title, node.menu.filter(item => !item.when || item.when(st)).map(item => ({
           label: item.label, cost: item.cost,
           run: () => { applyStoryChoice(item); playBeats(item.beats, 0, after || (() => {})); }
@@ -16156,6 +16418,7 @@ function talkToYuan(){
   if(courierYuanLine()) return;   // 送滿三趟他知道了(見 COURIER)
   if(arrestYuanLine()) return;    // 阿凱被抓之後:你講的?/接不接他的貨(見 ARREST)
   if(debtAskYuan()) return;       // 三十萬:他可以處理,之後你的人是他的(見 DEBT)
+  if(debtYuanJob()) return;       // 三十萬選了阿源之後:第一次「你的人是我的」(見 DEBT yuan)
   if(YUAN.hostile){ say('yuan', '「廟口你可以來。我的事你不用再碰。」'); return; }   // 承認是你跟阿正講的之後(見 ARREST)
   if(courierBossLine('yuan')) return;   // 阿源當貨源之後的送貨收尾(見 COURIER_VOICE)
   /* 出賣後的翻臉(2026-09-01,kc:「他會咒罵出賣他的人 你會心虛的應對
@@ -16503,6 +16766,7 @@ function talkToMei(){
   if(bloodAsk('mei')) return;   // 捐血那天(見 BLOOD)
   if(meterAsk('mei')) return;   // 水表去哪了(見 METER)
   if(meiHomeAsk()) return;      // 家裡的事講給她聽過之後,每天先問一句(見 LOWMOOD)
+  if(debtHideMei()) return;     // 躲在巷子那幾天她看到你從巷子出來(見 DEBT hide)
   /* 跟同學培養感情(見 checkFieldTrip() 附近 CLASSMATE_QUEST 那則長筆記)
      ——擋在最前面,校外教學這趟第一次找她講話只播這句、不進平常 met/
      dated 那套判斷,避免這次的溫馨閒聊被帥潮門檻擋掉或誤觸發約會流程。 */
@@ -16754,6 +17018,7 @@ function talkToJiaoguan(){
   if(bloodAsk('jiaoguan')) return;   // 捐血那天(見 BLOOD)
   if(meterAsk('jiaoguan')) return;   // 水表去哪了(見 METER)
   if(ventWitnessLine('jiaoguan')) return;   // 他看到你踹車/踹垃圾桶(見 LOWMOOD)
+  if(debtHideJiaoguan()) return;           // 躲的那幾天有人來學校問你(見 DEBT hide)
   const D = NpcSchool.JIAOGUAN;
   if(!YUAN.hasTattoo || JIAOGUAN.confronted){
     /* 校門口的教官認得上下課時間(2026-09-11,kc 定案,見 SCHOOL_IN_MINUTE):
@@ -17356,6 +17621,7 @@ function talkToBrother(){
   if(ventWitnessLine('brother')) return;   // 他看到你踹車/踹垃圾桶(見 LOWMOOD)
   if(arrestHearing()) return;       // 少年隊那天(見 ARREST)
   if(debtAskBrother()) return;      // 三十萬:可以報案,但那是告你媽(見 DEBT)
+  if(debtBrotherClose()) return;    // 報案之後的筆錄(見 DEBT police)
   if(arrestBrotherAgain()) return;  // 說了不知道之後他每次都再問(見 ARREST)
   const D = NpcSchool.BROTHER;
   /* 班費失竊(2026-09-02)——攔在最前面,跳過下面 MEI.together 那道門檻。
@@ -18496,6 +18762,8 @@ const WORKER_TALK = {
   ]
 };
 function talkToWorker(w){
+  if(debtHideNight()) return;    // 躲在她那裡的晚上(見 DEBT hide)
+  if(debtAskWorker()) return;    // 三十萬:能不能躲她那裡(見 DEBT)
   /* 班費失竊・對質(2026-09-02,見上面 CLASSFUND 那則長筆記)——攔在她
      原本的閒聊/付錢劇情最前面。金額 $1200 對應 story-school.js day18
      那句「少了一千多」。
@@ -18665,6 +18933,7 @@ function talkToWorker(w){
           }
           chg('mood', 6); chg('stamina', -10);   // advanceTime 交給 chg() 統一算
           w.talked = true;
+          ALLEY_WORKER.served = (ALLEY_WORKER.served||0) + 1;   // 三十萬那條「消費過她才收留你」的門檻(見 debtAskWorker)
           enterMassage(w);
         } },
       { label:'就聊兩句,不談這個', cls:'',
