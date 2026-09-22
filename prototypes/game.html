@@ -7882,7 +7882,7 @@ function renderIndoor3D(dt){
      一組值(visitGrandma()/enterHospital() 都設 320,300),`updateIndoor()`
      開頭 `if(PLACE==='hospital') return;` 沒有動,角色站在那裡不會走,
      滿足「不能走路」但人要看得到。 */
-  heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active);
+  heroIndoor.group.visible = !(studyTakeover || PHONE_GAME.active || IN.hidden);   // IN.hidden:躲在簾子後面那種,畫面上不能有主角(2026-09-22 阿霞那幕)
   heroIndoor.group.position.set(IN.px*SC, 720 - IN.py*SC, 0);
   heroIndoor.group.scale.setScalar((PLACE === 'school' ? schoolHeroPx(IN.py) : PLACE === 'corridor' ? corridorHeroPx(IN.py) : PLACE === 'arcade' ? arcadeHeroPx(IN.py) : PLACE === 'tattoo' ? tattooHeroPx(IN.py) : PLACE === 'store' ? storeHeroPx(IN.py) : (HERO_TARGET_PX[PLACE] ?? HERO_TARGET_PX.store)) / PLAYER.height);
   heroIndoor.group.rotation.y =
@@ -11620,6 +11620,7 @@ function debtRefugeScene(){
     wlabelsEl.style.display = 'none';
     document.getElementById('indoor').classList.add('on');
     IN.px = 129; IN.py = 340; IN.face = 'R';
+    IN.hidden = true;   // 你躲在簾子後面,畫面上只有她(kc:「畫面只有阿霞跟你 就說沒有我」)
     document.getElementById('where').textContent = '越式按摩';
     hintEl.classList.remove('on');
     paintMassageBackdrop();
@@ -11639,6 +11640,7 @@ function debtRefugeScene(){
       logDay('下午四點前躲到阿霞那裡。討債的來巷子問,她說她沒看過我,叫他不要進來。');
       logPerson('worker', '討債的那天她把人擋在門外,說她在服務客人。');
       toast('他走了。從今天起你睡在阿霞那裡,家不能回。\n（情緒 −8）', 4600);
+      IN.hidden = false;
       leaveIndoor();   // 回到巷子,晚上再來睡
     });
     seenStoryDays.add('debt-84');   // 四點那一幕在這裡演過了,家裡那節不再播
