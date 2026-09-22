@@ -3409,12 +3409,12 @@ function menuCostWarnings(it){
   for(const k in drain) if(drain[k] < 0 && ST[k] + drain[k] <= 0) out.push(MENU_WARN[k]);
   return out;
 }
-/* 選項是主角講的話(label 以「開頭)的選單,標題是主角的名字,不是對方的名字——因為是主角在回答
-   (2026-09-22 kc;同日他又補:「選單不會放頭像 就是單純一個選單」,所以不畫頭像)。其他選單(鮮食櫃那種)照舊。 */
+/* 選項是主角講的話(label 以「開頭)的選單,沒有標題——不放對方的名字(是主角在回答),也不放頭像、
+   不放主角名字,就是單純一個選單(2026-09-22 kc 三次修正定案)。其他選單(鮮食櫃那種)照舊有標題。 */
 function openMenu(cap, items){
   busy = true;
   const speech = items.some(it => /^[「『]/.test((it.label || '').trim()));
-  menuEl.innerHTML = '<div class="cap">' + (speech ? pcName() : cap) + '</div>';
+  menuEl.innerHTML = speech ? '' : '<div class="cap">'+cap+'</div>';
   items.forEach(it => {
     const b = document.createElement('button');
     if(it.cls) b.className = it.cls;
