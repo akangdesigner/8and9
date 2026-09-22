@@ -1559,13 +1559,13 @@ export function buildCity(THREE, scene){
        第三棟(淺灰石材)kc 還沒生,file 指到一個目前不存在的檔名,圖片
        404 會靜默失敗、維持素色佔位,之後補圖不用改這裡的程式碼。 */
     const TOWERS = [
-      { x:-58, w:18, file:'office-tower-1.png', sideFile:'office-tower-1-side.png', color:0x8a97a0 },   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面 2026-08-27 補上(kc 生的圖一開始被誤放成大樓3正面,kc 糾正「我給你的是側面」才發現配對錯,原始生圖同樣左右留了近 30% 黑邊,裁法跟大樓3那次一樣)
-      { x:-16, w:14, file:'office-tower-2.png', sideFile:'office-tower-2-side.png?v=2', color:0xb08858 },   // 學校跟火車站中間,只有 16 寬的窄縫,樓也窄一點——古銅色帷幕,側面 v2(2026-08-26,kc:「他是大樓二」,原本以為 v2 那張是大樓一,修正)
-      { x:28,  w:18, file:'office-tower-3.png', sideFile:'office-tower-3-side.png?v=2', color:0xc8c4ba },   // 火車站跟小美哥站位(x≈48)中間——淺灰石材。正面+側面 2026-08-27
+      { x:-58, w:18, file:'office-tower-1.png', sideStrip:.26, color:0x8a97a0 },   // 側面圖 2026-09-22 退役(kc 點頭「好」),側面從正面切;sideStrip 取到雨遮左緣之前   // 西側,學校西邊到街區邊界那段——深藍灰玻璃帷幕。側面 2026-08-27 補上(kc 生的圖一開始被誤放成大樓3正面,kc 糾正「我給你的是側面」才發現配對錯,原始生圖同樣左右留了近 30% 黑邊,裁法跟大樓3那次一樣)
+      { x:-16, w:14, file:'office-tower-2.png', sideStrip:.28, color:0xb08858 },   // 學校跟火車站中間,只有 16 寬的窄縫,樓也窄一點——古銅色帷幕,側面 v2(2026-08-26,kc:「他是大樓二」,原本以為 v2 那張是大樓一,修正)
+      { x:28,  w:18, file:'office-tower-3.png', sideStrip:.21, color:0xc8c4ba },   // 火車站跟小美哥站位(x≈48)中間——淺灰石材。正面+側面 2026-08-27
       // 第四棟(2026-09-15)——第三棟到東和街人行道(x 68)那段原本是空地,自強巷
       // 從 x=48 冒出來時背後什麼都沒有;補一棟,跟第三棟之間留 42~52 當巷口。
       // 圖還沒生,先素色佔位(檔名先訂好,kc 生了圖放進去就會自動換)。
-      { x:60,  w:16, file:'office-tower-4.png', color:0x9aa4ac }   // 正面 2026-09-22 kc 生的(米白磁磚+綠玻璃);沒有 sideFile,側面從正面切(見 sideFromFront)
+      { x:60,  w:16, file:'office-tower-4.png', sideStrip:.33, color:0x9aa4ac }   // 正面 2026-09-22 kc 生的(米白磁磚+綠玻璃);沒有 sideFile,側面從正面切(見 sideFromFront)
       // 同一輪重生(kc 一次生兩張,一張真的填滿畫面、一張側面又留了黑邊,裁法
       // 跟前面幾次一樣),側面加 ?v=2 破快取,取代掉先前那張磁磚特寫拉伸版。
     ];
@@ -4838,11 +4838,19 @@ function sideFromFront(img, sideAspect, stripFrac){
   const sw = Math.round(bw * (stripFrac || .33));
   const out = document.createElement('canvas');
   out.width = Math.max(2, Math.round(bh * sideAspect)); out.height = bh;
-  const o = out.getContext('2d'), half = out.width/2;
-  o.drawImage(img, bb.x0, bb.y0, sw, bh, 0, 0, half, bh);              // 左半:邊柱在最左
-  o.save(); o.translate(out.width, 0); o.scale(-1, 1);
-  o.drawImage(img, bb.x0, bb.y0, sw, bh, 0, 0, half, bh);              // 右半:同一條鏡射,邊柱在最右
-  o.restore();
+  const o = out.getContext('2d');
+  /* 兩條夠寬(拉伸不超過 1.2 倍)就兩條拉滿;不夠就「條、鏡射、條…」不拉伸地
+     排過去,最後一條裁掉——正面大門/雨遮寬的樓(第 1~3 棟)strip 只能取 2 成
+     多,兩條拉滿會拉到 1.3 倍以上,窗格看得出來變寬。 */
+  const n = out.width <= sw*2*1.2 ? 2 : Math.ceil(out.width / sw);
+  const pw = n === 2 ? out.width/2 : sw;
+  for(let i = 0; i < n; i++){
+    const x = i*pw, mirror = i % 2 === 1;
+    o.save();
+    if(mirror){ o.translate(x + pw, 0); o.scale(-1, 1); o.drawImage(img, bb.x0, bb.y0, sw, bh, 0, 0, pw, bh); }
+    else o.drawImage(img, bb.x0, bb.y0, sw, bh, x, 0, pw, bh);
+    o.restore();
+  }
   return out;
 }
 function fitPhoto(img, targetAspect){
