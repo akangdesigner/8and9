@@ -3413,10 +3413,24 @@ export function buildCity(THREE, scene){
        髒磁磚牆夾在兩棟玻璃帷幕大樓中間,跳很大。在建築線前面貼一層 .6 厚的
        淺灰水泥板把磁磚端面全部遮掉,只留 0.8~7.2 那個巷口,巷子裡面照舊是
        磁磚。顏色跟第三棟淺灰石材同一家族。 */
-    const facade = std({ color:0xbab5aa, roughness:.9 });   // 第一版 0xd2cec4 在街上看是一片白板,壓暗一點
-    [[-9, 0.8], [7.2, 19]].forEach(([a,b]) => {
-      add(box(b-a, 13, .6, facade), (a+b)/2, 6.5, zc + DEPTH/2 + .3);
-      solid((a+b)/2, zc + DEPTH/2 + .3, (b-a)/2, .3);
+    /* 貼真照片(同日,kc 生的 assets/tex/podium-wall.png:裙樓側翼外牆,鐵捲門+
+       百葉+一排窄窗)——一張圖兩塊都用,右邊那塊水平翻轉,轉角接到大樓不會
+       兩邊長一樣。裁切走 fitPhoto()(跟大樓同一套),沒圖退回素色。 */
+    [[-9, 0.8, false], [7.2, 19, true]].forEach(([a,b,flip]) => {
+      const facade = std({ color:0xbab5aa, roughness:.9 });
+      const w = b-a;
+      new THREE.ImageLoader().load(TEX_DIR + 'podium-wall.png', img => {
+        const t = new THREE.Texture(img);
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        const f = fitPhoto(img, w/13);
+        if(flip){ t.repeat.set(-f.rx, f.ry); t.offset.set(f.ox + f.rx, f.oy); }
+        else    { t.repeat.set(f.rx, f.ry);  t.offset.set(f.ox, f.oy); }
+        t.needsUpdate = true;
+        facade.map = t; facade.color.setHex(0xffffff); facade.needsUpdate = true;
+      }, undefined, () => {});
+      const plain = std({ color:0xbab5aa, roughness:.9 });
+      add(box(w, 13, .6, [plain, plain, plain, plain, facade, plain]), (a+b)/2, 6.5, zc + DEPTH/2 + .3);   // 只有朝街(+z)那面貼照片
+      solid((a+b)/2, zc + DEPTH/2 + .3, w/2, .3);
     });
   })();
 
@@ -4814,7 +4828,7 @@ function fitPhoto(img, targetAspect){
   const ia = (uw*img.width)/(vh*img.height);
   if(ia > targetAspect){ const r = targetAspect/ia; return { rx:uw*r, ry:vh, ox:u0 + uw*(1-r)/2, oy:v0 }; }
   const r = ia/targetAspect;
-  return { rx:uw, ry:vh*r, ox:u0, oy:v0 + vh*(1-r)/2 };
+  return { rx:uw, ry:vh*r, ox:u0, oy:v0 };   // 照片比牆高:貼地、只切掉上面——一樓要落在地上,切頂樓沒人看得出來
 }
 function propModel(THREE, gltf, targetSize, lockAxis, ry){
   const model = gltf.scene.clone(true);
