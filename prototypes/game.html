@@ -2554,10 +2554,10 @@ function debugJumpTemple(){
 }
 window.debugJumpHome = debugJumpHome;
 window.debugJumpSchool = debugJumpSchool;
-/* 情緒見底(2026-09-22,測「找人/失控」那組,見 LOWMOOD)——情緒壓到 10、跳到校門口:
-   西邊有小狗、東邊教官在目擊半徑內,路邊的車可以踹;阿成/小美/阿源/爸媽自己走去。 */
+/* 情緒見底(2026-09-22,測「找人/失控」那組,見 LOWMOOD)——只把情緒壓到 10,人不動
+   (第一版順手跳校門口,kc:「情緒見底為何跳校門口」——要找的人散在廟口/公園/家,
+   跳過去沒比較近)。 */
 function debugLowMood(){
-  debugJumpSchool();
   chg('mood', 10 - ST.mood);
   toast('情緒壓到 10。去找阿成／小美／阿源／教官／爸媽，或對著別人的車、公車亭垃圾桶按空白鍵。', 3600);
 }
