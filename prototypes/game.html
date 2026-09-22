@@ -613,6 +613,11 @@
               align-items:center; justify-content:center; flex-direction:column;
               padding:0 12%; text-align:center; }
   #gameOver.on { display:flex; }
+  /* 結束前的一段黑畫面字幕(2026-09-22 kc:「遊戲結束應該要一段動畫」)——一句一句淡入,見 playEndSequence() */
+  #endSeq { position:fixed; inset:0; background:#000; z-index:21; display:none; align-items:center; justify-content:center; padding:0 14%; text-align:center; }
+  #endSeq.on { display:flex; }
+  #endSeq .line { font-size:18px; line-height:2; color:#dfe4ea; max-width:640px; opacity:0; transition:opacity 1.4s ease; }
+  #endSeq .line.show { opacity:1; }
   #gameOver .goCap { font-size:13px; letter-spacing:.4em; text-indent:.4em;
                       color:#a2564c; margin-bottom:18px; }
   #gameOver .goText { font-size:16px; line-height:2; color:#dfe4ea; max-width:640px; margin-bottom:28px; }
@@ -1355,6 +1360,7 @@
   </div>
 </div>
 <div id="fade"><div class="place" id="fPlace"></div></div>
+<div id="endSeq"><div class="line" id="endSeqLine"></div></div>
 <div id="gameOver">
   <div class="goCap">遊戲結束</div>
   <div class="goText" id="goText"></div>
@@ -1536,6 +1542,32 @@ const GAME_OVER_TEXT = {
   get debt(){ return StoryDebt.GAME_OVER; }   // 三十萬最後通牒沒找到人(見 story-debt.js)
 };
 let gameOver = false;
+/* 結束前的字幕(2026-09-22 kc:「遊戲結束應該要一段動畫」)——整個畫面黑掉,一句一句淡入,
+   每句停 3.2 秒,按空白鍵可以跳下一句;播完呼叫 then(蓋上結束那張紙)。 */
+let endSeqState = null;
+function playEndSequence(lines, then){
+  const el = document.getElementById('endSeq'), ln = document.getElementById('endSeqLine');
+  busy = true;
+  el.classList.add('on');
+  endSeqState = { lines, i:-1, then, timer:0 };
+  const next = () => {
+    if(!endSeqState) return;
+    endSeqState.i++;
+    clearTimeout(endSeqState.timer);
+    if(endSeqState.i >= lines.length){
+      ln.classList.remove('show');
+      endSeqState = null;
+      setTimeout(() => { el.classList.remove('on'); then(); }, 1200);
+      return;
+    }
+    ln.classList.remove('show');
+    setTimeout(() => { ln.textContent = lines[endSeqState.i]; ln.classList.add('show'); }, 400);
+    endSeqState.timer = setTimeout(next, 3600);
+  };
+  endSeqState.next = next;
+  setTimeout(next, 600);
+}
+function endSequenceSkip(){ if(endSeqState && endSeqState.next){ endSeqState.next(); return true; } return false; }
 function triggerGameOver(k){
   if(gameOver) return;
   gameOver = true;
@@ -3125,7 +3157,7 @@ const WHO = {
      灰髮示意年紀。 */
   /* 自來水公司(2026-09-17,停水那天店門口那通電話,見 METER)——沒有臉,電話裡的聲音。 */
   water:    { name:'自來水公司', noFace:true, opt:{ face:'F', skin:'#c9a077', hair:'#3a3a3a', top:'#4a6a8a', topD:'#3a5570', pants:'#2b2b2b' } },
-  collector: { name:'討債的', noFace:true, opt:{ face:'F', skin:'#b98a63', hair:'#2a2a2a', top:'#3a3a3a', topD:'#2a2a2a', pants:'#26262c' } },   // 那筆三十萬(見 DEBT / story-debt.js),沒名字沒臉
+  collector: { name:'討債的', opt:{ face:'F', skin:'#b98a63', hair:'#2a2a2a', top:'#3a3a3a', topD:'#2a2a2a', pants:'#26262c' } },   // 那筆三十萬(見 DEBT / story-debt.js),沒名字;2026-09-22 kc:「討債人感覺要一個頭像」——拿掉 noFace
   kaimom:   { name:'阿凱的媽', noFace:true, opt:{ face:'F', skin:'#c9a077', hair:'#2a2420', top:'#6a5a6a', topD:'#4a3a4a', pants:'#333333' } },   // 阿凱被抓之後校門口那段(見 ARREST),沒臉
   taker:    { name:'收貨的人', noFace:true, opt:{ face:'F', skin:'#c2a17e', hair:'#1c1c1c', top:'#333', topD:'#222', pants:'#2b2b2b' } },   // 送貨三個角落收東西的人,沒名字沒臉(見 COURIER)
   bo:       { name:'阿伯', opt:{ face:'F', skin:'#b98a63', hair:'#8a8a82', top:'#4a5a48', topD:'#3a4838', pants:'#333333' } },
@@ -11789,6 +11821,17 @@ function debtBrotherClose(){
   ], 0, () => { chg('star', 3); logDay('阿正說筆錄做完了,借據無效,錢不用我還。'); logPerson('brother', '筆錄做完了。他說錢不用我還,媽那邊案子會走。'); busy = false; });
   return true;
 }
+/* 誰都沒問到:先黑畫面一句一句播,最後一句留在結束那張紙上。 */
+function debtGameOverSequence(){
+  const lines = StoryDebt.GAME_OVER.split(/(?<=。)/).map(x => x.trim()).filter(Boolean);
+  const last = lines[lines.length - 1];
+  playEndSequence(lines.slice(0, -1), () => {
+    gameOver = true;
+    document.querySelector('#gameOver .goCap').textContent = '遊戲結束';
+    document.getElementById('goText').textContent = last;
+    document.getElementById('gameOver').classList.add('on');
+  });
+}
 /* ── day90 早上:這學期(sleepLand 的 wake 呼叫)。 ── */
 function debtSemesterEnd(){
   if(!DEBT.resolution || DEBT.ended || day < DEBT_END_DAY) return false;
@@ -11804,10 +11847,14 @@ function debtSemesterEnd(){
       { who:'pc',        text:'他下樓了。' }
     ] : null;
   const show = () => {
-    gameOver = true;
-    document.querySelector('#gameOver .goCap').textContent = '這學期';
-    document.getElementById('goText').textContent = StoryDebt.ENDING[key] || '';
-    document.getElementById('gameOver').classList.add('on');
+    const text = StoryDebt.ENDING[key] || '';
+    const lines = text.split(/(?<=。)/).map(x => x.trim()).filter(Boolean);
+    playEndSequence(lines.slice(0, -1), () => {   // 一句一句黑畫面播,最後一句留在那張紙上(kc:「遊戲結束應該要一段動畫」)
+      gameOver = true;
+      document.querySelector('#gameOver .goCap').textContent = '這學期';
+      document.getElementById('goText').textContent = lines[lines.length - 1] || text;
+      document.getElementById('gameOver').classList.add('on');
+    });
   };
   busy = true;
   if(pre) playBeats(pre, 0, show); else show();
@@ -14667,7 +14714,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
         const st = { askedBrother: DEBT.askedBrother, askedYuan: DEBT.askedYuan, askedWorker: DEBT.askedWorker };
         openMenu(node.title, node.menu.filter(item => !item.when || item.when(st)).map(item => ({
           label: item.label, cost: item.cost,
-          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => { if(DEBT.gameOverPending) triggerGameOver('debt'); else if(after) after(); }); }
+          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => { if(DEBT.gameOverPending) debtGameOverSequence(); else if(after) after(); }); }
         })));
       });
       return;
@@ -15106,6 +15153,7 @@ addEventListener('keydown', e => {
     /* 推幣機小遊戲(2026-08-26)——攔在 advanceDialog() 前面,不然這個空白鍵
        會被 openIndoorSpot(IN.near) 那條路徑吃掉(那邊一開頭就 `if(busy||
        dlg.on) return;`,pusher 進行中 busy 是 true,空白鍵會直接失效)。 */
+    if(endSequenceSkip()) return;   // 結束字幕:空白鍵跳下一句(見 playEndSequence)
     if(ARCADE_ANIM.active && ARCADE_ANIM.kind === 'pusher'){ resolvePusherLockIn(); return; }
     if(FOREMAN_GAME.active){ resolveForemanLockIn(); return; }
     if(PHONE_GAME.active){ resolvePhoneReact(); return; }
