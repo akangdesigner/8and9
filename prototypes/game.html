@@ -2717,7 +2717,7 @@ function debugToCity(x, z, ry){
 function debugDebtReset(){
   [...seenStoryDays].filter(k => /^(bet|debt)-/.test(k)).forEach(k => seenStoryDays.delete(k));
   Object.assign(DEBT, { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
-    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false, gameOverPending:false,
     yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
   YUAN.owns = false;
   ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
@@ -2764,7 +2764,7 @@ function debugDebtRoute(kind){
   ['bet-2','bet-16','bet-28','bet-40','bet-52','bet-64','debt-34'].forEach(k => seenStoryDays.add(k));
   seenStoryDays.delete('debt-84'); seenStoryDays.delete('debt-86');
   Object.assign(DEBT, { street:true, remind:{72:true,75:true,81:true}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
-    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false, gameOverPending:false,
     yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
   ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
   despawnDebtCollector();
@@ -11610,40 +11610,55 @@ function debtRefuge(who){
   return true;
 }
 function debtRefugeScene(){
-  /* 那一幕在越式按摩店裡面演(2026-09-22 kc:「觸發阿霞對話的時候場景是要在越式按摩店(場景人物只有阿霞)」)
-     ——跟 enterMassage() 同一套進場(她畫在背景照片裡,房間裡只有她),不開服務選單;演完 leaveIndoor() 回巷子。 */
-  returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
+  /* 在巷子裡演(2026-09-22 kc:「阿霞的部分改成街上他們兩個在對話 你人不見了」)——3D 街上生一具討債的走到
+     阿霞面前,主角整個藏起來(hero 不畫),兩個 NPC 對話;演完討債的走掉,主角出現。 */
   busy = true;
-  fade('越式按摩', () => {
-    MODE = 'indoor'; PLACE = 'massage';
-    document.getElementById('city').style.display = 'none';
-    wlabelsEl.style.display = 'none';
-    document.getElementById('indoor').classList.add('on');
-    IN.px = 129; IN.py = 340; IN.face = 'R';
-    IN.hidden = true;   // 你躲在簾子後面,畫面上只有她(kc:「畫面只有阿霞跟你 就說沒有我」)
-    document.getElementById('where').textContent = '越式按摩';
-    hintEl.classList.remove('on');
-    paintMassageBackdrop();
+  fade('下午四點', () => {
     minute = DEBT_DUE_MINUTE; syncHUD();
     busy = true;
+    hero.group.visible = false;
+    const wx = ALLEY_WORKER.x, wz = ALLEY_WORKER.z;
+    spawnDebtCollector(wx, wz + 4, Math.PI);
+    faceNpcTo(debtCollectorNPC, wx, wz);
+    faceNpcTo(workerNPC, wx, wz + 4);
     playBeats([
-      { who:'pc',        text:'你蹲在簾子後面。四點,巷口有腳步聲,不只一個人。' },
+      { who:'pc',        text:'四點,巷口有腳步聲,不只一個人。' },
       { who:'collector', text:'「有沒有看到一個穿帽 T 的高中生?」' },
-      { who:'worker',    text:'「沒有。我在服務客人,你不要進來。」' },
-      { who:'collector', text:'「他家裡沒人。你這裡最近。」' },
-      { who:'worker',    text:'「我這裡是做生意的,你要進來就付錢。」' },
-      { who:'pc',        text:'外面安靜了幾秒。腳步聲走遠,一路走到巷口。' },
-      { who:'worker',    text:'她掀開簾子。「今天晚上你睡這裡。」' }
+      { who:'worker',    text:'「沒有。我在做生意,你不要站在這裡。」' },
+      { who:'collector', text:'「他家裡沒人。你這條巷子離他家最近。」' },
+      { who:'worker',    text:'「我這裡是做生意的地方,你要進來就付錢,不付錢就走。」' },
+      { who:'pc',        text:'他往巷子裡面看了一眼,轉身走回巷口。' },
+      { who:'worker',    text:'她等腳步聲走遠,才朝簾子後面講:「今天晚上你睡這裡。」' }
     ], 0, () => {
+      despawnDebtCollector();
+      hero.group.visible = true;
       chg('mood', -8);
       debtResolve('hide');
-      logDay('下午四點前躲到阿霞那裡。討債的來巷子問,她說她沒看過我,叫他不要進來。');
-      logPerson('worker', '討債的那天她把人擋在門外,說她在服務客人。');
+      logDay('下午四點前躲到阿霞那裡。討債的來巷子問,她說她沒看過我,叫他不要站在這裡。');
+      logPerson('worker', '討債的那天她把人擋在巷子口,說她在做生意。');
       toast('他走了。從今天起你睡在阿霞那裡,家不能回。\n（情緒 −8）', 4600);
-      IN.hidden = false;
-      leaveIndoor();   // 回到巷子,晚上再來睡
+      busy = false;
     });
     seenStoryDays.add('debt-84');   // 四點那一幕在這裡演過了,家裡那節不再播
+  });
+}
+/* 阿源那條(2026-09-22 kc:「阿源的部分是會播放阿源嗆聲 你知不知道你動的人是誰 然後處理完後人會自動移動到廟口
+   才能跟阿源對話」)——家裡那段(story-debt.js day84「你去找阿源」)演完,淡出、人搬到廟口阿源旁邊,才播他的話。 */
+function debtYuanTempleScene(){
+  busy = true;
+  fade('廟口', () => {
+    debugToCity(YUAN.x, YUAN.z + 3, Math.PI);
+    busy = true;
+    playBeats([
+      { who:'pc',   text:'晚上你走到廟口。阿源坐在老位子。' },
+      { who:'yuan', text:'「處理好了。」他把手機丟在桌上。「他不會再去你家。」' },
+      { who:'pc',   text:'「你跟他講了什麼?」' },
+      { who:'yuan', text:'「講了我是誰。」' },
+      { who:'yuan', text:'「以後你這個人就是我的了,知道嗎。」' }
+    ], 0, () => {
+      toast('那三十萬不用還了,從今天起你欠的是阿源。\n（情緒 −8、歸屬感 +6、風評 −6）', 4600);
+      busy = false;
+    });
   });
 }
 /* 84 下午四點之後就不能再談了(2026-09-22 kc:「四點前你就要完成跟他們的對話了 不然就會被叫回家」)——
@@ -11734,6 +11749,7 @@ function debtAskDad(){
 /* day84 選完(applyStoryChoice 的 item.debt)。 */
 function debtResolve(kind){
   DEBT.resolution = kind; DEBT.resolvedDay = day;
+  DEBT.gameOverPending = false;   // 只有「我找不到人」那條會在下面設成 true;這個旗標進存檔,不清會害下一次測別條路也結束(2026-09-22 抓到)
   courierCardOff('debt');
   despawnDebtCollector();
   if(kind === 'police'){
@@ -14794,8 +14810,8 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
         const st = { askedBrother: DEBT.askedBrother, askedYuan: DEBT.askedYuan, askedWorker: DEBT.askedWorker };
         openMenu(node.title, node.menu.filter(item => !item.when || item.when(st)).map(item => ({
           label: item.label, cost: item.cost,
-          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => { if(DEBT.gameOverPending) debtGameOverSequence(); else if(after) after(); }); }
-        })), { reply:true });   // 劇情節點的選單一律是在回人的話,沒有標題
+          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => { if(DEBT.gameOverPending && DEBT.resolution === 'none') debtGameOverSequence(); else if(item.then === 'yuanTemple') debtYuanTempleScene(); else if(after) after(); }); }
+        })), { reply:true });   // 劇情節點的選單一律是在回人的話,沒有標題;item.then:演完接別的場景(阿源那條搬到廟口)
       });
       return;
     }
@@ -20450,6 +20466,7 @@ syncHUD();
 
 /* 除錯用:主控台可以直接把角色傳到某個門口，省得走一分鐘 */
 window.__dbg = {
+  DEBT, LOWMOOD,   // 2026-09-22 除錯用
   /* 模擬測試用的狀態把手(2026-09-16)——主腳本是 ES module,let/const 不掛 window,
      從外面(claude-in-chrome)要「從早上醒來開始模擬」得有地方讀寫 day/minute 跟那幾個
      狀態物件。只給 Claude 測試用,kc 用的是 #bar 那排按鈕。 */

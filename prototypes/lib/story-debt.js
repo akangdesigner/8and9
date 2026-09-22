@@ -118,13 +118,13 @@
           when: s => s.askedYuan,
           mood: -8, calm: 6, star: -6,
           debt: 'yuan',
+          then: 'yuanTemple',   // 演完淡出、人搬到廟口,阿源的話在那裡講(game.html debtYuanTempleScene)
           beats: [
-            { who:'collector', text:'「阿源?」他把手機拿出來,撥了一通電話。' },
-            { who:'pc',        text:'他講了兩分鐘就掛掉了。' },
-            { who:'collector', text:'「好,你的事我以後不管了。」他下樓了。' },
-            { who:'pc',        text:'晚上你去廟口找阿源。' },
-            { who:'yuan',      text:'「處理好了。」他沒有說他是怎麼處理的。「以後你這個人就是我的了,知道嗎。」' },
-            { toast:'那三十萬不用還了,從今天起你欠的是阿源。\n（情緒 −8、歸屬感 +6、風評 −6）', ms:4600 }
+            { who:'collector', text:'「阿源?」他把手機拿出來,撥了一通電話,開擴音。' },
+            { who:'yuan',      text:'「喂。你知不知道你動的人是誰?」' },
+            { who:'yuan',      text:'「他是我的人。你要錢,來廟口找我要。你敢再上他家,我讓你走不出那條街。」' },
+            { who:'pc',        text:'電話那頭掛了。他盯著手機看了幾秒。' },
+            { who:'collector', text:'「好,你的事我以後不管了。」他下樓了。' }
           ]
         },
         {
