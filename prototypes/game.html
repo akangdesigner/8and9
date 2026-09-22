@@ -1692,7 +1692,7 @@ function askMakeupExam(){
       playBeats([
         { who:'pc', text:'那科就這樣掛了，他後來也沒有再提。' }
       ], 0, () => toast('補考沒過。（風評 −3）', 3000));
-      logDay('補考沒過，那科就這樣掛了。老師也沒再說什麼。');
+      logDay('補考沒過，那科就這樣掛了。老師把考卷收走，換了下一個話題。');
     }
   }
   function askRound(){
@@ -1968,7 +1968,7 @@ function tickPhoneGame(dt){
    等於沒事裝可疑,一樣算被盯上,跟真的沒躲過警示同一個懲罰(星 −4／
    歸屬感 −6),只是台詞換成自己嚇自己的自言自語(PHONE_JITTER_LINES),
    不是教官那句「你在幹嘛」——教官沒有真的靠近,是玩家自己疑神疑鬼。 */
-const PHONE_JITTER_LINES = ['早知道不玩了。', '疑神疑鬼，真掃興。', '手心都是汗。'];
+const PHONE_JITTER_LINES = ['早知道就不玩了。', '一整節課都在疑神疑鬼，真掃興。', '你的手心全是汗。'];
 function resolvePhoneReact(){
   if(!PHONE_GAME.active) return;
   if(!PHONE_GAME.warning){
@@ -4875,7 +4875,7 @@ function resolveWatchJob(success){
     if(owe) METER.owe = false;
     if(success){ chg('money', 1000 - owe); chg('calm', 6); chg('mood', 6); }
     else { chg('money', -300 - owe); chg('calm', -6); chg('mood', -6); }
-    toast(D.quiet + (owe ? '\n阿源：「水表那三百，這次扣掉。」' : ''), 3200);
+    toast(D.quiet + (owe ? '\n阿源：「水表那三百塊，這次從這裡扣掉。」' : ''), 3200);
     /* 阿嬤那天(day16)回報後的專屬收尾(2026-09-02,kc:「應該是回報任務後
        阿源要獎勵我帶我去吃飯 突然接到電話」+「失敗他會罵你 然後阿嬤電話
        打來」)——成功/失敗都接,只是內容不同(請吃飯 vs 罵一頓),接完都
@@ -4897,7 +4897,7 @@ function resolveWatchJob(success){
       syncHUD();
       const codaBeats = success ? [
         { who:'yuan', text:'「幹得好。」他難得笑了一下。' },
-        { who:'yuan', text:'「走,請你吃飯。」' },
+        { who:'yuan', text:'「走,我請你吃飯。」' },
         { who:'pc',   text:'你們找了一攤路邊攤坐下來，他點了一桌菜，說今天他請。' }
       ] : [
         { who:'yuan', text:'「你是死人喔,人都走進去了才講。」' },
@@ -6311,13 +6311,13 @@ function homeMomOutTonight(){ return seenStoryDays.has('bet-52') && minute >= 19
 function homeTableLine(){
   if(momGone()) return '餐桌上什麼都沒有。她平常放在這裡的包包不見了,那三張借據也跟著不見了。';   // 75 起(見 momGone)
   if(seenStoryDays.has('bet-64')) return '她的包包放在餐桌上,拉鍊沒拉。你知道裡面那幾張紙上面是誰的名字,你沒有再打開。';
-  if(seenStoryDays.has('bet-52')) return '桌上一個碗,裡面是早上的稀飯,已經乾了。她今天沒有回來吃。';
+  if(seenStoryDays.has('bet-52')) return '桌上放著一個碗,裡面是早上的稀飯,已經乾掉了。她今天沒有回來吃飯。';
   if(seenStoryDays.has('bet-40')) return '桌上放著一張當鋪的收據,金額那格被摺起來。你沒有翻開。';
   if(seenStoryDays.has('bet-28')) return '餐桌上一疊刮完的刮刮樂,每一張都刮得很乾淨。那台機車一直都是好的。';
   if(seenStoryDays.has('bet-16')) return STORY_CHOICE['bet-16'] === 'gave'
     ? '藥袋還放在餐桌上,你每天回來都會看到。那張單子是真的,一千二。'
     : '藥袋還是出現在餐桌上了,三天後。你沒有問她錢是哪裡來的。';
-  if(seenStoryDays.has('bet-2')) return '桌上只有一個空碗跟她的手機充電線。那兩千塊她說月底還。';
+  if(seenStoryDays.has('bet-2')) return '桌上只有一個空碗跟她的手機充電線。那兩千塊她說月底會還。';
   return '餐桌上什麼都沒有,只有一層油。';
 }
 function paintHomeBackdrop(){
@@ -8277,7 +8277,7 @@ function openIndoorSpot(id){
         playBeats(BLOOD.found ? [
           { who:'mom', text:'「開完了。醫生說還好。」' },
           { who:'mom', text:'「那個算命的，我在醫院看到他，抽完血自己坐公車回去。」' },
-          { who:'pc',  text:'她把電視轉小聲，沒有再說什麼。' },
+          { who:'pc',  text:'她把電視轉小聲，繼續看她的節目。' },
           { who:'mom', text:'「你去謝謝人家。」' }
         ] : [
           { who:'mom', text:'「開完了。醫院晚上自己調到血，拖到十點多。」' },
@@ -10295,7 +10295,7 @@ const RUNMEN = [
     quiet:[
       { who:'pc',     text:'你站著，沒有開口。' },
       { who:'pc',     text:'他看了一眼你外套鼓起來的那一塊。' },
-      { who:'pc',     text:'他沒有問你任何事。' },
+      { who:'pc',     text:'他的眼睛在那一塊上停了兩秒。' },
       { who:'runman', text:'「東西呢。」' }
     ],
     speak:[
@@ -10404,7 +10404,7 @@ function handOverBag(ref){
 const KAI_REPORT_BEATS = [
   { who:'pc',  text:'你走回車行那邊。' },
   { who:'kai', text:'「送到了喔。」' },
-  { who:'pc',  text:'他沒有問你給了誰。' },
+  { who:'pc',  text:'他的眼睛還在手機上。' },
   { who:'kai', text:'「謝啦。」' },
   { who:'pc',  text:'他把手機收起來，往旁邊挪了一點，空出半個位子給你。' }
 ];
@@ -10426,7 +10426,7 @@ function kaiReportRun(){
    跟「兩天後才知道」是這一幕的重點。 */
 const KAI_WRONG_BEATS = () => [
   { who:'kai', text:'「欸，那天那個袋子。」' },
-  { who:'pc',  text:'他沒有像平常那樣靠在車上。' },
+  { who:'pc',  text:'他站得直直的，手插在外套口袋裡。' },
   { who:'kai', text:'「你給誰了？」' },
   { who:'pc',  text: KAI_RUN.gaveTo === 'squat' ? '「側門那邊蹲在地上滑手機的那個。」' : '「側門那邊靠牆抽菸的那個。」' },
   { who:'kai', text:'「⋯⋯那不是他。」' },
@@ -10460,7 +10460,7 @@ function kaiConfrontWrong(){
   busy = true;
   playBeats(KAI_WRONG_BEATS(), 0, () => {
     chg('calm', -6);
-    toast('「下次我自己去。」他沒有罵你，把安全帽戴上就走了。\n（歸屬感 −6）', 4400);
+    toast('「下次我自己去。」他把安全帽戴上，跨上車就走了。\n（歸屬感 −6）', 4400);
     busy = false;
   });
 }
@@ -10510,7 +10510,7 @@ const COURIER_DROPS = [
   { x:82,  z:-86, name:'廟口路東邊,東和街口',
     first:'騎樓下站著一個人,看到你走過來就往你這邊看。',
     again:'騎樓下那個人還在,看到你就抬頭。', againSay:'「又是你喔。」',
-    give:'你把報紙包遞過去。他沒有打開來看,從褲袋裡數了錢給你。' },
+    give:'你把報紙包遞過去。他把報紙包直接塞進外套,從褲袋裡數了錢給你。' },
   { x:50,  z:35,  name:'街頭藝人那塊廣場',
     first:'廣場最後一排椅子旁邊站著一個人,帽子壓得很低。',
     again:'廣場最後一排椅子旁邊,還是那頂帽子。',
@@ -10539,7 +10539,7 @@ const COURIER_VOICE = {
          hide:'「東西丟了你躲一個禮拜。你以為我不知道?」', paid:'他把錢收下,數了兩次。「好。」',
          notEnough:'「不夠就滾。」', oweLeft:n => '「' + n + ' 個行動天。」',
          burn:{ caught2:'「兩次。你不用再來了。」', owe:'「五百都拿不出來,你來廟口幹嘛。」', other:'「不要來。」' },
-         square:'「扯平。」他沒有再說什麼,轉身進去廟裡。' }
+         square:'「這樣就扯平了。」他轉身進去廟裡。' }
 };
 function courierVoice(){ return COURIER_VOICE[COURIER.src] || COURIER_VOICE.kai; }
 function courierDrop(){ return COURIER_DROPS[COURIER.times % COURIER_DROPS.length]; }
@@ -10692,7 +10692,7 @@ function tickCourier(){
   if(!COURIER.guanStopped && Math.hypot(p.x - JIAOGUAN.x, p.z - JIAOGUAN.z) < COURIER_NEAR){ courierGuan(); return; }
   if(!COURIER.boSaw && Math.hypot(p.x - BO.x, p.z - BO.z) < COURIER_NEAR){
     COURIER.boSaw = true;
-    toast('阿伯從供桌那邊看了你的外套一眼,沒有說話。', 2800);
+    toast('阿伯從供桌那邊看了你的外套一眼,又低下頭去弄他的燈籠。', 2800);
   }
   const d = courierDrop();
   const near = Math.hypot(p.x - d.x, p.z - d.z) < KAI_RUN_RANGE;
@@ -10737,9 +10737,9 @@ function courierCaught(wx, wz){
       { who:'brother', text:'「欸,等一下。」' },
       { who:'pc',      text:'他看著你外套鼓起來的地方。' },
       { who:'brother', text:'「外套裡面的東西拿出來。」' },
-      { who:'pc',      text:'你把報紙包拿出來給他。他撕開一角看了一眼,什麼都沒說。' },
+      { who:'pc',      text:'你把報紙包拿出來給他。他撕開一角看了一眼,把它收進自己的外套。' },
       { who:'brother', text:'「這是誰給你的?」' },
-      { who:'pc',      text:'你沒有回答。' },
+      { who:'pc',      text:'你看著地上。' },
       { who:'brother', text:'「這個我收走了。你回家去。」' }
     ], 0, () => {
       COURIER.caught++;
@@ -10992,7 +10992,7 @@ function courierBossLine(src){
       chg('calm', -6);
       logDay(overnight ? '沒送到,東西隔天拿回去還' + v.name + ',他說太慢了。' : '騎太慢,人走了。東西拿回去還' + v.name + ',他說太慢了。');
       logPerson(v.who, overnight ? '沒送到,隔天拿回去還他。' : '四十分鐘沒送到,東西拿回去還他。');
-      toast('他沒有罵你,但是也沒有再跟你講話。\n（歸屬感 −6）', 3600);
+      toast('他把東西收回外套,轉身去弄他的車。\n（歸屬感 −6）', 3600);
       busy = false;
     });
     return true;
@@ -11264,7 +11264,7 @@ function arrestMomScene(){
           busy = true;
           playBeats([
             { who:'kaimom', text:'「好。沒關係。」' },
-            { who:'pc',     text:'她沒有再說什麼。' }
+            { who:'pc',     text:'她點了一下頭,往校門外走了。' }
           ], 0, () => {
             logDay('阿凱的媽在校門口等我,要我去少年隊講話。我說我不行。');
             logPerson('kaimom', '校門口等我,要我去少年隊幫阿凱講話。我沒答應。');
@@ -11286,7 +11286,7 @@ function arrestHearing(){
     { who:'pc',      text:'阿凱的媽在警局門口等你。阿正站在門邊。' },
     { who:'brother', text:'「你來了。名字。」你把名字講了,他記下來。' },
     { who:'pc',      text:'你講了阿凱平常的樣子:機車、放學、他媽。送貨的事你沒有講。' },
-    { who:'brother', text: ARREST.brotherAnswer === 'deny' ? '「你說你什麼都不知道,可是你來幫他講話。」他沒有再說下去。' : '「好。你可以走了。」' },
+    { who:'brother', text: ARREST.brotherAnswer === 'deny' ? '「你說你什麼都不知道,可是你來幫他講話。」他把筆放下,看了你一眼。' : '「好。你可以走了。」' },
     { who:'kaimom',  text:'「謝謝你。這個你拿著。」她又給了你一個便當。' }
   ], 0, () => {
     chg('calm', 6);
@@ -11433,7 +11433,7 @@ function debtAfterDays(){
 const DEBT_REMIND_LINES = {
   72: '「跟你媽講了沒?」他站在你家鐵門外面,沒有要上樓的意思。「月底。」',
   75: '「你媽這幾天都沒回來喔。」他看著樓上。「那就找你。」',
-  81: '「還有三天。」他講完就走了,沒有等你回答。'
+  81: '「還有三天。」他講完就轉身下樓了。'
 };
 let debtCollectorNPC = null;
 function debtAmountText(){ return '三十萬'; }
@@ -11546,7 +11546,7 @@ function debtAskBrother(){
     busy = true;
     playBeats([
       { who:'pc',      text:'你把那三張紙的事講了:三十萬,簽的是你的名字。' },
-      { who:'brother', text:'「你在外面做的那些事,我聽過一些。」他沒有把本子拿出來。' },
+      { who:'brother', text:'「你在外面做的那些事,我聽過一些。」他把本子夾在腋下,兩隻手插在口袋裡。' },
       { who:'brother', text:'「報案要做筆錄,筆錄上寫的全是你講的話。你現在講的話,有誰會相信?」' },
       { who:'brother', text:'「先把你自己的名聲弄乾淨一點,再來找我。」' }
     ], 0, () => { toast('阿正沒有受理。（風評要 ' + DEBT_NEED.brotherRep + ' 以上他才肯——目前 ' + ST.star + '）', 4200); logDay('問阿正。他說我現在講的話沒人會信。'); busy = false; });
@@ -11579,7 +11579,7 @@ function debtAskYuan(){
   busy = true;
   playBeats([
     { who:'pc',   text:'你把三十萬的事講了。' },
-    { who:'yuan', text:'「三十萬。」他沒有很驚訝。「那個人我認識。」' },
+    { who:'yuan', text:'「三十萬。」他的表情跟平常一樣。「那個人我認識。」' },
     { who:'yuan', text:'「我可以處理。不是幫你還,是讓他不要再找你。」' },
     { who:'yuan', text:'「之後你的人是我的。我叫你做什麼你就做什麼。想好了再來。」' }
   ], 0, () => { debtCardSync(); logPerson('yuan', '我跟他講了三十萬的事。他說他可以處理,之後我的人是他的。'); logDay('問阿源。他說他可以處理,代價是以後我的人是他的。'); busy = false; });
@@ -11666,7 +11666,7 @@ function debtHideNight(){
     DEBT.workerLied = true;
     busy = true;
     playBeats([
-      { who:'worker', text:'「討債的今天來過巷子。」她沒有看你,在數抽屜裡的零錢。' },
+      { who:'worker', text:'「討債的今天來過巷子。」她一邊講一邊數抽屜裡的零錢。' },
       { who:'worker', text:'「他們問我有沒有看過一個穿帽 T 的高中生。我說我沒有看過。」' },
       { who:'pc',     text:'她把零錢收進抽屜。（歸屬感 +6）' }
     ], 0, () => { chg('calm', 6); logDay('討債的來巷子問過阿霞。她說她沒看過我。'); logPerson('worker', '討債的來問過她,她說沒看過我。'); busy = false; open(); });
@@ -11797,7 +11797,7 @@ function debtSemesterEnd(){
   const pre = key === 'hide' ? [
       { who:'worker', text:'「這個月算是過去了。」她站在門口抽今天第一根菸。' },
       { who:'worker', text:'「下個月你要怎麼辦?」' },
-      { who:'pc',     text:'你把書包背起來,沒有回答她。' }
+      { who:'pc',     text:'你把書包背起來,走出巷子。' }
     ] : key === 'yuanDropped' ? [
       { who:'pc',        text:'早上鐵門外有人按鈴。' },
       { who:'collector', text:'「阿源說他不管你的事了。下個月我再來收。」' },
@@ -11826,7 +11826,7 @@ function expireKaiRun(){
   chg('calm', -3);
   toast(KAI_RUN.gotBag
     ? '袋子還在你外套裡。隔天阿凱來拿走了。\n（歸屬感 −3）'
-    : '你沒有去找阿凱。隔天他沒有提這件事。\n（歸屬感 −3）', 4200);
+    : '你沒有去找阿凱。隔天他看到你,只講了車的事。\n（歸屬感 −3）', 4200);
 }
 
 function hasStoryOn(d){
@@ -12241,7 +12241,7 @@ function runDailyGoto(who){
         { who:'mom', text:'「{name}，今天廟口有拜拜，你去幫阿嬤求一個平安符。」' },
         { who:'mom', text:'「跟廟口那個阿伯講就好，他認識阿嬤。」' } ] : []),
       { who:'mom', text:'「還有，你身上還有錢嗎。」' },
-      { who:'pc',  text:'她沒有看你，看的是你桌上那個袋子。' },
+      { who:'pc',  text:'她的眼睛看的是你桌上那個袋子。' },
       { who:'mom', text:'「五百就好，朋友那邊周轉一下。」' }
     ], 0, () => openMenu('', [
       { label:'給她', cost: ST.money < 500 ? '身上不夠' : '−$500　歸屬感 +6',
@@ -12296,7 +12296,7 @@ function runDailyGoto(who){
                        { who:'pc',  text:'他往旁邊挪了一點，讓你靠在車上。' },
                        { who:'kai', text:'「沒事啊，就問你有沒有空。」' } ],
                run(){ chg('calm', 3); chg('mood', 3); chg('stamina', -3);
-                      toast('你們在那邊站了半小時，沒講什麼。\n（歸屬感 +3　情緒 +3）', 3600); } },
+                      toast('你們在那邊站了半小時，講的都是車的事。\n（歸屬感 +3　情緒 +3）', 3600); } },
     yuan:    { beats:[ { who:'yuan', text:'「來，坐。」' },
                        { who:'pc',   text:'他把菸盒往你這邊推了一下，又收回去。' },
                        { who:'yuan', text:'「你還在讀書，不要學我。」' } ],
@@ -12367,7 +12367,7 @@ function achengShift(){
   passTimeStanding(4, 3, [
     '你站到攤子後面，圍裙比你想的重。',
     '中午人一下子多起來，你連抬頭的空檔都沒有。',
-    '有客人問你是不是他兒子，他沒有回答。',
+    '有客人問你是不是他兒子，他低頭繼續煮麵。',
     '中午的人潮散了，桌上還有三碗沒收。'
   ], () => {
     chg('money', 60); chg('calm', 3);
@@ -12816,8 +12816,8 @@ const BLOOD_ANSWERS = {
     { who:'mei',  text:'「我 O 型，可是我未滿十七要家長同意書。」' },
     { who:'mei',  text:'「我媽不會簽的。」' } ] },
   acheng:   { name:'阿成',   ok:false, fact:'B 型。捐血那天脫了圍裙就跟我走。', beats:[
-    { who:'pc',     text:'他沒講話，把圍裙脫下來跟你走。' },
-    { who:'pc',     text:'到了醫院驗出來是 B 型。他站在走廊上，還是沒講話。' } ] },
+    { who:'pc',     text:'他把圍裙脫下來，跟著你走。' },
+    { who:'pc',     text:'到了醫院驗出來是 B 型。他站在走廊上，把袖子放下來。' } ] },
   ayi:      { name:'阿姨',   ok:false, fact:'貧血，捐血被退過。', beats:[
     { who:'ayi',  text:'「我貧血，上次去捐被退回來。」' },
     { who:'ayi',  text:'「你去問問看廟口那幾個男的。」' } ] },
@@ -12847,7 +12847,7 @@ const BLOOD_ANSWERS = {
   fortune:  { name:'算命的', ok:true, fact:'O 型。年輕的時候在部隊捐過三十幾次，一包血換一天假。',  beats:[
     { who:'fortune', text:'「你阿嬤幾歲？」' },
     { who:'pc',      text:'「七十八。」' },
-    { who:'pc',      text:'他沒有回話，從抽屜裡翻出自己的健保卡，看了一下背面。' },
+    { who:'pc',      text:'他從抽屜裡翻出自己的健保卡，看了一下背面。' },
     { who:'fortune', text:'「O 型。」' },
     { who:'fortune', text:'「我年輕的時候在部隊捐過三十幾次，那時候一包血換一天假。」' },
     { who:'pc',      text:'他把籤筒收進抽屜，把攤子的布拉下來，用夾子夾好。' },
@@ -13134,7 +13134,7 @@ function sleepLand(skippedSchool, skippedDay){
         { who:'yuan', text:'「欸,晚上有空嗎。」' },
         { who:'yuan', text:'「顧一下場子,人在就好,不用做什麼。」' },
         { who:'pc',   text:'你應了一聲。' },
-        { who:'pc',   text:'他沒再多說,直接掛了。' }
+        { who:'pc',   text:'他講完就直接掛了。' }
       ]);
       ACTIVE_QUESTS.push({ id:'yuan-tonight', title:'阿源・晚上顧場子',
         hint:`今晚 ${fmtTime(YUAN_WATCH_EVENING_MINUTE)} 去遊藝場附近` });
@@ -13423,7 +13423,7 @@ const WORKER_STORY_BEATS = [
   { who:'pc',     text:'「妳有小孩喔。」' },
   { who:'worker', text:'「大的那個,以前被她爸打得很兇。」' },
   { who:'worker', text:'「我沒能力帶她走。」' },
-  { who:'pc',     text:'你沒有接話。' },
+  { who:'pc',     text:'你看著她手上的菸。' },
   { who:'worker', text:'「她自己長大了。」\n「說要帶一群跟她一樣沒人要的女生打棒球。」' },
   { who:'worker', text:'「真的打起來了,還上過報。」' },
   { who:'pc',     text:'「厲害欸。」' },
@@ -14075,8 +14075,8 @@ const HOSPITAL_LAST_WORDS_SAID = [
   { who:'pc', text:'她愣了一下,然後笑了,伸手拍了拍你的手背。' }
 ];
 const HOSPITAL_LAST_WORDS_SILENT = [
-  { who:'pc',     text:'你沒有講出口。' },
-  { who:'pc', text:'她好像看懂了,伸手拍了拍你的手背,沒有追問。' }
+  { who:'pc',     text:'話到嘴邊,你又吞回去。' },
+  { who:'pc', text:'她好像看懂了,伸手拍了拍你的手背。' }
 ];
 /* 2026-09-02 第十五輪,kc 糾正第十四輪的補法:「我只會有一個場景是病房
    內部 幫我改詞」——scene-hospital.js 只有病房這一張背景,沒有走廊場景,
@@ -14085,7 +14085,7 @@ const HOSPITAL_LAST_WORDS_SILENT = [
    改成不需要另一個場景就能講完的一句話,交給後面的 fade()(leaveIndoor()
    本來就會做)承接「離開」這個動作,不用文字自己先演一次走出去的過程。 */
 const HOSPITAL_CLOSING_BEATS = [
-  { who:'pc', text:'她沒有再說話,只是看著你。' },
+  { who:'pc', text:'她看著你,眼睛慢慢閉上又睜開。' },
   { who:'pc', text:'你握著她的手坐著,直到護士進來,說時間到了,要你們先出去。' },
   { who:'pc', text:'你跟媽一起走出醫院,誰都沒有先開口。（歸屬感 +12）' }
 ];
@@ -14208,7 +14208,7 @@ const GRANDMA_AWAKE_LINES = [
 const GRANDMA_ASLEEP_LINES = [
   '阿嬤睡著了，呼吸很輕。你在床邊坐了一會兒就走了。',
   '她閉著眼睛，監視器一下一下地響。',
-  '喊了幾聲，她沒有醒。你幫她把被子拉好，轉身出去。'
+  '你喊了幾聲，她還在睡。你幫她把被子拉好，轉身出去。'
 ];
 /* 餵食這個互動來回改了三輪,記清楚給下次改動的人看,不要照中間任何一版
    猜的理解現在的行為:
@@ -14271,7 +14271,7 @@ function deliverGrandmaBag(){
     { who:'granny', text:'「你來了啊。」' },
     { who:'pc',     text:'你把袋子放在床邊櫃子上。' },
     { who:'granny', text:'「你媽呢。」' },
-    { who:'pc',     text:'「上班。」她點點頭，沒再問。' },
+    { who:'pc',     text:'「上班。」她點點頭。' },
     { who:'granny', text:'「有沒有吃飽。」' },
     { who:'granny', text:'「註冊單你媽給你了沒。」' },
     { who:'pc',     text:'「還沒。」' },   // 2026-09-17 對調之後 day1 先來醫院,註冊單 day2 媽才給
@@ -14363,7 +14363,7 @@ function grandmaVisitLine(){
           { who:'granny', text:'「他還在喔。」' },
           { who:'pc',     text:'她把手伸到枕頭下面摸了一下，沒有拿出來。' }
         ] : [
-          { who:'pc', text:'她睡著。你把紅色的小袋子塞到她枕頭下面，她沒有醒。' }
+          { who:'pc', text:'她睡著了。你把紅色的小袋子塞到她枕頭下面，她的呼吸還是一樣輕。' }
         ], 0, () => {
           chg('calm', 6); toast('（歸屬感 +6）', 2000);
           logDay('把平安符放在阿嬤枕頭下。');
@@ -14435,7 +14435,7 @@ const DAD_CHECKIN_LINES = {
      你已經懶得跟他的記憶爭,純觀察那種放棄感。 */
   58: ['他又提了一次「上次的事」,你已經懶得糾正他。', '你開始習慣不跟他確認任何事,反正他會記得不一樣的版本。'],
   /* 第26天之後:「你數過了」節點發生過之後,數錢已經變成反射動作。 */
-  76: ['你進門先摸口袋數錢,已經變成習慣。', '他坐在客廳,你們兩個都沒有開口。']
+  76: ['你進門先摸口袋數錢,已經變成習慣。', '他坐在客廳,電視的聲音填滿整個房間。']
 };
 function dadCheckinLines(){
   const stages = [76, 58, 43, 25, 10];
@@ -14475,14 +14475,14 @@ const MOM_CHECKIN_LINES = {
   },
   16: {
     status: ['她把藥袋收到沙發旁邊,手機還是開著那個畫面。', '她今天沒有滑手機,在看電視購物,聲音開很小。'],
-    talk: ['「阿嬤的藥你不用管了,我會處理。」她沒有說怎麼處理。', '「你這麼大了,不需要我一直顧吧。」她說得很輕描淡寫。']
+    talk: ['「阿嬤的藥你不用管了,我會處理。」她講完就把頭轉回電視。', '「你這麼大了,不需要我一直顧吧。」她說得很輕描淡寫。']
   },
   28: {
     status: ['她的機車鑰匙掛在門邊,那台車今天早上還是好的。', '沙發旁邊多了一袋刮刮樂,刮完的。'],
     talk: ['「車修好了,你不用問。」你沒有問。', '「你阿嬤那邊你有去看嗎。」她這句是真的在問。']
   },
   40: {
-    status: ['她沒有在看電視,因為電視已經不在了。她在看手機。', '她坐在沙發上,手一直在動,像在算什麼。'],
+    status: ['電視已經不在了。她坐在原本對著電視的位置看手機。', '她坐在沙發上,手一直在動,像在算什麼。'],
     talk: ['「電視放那邊也沒人看。」她先講了,你還沒問。', '「這個月過了就好了。」你聽過這句,上個月。']
   },
   52: {
@@ -14788,7 +14788,7 @@ function showExamReportToMom(ex){
       { who:'pc',  text:'你把那張紙放在桌上，上面那欄寫著缺考。' },
       { who:'mom', text:'「你那天沒去學校？」' },
       { who:'pc',  text:'「……嗯。」' },
-      { who:'pc',  text:'她沒有罵你，只是把紙折起來放到旁邊。' },
+      { who:'pc',  text:'她把那張紙折起來放到旁邊。' },
       { who:'mom', text:'「隨便你啦。」' }
     ], 0, () => {
       chg('calm', -6); chg('mood', -6);
@@ -15054,7 +15054,7 @@ function startExam(ex){
       });
     } else {
       playBeats([
-        { who:'pc',      text:'考卷發回來的時候他沒有特別看你。' },
+        { who:'pc',      text:'考卷發回來的時候，他把你的那張跟其他人的一起放下就走了。' },
         { who:'pc',      text:'分數寫在右上角，你把它折進書包裡。' }
       ], 0, () => {
         busy = false;
@@ -15616,7 +15616,7 @@ function updateCity(dt){
           } },
         { label:'「改天啦。」', cls:'back', run(){
             chg('calm', -3);
-            say('mei', '「喔，好啊。」她笑了一下，沒有很失望，但也沒再多說。');
+            say('mei', '「喔，好啊。」她笑了一下，把書包背回肩上。');
           } }
       ]);
     });
@@ -16158,13 +16158,13 @@ function talkToAcheng(){
 const FORTUNE_QUEST_TEXT = {
   moto:  { ask:'「你幫我去中華路那間機車行一趟，跟老闆說一聲，他知道要給你什麼。」',
            hint:'（去中華路的機車行找老闆）',
-           find:'你跟老闆說明來意，他從裡面翻出一包東西遞給你，什麼都沒多問。' },
+           find:'你跟老闆說明來意，他從裡面翻出一包東西遞給你，就回頭去弄他的車。' },
   sword: { ask:'「就在廟埕北邊那片草叢裡，你去翻翻看，應該還在。」',
            hint:'（去廟埕北側圍牆前的草叢找找看）',
            find:'你在草叢裡翻了一下，摸到一把桃木劍，劍身都生鏽了。' },
   store: { ask:'「中華路那間超商，櫃台那個小的知道，你替我拿一下。」',
            hint:'（去超商櫃台跟店員拿）',
-           find:'店員從櫃台底下摸出一個紙袋給你，沒有問你是誰。' },
+           find:'店員從櫃台底下摸出一個紙袋給你，接著就去招呼下一個客人。' },
   altar: { ask:'「我昨天放了一包東西在供桌上，你替我拿回來，別打開。」',
            hint:'（去廟口供桌上拿）',
            find:'供桌角落壓著一個紅色小袋，上面積了一層香灰。' }
@@ -16231,7 +16231,7 @@ const FORTUNE_STATS = [
     low:  { meaning:'身若無食，神魂難安；且顧五穀為本，餘事自有天時。',
             followUp:'他收起籤筒，看了你一眼。「先去吃飯啦，講什麼命都要有力氣聽。」' },
     mid:  { meaning:'五穀尚足，不飢不飽；此運平平，毋須多慮。',
-            followUp:'「還過得去啦，別餓著就好。」他隨口說了一句，沒再多問。' },
+            followUp:'「還過得去啦，別餓著就好。」他隨口說了一句，把籤詩推過來。' },
     high: { lines:['五穀豐登糧倉滿','三餐無憂氣色旺','此運根基自穩固','衣食無缺是天賞'],
             meaning:'倉廩實而知禮節，此乃根基穩固之相，非僥倖可得。',
             followUp:'「你這陣子倒是養得不錯。」他難得笑了一下。「難得的，多顧著點。」' },
@@ -16251,7 +16251,7 @@ const FORTUNE_STATS = [
   { k:'calm', no:21,
     lines:['命宮孤影少人問','獨自撐著不敢言','身邊未必無人在','只是話到嘴邊軟'],
     low:  { meaning:'命宮孤影，身邊雖有人而心不敢言；此劫在己，非在無人。',
-            followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好，沒再多說。' },
+            followUp:'「有些話不講，別人不會知道你在扛。」他把籤筒收好。' },
     mid:  { meaning:'人情來往平平，不冷不熱；此運如常，緣分自有深淺。',
             followUp:'「日子還過得去吧。」他淡淡說了一句。' },
     high: { lines:['命宮吉星照人緣','左右扶持得人望','此運根基在人和','福從眾人心中來'],
@@ -16262,9 +16262,9 @@ const FORTUNE_STATS = [
   { k:'mood', no:29,
     lines:['眉頭深鎖心事重','悶在心口說不清','非是想不開這件事','是真沒地方能傾訴'],
     low:  { meaning:'心事鬱結，如烏雲蔽月；非是命裡無光，乃一時未得抒發。',
-            followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，沒逼你答話。' },
+            followUp:'「悶著也是過一天，講出來也是過一天。」他笑了一下，把籤詩推給你。' },
     mid:  { meaning:'心緒平平，無甚波瀾；此運如水，靜待風生。',
-            followUp:'「看你臉色還好。」他隨口一句，沒有多問。' },
+            followUp:'「看你臉色還好。」他隨口說了一句，把籤詩推過來。' },
     high: { lines:['眉開眼笑心自寬','烏雲盡散見青天','此運根基在心寬','福自心生非天賜'],
             meaning:'心寬則路自寬，此乃福自心生之相，非天賜之運。',
             followUp:'「你今天心情不錯喔。」他笑了一下。「這種時候，多留一點給自己。」' },
@@ -16531,7 +16531,7 @@ function talkToYuan(){
       { who:'pc',   text:'「⋯⋯我不知道你在說什麼。」' },
       { who:'yuan', text:'「不知道？」他冷笑一聲。' },
       { who:'yuan', text:'「算了，反正這種事，遲早會知道是誰。」' },
-      { who:'pc',   text:'你沒有再說話，心虛得連話都接不上。' }
+      { who:'pc',   text:'你心虛得連一句話都接不上。' }
     ], 0, () => {
       chg('calm', -12);
       toast('（歸屬感 −12）', 2600);
@@ -16556,11 +16556,11 @@ function talkToYuan(){
     { const qi = ACTIVE_QUESTS.findIndex(q => q.id === 'yuan-comfort'); if(qi >= 0) ACTIVE_QUESTS.splice(qi, 1); }
     renderQuestPanel();
     playBeats([
-      { who:'pc', text:'他看你一眼,沒多問,只是往旁邊挪了挪。' },
+      { who:'pc', text:'他看你一眼,往旁邊挪了挪,空出位子。' },
       { who:'pc',   text:'你在他旁邊坐下。' },
       { who:'pc',   text:'「我阿嬤走了。」' },
-      { who:'pc', text:'他沒有說什麼安慰的話，就這樣陪你坐著。' },
-      { who:'pc',   text:'你們兩個誰都沒有再開口,坐了很久。' }
+      { who:'pc', text:'他嗯了一聲，就這樣陪你坐著。' },
+      { who:'pc',   text:'你們坐了很久,廟埕的燈亮起來了。' }
     ], 0, () => {
       chg('mood', 12); chg('calm', 6);
       toast('（情緒 +12，歸屬感 +6）', 2600);
@@ -16656,7 +16656,7 @@ function talkToYuan(){
             chg('calm', 6); chg('star', -6);
             SNITCH_QUEST.active = false; SNITCH_QUEST.resolved = 'warned';
             syncMiscQuestPanel();
-            toast('他點了點頭，看你的眼神變了一下，沒有再多問。（歸屬感 +6／風評 −6）', 3200);
+            toast('他點了點頭，看你的眼神變了一下。（歸屬感 +6／風評 −6）', 3200);
           } },
         { label:'先不要', cls:'back', run(){} }
       ]);
@@ -16881,7 +16881,7 @@ function talkToMei(){
      這條線這輪只到這裡,沒有安排後續)。 */
   if(MEI.kissed && !MEI.apologized){
     if(day === MEI.kissedDay){
-      say('pc', '她轉過頭，沒有看你，也沒有說話。');
+      say('pc', '她把頭轉開，看著操場那邊。');
       return;
     }
     openMenu('小美', [
@@ -17041,7 +17041,7 @@ function chatWithMeiClassroom(){
   const D = NpcSchool.MEI;
   let pool;
   if(MEI.kissed && !MEI.apologized){
-    say('pc', '她轉過頭，沒有看你，也沒有說話。');
+    say('pc', '她把頭轉開，看著操場那邊。');
     return;
   } else if(!MEI.met){
     pool = D.disdainTalk;
@@ -17138,7 +17138,7 @@ function talkToJiaoguan(){
               { who:'jiaoguan', text:'「幾點到幾點？」' },
               { who:'pc',       text:'「早上六點到下午。」' },
               { who:'pc',       text:'他看了你一下，還是寫了下去。' } ], 0, () => {}); } },
-          { label:'不講', cls:'', run(){ say('pc', '他低頭寫，什麼都沒有說。'); } }
+          { label:'不講', cls:'', run(){ say('pc', '他低頭把那一行寫完。'); } }
         ]);
       });
       return;
@@ -17305,10 +17305,10 @@ function tattooDogMenuItem(){
       openMenu('刺青店', [
         { label:'「希望牠早點回家。」', run(){
             chg('calm', 6);
-            toast('他點點頭，沒再說話，手上的針停了一下才繼續。', 3200);
+            toast('他點點頭，手上的針停了一下才繼續。', 3200);
           } },
         { label:'（不知道要說什麼，沒接話）', cls:'back', run(){
-            toast('你沒接話，他也沒有再提。', 2400);
+            toast('你把雜誌放回椅子上。他換了一支針頭，繼續刺。', 2400);
           } }
       ]);
     });
@@ -17377,9 +17377,9 @@ function talkToTattooMaster(){
       { who:'pc',           text:'你把收據拿給師傅看。' },
       { who:'pc', text:'他瞄了一眼，手上的針沒停。' },
       { who:'tattooMaster', text:'「那天喔，我是有看到一個面生的在供桌附近晃。」' },
-      { who:'tattooMaster', text:'「巷子那邊的，你知道我說誰。」他沒有再多說。' }
+      { who:'tattooMaster', text:'「巷子那邊的，你知道我說誰。」他講到這裡就低頭刺他的圖。' }
     ], 0, () => {
-      toast('師傅沒有講死是誰，但你大概猜得到他說的是誰。', 3400);
+      toast('他的話講得很模糊，但你猜得到他說的是誰。', 3400);
     });
     return;
   }
@@ -17391,7 +17391,7 @@ function talkToTattooMaster(){
     playBeats([
       { who:'tattooMaster', text:'「在工地？」他手上的針停下來。' },
       { who:'pc',       text:'「骨架柱子旁邊，牠自己躲在那裡。」' },
-      { who:'pc', text:'他沒說話，把手套脫了，往外走。' },
+      { who:'pc', text:'他把手套脫了，直接往外走。' },
       { who:'pc', text:'半小時後他抱著狗回來，衣服上全是灰。' },
       { who:'tattooMaster', text:'「謝了。」他只講這兩個字，但一直摸牠的頭。' }
     ], 0, () => {
@@ -17529,7 +17529,7 @@ function talkToTeacher(){
       { who:'pc',      text:'你把錢拿出來，放到老師桌上。' },
       { who:'pc',      text:'「班費找到了。」' },
       { who:'teacher', text:'他愣了一下，數了數，鬆了一口氣。「找到就好，我還在想要不要通報。」' },
-      { who:'pc', text:'他沒有問是從哪裡找到的。' }
+      { who:'pc', text:'他把錢收進抽屜，鎖起來。' }
     ], 0, () => {
       chg('calm', 12);
       toast('班費還給老師了，這件事總算過去了。（歸屬感 +12）', 3600);
@@ -17552,11 +17552,11 @@ function talkToTeacher(){
     renderQuestPanel();
     playBeats([
       { who:'pc',      text:'你跟老師說，錢找到了，已經補回去了。' },
-      { who:'pc', text:'他看著你，沒有很意外的樣子。' },
+      { who:'pc', text:'他看著你，表情跟平常一樣。' },
       { who:'teacher', text:'「果然是你這種社會底層會做的事。」' },
       { who:'teacher', text:'「我不是說你一定壞，但你自己想想，平常跟哪些人混、上課心思在哪裡——會被懷疑，不是沒有原因的。」' },
       { who:'teacher', text:'「以後多花點心思在正經事上，少讓自己看起來像會做這種事的人。」' },
-      { who:'pc',      text:'你沒有辯，錢是你自己補的，說什麼都像是在狡辯。' }
+      { who:'pc',      text:'錢是你自己補的，你講什麼都像在狡辯，你把嘴閉上。' }
     ], 0, () => {
       chg('calm', -6);
       toast('錢補回去了，老師看你的眼神還是那樣。（歸屬感 −6）', 3600);
@@ -17578,7 +17578,7 @@ function talkToTeacher(){
     playBeats([
       { who:'pc',      text:'「老師，我想申請清寒家庭補助。」' },
       { who:'pc', text:'他愣了一下，翻了翻抽屜，找出一疊表格。' },
-      { who:'teacher', text:'「早該來申請了。」他邊蓋章邊說，沒有多問什麼。' },
+      { who:'teacher', text:'「早該來申請了。」他邊蓋章邊說。' },
       { who:'teacher', text:'「下個月會撥下來，先去忙你的。」' }
     ], 0, () => toast('申請送出了，下個月會撥下來。', 3000));
     return;
@@ -17842,7 +17842,7 @@ function talkToBrother(){
                 { who:'brother', text:'「你聽到什麼？說吧。」' },
                 { who:'pc', text:'「上禮拜，阿源那邊。東西是他們用小貨車載來的，現在還放在廟後面那間鐵皮屋。」' },
                 { who:'pc', text:'講到一半你突然聽見自己的聲音，停了一下才繼續講。' },
-                { who:'pc', text:'阿正沒有拿筆記下來，只是站在那裡聽你講完。' },
+                { who:'pc', text:'阿正站在那裡聽你講完，兩隻手插在口袋裡。' },
                 { who:'brother', text:'「好，我知道了。」' },
                 { who:'pc', text:'他轉身從櫃台後面的抽屜拿出一個信封，推到你面前。' },
                 { who:'brother', text:'「這不是給你的，這是給提供線索的人的。你收下就好，不用想太多。」' },
@@ -17872,7 +17872,7 @@ function talkToBrother(){
         { label:'「沒有，我什麼都沒聽到。」', run(){
             SNITCH_QUEST.liedToBrother = true;
             playBeats([
-              { who:'pc', text:'他看著你，看了大概兩秒鐘，沒有馬上接話。' },
+              { who:'pc', text:'他看著你，看了大概兩秒鐘。' },
               { who:'brother', text:'「是喔。好，那就算了。」' },
               { who:'pc', text:'他轉身回去做自己的事。你走出警局的時候，一直覺得背後有人在看你。' }
             ], 0, () => {});
@@ -18675,8 +18675,8 @@ function talkToMotoBoss(){
     playBeats([
       { who:'pc',       text:'「我在舊報紙上看到你的名字——收保護費那個案子。」' },
       { who:'pc', text:'他手上的動作停了一下。' },
-      { who:'motoboss', text:'「你去哪挖到那個的。」他沒有生氣，語氣很平。' },
-      { who:'pc',       text:'你沒有回答。' },
+      { who:'motoboss', text:'「你去哪挖到那個的。」他的語氣很平，跟平常講車的時候一樣。' },
+      { who:'pc',       text:'你看著他手上的扳手。' },
       { who:'motoboss', text:'「對，是我。」他繼續轉螺絲。「那時候誰家開店，我們就去收，不繳，就砸。」' },
       { who:'motoboss', text:'「我不會替自己講什麼理由——那時候的我，就是那種人。」' },
       { who:'motoboss', text:'「後來出事，蹲了幾年，出來才開這間店。」' },
@@ -18685,11 +18685,11 @@ function talkToMotoBoss(){
       openMenu('機車行', [
         { label:'「這樣還能重新開始，我覺得很不容易。」', run(){
             chg('star', 6);
-            toast('他沒接話，把扳手放下，進去倒了兩杯茶出來。（風評 +6）', 3400);
+            toast('他把扳手放下，進去倒了兩杯茶出來。（風評 +6）', 3400);
           } },
         { label:'（心裡覺得他也不過如此）', cls:'risk', run(){
             chg('star', -6);
-            toast('你沒有把那句話說出口。他低頭繼續修車。（風評 −6）', 3400);
+            toast('那句話你留在心裡。他低頭繼續修車。（風評 −6）', 3400);
           } }
       ]);
     });
@@ -18927,7 +18927,7 @@ function talkToWorker(w){
             ALLEY_WORKER.freeMassageOwed = true;
             playBeats([
               { who:'pc', text:'她愣了一下，像是沒想到你會這樣選。' },
-              { who:'worker', text:'「……謝了。」她說得很小聲，沒再多說什麼。' },
+              { who:'worker', text:'「……謝了。」她說得很小聲。' },
               { who:'worker', text:'她看了你一眼。「下次，算我的，你不用給錢。」' }
             ], 0, () => toast('你自己把班費補上了。（$−1200，歸屬感 +3）記得去跟老師說一聲。', 3600));
           } }
@@ -18941,7 +18941,7 @@ function talkToWorker(w){
         { who:'worker', text:'「……對，是我拿的。」他的聲音很輕。' },
         { who:'worker', text:'「小孩生病，那個月手頭真的不夠。」' },
         { who:'worker', text:'「看你們那些小孩在那邊拜拜、嘻嘻哈哈的，錢就放在桌上沒人管，我一時鬼迷心竅。」' },
-        { who:'pc',     text:'她沒有再多解釋，低頭點了根菸。' }
+        { who:'pc',     text:'她低頭點了根菸。' }
       ], 0, resolveMenu);
     };
     const round3 = () => {
@@ -18953,7 +18953,7 @@ function talkToWorker(w){
           { label:'「妳就是拿了，對不對。」',
             run(){
               playBeats([
-                { who:'pc',     text:'你沒有再說話，就看著她。' }
+                { who:'pc',     text:'你就看著她。' }
               ], 0, confess);
             } },
           { label:'「妳不用再瞞了。」',
@@ -18981,7 +18981,7 @@ function talkToWorker(w){
           run(){
             playBeats([
               { who:'pc',     text:'「小胖那天也在，他說看到妳在供桌附近晃。」' },
-              { who:'worker', text:'她愣了一下，沒有馬上接話。「……巧合吧。」聲音比剛才小了一點。' }
+              { who:'worker', text:'她愣了一下。「……巧合吧。」聲音比剛才小了一點。' }
             ], 0, round3);
           } }
       ]);
@@ -19045,7 +19045,7 @@ function talkToWorker(w){
             { who:'worker', text:'「有時候就是,這裡比家裡安靜。」' },
             { who:'pc',     text:'她頓了一下,像是想到什麼。' },
             { who:'worker', text:'「家裡還有一個要顧,比較小的。」' },
-            { who:'pc',     text:'她沒有再說下去。' }
+            { who:'pc',     text:'她把菸抽完,踩熄。' }
           ], 0, () => {});
         } },
       { label:'不說話,轉身走掉', cls:'back', run(){} }

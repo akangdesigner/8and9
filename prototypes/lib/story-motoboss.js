@@ -37,7 +37,7 @@
         { who:'pc',      text:'他沒有解釋是什麼事,你也沒有問。' },
         { who:'motoboss', text:'「金盆洗手,說得好聽而已——其實就是有一天,我不想再過那種日子了。」' }
       ],
-      quiet:'他說完就低頭繼續修車,沒有等你回話。', calm:+12 },
+      quiet:'他說完就低頭繼續修車。', calm:+12 },
     { at:6, title:'他為什麼看人品',
       beats:[
         { who:'pc',      text:'「你東西賣這麼便宜,不怕虧喔？」' },
@@ -46,7 +46,7 @@
         { who:'motoboss', text:'「所以你穿什麼、騎什麼,我不看。」' },
         { who:'pc',      text:'他抬起頭看了你一眼,像是在打量。' }
       ],
-      quiet:'他低頭繼續弄那台車,沒再說什麼。', calm:+12 }
+      quiet:'他低頭繼續弄那台車。', calm:+12 }
   ];
 
   root.StoryMotoBoss = { talk, events };
