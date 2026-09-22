@@ -993,6 +993,8 @@
   #menu .cap, #textPrompt .cap { color:var(--ui-red); font-family:var(--sp-kai); font-weight:700; font-size:14px;
     letter-spacing:.24em; padding:0 0 6px 4px; margin:0 0 4px; border-bottom:1.5px solid var(--ui-red); position:relative; }
   #menu .cap::after, #textPrompt .cap::after { display:none; }
+  #menu .cap.speaker { display:flex; align-items:center; gap:10px; padding-bottom:8px; }
+  #menu .cap.speaker canvas { width:44px; height:44px; border:3px solid #f7f3ea; box-shadow:0 1px 4px rgba(0,0,0,.35); transform:rotate(-2deg); background:#1b202b; }
   #menu button { position:relative; background:none; color:var(--ui-ink); border:0;
     border-bottom:1px dotted var(--ui-dot); border-radius:0; padding:9px 6px 9px 16px;
     font-size:16px; letter-spacing:.08em; transition:transform .2s cubic-bezier(.2,.8,.3,1), color .2s; }
@@ -3271,20 +3273,24 @@ const PORTRAIT_IMGS = {
   motoboss: loadPortraitImg('../assets/bg/motoboss-portrait.png?v=1')
 };
 function loadPortraitImg(src){ const img = new Image(); img.src = src; return img; }
-function drawPortrait(who){
-  const w = WHO[who] || WHO.pc, S = portC.canvas.width;
+/* 畫到任何一顆 canvas 上(2026-09-22 抽出來,選單標題也要畫主角頭像,見 openMenu)。 */
+function drawPortraitTo(ctx, who){
+  const w = WHO[who] || WHO.pc, S = ctx.canvas.width;
   const img = PORTRAIT_IMGS[who];
-  portC.clearRect(0,0,S,S); portC.fillStyle = '#1b202b'; portC.fillRect(0,0,S,S);
+  ctx.clearRect(0,0,S,S); ctx.fillStyle = '#1b202b'; ctx.fillRect(0,0,S,S);
   if(img && img.complete && img.naturalWidth){
-    portC.imageSmoothingEnabled = true;
-    portC.drawImage(img, 0,0,img.naturalWidth,img.naturalHeight, 0,0,S,S);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(img, 0,0,img.naturalWidth,img.naturalHeight, 0,0,S,S);
   } else {
-    portC.save(); portC.imageSmoothingEnabled = false;
-    const k = S/33; portC.scale(k,k);
-    SF.person(portC, (S/k)/2, 108, Object.assign({k:1}, w.opt));
-    portC.restore();
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    const k = S/33; ctx.scale(k,k);
+    SF.person(ctx, (S/k)/2, 108, Object.assign({k:1}, w.opt));
+    ctx.restore();
   }
-  dName.textContent = w.name;
+}
+function drawPortrait(who){
+  drawPortraitTo(portC, who);
+  dName.textContent = (WHO[who] || WHO.pc).name;
 }
 let dlg = { on:false, full:'', shown:0, timer:0, done:false, after:null };
 /* 旁白判斷(2026-08-31,見上面 CSS #dialog.narration 那則長筆記)——只認
@@ -3405,9 +3411,18 @@ function menuCostWarnings(it){
   for(const k in drain) if(drain[k] < 0 && ST[k] + drain[k] <= 0) out.push(MENU_WARN[k]);
   return out;
 }
+/* 選項是主角講的話(label 以「開頭)的選單,標題列放主角的頭像跟名字,不是對方的名字
+   (2026-09-22 kc:「我就說了這邊是要放主角的頭像跟名字啊」)。其他選單(超商鮮食櫃那種)照舊。 */
 function openMenu(cap, items){
   busy = true;
-  menuEl.innerHTML = '<div class="cap">'+cap+'</div>';
+  const speech = items.some(it => /^[「『]/.test((it.label || '').trim()));
+  if(speech){
+    menuEl.innerHTML = '<div class="cap speaker"><canvas width="96" height="96"></canvas><span></span></div>';
+    drawPortraitTo(menuEl.querySelector('canvas').getContext('2d'), 'pc');
+    menuEl.querySelector('.cap span').textContent = pcName();
+  } else {
+    menuEl.innerHTML = '<div class="cap">'+cap+'</div>';
+  }
   items.forEach(it => {
     const b = document.createElement('button');
     if(it.cls) b.className = it.cls;
