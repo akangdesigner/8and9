@@ -11485,13 +11485,17 @@ function despawnDebtCollector(){
 }
 function debtCardSync(){
   if(!DEBT.street || DEBT.resolution) { courierCardOff('debt'); return; }
-  const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedWorker && '阿霞', DEBT.askedDad && '爸'].filter(Boolean);
-  const hint = (day >= DEBT_DUE_DAY ? '<b>今天下午四點他會來家裡,四點前要把人談好。</b>' : '討債的' + dayToDate(DEBT_DUE_DAY) + '下午四點會來要答案,那天是最後期限,四點前要把人談好。') +
-      '三十萬你還不了,到那天你手上要有一個肯出面的人:阿正(警局)、阿源(廟口)、巷子裡的阿霞——他們各有各的條件。' +
-      '<br><span class="qpNote">阿正要你風評 ' + DEBT_NEED.brotherRep + ' 以上（目前 ' + ST.star + '）／阿源要你跟過陣頭 ' + DEBT_NEED.yuanTroupe + ' 次以上（目前 ' + troupeTimes() + '）／阿霞要你在她那裡消費過</span>' +
-      (asked.length ? '<br><span class="qpNote">答應的人:' + asked.join('、') + '</span>' : '');
+  /* 卡只提示「要找人幫忙」(2026-09-22 kc:「任務卡只要提示 要找人幫助 而且84的任務卡小標已經是要處理債務問題」)
+     ——三個人各自的條件不列在卡上,不到門檻那個人自己會講。84 當天標題換成「處理債務」。 */
+  const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedWorker && '阿霞'].filter(Boolean);
+  const due = day >= DEBT_DUE_DAY;
+  const title = due ? '三十萬・處理債務' : '三十萬・找人幫忙';
+  const hint = (due
+      ? '<b>今天下午四點他會來家裡要答案。</b>四點前把人談好,回家面對他。'
+      : '借據上是你的名字,三十萬你還不了。' + dayToDate(DEBT_DUE_DAY) + '下午四點他會來要答案——在那之前去找人幫忙:阿正(警局)、阿源(廟口)、阿霞(光明巷)。') +
+      (asked.length ? '<br><span class="qpNote">答應幫你的人:' + asked.join('、') + '</span>' : '');
   const q = ACTIVE_QUESTS.find(x => x.id === 'debt');
-  if(q){ q.hint = hint; q.title = '三十萬・尋找解決方法'; } else ACTIVE_QUESTS.push({ id:'debt', title:'三十萬・尋找解決方法', hint });
+  if(q){ q.hint = hint; q.title = title; } else ACTIVE_QUESTS.push({ id:'debt', title, hint });
   renderQuestPanel();
 }
 /* 每幀(updateCity)。 */
@@ -13227,6 +13231,7 @@ function sleepLand(skippedSchool, skippedDay){
          syncMiscQuestPanel() 裡 'tuition' 那段)——不重算的話卡片會一直停在
          接到任務那天的天數。 */
       syncMiscQuestPanel();
+      if(DEBT.street && !DEBT.resolution) debtCardSync();   // 84 那天卡的標題換成「處理債務」(見 debtCardSync)
       clearTodayCard(); clearTodayCard('daily');   // 「今天」的卡不跨日——昨天沒做完的事,隔天不該還掛在面板上
       if(debtSemesterEnd()) return;   // day90 早上「這學期」收尾(見 DEBT),之後不再接日常
       tickCourierOwe();        // 欠五百的期限(見 COURIER)
