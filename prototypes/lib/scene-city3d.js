@@ -1565,7 +1565,7 @@ export function buildCity(THREE, scene){
       // 第四棟(2026-09-15)——第三棟到東和街人行道(x 68)那段原本是空地,自強巷
       // 從 x=48 冒出來時背後什麼都沒有;補一棟,跟第三棟之間留 42~52 當巷口。
       // 圖還沒生,先素色佔位(檔名先訂好,kc 生了圖放進去就會自動換)。
-      { x:60,  w:16, file:'office-tower-4.png', sideFile:'office-tower-4-side.png', color:0x9aa4ac }
+      { x:60,  w:16, file:'office-tower-4.png', color:0x9aa4ac }   // 正面 2026-09-22 kc 生的(米白磁磚+綠玻璃);沒有 sideFile,側面從正面切(見 sideFromFront)
       // 同一輪重生(kc 一次生兩張,一張真的填滿畫面、一張側面又留了黑邊,裁法
       // 跟前面幾次一樣),側面加 ?v=2 破快取,取代掉先前那張磁磚特寫拉伸版。
     ];
@@ -1594,6 +1594,9 @@ export function buildCity(THREE, scene){
         t.repeat.set(f.rx, f.ry); t.offset.set(f.ox, f.oy);
         t.needsUpdate = true;
         towerFront.map = t; towerFront.color.setHex(0xffffff); towerFront.needsUpdate = true;
+        /* 沒有側面圖的樓(目前第四棟)側面從正面切,見 sideFromFront()。kc 點頭的話
+           其他三棟把 sideFile 拿掉就會一起走這條。 */
+        if(!cfg.sideFile) applySide(sideFromFront(img, d/h, cfg.sideStrip));
       }, undefined, () => {});   // 圖還沒生的話載入會 404,靜默失敗,維持素色佔位
       /* 側面(2026-08-26 v2,kc:「側面完全沒貼準,側面貼圖不能用重複的
          也要一樣高度,不然一樓會對不起來」)——v1 是正方形純材質重複拼貼
@@ -1609,8 +1612,7 @@ export function buildCity(THREE, scene){
          裁完之後額外把 repeat.x 取負、offset.x 對應補上 1,做水平翻轉,
          這樣兩側看到的入口端都對齊建築真正的正面(rowZ+DEPTH/2 那端),
          不會一側對一側不對。 */
-      if(cfg.sideFile){
-        new THREE.ImageLoader().load(TEX_DIR + cfg.sideFile, img => {
+      const applySide = img => {
           const f = fitPhoto(img, d/h);   // 同正面:先裁透明邊再不拉伸裁切(2026-09-22)
           const r = f.rx, off = f.ox, ry = f.ry, offy = f.oy;
 
@@ -1629,8 +1631,8 @@ export function buildCity(THREE, scene){
           tB.repeat.set(r, ry); tB.offset.set(off, offy);
           tB.needsUpdate = true;
           towerSideB.map = tB; towerSideB.color.setHex(0xffffff); towerSideB.needsUpdate = true;
-        }, undefined, () => {});
-      }
+      };
+      if(cfg.sideFile) new THREE.ImageLoader().load(TEX_DIR + cfg.sideFile, applySide, undefined, () => {});
       add(box(w,h,d, [towerSideA,towerSideB,towerSideA,towerSideA,towerFront,towerSideA]), cfg.x, h/2, rowZ);
       solid(cfg.x, rowZ, w/2, d/2);
       /* 樓腳下補一圈人行道(2026-09-22)——大樓 1 西側 x=-67,永安街人行道鋪面只鋪到
@@ -4812,17 +4814,45 @@ function riggedCharacter(THREE, idleGltf, mats, heightUnits, parts){
    老規矩對牆面比例:照片比牆寬就左右各切掉一點,比牆高就上下各切掉一點。回傳
    repeat/offset(three.js 貼圖 v=0 在圖的底部,flipY 預設)。alpha 門檻 200,把去背
    邊緣那圈半透明黑邊也一起切掉。canvas 讀不到(跨網域)就退回整張圖。 */
+/* 照片實心範圍:alpha>200 而且不是純白(RGB 全 ≥248)才算內容——GPT 不去背的圖
+   (office-tower-4.png 是 RGB)四周是白底,不切掉會在牆兩側貼出白邊。 */
+function photoBox(a, W, H){
+  let x0 = W, x1 = -1, y0 = H, y1 = -1;
+  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
+    const i = (y*W + x)*4;
+    if(a[i+3] > 200 && !(a[i] >= 248 && a[i+1] >= 248 && a[i+2] >= 248)){ if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
+  }
+  return x1 >= 0 ? { x0, x1, y0, y1 } : null;
+}
+/* 側面從正面切(2026-09-22,kc:「大樓的正面跟側面很沒有連貫感」)——側面不再另外
+   生圖,拿正面照片靠邊那一條(strip,預設寬度 33%,避開中間的大門)+ 同一條鏡射,
+   拼成一張側面:兩端都是大樓自己的邊柱,接縫在中間、落在對稱的窗格上。同一張圖
+   同一個高度縮放,轉角兩邊每層樓的橫線一定對齊、顏色光線一樣。兩條拼起來比側面
+   需要的窄的話橫向拉一點(第四棟拉 1.16 倍),寬的話從外側裁。回傳 canvas,
+   之後照 fitPhoto() 那套當一張圖用。 */
+function sideFromFront(img, sideAspect, stripFrac){
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  const bb = photoBox(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height) || { x0:0, y0:0, x1:img.width-1, y1:img.height-1 };
+  const bw = bb.x1-bb.x0+1, bh = bb.y1-bb.y0+1;
+  const sw = Math.round(bw * (stripFrac || .33));
+  const out = document.createElement('canvas');
+  out.width = Math.max(2, Math.round(bh * sideAspect)); out.height = bh;
+  const o = out.getContext('2d'), half = out.width/2;
+  o.drawImage(img, bb.x0, bb.y0, sw, bh, 0, 0, half, bh);              // 左半:邊柱在最左
+  o.save(); o.translate(out.width, 0); o.scale(-1, 1);
+  o.drawImage(img, bb.x0, bb.y0, sw, bh, 0, 0, half, bh);              // 右半:同一條鏡射,邊柱在最右
+  o.restore();
+  return out;
+}
 function fitPhoto(img, targetAspect){
   let u0 = 0, u1 = 1, v0 = 0, v1 = 1;
   try{
     const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
     const g = c.getContext('2d'); g.drawImage(img, 0, 0);
     const a = g.getImageData(0, 0, c.width, c.height).data;
-    let x0 = c.width, x1 = -1, y0 = c.height, y1 = -1;
-    for(let y = 0; y < c.height; y++) for(let x = 0; x < c.width; x++){
-      if(a[(y*c.width + x)*4 + 3] > 200){ if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
-    }
-    if(x1 >= 0){ u0 = x0/c.width; u1 = (x1+1)/c.width; v0 = 1-(y1+1)/c.height; v1 = 1-y0/c.height; }
+    const bb = photoBox(a, c.width, c.height);
+    if(bb){ u0 = bb.x0/c.width; u1 = (bb.x1+1)/c.width; v0 = 1-(bb.y1+1)/c.height; v1 = 1-bb.y0/c.height; }
   }catch(e){}
   const uw = u1-u0, vh = v1-v0;
   const ia = (uw*img.width)/(vh*img.height);
