@@ -1445,7 +1445,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebtNext()">三十萬・下一段</button><button class="tool" onclick="debugDebtRoute('police')">84→阿正</button><button class="tool" onclick="debugDebtRoute('yuan')">84→阿源</button><button class="tool" onclick="debugDebtRoute('hide')">84→阿霞</button><button class="tool" onclick="debugDebtRoute('none')">84→沒人</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button><button class="tool" onclick="debugLowMood()">情緒見底</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebtNext()">三十萬・下一段</button><button class="tool" onclick="debugDebtRoute('police')">84→阿正</button><button class="tool" onclick="debugDebtRoute('yuan')">84→阿源</button><button class="tool" onclick="debugDebtRoute('hide')">84→阿霞</button><button class="tool" onclick="debugDebtRoute('none')">84→沒人(輸)</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button><button class="tool" onclick="debugLowMood()">情緒見底</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -1532,7 +1532,8 @@ const GAME_OVER_TEXT = {
   calm:    '你打電話回家沒有人接。到了學校，你站在教室門口，沒有人抬頭看你，鐘響了也沒有人來叫你進去。',
   cool:    '你太醜了，走到哪裡都被人在背後笑。沒有人願意再跟你站在一起——連你自己，都開始相信他們說的那些話。',
   mood:    '有一天，你突然什麼都不想做了。不想上學，不想回話，不想再解釋什麼。你把自己關在房間裡，誰敲門都沒有回應。',
-  tuition: '註冊費一直沒繳齊。開學一個多月後，教官室把你的資料轉去輔導處——沒有人問過你，為什麼湊不出那筆錢。'
+  tuition: '註冊費一直沒繳齊。開學一個多月後，教官室把你的資料轉去輔導處——沒有人問過你，為什麼湊不出那筆錢。',
+  get debt(){ return StoryDebt.GAME_OVER; }   // 三十萬最後通牒沒找到人(見 story-debt.js)
 };
 let gameOver = false;
 function triggerGameOver(k){
@@ -11411,7 +11412,7 @@ function debtAfterDays(){
   if(r === 'hide')   return [86, 87, 88, DEBT_END_DAY];
   if(r === 'yuan')   return [86, 88, DEBT_END_DAY];
   if(r === 'police') return [86, 88, DEBT_END_DAY];
-  return [86, DEBT_END_DAY];
+  return [];   // 'none' 直接遊戲結束,沒有後面
 }
 const DEBT_REMIND_LINES = {
   72: '「跟你媽講了沒?」他站在你家鐵門外面,沒有要上樓的意思。「月底。」',
@@ -11436,8 +11437,8 @@ function despawnDebtCollector(){
 function debtCardSync(){
   if(!DEBT.street || DEBT.resolution) { courierCardOff('debt'); return; }
   const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedWorker && '阿霞', DEBT.askedDad && '爸'].filter(Boolean);
-  const hint = (day >= DEBT_DUE_DAY ? '<b>今天下午四點他會來家裡。</b>' : '討債的' + dayToDate(DEBT_DUE_DAY) + '會來要答案。') +
-      '三十萬你還不了,能做的是找人:阿正(警局)、阿源(廟口)、巷子裡的阿霞——他們各有各的條件。' +
+  const hint = (day >= DEBT_DUE_DAY ? '<b>今天下午四點他會來家裡。</b>' : '討債的' + dayToDate(DEBT_DUE_DAY) + '會來要答案,那天是最後期限。') +
+      '三十萬你還不了,到那天你手上要有一個肯出面的人:阿正(警局)、阿源(廟口)、巷子裡的阿霞——他們各有各的條件。' +
       '<br><span class="qpNote">阿正要你風評 ' + DEBT_NEED.brotherRep + ' 以上（目前 ' + ST.star + '）／阿源要你跟過陣頭 ' + DEBT_NEED.yuanTroupe + ' 次以上（目前 ' + troupeTimes() + '）／阿霞要你在她那裡消費過</span>' +
       (asked.length ? '<br><span class="qpNote">答應的人:' + asked.join('、') + '</span>' : '');
   const q = ACTIVE_QUESTS.find(x => x.id === 'debt');
@@ -11630,10 +11631,12 @@ function debtResolve(kind){
     logPerson('worker', '我躲在她那裡。地板,沒有床。');
     logPerson('collector', '我沒有回家。他說月底再來。');
   } else {
-    logPerson('collector', '我什麼都講不出來。他去敲她房間的門。');
+    /* 誰都沒問到 = 輸(kc:「當天是最後通牒了 所以你一定要找人解決」),跟註冊單沒繳同一個結束法。 */
+    logPerson('collector', '我什麼都講不出來。他說那就明天。');
+    DEBT.gameOverPending = true;   // 那三句播完才結束(maybeTriggerStoryNode 的 run 看這個)
   }
 }
-function debtMomGone(){ return DEBT.resolution === 'police' || DEBT.momLeft; }   // 報案之後她不在家了;誰都沒問到那條 day86 她自己走了
+function debtMomGone(){ return DEBT.resolution === 'police'; }   // 報案之後她不在家了
 /* ── 84 之後:躲(hide)──────────────────────────────────────── */
 /* 晚上在阿霞那裡睡——掛在 talkToWorker() 最前面,躲的那幾天她的對話整個換成這個。 */
 function debtHideNight(){
@@ -11786,15 +11789,15 @@ function debtSemesterEnd(){
       { who:'worker', text:'「這個月過了。」她在門口抽第一根菸。' },
       { who:'worker', text:'「下個月呢?」' },
       { who:'pc',     text:'你把書包背起來。' }
-    ] : (key === 'none' || key === 'yuanDropped') ? [
+    ] : key === 'yuanDropped' ? [
       { who:'pc',        text:'早上鐵門外有人按鈴。' },
-      { who:'collector', text:'「' + (key === 'none' ? '她跑了。那就是你。' : '阿源說他不管了。') + '下個月,我來收。」' },
+      { who:'collector', text:'「阿源說他不管了。下個月,我來收。」' },
       { who:'pc',        text:'他下樓了。' }
     ] : null;
   const show = () => {
     gameOver = true;
     document.querySelector('#gameOver .goCap').textContent = '這學期';
-    document.getElementById('goText').textContent = StoryDebt.ENDING[key] || StoryDebt.ENDING.none;
+    document.getElementById('goText').textContent = StoryDebt.ENDING[key] || '';
     document.getElementById('gameOver').classList.add('on');
   };
   busy = true;
@@ -14654,7 +14657,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
         const st = { askedBrother: DEBT.askedBrother, askedYuan: DEBT.askedYuan, askedWorker: DEBT.askedWorker };
         openMenu(node.title, node.menu.filter(item => !item.when || item.when(st)).map(item => ({
           label: item.label, cost: item.cost,
-          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, after || (() => {})); }
+          run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => { if(DEBT.gameOverPending) triggerGameOver('debt'); else if(after) after(); }); }
         })));
       });
       return;
