@@ -1445,7 +1445,7 @@
   <div id="spRule"><div id="spStats"></div></div>
   <div id="spTip">按 空白鍵 跳過</div>
 </div></div>
-<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebt()">三十萬</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button></div></details>
+<details id="devTools"><summary>測試工具</summary><div id="bar"><button class="tool" onclick="debugReload()">重來</button><button class="tool" onclick="debugJumpTemple()">跳廟口</button><button class="tool" onclick="debugJumpHome()">跳家裡</button><button class="tool" onclick="debugJumpSchool()">跳學校</button><button class="tool" onclick="debugJumpMainStreet()">跳中華路</button><button class="tool" onclick="debugExam('mid')">期中考</button><button class="tool" onclick="debugExamMail('mid')">成績單</button><button class="tool" onclick="debugExam('fin')">期末考</button><button class="tool" onclick="debugExamMail('fin')">期末成績單</button><button class="tool" onclick="debugFieldTrip()">校外教學</button><button class="tool" onclick="debugClock()">撥時鐘 +3h</button><button class="tool" onclick="kaiRunArm()">阿凱送袋子</button><button class="tool" onclick="debugSleepNight()">睡一晚</button><span class="tool" style="display:inline-flex;align-items:center;gap:4px">第<input id="dbgDay" type="number" min="1" max="120" value="2" style="width:44px;font:inherit;text-align:center;background:none;border:0;border-bottom:1px solid currentColor;color:inherit">天</span><button class="tool" onclick="debugJumpDay()">跳到那天早上</button><button class="tool" onclick="debugNextDay()">下一個行動天</button><button class="tool" onclick="debugFillFull()">補飽足</button><button class="tool" onclick="debugFillMoney()">補錢 +$1000</button><button class="tool" onclick="debugSnitchArm()">贓物協尋</button><button class="tool" onclick="debugHomeTraces()">家裡近況</button><button class="tool" onclick="debugCourier()">送貨</button><button class="tool" onclick="debugCourier(true)">送貨第二階</button><button class="tool" onclick="debugArrest()">阿凱被抓</button><button class="tool" onclick="debugDebt()">三十萬</button><button class="tool" onclick="debugWaterCut()">停水</button><button class="tool" onclick="debugBlood()">捐血</button><button class="tool" onclick="debugSpanPage()">跨天事件</button><button class="tool" onclick="debugLowMood()">情緒見底</button></div></details>
 <div id="fps">—</div>
 <div id="coord">x 0, z 0</div>
 
@@ -2554,6 +2554,14 @@ function debugJumpTemple(){
 }
 window.debugJumpHome = debugJumpHome;
 window.debugJumpSchool = debugJumpSchool;
+/* 情緒見底(2026-09-22,測「找人/失控」那組,見 LOWMOOD)——情緒壓到 10、跳到校門口:
+   西邊有小狗、東邊教官在目擊半徑內,路邊的車可以踹;阿成/小美/阿源/爸媽自己走去。 */
+function debugLowMood(){
+  debugJumpSchool();
+  chg('mood', 10 - ST.mood);
+  toast('情緒壓到 10。去找阿成／小美／阿源／教官／爸媽，或對著別人的車、公車亭垃圾桶按空白鍵。', 3600);
+}
+window.debugLowMood = debugLowMood;
 window.debugJumpTemple = debugJumpTemple;
 /* 贓物協尋測試鈕(2026-09-14,kc 要驗這條)——正常要 day52 + 認識阿源才會由
    阿正主動開口;這顆把門檻跳過(SNITCH_QUEST.armed)、補上「認識阿源」,人丟到
@@ -8173,6 +8181,7 @@ function openIndoorSpot(id){
     else if(id === 'dad'){
       if(meterFound() && !METER.dadDone){ meterDadScene(); return; }   // 水表那天晚上(見 METER)
       if(debtAskDad()) return;   // 三十萬:「那是你媽的事」(見 DEBT)
+      if(lowMoodHome('dad')) return;   // 情緒見底想跟他講話,他說他才不高興(見 LOWMOOD)
       const lines = dadCheckinLines();
       toast(lines[Math.floor(Math.random()*lines.length)], 3400);
     }
@@ -8207,6 +8216,7 @@ function openIndoorSpot(id){
         return;
       }
       if(dailyGotoReady('mom')){ runDailyGoto('mom'); return; }   // 今天的事正好是媽開口(見 DAILY_EVENTS)
+      if(lowMoodHome('mom')) return;   // 情緒見底想跟她講話,她說要錢沒有(見 LOWMOOD)
       /* 遊藝場迴響(2026-08-26,kc:「觸發這句話後下次跟媽媽講話,媽媽會說
          怎麼,你最近也去遊藝場嗎?是不是很上頭啊?這樣,然後你會有回話的
          選項」)——只在 ARCADE_GAMBLE.momEchoShown(輸到 $500 那個「想起
@@ -15122,6 +15132,11 @@ function updateCity(dt){
       if(Math.hypot(pos.x-p.x, pos.z-p.z) < 3.2){ nearProp = { type:'play', ref:p }; break; }
     if(!nearProp) for(const m of city.motos)
       if(!m.ridden && !(MOTO_IMPOUND.active && m === MOTO_IMPOUND.motoRef) && Math.hypot(pos.x-m.x, pos.z-m.z) < 3.2){ nearProp = { type:'moto', ref:m }; break; }
+    /* 公車亭垃圾桶只在情緒見底時變成互動點(踹,見 LOWMOOD)。 */
+    if(!nearProp && ST.mood <= MOOD_TALK_MIN){
+      const bp = binWorldPos();
+      if(bp && Math.hypot(pos.x-bp.x, pos.z-bp.z) < 3.2) nearProp = { type:'bin', ref:bp };
+    }
     if(!nearProp && !ALLEY_WORKER.gone && Math.hypot(pos.x-ALLEY_WORKER.x, pos.z-ALLEY_WORKER.z) < 3.2)
       nearProp = { type:'worker', ref:ALLEY_WORKER };
     if(!nearProp && Math.hypot(pos.x-ALLEY_WORKER2.x, pos.z-ALLEY_WORKER2.z) < 3.2)
@@ -15276,7 +15291,8 @@ function updateCity(dt){
   } else if(nearProp && !busy && !dlg.on){
     hintEl.innerHTML = nearProp.type === 'pet' ? nearProp.ref.label + '　按 <b>空白鍵</b> 摸摸看'
                       : nearProp.type === 'play' ? nearProp.ref.label + '　按 <b>空白鍵</b> 玩一下'
-                      : nearProp.type === 'moto' ? (nearProp.ref.owned ? '按 <b>空白鍵</b> 騎上去' : '按 <b>空白鍵</b> 騎走別人的車')
+                      : nearProp.type === 'moto' ? (nearProp.ref.owned ? '按 <b>空白鍵</b> 騎上去' : ST.mood <= MOOD_TALK_MIN ? '按 <b>空白鍵</b> 對著別人的車' : '按 <b>空白鍵</b> 騎走別人的車')
+                      : nearProp.type === 'bin' ? '按 <b>空白鍵</b> 踹垃圾桶'
                       : nearProp.type === 'worker' ? '按 <b>空白鍵</b> 搭話'
                       : nearProp.type === 'statue' ? '按 <b>空白鍵</b> 看看牌子上寫什麼'
                       : nearProp.type === 'altar' ? '按 <b>空白鍵</b> 靠近功德箱'
@@ -16485,6 +16501,7 @@ function talkToMei(){
   logTalk('小美');
   if(bloodAsk('mei')) return;   // 捐血那天(見 BLOOD)
   if(meterAsk('mei')) return;   // 水表去哪了(見 METER)
+  if(meiHomeAsk()) return;      // 家裡的事講給她聽過之後,每天先問一句(見 LOWMOOD)
   /* 跟同學培養感情(見 checkFieldTrip() 附近 CLASSMATE_QUEST 那則長筆記)
      ——擋在最前面,校外教學這趟第一次找她講話只播這句、不進平常 met/
      dated 那套判斷,避免這次的溫馨閒聊被帥潮門檻擋掉或誤觸發約會流程。 */
@@ -16735,6 +16752,7 @@ function talkToJiaoguan(){
   logTalk('教官');
   if(bloodAsk('jiaoguan')) return;   // 捐血那天(見 BLOOD)
   if(meterAsk('jiaoguan')) return;   // 水表去哪了(見 METER)
+  if(ventWitnessLine('jiaoguan')) return;   // 他看到你踹車/踹垃圾桶(見 LOWMOOD)
   const D = NpcSchool.JIAOGUAN;
   if(!YUAN.hasTattoo || JIAOGUAN.confronted){
     /* 校門口的教官認得上下課時間(2026-09-11,kc 定案,見 SCHOOL_IN_MINUTE):
@@ -17334,6 +17352,7 @@ function talkToBrother(){
   logTalk('小美哥');
   if(bloodAsk('brother')) return;   // 捐血那天(見 BLOOD)
   if(meterAsk('brother')) return;   // 水表去哪了(見 METER)
+  if(ventWitnessLine('brother')) return;   // 他看到你踹車/踹垃圾桶(見 LOWMOOD)
   if(arrestHearing()) return;       // 少年隊那天(見 ARREST)
   if(debtAskBrother()) return;      // 三十萬:可以報案,但那是告你媽(見 DEBT)
   if(arrestBrotherAgain()) return;  // 說了不知道之後他每次都再問(見 ARREST)
@@ -18689,12 +18708,191 @@ const DIALOGUE_PROP_TYPES = new Set(['worker','ayi','acheng','motoboss','yuan','
    隨便撞到。攔住的只有「跟人對話」類互動(這個 Set),街上小互動(摸貓狗/
    撿垃圾/買東西吃)不受影響——這些正是玩家用來回血的管道,擋住就矛盾了。 */
 const MOOD_TALK_MIN = 15;
+/* ===== 情緒見底時去找人 / 失控(2026-09-22,kc 定案「1 跟 2 不錯」,見 DESIGN_NOTES
+   「待辦:管控情緒的任務」)=====
+   ①原本 ≤15 一律攔住只跳一句 toast——現在阿成/小美/阿源/教官四個人的對話照樣
+   打得開,但播的不是平常內容,是「看到你這樣」的反應,每個人接你的方式不一樣
+   (阿成不問、小美會問、阿源要幫你處理、教官叫你去輔導室);家裡爸媽在
+   openIndoorSpot() 那邊另外接,家裡是沒有出口的,情緒反而再扣。一人一天一次
+   (day 旗標),同一天第二次只有一句、不加分。其他 NPC 維持原本的攔法。
+   ②見底時街上多出兩個平常沒有的壞選項:踹別人的機車、踹公車亭垃圾桶——
+   當下情緒回得快,風評掉,教官/阿正在 WITNESS_R 內看到的話記一筆,下次跟他
+   講話先被問這件事(ventWitnessLine)。遊戲不阻止你,只讓你面對。
+   數字(阿成 +10、小美 +8/+2、阿源 +12/+8/+4、爸 −5、媽 −3、踹車 +8/風評 −2、
+   踹垃圾桶 +6/風評 −1、目擊半徑 22)全是這輪自己抓的。 */
+const LOWMOOD = { acheng:-1, mei:-1, yuan:-1, jiaoguan:-1, mom:-1, dad:-1,
+                  yuanTimes:0, meiKnows:false, meiAskedDay:-1,
+                  kicks:0, witness:null };   // witness: { who:'jiaoguan'|'brother', what:'車'|'垃圾桶', day }
+const LOWMOOD_TALK_TYPES = new Set(['acheng','mei','yuan','jiaoguan']);
+const WITNESS_R = 22;
+function lowMoodTalk(type){
+  const nm = pcName();
+  if(type === 'acheng'){
+    if(LOWMOOD.acheng === day){ say('acheng', '他看了你一眼，沒有再切東西。「回去了。」'); return; }
+    LOWMOOD.acheng = day;
+    playBeats([
+      { who:'pc',     text:'你走到攤子前面，什麼都沒有說。' },
+      { who:'acheng', text:'他看了你一下，切了一盤滷味推過來。「坐。」' },
+      { who:'pc',     text:'你坐在板凳上，他繼續切他的東西。兩個人都沒有講話，滷味的味道慢慢飄過來。' },
+      { who:'pc',     text:'過了很久，你把那盤吃完了。他還是沒有問你怎麼了。（情緒 +10）' }
+    ], 0, () => {
+      chg('mood', 10);
+      logDay('心情很差，跑去阿成那裡坐。他什麼都沒問，切了一盤滷味給我。');
+      logPerson('acheng', '心情很差的時候去找他，他什麼都沒問，切了一盤滷味叫我坐。');
+    });
+    return;
+  }
+  if(type === 'mei'){
+    if(LOWMOOD.mei === day){ say('mei', '「你還好嗎？」她看了你一下，沒有再問下去。'); return; }
+    LOWMOOD.mei = day;
+    say('mei', '「' + nm + '，你怎麼了？」', () => {
+      openMenu('小美', [
+        { label:'把家裡的事講給她聽', cost:'情緒 +8、歸屬感 +4', run(){
+            LOWMOOD.meiKnows = true;
+            chg('mood', 8); chg('calm', 4);
+            playBeats([
+              { who:'pc',  text:'你把家裡的事講了。講到一半你發現自己講得很快，好像怕她會打斷。' },
+              { who:'mei', text:'她沒有打斷。聽完她說：「我不知道要說什麼。」' },
+              { who:'mei', text:'「但是你講了，我有聽到。」' }
+            ], 0, () => {
+              logDay('心情很差，把家裡的事講給小美聽了。她說她不知道要說什麼，但是她有聽到。');
+              logPerson('mei', '家裡的事我講給她聽過了。她之後見到我都會問家裡還好嗎。');
+            });
+          } },
+        { label:'「沒事。」', cost:'情緒 +2', run(){
+            chg('mood', 2);
+            say('mei', '「喔。」她沒有再追問，但是陪你站了一下才走。');
+            logDay('小美問我怎麼了，我說沒事。');
+          } },
+        { label:'轉頭走掉', run(){
+            say('pc', '你沒有回答，轉身走掉。她在後面叫了你一聲，你沒有回頭。');
+          } }
+      ]);
+    });
+    return;
+  }
+  if(type === 'yuan'){
+    if(LOWMOOD.yuan === day){ say('yuan', '「不是剛講過。去走一走。」'); return; }
+    LOWMOOD.yuan = day; LOWMOOD.yuanTimes++;
+    const n = LOWMOOD.yuanTimes;   // 他的話按第幾次排死,不抽
+    if(n === 1){
+      playBeats([
+        { who:'yuan', text:'「幹，你這什麼臉。誰惹你？講，我幫你處理。」' },
+        { who:'pc',   text:'「沒有誰。就是很煩。」' },
+        { who:'yuan', text:'「煩什麼。在這裡坐，沒人會來煩你。」' },
+        { who:'pc',   text:'他把菸盒推過來，你沒有拿。你在他旁邊坐了很久。（情緒 +12）' }
+      ], 0, () => {
+        chg('mood', 12);
+        logDay('心情很差，跑去廟口找阿源。他說誰惹我他幫我處理。');
+        logPerson('yuan', '心情很差的時候去找他，他說誰惹我他幫我處理。');
+      });
+    } else if(n === 2){
+      playBeats([
+        { who:'yuan', text:'「又怎麼了。」' },
+        { who:'pc',   text:'你搖搖頭。他沒有再問，讓你在旁邊坐著。（情緒 +8）' }
+      ], 0, () => { chg('mood', 8); logDay('又去阿源那裡坐了一下。'); });
+    } else {
+      playBeats([
+        { who:'yuan', text:'「' + nm + '，你不能每次都跑來我這裡。」' },
+        { who:'yuan', text:'「坐啦。但是你欠我的，我會記。」' },
+        { who:'pc',   text:'你坐下來，這次沒有那麼鬆。（情緒 +4、歸屬感 −3）' }
+      ], 0, () => { chg('mood', 4); chg('calm', -3); logDay('又去找阿源。他說我欠他的他會記。'); logPerson('yuan', '他說我不能每次都跑去找他，我欠他的他會記。'); });
+    }
+    return;
+  }
+  if(type === 'jiaoguan'){
+    if(LOWMOOD.jiaoguan === day){ say('jiaoguan', '「還在這裡？」'); return; }
+    LOWMOOD.jiaoguan = day;
+    playBeats([
+      { who:'jiaoguan', text:'「你這什麼臉。」' },
+      { who:'pc',       text:'你沒有回答。' },
+      { who:'jiaoguan', text:'「有事就去輔導室講。不要在校門口晃。」' },
+      { who:'pc',       text:'他說完就轉回去看馬路，好像剛剛那句是講給空氣聽的。' }
+    ], 0, () => { logDay('心情很差的時候在校門口被教官看到。他叫我去輔導室。'); });
+    return;
+  }
+}
+/* 家裡的版本(爸媽,從 openIndoorSpot() 呼叫)——回傳 true 表示這次互動被接走了。 */
+function lowMoodHome(who){
+  if(ST.mood > MOOD_TALK_MIN || LOWMOOD[who] === day) return false;
+  LOWMOOD[who] = day;
+  busy = true;
+  const beats = who === 'mom' ? [
+    { who:'pc',  text:'你在沙發旁邊站了一下，想跟她講點什麼。' },
+    { who:'mom', text:'她眼睛沒有離開電視。「幹嘛，一臉衰。要錢沒有。」' },
+    { who:'pc',  text:'你把話吞回去。（情緒 −3）' }
+  ] : [
+    { who:'pc',  text:'你在他旁邊坐下來，想講點什麼。' },
+    { who:'dad', text:'「你在不高興什麼？」他眼睛都沒有睜開。「我才不高興。」' },
+    { who:'pc',  text:'客廳只剩電視的聲音。（情緒 −5）' }
+  ];
+  playBeats(beats, 0, () => {
+    chg('mood', who === 'mom' ? -3 : -5);
+    logDay(who === 'mom' ? '心情很差，想跟媽講話。她說要錢沒有。' : '心情很差，想跟爸講話。他說他才不高興。');
+    busy = false;
+  });
+  return true;
+}
+/* 小美知道家裡的事之後,每天第一次見到你先問一句(從 talkToMei() 開頭呼叫)。 */
+function meiHomeAsk(){
+  if(!LOWMOOD.meiKnows || LOWMOOD.meiAskedDay === day || ST.mood <= MOOD_TALK_MIN) return false;
+  LOWMOOD.meiAskedDay = day;
+  say('mei', '「你家還好嗎？」', () => talkToMei());
+  return true;
+}
+/* 踹車/踹垃圾桶——共用的結算+目擊判定。 */
+function ventKick(what){
+  LOWMOOD.kicks++;
+  const gain = what === '車' ? 8 : 6, rep = what === '車' ? -2 : -1;
+  chg('mood', gain); chg('star', rep);
+  const pos = hero.group.position;
+  const seenJ = Math.hypot(pos.x-JIAOGUAN.x, pos.z-JIAOGUAN.z) < WITNESS_R;
+  const seenB = Math.hypot(pos.x-BROTHER.x, pos.z-BROTHER.z) < WITNESS_R;
+  const seenBy = seenJ ? 'jiaoguan' : seenB ? 'brother' : null;
+  if(seenBy && !LOWMOOD.witness) LOWMOOD.witness = { who:seenBy, what, day };
+  const base = what === '車'
+    ? '你對著那台車踹了一腳，後照鏡歪掉了。腳很痛，但是胸口那股東西鬆了一點。'
+    : '你把垃圾桶踹倒，裡面的東西滾出來一地。';
+  const tail = seenBy === 'jiaoguan' ? '\n校門口那邊，教官往你這裡看過來。' : seenBy === 'brother' ? '\n警局門口，阿正抬起頭往你這裡看。' : '';
+  toast(base + tail + `\n（情緒 +${gain}、風評 ${rep}）`, 3400);
+  logDay(what === '車' ? '心情很差，踹了路邊一台機車。' : '心情很差，把公車亭的垃圾桶踹倒。');
+}
+/* 目擊之後第一次跟教官/阿正講話,先被問這件事(從 talkToJiaoguan()/talkToBrother() 開頭呼叫)。 */
+function ventWitnessLine(who){
+  const w = LOWMOOD.witness;
+  if(!w || w.who !== who) return false;
+  LOWMOOD.witness = null;
+  const when = w.day === day ? '剛剛' : dayToDate(w.day);
+  if(who === 'jiaoguan'){
+    playBeats([
+      { who:'jiaoguan', text:`「${when}在踹人家${w.what}的是不是你？」` },
+      { who:'pc',       text:'你沒有否認。' },
+      { who:'jiaoguan', text:'「不爽可以講。踹東西是要幹什麼？」他把你的名字記下來。（風評 −3）' }
+    ], 0, () => { chg('star', -3); logDay('被教官問踹' + w.what + '的事，他把我的名字記下來。'); });
+  } else {
+    playBeats([
+      { who:'brother', text:`「${when}有人踹${w.what}，我在門口看到了。」` },
+      { who:'pc',      text:'你低著頭沒有講話。' },
+      { who:'brother', text:'「這次算了。下次不是我看到，就不是這樣講。」（風評 −3）' }
+    ], 0, () => { chg('star', -3); logDay('阿正說他看到我踹' + w.what + '，這次算了。'); });
+  }
+  return true;
+}
+function binWorldPos(){
+  const b = city.busStop && city.busStop.trashBinMesh;
+  if(!b) return null;
+  return b.mesh.getWorldPosition(new THREE.Vector3());
+}
 function interactProp(prop){
   if(DIALOGUE_PROP_TYPES.has(prop.type)){
     { const r = spendBlockedReason(5); if(r){ toast(r, 2400); return; } }
-    if(ST.mood <= MOOD_TALK_MIN){ toast('你現在沒什麼力氣講話，先去做點讓自己開心一點的事吧。', 2600); return; }
+    if(ST.mood <= MOOD_TALK_MIN){
+      if(LOWMOOD_TALK_TYPES.has(prop.type)){ chg('stamina', -5); lowMoodTalk(prop.type); return; }
+      toast('你現在沒什麼力氣講話，先去做點讓自己開心一點的事吧。', 2600); return;
+    }
     chg('stamina', -5);
   }
+  if(prop.type === 'bin'){ ventKick('垃圾桶'); return; }
   /* 搭話本身還是在街上彈選單(2026-08-20 kc 糾正:「付錢才會換場景」,
      不是走近她講話就先切場景)——talkToWorker() 開場白+選單維持在 3D
      街景上,只有選「付錢,跟她走」才真的觸發 enterMassage() 切進室內,
@@ -18775,6 +18973,16 @@ function interactProp(prop){
        走 talkToMotoBoss()(見上面 offerBuyMoto()/offerMotoPayment()/
        offerMotoColor() 那組),街上碰到的車一律是「別人的」或「已經是
        自己的」,按空白鍵都是直接騎上去,不會再跳買車選單。 */
+    /* 情緒見底時別人的車多一個「踹一腳」(見上面 LOWMOOD)。 */
+    if(!prop.ref.owned && ST.mood <= MOOD_TALK_MIN){
+      const m = prop.ref;
+      openMenu('別人的機車', [
+        { label:'踹一腳', cost:'情緒 +8、風評 −2', run(){ ventKick('車'); } },
+        { label:'騎走', cost:'風評 −1', run(){ mountMoto(m); } },
+        { label:'算了', cls:'back', run(){} }
+      ]);
+      return;
+    }
     mountMoto(prop.ref);
     return;
   }
@@ -18989,7 +19197,7 @@ const SAVE_OBJECTS = {
   ST, KNOWLEDGE, equipped, TEACHER_STATE, BOOKSHELF_CLUES, SCHOOL_CHOICE, KAI_RUN, DAILY,
   AYI, ACHENG, YUAN, FORTUNE, MOTOBOSS, MEI, AREN, KAI, BROTHER, JIAOGUAN, FAT, DISCIPLINE,
   ALLEY_WORKER, AXIA, CLASSFUND, CLASSMATE_QUEST, GRANDMA, TATTOO_DOG, TATTOO_BREAD,
-  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB, PEOPLE, INTRO, COURIER, STORY_CHOICE, ARREST, DEBT
+  MOTO_IMPOUND, ID_CARD_QUEST, SNITCH_QUEST, WATCHJOB, FOREMAN, MOTO_LOAN, ARCADE_GAMBLE, MIDTERM, FINAL, WATER_CUT, BLOOD, BO, METER, NOTICE_JOB, PEOPLE, INTRO, COURIER, STORY_CHOICE, ARREST, DEBT, LOWMOOD
 };
 /* ② 陣列:整個內容換掉但保留同一個陣列物件(splice,理由同上)。 */
 const SAVE_LISTS = { owned, FOOD, TRASH, ACTIVE_QUESTS, BILLS };
