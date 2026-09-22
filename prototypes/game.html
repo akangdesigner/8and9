@@ -12923,10 +12923,11 @@ function faceNpcTo(npc, x, z){
   const g = npc.group.position;
   npc.setFacing(Math.atan2(x - g.x, z - g.z));
 }
-function walkToNpc(nx, nz, cb){
+function walkToNpc(nx, nz, cb, stopAt){
   const pos = hero.group.position;
   const dx = pos.x - nx, dz = pos.z - nz, d = Math.hypot(dx, dz) || 1;
-  const tx = nx + dx/d * 1.6, tz = nz + dz/d * 1.6;
+  const r = stopAt || 1.6;   // stopAt:摸貓狗那種要更貼近的傳小一點(2026-09-22)
+  const tx = nx + dx/d * r, tz = nz + dz/d * r;
   busy = true;
   walkIn = { x:tx, z:tz, done(){
     hero.group.rotation.y = Math.atan2(nx - tx, nz - tz);
@@ -18988,12 +18989,17 @@ function interactProp(prop){
   }
   if(prop.type === 'pet'){
     { const r = spendBlockedReason(3); if(r){ toast(r, 2400); return; } }
-    busy = true;
     /* 貓/狗共用摸的動作會摸空——貓矮,狗那份「Petting Animal」動畫伸手的
        高度對不到貓身上(kc:「貓還是完全沒摸到,貓要摸得更低」)。貓走
        pet_low(蹲到底那份,見 scene-city3d.js 的 rig.once 註解),其餘(狗)
        維持原本的 pet。 */
     const anim = prop.ref.label === '貓' ? 'pet_low' : 'pet';
+    /* 先走到牠旁邊、轉過去面對牠再伸手(2026-09-22 kc:「摸都沒摸到 這個動作
+       要對齊」)——原本站在 3.2 半徑內任何位置、面向哪裡都直接播動畫,手常常
+       伸向空氣。走 walkToNpc() 那套(跟找 NPC 講話同一個對齊法),停在離牠
+       中心 1.2 的位置(狗身長 1.8,從側面靠過去手才搆得到背)。 */
+    walkToNpc(prop.ref.x, prop.ref.z, () => {
+    busy = true;
     hero.playOnce(anim, () => {
       busy = false;
       chg('mood', 3);
@@ -19009,6 +19015,7 @@ function interactProp(prop){
         setTimeout(() => toast('牠讓你摸了一陣子。可以回去跟阿姨說一聲了。', 2600), 2600);
       }
     });
+    }, 1.2);
   } else if(prop.type === 'tattoodog'){
     /* 走失狗(2026-08-28,kc:「你把牠抱起來,帶回刺青店給老闆 會自動回到
        刺青店跟老闆對話 然後會得到獎勵」)——跟 'pet' 那段同一套起手式
