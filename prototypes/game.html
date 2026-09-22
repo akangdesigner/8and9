@@ -11610,8 +11610,19 @@ function debtRefuge(who){
   return true;
 }
 function debtRefugeScene(){
+  /* 那一幕在越式按摩店裡面演(2026-09-22 kc:「觸發阿霞對話的時候場景是要在越式按摩店(場景人物只有阿霞)」)
+     ——跟 enterMassage() 同一套進場(她畫在背景照片裡,房間裡只有她),不開服務選單;演完 leaveIndoor() 回巷子。 */
+  returnTo.x = hero.group.position.x; returnTo.z = hero.group.position.z;
   busy = true;
-  fade('下午四點', () => {
+  fade('越式按摩', () => {
+    MODE = 'indoor'; PLACE = 'massage';
+    document.getElementById('city').style.display = 'none';
+    wlabelsEl.style.display = 'none';
+    document.getElementById('indoor').classList.add('on');
+    IN.px = 129; IN.py = 340; IN.face = 'R';
+    document.getElementById('where').textContent = '越式按摩';
+    hintEl.classList.remove('on');
+    paintMassageBackdrop();
     minute = DEBT_DUE_MINUTE; syncHUD();
     busy = true;
     playBeats([
@@ -11628,7 +11639,7 @@ function debtRefugeScene(){
       logDay('下午四點前躲到阿霞那裡。討債的來巷子問,她說她沒看過我,叫他不要進來。');
       logPerson('worker', '討債的那天她把人擋在門外,說她在服務客人。');
       toast('他走了。從今天起你睡在阿霞那裡,家不能回。\n（情緒 −8）', 4600);
-      busy = false;
+      leaveIndoor();   // 回到巷子,晚上再來睡
     });
     seenStoryDays.add('debt-84');   // 四點那一幕在這裡演過了,家裡那節不再播
   });
