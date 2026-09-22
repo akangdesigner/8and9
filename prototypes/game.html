@@ -18728,13 +18728,13 @@ const WITNESS_R = 22;
 function lowMoodTalk(type){
   const nm = pcName();
   if(type === 'acheng'){
-    if(LOWMOOD.acheng === day){ say('acheng', '他看了你一眼，沒有再切東西。「回去了。」'); return; }
+    if(LOWMOOD.acheng === day){ say('acheng', '他看了你一眼。「回去了。」'); return; }
     LOWMOOD.acheng = day;
     playBeats([
-      { who:'pc',     text:'你走到攤子前面，什麼都沒有說。' },
+      { who:'pc',     text:'你走到攤子前面。' },
       { who:'acheng', text:'他看了你一下，切了一盤滷味推過來。「坐。」' },
-      { who:'pc',     text:'你坐在板凳上，他繼續切他的東西。兩個人都沒有講話，滷味的味道慢慢飄過來。' },
-      { who:'pc',     text:'過了很久，你把那盤吃完了。他還是沒有問你怎麼了。（情緒 +10）' }
+      { who:'pc',     text:'你坐在板凳上。他的刀在砧板上一下一下的，鍋子冒出來的煙飄到你這邊。' },
+      { who:'pc',     text:'你把那盤吃完，竹籤放回盤子裡。他把盤子收走，繼續切下一份。（情緒 +10）' }
     ], 0, () => {
       chg('mood', 10);
       logDay('心情很差，跑去阿成那裡坐。他什麼都沒問，切了一盤滷味給我。');
@@ -18743,7 +18743,7 @@ function lowMoodTalk(type){
     return;
   }
   if(type === 'mei'){
-    if(LOWMOOD.mei === day){ say('mei', '「你還好嗎？」她看了你一下，沒有再問下去。'); return; }
+    if(LOWMOOD.mei === day){ say('mei', '「你還好嗎？」她看了你一眼，把頭轉回去。'); return; }
     LOWMOOD.mei = day;
     say('mei', '「' + nm + '，你怎麼了？」', () => {
       openMenu('小美', [
@@ -18752,7 +18752,7 @@ function lowMoodTalk(type){
             chg('mood', 8); chg('calm', 4);
             playBeats([
               { who:'pc',  text:'你把家裡的事講了。講到一半你發現自己講得很快，好像怕她會打斷。' },
-              { who:'mei', text:'她沒有打斷。聽完她說：「我不知道要說什麼。」' },
+              { who:'mei', text:'她聽到最後，才說：「我不知道要說什麼。」' },
               { who:'mei', text:'「但是你講了，我有聽到。」' }
             ], 0, () => {
               logDay('心情很差，把家裡的事講給小美聽了。她說她不知道要說什麼，但是她有聽到。');
@@ -18761,11 +18761,11 @@ function lowMoodTalk(type){
           } },
         { label:'「沒事。」', cost:'情緒 +2', run(){
             chg('mood', 2);
-            say('mei', '「喔。」她沒有再追問，但是陪你站了一下才走。');
+            say('mei', '「喔。」她跟你一起站著看了一下馬路，然後才走。');
             logDay('小美問我怎麼了，我說沒事。');
           } },
         { label:'轉頭走掉', run(){
-            say('pc', '你沒有回答，轉身走掉。她在後面叫了你一聲，你沒有回頭。');
+            say('pc', '你轉身走掉。她在後面叫了你一聲。');
           } }
       ]);
     });
@@ -18780,7 +18780,7 @@ function lowMoodTalk(type){
         { who:'yuan', text:'「幹，你這什麼臉。誰惹你？講，我幫你處理。」' },
         { who:'pc',   text:'「沒有誰。就是很煩。」' },
         { who:'yuan', text:'「煩什麼。在這裡坐，沒人會來煩你。」' },
-        { who:'pc',   text:'他把菸盒推過來，你沒有拿。你在他旁邊坐了很久。（情緒 +12）' }
+        { who:'pc',   text:'他把菸盒推過來，你把它推回去。你在他旁邊坐到廟口的燈亮起來。（情緒 +12）' }
       ], 0, () => {
         chg('mood', 12);
         logDay('心情很差，跑去廟口找阿源。他說誰惹我他幫我處理。');
@@ -18789,13 +18789,13 @@ function lowMoodTalk(type){
     } else if(n === 2){
       playBeats([
         { who:'yuan', text:'「又怎麼了。」' },
-        { who:'pc',   text:'你搖搖頭。他沒有再問，讓你在旁邊坐著。（情緒 +8）' }
+        { who:'pc',   text:'你搖搖頭，在他旁邊坐下。他把手機拿出來滑。（情緒 +8）' }
       ], 0, () => { chg('mood', 8); logDay('又去阿源那裡坐了一下。'); });
     } else {
       playBeats([
         { who:'yuan', text:'「' + nm + '，你不能每次都跑來我這裡。」' },
         { who:'yuan', text:'「坐啦。但是你欠我的，我會記。」' },
-        { who:'pc',   text:'你坐下來，這次沒有那麼鬆。（情緒 +4、歸屬感 −3）' }
+        { who:'pc',   text:'你坐下來，屁股只沾到板凳的邊。（情緒 +4、歸屬感 −3）' }
       ], 0, () => { chg('mood', 4); chg('calm', -3); logDay('又去找阿源。他說我欠他的他會記。'); logPerson('yuan', '他說我不能每次都跑去找他，我欠他的他會記。'); });
     }
     return;
@@ -18805,9 +18805,9 @@ function lowMoodTalk(type){
     LOWMOOD.jiaoguan = day;
     playBeats([
       { who:'jiaoguan', text:'「你這什麼臉。」' },
-      { who:'pc',       text:'你沒有回答。' },
+      { who:'pc',       text:'你看著地上。' },
       { who:'jiaoguan', text:'「有事就去輔導室講。不要在校門口晃。」' },
-      { who:'pc',       text:'他說完就轉回去看馬路，好像剛剛那句是講給空氣聽的。' }
+      { who:'pc',       text:'他說完就轉回去看馬路。' }
     ], 0, () => { logDay('心情很差的時候在校門口被教官看到。他叫我去輔導室。'); });
     return;
   }
@@ -18818,11 +18818,11 @@ function lowMoodHome(who){
   LOWMOOD[who] = day;
   busy = true;
   const beats = who === 'mom' ? [
-    { who:'pc',  text:'你在沙發旁邊站了一下，想跟她講點什麼。' },
+    { who:'pc',  text:'你走到沙發旁邊。' },
     { who:'mom', text:'她眼睛沒有離開電視。「幹嘛，一臉衰。要錢沒有。」' },
-    { who:'pc',  text:'你把話吞回去。（情緒 −3）' }
+    { who:'pc',  text:'你回房間，把門關上。（情緒 −3）' }
   ] : [
-    { who:'pc',  text:'你在他旁邊坐下來，想講點什麼。' },
+    { who:'pc',  text:'你在他旁邊坐下來。' },
     { who:'dad', text:'「你在不高興什麼？」他眼睛都沒有睜開。「我才不高興。」' },
     { who:'pc',  text:'客廳只剩電視的聲音。（情緒 −5）' }
   ];
@@ -18851,7 +18851,7 @@ function ventKick(what){
   const seenBy = seenJ ? 'jiaoguan' : seenB ? 'brother' : null;
   if(seenBy && !LOWMOOD.witness) LOWMOOD.witness = { who:seenBy, what, day };
   const base = what === '車'
-    ? '你對著那台車踹了一腳，後照鏡歪掉了。腳很痛，但是胸口那股東西鬆了一點。'
+    ? '你對著那台車踹了一腳，後照鏡歪掉了。腳趾痛了很久。'
     : '你把垃圾桶踹倒，裡面的東西滾出來一地。';
   const tail = seenBy === 'jiaoguan' ? '\n校門口那邊，教官往你這裡看過來。' : seenBy === 'brother' ? '\n警局門口，阿正抬起頭往你這裡看。' : '';
   toast(base + tail + `\n（情緒 +${gain}、風評 ${rep}）`, 3400);
@@ -18866,13 +18866,13 @@ function ventWitnessLine(who){
   if(who === 'jiaoguan'){
     playBeats([
       { who:'jiaoguan', text:`「${when}在踹人家${w.what}的是不是你？」` },
-      { who:'pc',       text:'你沒有否認。' },
+      { who:'pc',       text:'你看著他手上的筆。' },
       { who:'jiaoguan', text:'「不爽可以講。踹東西是要幹什麼？」他把你的名字記下來。（風評 −3）' }
     ], 0, () => { chg('star', -3); logDay('被教官問踹' + w.what + '的事，他把我的名字記下來。'); });
   } else {
     playBeats([
       { who:'brother', text:`「${when}有人踹${w.what}，我在門口看到了。」` },
-      { who:'pc',      text:'你低著頭沒有講話。' },
+      { who:'pc',      text:'你低著頭。' },
       { who:'brother', text:'「這次算了。下次不是我看到，就不是這樣講。」（風評 −3）' }
     ], 0, () => { chg('star', -3); logDay('阿正說他看到我踹' + w.what + '，這次算了。'); });
   }
