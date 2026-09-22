@@ -19342,7 +19342,9 @@ function loadGame(slot){
     if(CLASSFUND.tripStarted && !CLASSFUND.active) moveClassmatesToTemple();
     else moveClassmatesHome();
     JIAOGUAN.x = JIAOGUAN_HOME.x; JIAOGUAN.z = JIAOGUAN_HOME.z;
-    return true;
+    /* 2026-09-22 抓到:上面 NPC 重擺那段(9/11 加的)後面多了一行 return true,
+       底下 renderQuestPanel/syncHUD 變死碼——按「繼續遊戲」HUD 一直顯示起始值
+       ($500、全 30),要等第一次 chg() 才對;任務面板也是空的。 */
     renderQuestPanel();
     syncMiscQuestPanel();
     syncHUD();
