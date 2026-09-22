@@ -2774,12 +2774,9 @@ function debugDebtRoute(kind){
   document.getElementById('dbgDay').value = 84;
   wakeAtMorning(84);
   debtCardSync();   // 要在 day 改成 84 之後算,卡上的門檻提示才對
-  if(kind === 'none'){ minute = DEBT_DUE_MINUTE; syncHUD(); toast('第 84 天,下午四點。走出房間他就來了。這條是誰都沒問到。', 4200); return; }
-  /* 三條路是「四點前到人那裡避難」——放在那個人旁邊、15:30,按空白鍵跟他講就會問你要不要等到四點。 */
-  minute = 15*60 + 30; syncHUD();
-  if(kind === 'police'){ debugToCity(BROTHER.x + 4, BROTHER.z - 2); toast('第 84 天 15:30,阿正在警局門口。跟他講,等到四點。', 4200); }
-  if(kind === 'yuan'){ debugToCity(YUAN.x, YUAN.z + 4); toast('第 84 天 15:30,阿源在廟口。跟他講,等到四點。', 4200); }
-  if(kind === 'hide'){ debugToCity(-22.3, -35.5); toast('第 84 天 15:30,阿霞在光明巷。跟她講,等到四點。', 4200); }
+  if(kind === 'hide'){ minute = 15*60 + 30; syncHUD(); debugToCity(-22.3, -35.5); toast('第 84 天 15:30,阿霞在光明巷。跟她講,等到四點。', 4200); return; }
+  minute = DEBT_DUE_MINUTE; syncHUD();
+  toast('第 84 天,下午四點。走出房間他就來了。' + (kind === 'none' ? '這條是誰都沒問到。' : kind === 'police' ? '阿正的人在樓下。' : '阿源答應過你。'), 4200);
 }
 window.debugDebtRoute = debugDebtRoute;
 function debugArrest(){
@@ -11507,7 +11504,7 @@ function debtCardSync(){
   const due = day >= DEBT_DUE_DAY;
   const title = due ? '三十萬・處理債務' : '三十萬・找人幫忙';
   const hint = (due
-      ? '<b>今天下午四點他會來。</b>四點以前去答應幫你的人那裡,待在那裡不要走。'
+      ? '<b>今天下午四點他會來家裡。</b>' + (DEBT.askedWorker ? '要躲的話,四點以前去光明巷找阿霞。' : '')
       : '借據上是你的名字,三十萬你還不了。' + dayToDate(DEBT_DUE_DAY) + '下午四點他會來要答案——在那之前去找人幫忙:阿正(警局)、阿源(廟口)、阿霞(光明巷)。') +
       (asked.length ? '<br><span class="qpNote">答應幫你的人:' + asked.join('、') + '</span>' : '');
   const q = ACTIVE_QUESTS.find(x => x.id === 'debt');
@@ -11601,92 +11598,45 @@ function debtRefuge(who){
   if(!DEBT.street || DEBT.resolution || day !== DEBT_DUE_DAY || minute >= DEBT_DUE_MINUTE) return false;
   const ok = who === 'brother' ? DEBT.askedBrother : who === 'yuan' ? DEBT.askedYuan : DEBT.askedWorker;
   if(!ok) return false;
-  const ask = who === 'brother' ? '「來了。你待在這裡,哪裡都不要去。我叫兩個人去你家樓下等。」'
-            : who === 'yuan'    ? '「來了喔。你就待在廟埕,人在我旁邊。他來,我跟他講。」'
-            :                     '「進來。到後面去,簾子放下來,不要出聲。」';
-  say(who, ask, () => {
+  /* 阿正/阿源那兩條是在家裡演(選項在 story-debt.js day84),當天找他們只是提醒一句。 */
+  if(who === 'brother'){ say('brother', '「我的人已經在你家樓下了。你回家,照平常那樣開門。」'); return true; }
+  if(who === 'yuan'){ say('yuan', '「他來找你的時候,你叫他打給我。回去吧。」'); return true; }
+  say('worker', '「進來。到後面去,簾子放下來,不要出聲。」', () => {
     openMenu('', [
-      { label:'在這裡等到四點', run(){ debtRefugeScene(who); } },
+      { label:'在這裡等到四點', run(){ debtRefugeScene('worker'); } },
       { label:'我再想一下', cls:'back', run(){} }
     ]);
   });
   return true;
 }
-function debtRefugeScene(who){
+function debtRefugeScene(){
   busy = true;
   fade('下午四點', () => {
     minute = DEBT_DUE_MINUTE; syncHUD();
     busy = true;
-    if(who === 'brother'){
-      playBeats([
-        { who:'pc',      text:'四點十分,阿正的手機響了。他聽了兩句就掛掉。' },
-        { who:'brother', text:'「抓到了。三個人,連車一起帶回來。」' },
-        { who:'brother', text:'「借據是你未成年簽的,那個名字不算數,那筆錢不用你還。」' },
-        { who:'brother', text:'「你媽那邊,案子會走。你今天先回家。」' },
-        { who:'pc',      text:'你走回家。鐵門是好的,沙發上沒有人。' }
-      ], 0, () => {
-        chg('star', 6); chg('calm', -12); chg('mood', -8);
-        debtResolve('police');
-        logDay('下午四點前去警局找阿正。他派人在我家樓下等,討債的三個人連車一起被抓了。');
-        logPerson('brother', '討債的那天他派人在我家樓下埋伏,三個人連車一起抓走。');
-        toast('討債的被抓走了。那筆錢不用你還,但案子會走到你媽身上。\n（情緒 −8、風評 +6、歸屬感 −12）', 4600);
-        busy = false;
-      });
-    } else if(who === 'yuan'){
-      const p = hero.group.position;
-      spawnDebtCollector(p.x + 6, p.z, -Math.PI/2);
-      faceNpcTo(debtCollectorNPC, p.x, p.z);
-      playBeats([
-        { who:'pc',        text:'四點,一台車停在廟口路邊。是他。' },
-        { who:'collector', text:'「找到你了。」' },
-        { who:'yuan',      text:'「他是我的人。錢的事,你找我要。」' },
-        { who:'collector', text:'「⋯⋯你是阿源?」' },
-        { who:'yuan',      text:'「打電話問你老闆。」' },
-        { who:'pc',        text:'他走到旁邊講了三分鐘電話,回來看了阿源一眼,上車走了。' },
-        { who:'yuan',      text:'「處理好了。以後你這個人就是我的了,知道嗎。」' }
-      ], 0, () => {
-        despawnDebtCollector();
-        chg('calm', 6); chg('star', -6); chg('mood', -8);
-        debtResolve('yuan');
-        logDay('下午四點前去廟口找阿源。討債的來了,阿源說我是他的人,他打了一通電話就走了。');
-        logPerson('yuan', '討債的那天他擋在我前面,說我是他的人。');
-        toast('那三十萬不用還了,從今天起你欠的是阿源。\n（情緒 −8、歸屬感 +6、風評 −6）', 4600);
-        busy = false;
-      });
-    } else {
-      playBeats([
-        { who:'pc',        text:'你蹲在簾子後面。四點,巷口有腳步聲,不只一個人。' },
-        { who:'collector', text:'「有沒有看到一個穿帽 T 的高中生?」' },
-        { who:'worker',    text:'「沒有。我在服務客人,你不要進來。」' },
-        { who:'collector', text:'「他家裡沒人。你這裡最近。」' },
-        { who:'worker',    text:'「我這裡是做生意的,你要進來就付錢。」' },
-        { who:'pc',        text:'外面安靜了幾秒。腳步聲走遠,一路走到巷口。' },
-        { who:'worker',    text:'她掀開簾子。「今天晚上你睡這裡。」' }
-      ], 0, () => {
-        chg('mood', -8);
-        debtResolve('hide');
-        logDay('下午四點前躲到阿霞那裡。討債的來巷子問,她說她沒看過我,叫他不要進來。');
-        logPerson('worker', '討債的那天她把人擋在門外,說她在服務客人。');
-        toast('他走了。從今天起你睡在阿霞那裡,家不能回。\n（情緒 −8）', 4600);
-        busy = false;
-      });
-    }
+    playBeats([
+      { who:'pc',        text:'你蹲在簾子後面。四點,巷口有腳步聲,不只一個人。' },
+      { who:'collector', text:'「有沒有看到一個穿帽 T 的高中生?」' },
+      { who:'worker',    text:'「沒有。我在服務客人,你不要進來。」' },
+      { who:'collector', text:'「他家裡沒人。你這裡最近。」' },
+      { who:'worker',    text:'「我這裡是做生意的,你要進來就付錢。」' },
+      { who:'pc',        text:'外面安靜了幾秒。腳步聲走遠,一路走到巷口。' },
+      { who:'worker',    text:'她掀開簾子。「今天晚上你睡這裡。」' }
+    ], 0, () => {
+      chg('mood', -8);
+      debtResolve('hide');
+      logDay('下午四點前躲到阿霞那裡。討債的來巷子問,她說她沒看過我,叫他不要進來。');
+      logPerson('worker', '討債的那天她把人擋在門外,說她在服務客人。');
+      toast('他走了。從今天起你睡在阿霞那裡,家不能回。\n（情緒 −8）', 4600);
+      busy = false;
+    });
     seenStoryDays.add('debt-84');   // 四點那一幕在這裡演過了,家裡那節不再播
   });
 }
 /* 84 下午四點之後就不能再談了(2026-09-22 kc:「四點前你就要完成跟他們的對話了 不然就會被叫回家」)——
    三個人都一句「回去」把你打發,選項只剩四點前談好的那些。 */
 function debtAskClosed(){ return day > DEBT_DUE_DAY || (day === DEBT_DUE_DAY && minute >= DEBT_DUE_MINUTE); }
-function debtGoHomeLine(who){
-  if(!DEBT.street || DEBT.resolution || !debtAskClosed() || day !== DEBT_DUE_DAY) return false;
-  const line = who === 'brother' ? '「現在不是講這個的時候。你家裡的事,先回去。」'
-             : who === 'yuan'    ? '「這個時間你還在廟口晃?回家啦。」'
-             :                     '「天還沒黑,你不要站在這裡。回去。」';
-  say(who, line);
-  return true;
-}
 function debtAskBrother(){
-  if(debtGoHomeLine('brother')) return true;
   if(!DEBT.street || DEBT.resolution || DEBT.askedBrother || day < DEBT_ASK_FROM || debtAskClosed()) return false;
   if(ST.star < DEBT_NEED.brotherRep){   // 門檻(kc:阿正要風評 10 以上)——不到他不受理,可以之後再來
     busy = true;
@@ -11705,12 +11655,12 @@ function debtAskBrother(){
     { who:'brother', text:'「未成年簽的,那個名字不算數。你可以報案。」' },
     { who:'brother', text:'「但你要想清楚,報案就是告你媽。她會被帶走。」' },
     { who:'pc',      text:'「⋯⋯」' },
-    { who:'brother', text:'「你想好了,' + dayToDate(DEBT_DUE_DAY) + '那天下午四點以前來警局找我,不要待在家裡。我派人去你家樓下等他。」' }
+    { who:'brother', text:'「' + dayToDate(DEBT_DUE_DAY) + '那天下午,我派兩個人在你家樓下等。他上來動手,我們就上去。」' },
+    { who:'brother', text:'「你照平常那樣開門就好。」' }
   ], 0, () => { debtCardSync(); logPerson('brother', '我跟他講了三十萬的事。他說可以報案,但那是告我媽。'); logDay('問阿正。他說可以報案,但那是告媽。'); busy = false; });
   return true;
 }
 function debtAskYuan(){
-  if(debtGoHomeLine('yuan')) return true;
   if(!DEBT.street || DEBT.resolution || DEBT.askedYuan || day < DEBT_ASK_FROM || YUAN.hostile || debtAskClosed()) return false;
   if(troupeTimes() < DEBT_NEED.yuanTroupe){   // 門檻(kc:阿源要跳過兩次以上陣頭)
     busy = true;
@@ -11729,13 +11679,12 @@ function debtAskYuan(){
     { who:'yuan', text:'「三十萬。」他的表情跟平常一樣。「那個人我認識。」' },
     { who:'yuan', text:'「我可以處理。不是幫你還,是讓他不要再找你。」' },
     { who:'yuan', text:'「之後你的人是我的。我叫你做什麼你就做什麼。」' },
-    { who:'yuan', text:'「' + dayToDate(DEBT_DUE_DAY) + '那天你四點以前來廟口,人在我旁邊,他來我跟他講。」' }
+    { who:'yuan', text:'「他來找你的時候,你叫他打給我。」' }
   ], 0, () => { debtCardSync(); logPerson('yuan', '我跟他講了三十萬的事。他說他可以處理,之後我的人是他的。'); logDay('問阿源。他說他可以處理,代價是以後我的人是他的。'); busy = false; });
   return true;
 }
 /* 阿霞(2026-09-22,kc:「阿霞要之前消費過他才會讓你避風頭」)——掛在 talkToWorker() 最前面。 */
 function debtAskWorker(){
-  if(debtGoHomeLine('worker')) return true;
   if(!DEBT.street || DEBT.resolution || DEBT.askedWorker || day < DEBT_ASK_FROM || debtAskClosed()) return false;
   if((ALLEY_WORKER.served||0) < DEBT_NEED.workerServed){
     busy = true;
