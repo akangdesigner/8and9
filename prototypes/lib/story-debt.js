@@ -79,6 +79,16 @@
         { who:'collector', text:'「今天不給我答案,我明天帶人來。你們家的東西一樣一樣搬,搬到夠為止。」' },
         { who:'collector', text:'「你打算怎麼辦?」（情緒 −8）' }
       ],
+      /* 四點你不在家:爸打電話來,你趕回家才播這組(game.html debtDadCall / DEBT.calledHome)。 */
+      altKey: 'calledHome',
+      beatsAlt: [
+        { who:'pc',        text:'你跑上樓。鐵門開著,鎖是壞的。' },
+        { who:'pc',        text:'爸坐在椅子上,手裡還握著手機。她房間的門開著,裡面是空的。' },
+        { who:'collector', text:'「回來了。」' },
+        { who:'collector', text:'「三十萬。借據上是你的名字。你媽跑了,那就是你的。」' },
+        { who:'collector', text:'「今天不給我答案,我明天帶人來。你們家的東西一樣一樣搬,搬到夠為止。」' },
+        { who:'collector', text:'「你打算怎麼辦?」（情緒 −8）' }
+      ],
       mood: -8,
       menu: [
         {

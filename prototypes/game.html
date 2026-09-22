@@ -2685,7 +2685,7 @@ function debugToCity(x, z, ry){
 function debugDebtReset(){
   [...seenStoryDays].filter(k => /^(bet|debt)-/.test(k)).forEach(k => seenStoryDays.delete(k));
   Object.assign(DEBT, { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
-    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false,
     yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
   YUAN.owns = false;
   ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
@@ -2718,7 +2718,7 @@ function debugDebtNext(){
   const r = DEBT.resolution;
   if(next === 70){ debugToCity(-20, -11.5, Math.PI * .5); toast('第 70 天。往前走幾步,他在路邊等你。', 4000); }
   else if([72,75,81].includes(next)){ debugToCity(home.x, home.z + 4, Math.PI); toast('第 ' + next + ' 天。他站在你家鐵門外。', 3000); }
-  else if(next === 84){ minute = DEBT_DUE_MINUTE - 5; syncHUD(); toast('第 84 天,15:55。五分鐘後他會踹門進來——在家等,或去街上讓他找到你。', 5000); }
+  else if(next === 84){ minute = DEBT_DUE_MINUTE - 5; syncHUD(); toast('第 84 天,15:55。四點他會來拍門——在家等,或在街上等爸打電話來。', 5000); }
   else if(r === 'hide' && next >= 86){ debugToCity(-22.3, -35.5); toast('第 ' + next + ' 天早上,你從阿霞那裡出來。', 3000); }
   else if(next === 87){ debugToCity(-36, 74); toast('第 87 天。教官在校門口。', 3000); }
   else if(next === 88 && r === 'police'){ debugToCity(BROTHER.x + 4, BROTHER.z - 2); toast('第 88 天。阿正在警局門口。', 3000); }
@@ -2732,7 +2732,7 @@ function debugDebtRoute(kind){
   ['bet-2','bet-16','bet-28','bet-40','bet-52','bet-64','debt-34'].forEach(k => seenStoryDays.add(k));
   seenStoryDays.delete('debt-84'); seenStoryDays.delete('debt-86');
   Object.assign(DEBT, { street:true, remind:{72:true,75:true,81:true}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
-    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false,
+    resolution:'', resolvedDay:-1, hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false,
     yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
   ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
   despawnDebtCollector();
@@ -2743,7 +2743,7 @@ function debugDebtRoute(kind){
   wakeAtMorning(84);
   debtCardSync();   // 要在 day 改成 84 之後算,卡上的門檻提示才對
   minute = DEBT_DUE_MINUTE - 5; syncHUD();
-  toast('第 84 天,15:55。五分鐘後他會踹門進來。' + (kind === 'none' ? '這條是誰都沒問到。' : ''), 4200);
+  toast('第 84 天,15:55。四點他會來拍門。' + (kind === 'none' ? '這條是誰都沒問到。' : ''), 4200);
 }
 window.debugDebtRoute = debugDebtRoute;
 function debugArrest(){
@@ -6034,7 +6034,7 @@ homeLivingImg.src = '../assets/bg/home-living.png?v=4';
    接縫,遊戲縮到 0.383 看不太出來。之後 kc 用 GPT 生一張正式的直接換檔名同一個。 */
 const homeLivingEmptyImg = new Image();
 homeLivingEmptyImg.src = '../assets/bg/home-living-empty.png?v=1';
-function momAway(){ return (BLOOD.active && BLOOD.day === day) || debtMomGone(); }   // 捐血那天她一早就在醫院;報案之後她被帶走了(見 DEBT)
+function momAway(){ return (BLOOD.active && BLOOD.day === day) || debtMomGone() || (DEBT.street && day >= DEBT_DUE_DAY); }   // 捐血那天她一早就在醫院;報案之後她被帶走了;最後通牒那天起她跑路了(2026-09-22 kc:「媽媽不是跑路了嗎」,見 DEBT)
 const homeBedroomImg = new Image();
 homeBedroomImg.onload = () => {
   if(homeBedroomImg.naturalWidth){ BEDROOM = BEDROOM_PHOTO; BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_PHOTO; }
@@ -11398,7 +11398,7 @@ function arrestKaiBackLine(){
    「這學期」那頁收尾(debtSemesterEnd,文字在 story-debt.js ENDING)。 */
 const DEBT = { street:false, remind:{}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
                resolution:'', resolvedDay:-1,
-               hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false,
+               hiding:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false,
                yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false };
 const DEBT_STREET_DAY = 70, DEBT_REMIND_DAYS = [72, 75, 81], DEBT_ASK_FROM = 70, DEBT_END_DAY = 90;   // ASK_FROM 78→70(2026-09-22 kc:「78刪掉 70收到債務後任務卡變成尋找解決方法」)
 const DEBT_DUE_DAY = 84, DEBT_DUE_MINUTE = 16*60;   // 月底他下午四點來(kc:「他下午四點會來暴力討債你才選擇怎做」)
@@ -11458,7 +11458,7 @@ function tickDebt(){
   const p = hero.group.position;
   if(day >= DEBT_STREET_DAY && !DEBT.street && seenStoryDays.has('bet-64') && Math.abs(p.z) < 40){ debtStreetScene(); return; }
   /* 84 下午四點人在街上:他找到你,拖你回家,回到客廳才播那一節(見 story-debt.js day84 fromMinute)。 */
-  if(day === DEBT_DUE_DAY && minute >= DEBT_DUE_MINUTE && DEBT.street && !seenStoryDays.has('debt-84') && !ridingMoto){ debtDragHome(); return; }
+  if(day === DEBT_DUE_DAY && minute >= DEBT_DUE_MINUTE && DEBT.street && !seenStoryDays.has('debt-84') && !DEBT.calledHome && !ridingMoto){ debtDadCall(); return; }
   if(remindToday && debtCollectorNPC){
     const w = debtCollectorNPC.group.position;
     if(Math.hypot(p.x - w.x, p.z - w.z) < 6){
@@ -11498,29 +11498,22 @@ function debtStreetScene(){
     });
   });
 }
-/* day84 下午四點,你在街上:他把你拖回家。 */
-function debtDragHome(){
-  const p = hero.group.position;
-  const bx = p.x + 6, bz = p.z;
-  spawnDebtCollector(bx, bz, -Math.PI/2);
+/* day84 下午四點,你不在家:爸打電話來叫你回去(2026-09-22 kc:「如果你不在家 應該是接到父親電話叫你救他
+   (媽媽不是跑路了嗎?)然後你趕回家」)——不拖人,你自己跑回家,進客廳才播那一節(story-debt.js day84 的
+   beatsAlt,DEBT.calledHome 決定用哪組開場)。 */
+function debtDadCall(){
+  DEBT.calledHome = true;
   busy = true;
-  walkToNpc(bx, bz, () => {
-    busy = true;
-    faceNpcTo(debtCollectorNPC, hero.group.position.x, hero.group.position.z);
-    playBeats([
-      { who:'collector', text:'「找到你了。」' },
-      { who:'pc',        text:'他站到你面前,擋住路。' },
-      { who:'collector', text:'「回家。你媽在不在都一樣。」' }
-    ], 0, () => {
-      despawnDebtCollector();
-      fade('家', () => {
-        const d = city.doors.find(x => x.id === 'home');
-        returnTo.x = d.x; returnTo.z = d.z + 3;
-        warpIntoPlace(d);
-        busy = false;
-        maybeTriggerStoryNode();
-      });
-    });
+  playBeats([
+    { who:'pc',  text:'手機震了一下。是爸。他從來不打電話給你。' },
+    { who:'dad', text:'「' + pcName() + '⋯⋯你在哪。」' },
+    { who:'dad', text:'「他們在家裡。三個人。你媽不見了,他們說要等你。」' },
+    { who:'dad', text:'「你快回來。」' },
+    { who:'pc',  text:'電話那頭有東西掉在地上的聲音,然後斷了。' }
+  ], 0, () => {
+    setTodayCard('爸打電話來,討債的在家裡等你。趕回家。', '趕回家');
+    logDay('下午爸打電話來,說討債的在家裡等我,媽不見了。');
+    busy = false;
   });
 }
 /* 84 下午四點人已經在家裡(客廳/房間):時間一到就播(updateIndoor 每幀叫)。 */
@@ -14626,8 +14619,9 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
          (node.questAfter,day5 那種「教室只是鋪陳,真正的事在廟口」),那張
          要留到那件事真的做完。 */
       if(!node.questAfter) clearTodayCard();
+      const nodeBeats = (node.altKey && DEBT[node.altKey] && node.beatsAlt) ? node.beatsAlt : node.beats;   // story-debt.js day84:趕回家那版開場
       if(node.debtFlag) DEBT[node.debtFlag] = true;   // story-debt.js day86「她走了」——播之前就設,沙發那張圖才會是空的
-      playBeats(node.beats, 0, () => {
+      playBeats(nodeBeats, 0, () => {
         if(node.mood) chg('mood', node.mood);   // 節點本身的代價(story-debt.js day84 被推到牆上),不分選項
         if(node.tuitionQuest && !TUITION_QUEST){
           TUITION_QUEST = { amount: node.tuitionQuest.amount, dueDay: day + node.tuitionQuest.days, paid: false };
