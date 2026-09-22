@@ -3409,12 +3409,17 @@ function menuCostWarnings(it){
   for(const k in drain) if(drain[k] < 0 && ST[k] + drain[k] <= 0) out.push(MENU_WARN[k]);
   return out;
 }
-/* 選項是主角講的話(label 以「開頭)的選單,沒有標題——不放對方的名字(是主角在回答),也不放頭像、
-   不放主角名字,就是單純一個選單(2026-09-22 kc 三次修正定案)。其他選單(鮮食櫃那種)照舊有標題。 */
-function openMenu(cap, items){
+/* 兩種選單(2026-09-22 kc 定案:「之前那些是因為你是在跟那的東西互動 但是跟討債的是你在回話 那不一樣」):
+   ①跟東西互動(床/鮮食櫃/繳費機/書桌)——標題是那個東西,照舊;
+   ②回人的話(討債的/小美/阿源/媽…)——沒有標題,不放對方名字、不放頭像、不放主角名字,就是單純一個選單。
+   判定:標題是人名(REPLY_CAPS,WHO 名冊 + 幾個別名/地點式的稱呼),或任何一個選項以「開頭(主角講的話),
+   或呼叫端明說 opts.reply(story-*.js 節點一律是回人話)。 */
+const REPLY_CAPS = new Set(['媽媽','爸爸','爸','媽','她','他','小美哥','工地・老闆','巷子裡','光明巷','校門口','他要你幫忙','阿嬤病危','把袋子給他？','阿嬤','阿桂','阿霞']);
+function openMenu(cap, items, opts){
   busy = true;
-  const speech = items.some(it => /^[「『]/.test((it.label || '').trim()));
-  menuEl.innerHTML = speech ? '' : '<div class="cap">'+cap+'</div>';
+  const reply = (opts && opts.reply) || REPLY_CAPS.has(cap) || Object.values(WHO).some(w => w.name === cap)
+             || items.some(it => /^[「『]/.test((it.label || '').trim()));
+  menuEl.innerHTML = reply ? '' : '<div class="cap">'+cap+'</div>';
   items.forEach(it => {
     const b = document.createElement('button');
     if(it.cls) b.className = it.cls;
@@ -4066,7 +4071,7 @@ function checkFieldTrip(){
       openMenu(node.title, node.menu.map(item => ({
         label: item.label, cost: item.cost,
         run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => {}); }
-      })));
+      })), { reply:true });
     });
     return true;
   }
@@ -14742,7 +14747,7 @@ function maybeTriggerStoryNode(sources = [['bet', StoryBet], ['drink', StoryDrin
         openMenu(node.title, node.menu.filter(item => !item.when || item.when(st)).map(item => ({
           label: item.label, cost: item.cost,
           run: () => { applyStoryChoice(item); playBeats(item.beats, 0, () => { if(DEBT.gameOverPending) debtGameOverSequence(); else if(after) after(); }); }
-        })));
+        })), { reply:true });   // 劇情節點的選單一律是在回人的話,沒有標題
       });
       return;
     }
@@ -17178,7 +17183,7 @@ function maybeCounsel(after){
     openMenu(node.title, node.menu.map(item => ({
       label: item.label, cost: item.cost,
       run: () => { applyStoryChoice(item); playBeats(item.beats, 0, after || (() => {})); }
-    })));
+    })), { reply:true });
   });
   return true;
 }
