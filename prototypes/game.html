@@ -2752,7 +2752,7 @@ function debugDebtNext(){
   const r = DEBT.resolution;
   if(next === 70){ debugToCity(-20, -11.5, Math.PI * .5); toast('第 70 天。往前走幾步,他在路邊等你。', 4000); }
   else if([72,75,81].includes(next)){ debugToCity(home.x, home.z + 4, Math.PI); toast('第 ' + next + ' 天。他站在你家鐵門外。', 3000); }
-  else if(next === 84){ minute = DEBT_DUE_MINUTE - 5; syncHUD(); toast('第 84 天,15:55。四點他會來拍門——在家等,或在街上等爸打電話來。', 5000); }
+  else if(next === 84){ minute = DEBT_DUE_MINUTE; syncHUD(); toast('第 84 天,下午四點。走出房間他就來了。', 4000); }
   else if(r === 'hide' && next >= 86){ debugToCity(-22.3, -35.5); toast('第 ' + next + ' 天早上,你從阿霞那裡出來。', 3000); }
   else if(next === 87){ debugToCity(-36, 74); toast('第 87 天。教官在校門口。', 3000); }
   else if(next === 88 && r === 'police'){ debugToCity(BROTHER.x + 4, BROTHER.z - 2); toast('第 88 天。阿正在警局門口。', 3000); }
@@ -2776,8 +2776,8 @@ function debugDebtRoute(kind){
   document.getElementById('dbgDay').value = 84;
   wakeAtMorning(84);
   debtCardSync();   // 要在 day 改成 84 之後算,卡上的門檻提示才對
-  minute = DEBT_DUE_MINUTE - 5; syncHUD();
-  toast('第 84 天,15:55。四點他會來拍門。' + (kind === 'none' ? '這條是誰都沒問到。' : ''), 4200);
+  minute = DEBT_DUE_MINUTE; syncHUD();   // 直接四點(kc:「你按鈕直接改到四點」)
+  toast('第 84 天,下午四點。走出房間他就來了。' + (kind === 'none' ? '這條是誰都沒問到。' : ''), 4200);
 }
 window.debugDebtRoute = debugDebtRoute;
 function debugArrest(){
