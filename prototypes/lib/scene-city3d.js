@@ -1581,12 +1581,17 @@ export function buildCity(THREE, scene){
          (忽略 alpha 通道),邊緣殘留的半透明像素只會顯示自己的 RGB 顏色,
          不會透到背景。 */
       const towerFront = std({ color:cfg.color, roughness:.7 });
+      /* 先把去背留下的透明邊裁掉再貼(2026-09-22,kc:「為何大樓貼圖看起來還是超怪的」)
+         ——這幾張 RGBA 照片四周都有一圈透明像素(大樓 1 正面:上 11 列、下 19 列、
+         左右各 40 幾欄),材質是不透明的,透明像素就以自己的 RGB(黑)畫出來,
+         樓的底部整條黑帶+彩色鋸齒邊、轉角一條黑直條,都是它。opaqueBox() 用 canvas
+         掃 alpha 找出實心範圍,repeat/offset 只在那個範圍裡裁「不拉伸」,照片的
+         一樓落到 y=0 貼地。 */
       new THREE.ImageLoader().load(TEX_DIR + cfg.file, img => {
         const t = new THREE.Texture(img);
         t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-        const targetAspect = w/h, ia = img.width/img.height;
-        if(ia > targetAspect){ const r = targetAspect/ia; t.repeat.set(r,1); t.offset.set((1-r)/2,0); }
-        else { const r = ia/targetAspect; t.repeat.set(1,r); t.offset.set(0,(1-r)/2); }
+        const f = fitPhoto(img, w/h);
+        t.repeat.set(f.rx, f.ry); t.offset.set(f.ox, f.oy);
         t.needsUpdate = true;
         towerFront.map = t; towerFront.color.setHex(0xffffff); towerFront.needsUpdate = true;
       }, undefined, () => {});   // 圖還沒生的話載入會 404,靜默失敗,維持素色佔位
@@ -1606,12 +1611,8 @@ export function buildCity(THREE, scene){
          不會一側對一側不對。 */
       if(cfg.sideFile){
         new THREE.ImageLoader().load(TEX_DIR + cfg.sideFile, img => {
-          const targetAspect = d/h, ia = img.width/img.height;
-          let r, off;
-          if(ia > targetAspect){ r = targetAspect/ia; off = (1-r)/2; }
-          else { r = 1; off = 0; }   // ia<=targetAspect 這批圖用不到(現有側面圖都偏窄長),先只處理寬邊裁切這條路徑
-          const ry = ia > targetAspect ? 1 : (ia/targetAspect);
-          const offy = ia > targetAspect ? 0 : (1-ry)/2;
+          const f = fitPhoto(img, d/h);   // 同正面:先裁透明邊再不拉伸裁切(2026-09-22)
+          const r = f.rx, off = f.ox, ry = f.ry, offy = f.oy;
 
           /* v4(2026-08-27,kc:「你側面貼反了,兩邊都要水平翻轉」)——v3 猜的
              UV 奇偶對調(A 不翻/B 翻)兩面看起來都是反的,不是只有一面錯。
@@ -1632,6 +1633,11 @@ export function buildCity(THREE, scene){
       }
       add(box(w,h,d, [towerSideA,towerSideB,towerSideA,towerSideA,towerFront,towerSideA]), cfg.x, h/2, rowZ);
       solid(cfg.x, rowZ, w/2, d/2);
+      /* 樓腳下補一圈人行道(2026-09-22)——大樓 1 西側 x=-67,永安街人行道鋪面只鋪到
+         x=-68(西園街那 16 單位留白),樓跟鋪面之間露出 1 單位深藍地面,同一張
+         截圖 kc 抓到的。每棟樓腳下鋪一塊比基地各邊多 1.5 的 M.walk,頂面 .31 抬過
+         既有鋪面 .01 避免閃爍(跟廟埕那招一樣)。 */
+      add(box(w+3,.31,d+3, M.walk), cfg.x, .155, rowZ, false, true);
       /* 「一樓大廳暖光」那塊獨立道具(2026-08-26,kc:「這板子是幹啥的」)
          ——整棟樓改貼真照片之後,照片本身就有大廳暖光的畫面,這塊卡片
          變成純粹擋在照片前面的多餘東西,直接刪掉。 */
@@ -4777,6 +4783,29 @@ function riggedCharacter(THREE, idleGltf, mats, heightUnits, parts){
  * bounding box 軸('x'/'y'/'z')——鞦韆/翹翹板用長度撐滿(這座小公園擠不下
  * 這些模型的原始寫實比例,佔地面積比身高更容易撞到隔壁的長椅/圍籬,見下面
  * placeGltfProp() 呼叫處的間距推算),滑梯的「長度」也是撐滿軸,不是身高。 */
+/* 整棟照片貼到牆面的裁切公式(2026-09-22 從辦公大樓那段抽出來)——先用 canvas 掃
+   alpha 找出實心範圍(去背留下的透明邊不算),再在那個範圍裡照「裁切不拉伸」的
+   老規矩對牆面比例:照片比牆寬就左右各切掉一點,比牆高就上下各切掉一點。回傳
+   repeat/offset(three.js 貼圖 v=0 在圖的底部,flipY 預設)。alpha 門檻 200,把去背
+   邊緣那圈半透明黑邊也一起切掉。canvas 讀不到(跨網域)就退回整張圖。 */
+function fitPhoto(img, targetAspect){
+  let u0 = 0, u1 = 1, v0 = 0, v1 = 1;
+  try{
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const a = g.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, x1 = -1, y0 = c.height, y1 = -1;
+    for(let y = 0; y < c.height; y++) for(let x = 0; x < c.width; x++){
+      if(a[(y*c.width + x)*4 + 3] > 200){ if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
+    }
+    if(x1 >= 0){ u0 = x0/c.width; u1 = (x1+1)/c.width; v0 = 1-(y1+1)/c.height; v1 = 1-y0/c.height; }
+  }catch(e){}
+  const uw = u1-u0, vh = v1-v0;
+  const ia = (uw*img.width)/(vh*img.height);
+  if(ia > targetAspect){ const r = targetAspect/ia; return { rx:uw*r, ry:vh, ox:u0 + uw*(1-r)/2, oy:v0 }; }
+  const r = ia/targetAspect;
+  return { rx:uw, ry:vh*r, ox:u0, oy:v0 + vh*(1-r)/2 };
+}
 function propModel(THREE, gltf, targetSize, lockAxis, ry){
   const model = gltf.scene.clone(true);
   model.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; [].concat(o.material||[]).forEach(m => { if(m && m.isMeshStandardMaterial) m.envMapIntensity = .35; }); } });
