@@ -11485,7 +11485,7 @@ function despawnDebtCollector(){
 function debtCardSync(){
   if(!DEBT.street || DEBT.resolution) { courierCardOff('debt'); return; }
   const asked = [DEBT.askedBrother && '阿正', DEBT.askedYuan && '阿源', DEBT.askedWorker && '阿霞', DEBT.askedDad && '爸'].filter(Boolean);
-  const hint = (day >= DEBT_DUE_DAY ? '<b>今天下午四點他會來家裡。</b>' : '討債的' + dayToDate(DEBT_DUE_DAY) + '會來要答案,那天是最後期限。') +
+  const hint = (day >= DEBT_DUE_DAY ? '<b>今天下午四點他會來家裡,四點前要把人談好。</b>' : '討債的' + dayToDate(DEBT_DUE_DAY) + '下午四點會來要答案,那天是最後期限,四點前要把人談好。') +
       '三十萬你還不了,到那天你手上要有一個肯出面的人:阿正(警局)、阿源(廟口)、巷子裡的阿霞——他們各有各的條件。' +
       '<br><span class="qpNote">阿正要你風評 ' + DEBT_NEED.brotherRep + ' 以上（目前 ' + ST.star + '）／阿源要你跟過陣頭 ' + DEBT_NEED.yuanTroupe + ' 次以上（目前 ' + troupeTimes() + '）／阿霞要你在她那裡消費過</span>' +
       (asked.length ? '<br><span class="qpNote">答應的人:' + asked.join('、') + '</span>' : '');
@@ -11572,8 +11572,20 @@ function tickDebtHome(){
   if(PLACE === 'home') maybeTriggerStoryNode();
 }
 /* day70 起找人問——三個人各一段,掛在各自對話前面,一次。 */
+/* 84 下午四點之後就不能再談了(2026-09-22 kc:「四點前你就要完成跟他們的對話了 不然就會被叫回家」)——
+   三個人都一句「回去」把你打發,選項只剩四點前談好的那些。 */
+function debtAskClosed(){ return day > DEBT_DUE_DAY || (day === DEBT_DUE_DAY && minute >= DEBT_DUE_MINUTE); }
+function debtGoHomeLine(who){
+  if(!DEBT.street || DEBT.resolution || !debtAskClosed() || day !== DEBT_DUE_DAY) return false;
+  const line = who === 'brother' ? '「現在不是講這個的時候。你家裡的事,先回去。」'
+             : who === 'yuan'    ? '「這個時間你還在廟口晃?回家啦。」'
+             :                     '「天還沒黑,你不要站在這裡。回去。」';
+  say(who, line);
+  return true;
+}
 function debtAskBrother(){
-  if(!DEBT.street || DEBT.resolution || DEBT.askedBrother || day < DEBT_ASK_FROM) return false;
+  if(debtGoHomeLine('brother')) return true;
+  if(!DEBT.street || DEBT.resolution || DEBT.askedBrother || day < DEBT_ASK_FROM || debtAskClosed()) return false;
   if(ST.star < DEBT_NEED.brotherRep){   // 門檻(kc:阿正要風評 10 以上)——不到他不受理,可以之後再來
     busy = true;
     playBeats([
@@ -11596,7 +11608,8 @@ function debtAskBrother(){
   return true;
 }
 function debtAskYuan(){
-  if(!DEBT.street || DEBT.resolution || DEBT.askedYuan || day < DEBT_ASK_FROM || YUAN.hostile) return false;
+  if(debtGoHomeLine('yuan')) return true;
+  if(!DEBT.street || DEBT.resolution || DEBT.askedYuan || day < DEBT_ASK_FROM || YUAN.hostile || debtAskClosed()) return false;
   if(troupeTimes() < DEBT_NEED.yuanTroupe){   // 門檻(kc:阿源要跳過兩次以上陣頭)
     busy = true;
     playBeats([
@@ -11619,7 +11632,8 @@ function debtAskYuan(){
 }
 /* 阿霞(2026-09-22,kc:「阿霞要之前消費過他才會讓你避風頭」)——掛在 talkToWorker() 最前面。 */
 function debtAskWorker(){
-  if(!DEBT.street || DEBT.resolution || DEBT.askedWorker || day < DEBT_ASK_FROM) return false;
+  if(debtGoHomeLine('worker')) return true;
+  if(!DEBT.street || DEBT.resolution || DEBT.askedWorker || day < DEBT_ASK_FROM || debtAskClosed()) return false;
   if((ALLEY_WORKER.served||0) < DEBT_NEED.workerServed){
     busy = true;
     playBeats([
