@@ -76,7 +76,7 @@
         { who:'collector', text:'「開門,我知道你在裡面。」' },
         { who:'pc',        text:'你把鐵門打開一條縫。' },
         { who:'collector', text:'「三十萬,借據上簽的是你的名字。」' },
-        { who:'collector', text:'「你今天不給我一個答案,我明天就帶人來,把你們家的東西一樣一樣搬走,搬到夠三十萬為止。」' },
+        { who:'collector', text:'「我的人就在樓下。你現在給我一個答案,不然他們上來,你們家的東西一樣一樣搬,搬到夠三十萬為止。」' },
         { who:'collector', text:'「你打算怎麼辦?」' }
       ],
       /* 四點你不在家:爸打電話來,你趕回家才播這組(game.html debtDadCall / DEBT.calledHome)。 */
@@ -86,7 +86,7 @@
         { who:'pc',        text:'爸坐在椅子上,手裡還握著手機。媽房間的門開著,裡面已經什麼都沒有了。' },
         { who:'collector', text:'「你回來了。」' },
         { who:'collector', text:'「三十萬,借據上簽的是你的名字。你媽跑了,這筆錢就是你的。」' },
-        { who:'collector', text:'「你今天不給我一個答案,我明天就帶人來,把你們家的東西一樣一樣搬走,搬到夠三十萬為止。」' },
+        { who:'collector', text:'「我的人就在門口。你現在給我一個答案,不然他們動手,你們家的東西一樣一樣搬,搬到夠三十萬為止。」' },
         { who:'collector', text:'「你打算怎麼辦?」' }
       ],
       /* 情緒 −8 放在三條真的路的選項上,不放節點本身——誰都沒問到那條直接遊戲結束,不再扣(kc:「都要結束了」)。 */
@@ -140,14 +140,14 @@
         /* 誰都沒問到:不是第四條結局,是輸(2026-09-22 kc:「當天是最後通牒了 所以你一定要找人解決 這是之前的
            鋪陳 逼你三選一」)——game.html debtResolve('none') 直接 triggerGameOver('debt')。 */
         {
-          label: '「⋯⋯」',
+          label: '「我找不到人。」',   // 第一版是「⋯⋯」,kc:「...是你的選項」——選項要是你講的話
           cost: '',
           when: s => !s.askedBrother && !s.askedYuan && !s.askedWorker,
           debt: 'none',
           beats: [
-            { who:'pc',        text:'你一句話都講不出來。' },
-            { who:'collector', text:'「沒有人肯替你出面,是不是?」' },
-            { who:'collector', text:'「好,那我知道了。」' }
+            { who:'collector', text:'「找不到人。」他把你的話重複了一次。' },
+            { who:'collector', text:'「好,那我知道了。」' },
+            { who:'pc',        text:'他往樓梯間喊了一聲,樓下有腳步聲上來。' }
           ]
         }
       ]
