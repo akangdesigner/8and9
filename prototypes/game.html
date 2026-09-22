@@ -993,8 +993,6 @@
   #menu .cap, #textPrompt .cap { color:var(--ui-red); font-family:var(--sp-kai); font-weight:700; font-size:14px;
     letter-spacing:.24em; padding:0 0 6px 4px; margin:0 0 4px; border-bottom:1.5px solid var(--ui-red); position:relative; }
   #menu .cap::after, #textPrompt .cap::after { display:none; }
-  #menu .cap.speaker { display:flex; align-items:center; gap:10px; padding-bottom:8px; }
-  #menu .cap.speaker canvas { width:44px; height:44px; border:3px solid #f7f3ea; box-shadow:0 1px 4px rgba(0,0,0,.35); transform:rotate(-2deg); background:#1b202b; }
   #menu button { position:relative; background:none; color:var(--ui-ink); border:0;
     border-bottom:1px dotted var(--ui-dot); border-radius:0; padding:9px 6px 9px 16px;
     font-size:16px; letter-spacing:.08em; transition:transform .2s cubic-bezier(.2,.8,.3,1), color .2s; }
@@ -3411,18 +3409,12 @@ function menuCostWarnings(it){
   for(const k in drain) if(drain[k] < 0 && ST[k] + drain[k] <= 0) out.push(MENU_WARN[k]);
   return out;
 }
-/* 選項是主角講的話(label 以「開頭)的選單,標題列放主角的頭像跟名字,不是對方的名字
-   (2026-09-22 kc:「我就說了這邊是要放主角的頭像跟名字啊」)。其他選單(超商鮮食櫃那種)照舊。 */
+/* 選項是主角講的話(label 以「開頭)的選單,標題是主角的名字,不是對方的名字——因為是主角在回答
+   (2026-09-22 kc;同日他又補:「選單不會放頭像 就是單純一個選單」,所以不畫頭像)。其他選單(鮮食櫃那種)照舊。 */
 function openMenu(cap, items){
   busy = true;
   const speech = items.some(it => /^[「『]/.test((it.label || '').trim()));
-  if(speech){
-    menuEl.innerHTML = '<div class="cap speaker"><canvas width="96" height="96"></canvas><span></span></div>';
-    drawPortraitTo(menuEl.querySelector('canvas').getContext('2d'), 'pc');
-    menuEl.querySelector('.cap span').textContent = pcName();
-  } else {
-    menuEl.innerHTML = '<div class="cap">'+cap+'</div>';
-  }
+  menuEl.innerHTML = '<div class="cap">' + (speech ? pcName() : cap) + '</div>';
   items.forEach(it => {
     const b = document.createElement('button');
     if(it.cls) b.className = it.cls;
