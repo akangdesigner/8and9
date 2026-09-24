@@ -2705,7 +2705,7 @@ function debugRewindTo(toDay){
    整條線的觸發日排死在 DEBT_LINE_DAYS,每按一次跳到「下一個」那天早上、人放在那天事情發生的地方
    (家裡節點→房間;70→中華路;72/75/81→家門口;87→校門口;88→照路線;躲那條→光明巷)。中間跳過的
    節點一律當播過(不然家裡那幾節會在下一次進客廳補播)。84 沒選之前跳不過去。 */
-const DEBT_LINE_DAYS = [2, 16, 28, 34, 40, 52, 64, 70, 72, 75, 81, 84, 86, 87, 88, 90];
+const DEBT_LINE_DAYS = [2, 16, 28, 34, 40, 52, 64, 70, 72, 75, 81, 84, 86, 88, 90];
 function debugToCity(x, z, ry){
   MODE = 'city';
   document.getElementById('indoor').classList.remove('on');
@@ -2751,11 +2751,10 @@ function debugDebtNext(){
   if(next === 70){ debugToCity(-20, -11.5, Math.PI * .5); toast('第 70 天。往前走幾步,他在路邊等你。', 4000); }
   else if([72,75,81].includes(next)){ debugToCity(home.x, home.z + 4, Math.PI); toast('第 ' + next + ' 天。他站在你家鐵門外。', 3000); }
   else if(next === 84){ minute = 15*60; syncHUD(); toast('第 84 天 15:00。四點以前去答應幫你的人那裡;沒人幫的話待在家等他來。', 5000); }
-  else if(next === 87){ debugToCity(-36, 74); toast('第 87 天。教官在校門口。', 3000); }
-  else if(next === 88 && r === 'police'){ debugToCity(BROTHER.x + 4, BROTHER.z - 2); toast('第 88 天。阿正在警局門口。', 3000); }
+  else if(next === 88 && r === 'police'){ debugToCity(BROTHER.x + 3, BROTHER.z - 1); toast('第 88 天。阿正在警局門口。', 3000); }
   else if(next === 88 && r === 'yuan'){ debugToCity(YUAN.x, YUAN.z + 4); toast('第 88 天。阿源在廟口。', 3000); }
+  else if(next === 86 && r === 'police'){ minute = 18*60; syncHUD(); toast('第 86 天晚上六點。走出房間,爸在客廳。', 3000); }
   else if(next === 86 && r === 'yuan'){ debugToCity(YUAN.x, YUAN.z + 4); toast('第 86 天。阿源在廟口。', 3000); }
-  else if(next === 86 && r === 'hide'){ debugToCity(MEI.x, MEI.z + 4); toast('第 86 天。小美在公園。', 3000); }
 }
 window.debugDebtNext = debugDebtNext;
 /* 三十萬四條路直接跳 day84 早上(2026-09-22)——把前置(門檻+問過誰)一次補齊,人放在房間,走到客廳就播。 */
@@ -2765,6 +2764,7 @@ function debugDebtRoute(kind){
   Object.assign(DEBT, { street:true, remind:{72:true,75:true,81:true}, askedBrother:false, askedYuan:false, askedDad:false, askedWorker:false,
     resolution:'', resolvedDay:-1, hiding:false, hideTonight:false, hideNights:0, meiAsked:false, jgAsked:false, workerLied:false, calledHome:false, momGoneSeen:false, gameOverPending:false,
     yuanJob:'', yuanPaid:false, yuanDropped:false, brotherClosed:false, momLeft:false, ended:false });
+  DEBT.momGoneSeen = true;   // 75「她走了」那段當播過,不然 84 進客廳先重播一次
   ['debt','debt-self','debt-hide','debt-back'].forEach(courierCardOff);
   despawnDebtCollector();
   if(kind === 'police'){ if(ST.star < DEBT_NEED.brotherRep) chg('star', DEBT_NEED.brotherRep - ST.star); DEBT.askedBrother = true; }
@@ -6092,7 +6092,7 @@ function debtMomGoneScene(){
     { who:'pc',  text:'她平常放在餐桌上的那個包包不見了,裡面那三張借據也跟著不見了。' }
   ], 0, () => { logDay('媽昨天晚上把東西收一收走了。爸問她要去哪裡,她沒有回答。那三張借據她也帶走了。'); logPerson('mom', '她把衣服跟那三張借據都帶走了,沒有跟爸說要去哪裡。'); busy = false; });
   return true;
-}   // 捐血那天她一早就在醫院;報案之後她被帶走了;75 起她跑路了
+}   // 捐血那天她一早就在醫院;75 起她跑路了
 const homeBedroomImg = new Image();
 homeBedroomImg.onload = () => {
   if(homeBedroomImg.naturalWidth){ BEDROOM = BEDROOM_PHOTO; BEDROOM_COLLIDERS = BEDROOM_COLLIDERS_PHOTO; }
@@ -8310,7 +8310,6 @@ function openIndoorSpot(id){
     }
     else if(id === 'table'){ toast(homeTableLine(), 4200); return; }   // 桌上有什麼跟著母線走(見 homeTableLine)
     else if(id === 'mom'){
-      if(debtMomGone()){ toast('沙發上沒有人。她被帶走那天之後就沒有回來過。', 2800); return; }   // 報案之後(見 DEBT)
       if(momGone()){ toast('沙發上沒有人。媽房間的門開著,衣櫃裡的衣服全部被拿走了,梳妝台上只剩一支沒有蓋蓋子的口紅。', 3400); return; }   // 75 起她跑路了(見 momGone)
       if(momAway()){ toast('沙發上沒有人。', 2000); return; }   // 捐血那天她在醫院(見 momAway)
       if(homeMomOutTonight()){ toast('沙發上沒有人。她房間的燈是暗的,人不在家。', 2600); return; }   // bet-52 之後晚上不在(見 homeMomOutTonight)
@@ -9253,6 +9252,7 @@ function updateIndoor(dt){
         (見 enterMassage())。醫院也是同一個模式。 */
   if(PLACE === 'massage' || PLACE === 'hospital') return;
   tickDebtHome();   // 84 下午四點(見 DEBT)
+  tickDebtDadHome();   // 86 報案那條,晚上六點後
   /* 偷玩手遊小遊戲進行中(2026-08-31)——跟下面 ARCADE_ANIM 那段同精神,
      整段搶走輸入,每幀跑 tickPhoneGame() 算警示計時+重畫。 */
   if(PHONE_GAME.active){ tickPhoneGame(dt); IN.near = null; return; }
@@ -11588,6 +11588,12 @@ function tickDebtHome(){
   if(PLACE === 'bedroom'){ leaveBedroom(); return; }   // 鐵門的聲音把你叫出房間;進客廳那步本來就會檢查節點
   if(PLACE === 'home') maybeTriggerStoryNode();
 }
+/* 86 報案那條爸那節(story-debt.js fromMinute 18:00):人本來就在客廳時,時間到了也要播。 */
+function tickDebtDadHome(){
+  if(day !== 86 || DEBT.resolution !== 'police' || minute < 18*60 || seenStoryDays.has('debt-86')) return;
+  if(busy || dlg.on || menuEl.classList.contains('on') || PLACE !== 'home') return;
+  maybeTriggerStoryNode();
+}
 /* day70 起找人問——三個人各一段,掛在各自對話前面,一次。 */
 /* ── day84 四點前到人那裡避難(2026-09-22 kc:「是要在四點之前去找到相關的人避難 比如阿正會去派人去你家埋伏
    討債的來找阿霞的時候阿霞會說他也不知道你在哪 我在服務客人你別進來 之類 才能躲過一劫」)──
@@ -11645,11 +11651,13 @@ function debtRefugeScene(){
    才能跟阿源對話」)——家裡那段(story-debt.js day84「你去找阿源」)演完,淡出、人搬到廟口阿源旁邊,才播他的話。 */
 function debtYuanTempleScene(){
   busy = true;
-  fade('廟口', () => {
-    debugToCity(YUAN.x, YUAN.z + 3, Math.PI);
+  fade('晚上', () => {
+    /* 旁白是「晚上你走到廟口」:時間推到晚上;人站在阿源西北邊(原本 z+3 在他南邊,鏡頭卡進後面的樓,2026-09-24 上機抓到) */
+    if(minute < 19*60){ minute = 19*60; syncHUD(); }
+    debugToCity(YUAN.x - 4, YUAN.z - 3);
     busy = true;
     playBeats([
-      { who:'pc',   text:'晚上你走到廟口。阿源坐在老位子。' },
+      { who:'pc',   text:'晚上你走到廟口。阿源站在廟埕上等你。' },
       { who:'yuan', text:'「處理好了。」他把手機丟在桌上。「他不會再去你家。」' },
       { who:'pc',   text:'「你跟他講了什麼?」' },
       { who:'yuan', text:'「講了我是誰。」' },
@@ -11752,7 +11760,7 @@ function debtResolve(kind){
   courierCardOff('debt');
   despawnDebtCollector();
   if(kind === 'police'){
-    logPerson('mom', '我去報案,她被帶走了。');
+    logPerson('mom', '我去報案了。她人早就不在家,阿正說她那邊的案子會照程序走。');
     logPerson('brother', '我去報案。他問我確不確定,我說確定。');
     logPerson('collector', '我報案之後他就沒有再來。');
   } else if(kind === 'yuan'){
@@ -11850,6 +11858,9 @@ function debtYuanJob(){
             DEBT.yuanJob = 'went';
             busy = true;
             fade('晚上十一點', () => {
+              /* 旁白從十一點講到兩點:時間跟站位照旁白擺,演完直接睡(2026-09-24 上機抓到早上七點答應、播完還是早上) */
+              minute = 23*60; syncHUD();
+              { const d = city.doors.find(x => x.id === 'arcade'); if(d) debugToCity(d.x, d.z + 3); }
               playBeats([
                 { who:'pc', text:'場子後門的燈是壞的。你靠著鐵門站。' },
                 { who:'pc', text:'裡面的聲音隔著門傳出來,有人在吼,然後是東西倒下去的聲音。' },
@@ -11860,6 +11871,7 @@ function debtYuanJob(){
                 logDay('晚上去場子後門站到兩點。有人被推出來吐在我腳邊,我沒有看。');
                 logPerson('yuan', '他叫我去場子後門站了一晚。我沒有問。');
                 busy = false;
+                sleep();
               });
             });
           } },
@@ -11879,7 +11891,7 @@ function debtYuanJob(){
     playBeats([
       { who:'yuan', text:'他從口袋掏出兩張千元鈔,塞進你的外套口袋。「這個你拿去。」' },
       { who:'pc',   text:'「這是什麼錢?」' },
-      { who:'yuan', text:'「那天晚上你站了一整晚的錢。以後我叫你,你就要來。」（$+2000）' }
+      { who:'yuan', text:'「那天晚上你站了一整晚的錢。以後我叫你,你就要來。」（+$2000）' }
     ], 0, () => { chg('money', 2000); logDay('阿源塞給我兩千,說是那天晚上的。'); logPerson('yuan', '他給了我兩千。以後叫我就要到。'); busy = false; });
     return true;
   }
@@ -11910,7 +11922,7 @@ function debtBrotherClose(){
   playBeats([
     { who:'brother', text:'「筆錄做完了。那張借據是你媽代簽的,對你沒有效力,那三十萬不用你還。」' },
     { who:'brother', text:'「你媽那邊的案子會照程序走,你不用再來了。」' },
-    { who:'pc',      text:'你走回家。沙發上沒有人。（風評 +3）' }
+    { who:'pc',      text:'他把本子收回口袋,轉回去看街上。（風評 +3）' }
   ], 0, () => { chg('star', 3); logDay('阿正說筆錄做完了,借據無效,錢不用我還。'); logPerson('brother', '筆錄做完了。他說錢不用我還,媽那邊案子會走。'); busy = false; });
   return true;
 }
@@ -19258,7 +19270,7 @@ function lowMoodTalk(type){
             playBeats([
               { who:'pc',  text:'你把家裡的事講了。講到一半你發現自己講得很快，好像怕她會打斷。' },
               { who:'mei', text:'她聽到最後，才說：「我不知道要說什麼。」' },
-              { who:'mei', text:'「但是你講了，我有聽到。」' }
+              { who:'mei', text:'「但是你講了，我有聽到。」（情緒 +8、歸屬感 +4）' }
             ], 0, () => {
               logDay('心情很差，把家裡的事講給小美聽了。她說她不知道要說什麼，但是她有聽到。');
               logPerson('mei', '家裡的事我講給她聽過了。她之後見到我都會問家裡還好嗎。');
@@ -19285,7 +19297,7 @@ function lowMoodTalk(type){
         { who:'yuan', text:'「幹，你這什麼臉。誰惹你？講，我幫你處理。」' },
         { who:'pc',   text:'「沒有誰。就是很煩。」' },
         { who:'yuan', text:'「煩什麼。在這裡坐，沒人會來煩你。」' },
-        { who:'pc',   text:'他把菸盒推過來，你把它推回去。你在他旁邊坐到廟口的燈亮起來。（情緒 +12）' }
+        { who:'pc',   text:'他把菸盒推過來，你把它推回去。你在他旁邊坐著,看廟埕上的人走來走去。（情緒 +12）' }
       ], 0, () => {
         chg('mood', 12);
         logDay('心情很差，跑去廟口找阿源。他說誰惹我他幫我處理。');
@@ -19356,10 +19368,10 @@ function ventKick(what){
   const seenBy = seenJ ? 'jiaoguan' : seenB ? 'brother' : null;
   if(seenBy && !LOWMOOD.witness) LOWMOOD.witness = { who:seenBy, what, day };
   const base = what === '車'
-    ? '你對著那台車踹了一腳，後照鏡歪掉了。腳趾痛了很久。'
-    : '你把垃圾桶踹倒，裡面的東西滾出來一地。';
+    ? '你一腳踹在那台車的車殼上，砰的一聲，旁邊的人都轉過頭來。腳趾痛了很久。'
+    : '你一腳踹在垃圾桶上，鐵皮很響的一聲，公車亭裡等車的人都轉過來看你。';
   const tail = seenBy === 'jiaoguan' ? '\n校門口那邊，教官往你這裡看過來。' : seenBy === 'brother' ? '\n警局門口，阿正抬起頭往你這裡看。' : '';
-  toast(base + tail + `\n（情緒 +${gain}、風評 ${rep}）`, 3400);
+  toast(base + tail + `\n（情緒 +${gain}、風評 −${-rep}）`, 3400);
   logDay(what === '車' ? '心情很差，踹了路邊一台機車。' : '心情很差，把公車亭的垃圾桶踹倒。');
 }
 /* 目擊之後第一次跟教官/阿正講話,先被問這件事(從 talkToJiaoguan()/talkToBrother() 開頭呼叫)。 */
